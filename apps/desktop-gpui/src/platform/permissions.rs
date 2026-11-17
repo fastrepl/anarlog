@@ -17,6 +17,7 @@ pub enum Status {
     NotRequired,
 }
 
+#[cfg(target_os = "macos")]
 const NOT_REQUESTED: &str = "Not requested yet";
 
 #[cfg(not(target_os = "macos"))]

@@ -276,9 +276,9 @@ fn workspace_binding_change_blocks_stale_synced_preference_and_correctly_scopes_
         assert!(matches!(
             save(
                 &fixture.runtime,
-                "theme".into(),
-                old["theme"].clone(),
-                json!("dark")
+                "use_24_hour_time".into(),
+                old["use_24_hour_time"].clone(),
+                json!(true)
             )
             .unwrap()
             .receive()
@@ -288,9 +288,9 @@ fn workspace_binding_change_blocks_stale_synced_preference_and_correctly_scopes_
         let current = fixture.snapshot().await;
         save(
             &fixture.runtime,
-            "theme".into(),
-            current["theme"].clone(),
-            json!("dark"),
+            "use_24_hour_time".into(),
+            current["use_24_hour_time"].clone(),
+            json!(true),
         )
         .unwrap()
         .receive()
@@ -302,7 +302,8 @@ fn workspace_binding_change_blocks_stale_synced_preference_and_correctly_scopes_
                 services
                     .executor
                     .execute(
-                        "SELECT workspace_id FROM synced_preferences WHERE id = 'theme'".into(),
+                        "SELECT workspace_id FROM synced_preferences WHERE id = 'use_24_hour_time'"
+                            .into(),
                         vec![],
                     )
                     .await
@@ -313,7 +314,7 @@ fn workspace_binding_change_blocks_stale_synced_preference_and_correctly_scopes_
             .await
             .unwrap();
         assert_eq!(rows[0]["workspace_id"], "workspace-b");
-        assert_eq!(fixture.snapshot().await["theme"].value, "dark");
+        assert_eq!(fixture.snapshot().await["use_24_hour_time"].value, true);
     });
 }
 

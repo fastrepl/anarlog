@@ -333,16 +333,6 @@ fn onboarding_steps_have_headings_and_named_actions() {
             })
         });
     };
-    preview(Step::Permissions, State::default());
-    app.open(Route::Onboarding);
-    let tree = app.tree();
-    tree.find(Role::Heading, "Start with permissions");
-    assert!(
-        !tree.root().items(Role::Button).is_empty(),
-        "{}",
-        tree.outline()
-    );
-    assert_named(&tree, "permissions");
     let granted = State {
         microphone: Access::Authorized,
         system_audio: Access::Authorized,
@@ -351,6 +341,22 @@ fn onboarding_steps_have_headings_and_named_actions() {
         skipped_login: true,
         ..State::default()
     };
+    // Like shipping, only macOS asks for permissions during onboarding.
+    if cfg!(target_os = "macos") {
+        preview(Step::Permissions, State::default());
+        app.open(Route::Onboarding);
+        let tree = app.tree();
+        tree.find(Role::Heading, "Start with permissions");
+        assert!(
+            !tree.root().items(Role::Button).is_empty(),
+            "{}",
+            tree.outline()
+        );
+        assert_named(&tree, "permissions");
+    } else {
+        preview(Step::Login, granted.clone());
+        app.open(Route::Onboarding);
+    }
     for step in [Step::Login, Step::Calendar, Step::Imports, Step::Final] {
         preview(step, granted.clone());
         app.settle();
@@ -427,7 +433,11 @@ fn contacts_list_people_and_open_a_named_profile() {
 #[test]
 fn open_note_dialog_is_a_dialog_whose_highlight_is_read() {
     let app = Harness::start();
-    app.keys(&["cmd-k"]);
+    app.keys(&[if cfg!(target_os = "macos") {
+        "cmd-k"
+    } else {
+        "ctrl-k"
+    }]);
     let tree = app.tree();
     let dialog = tree.find(Role::Dialog, "Search notes and pages...");
     let input = dialog.find(Role::TextInput, "Search notes and pages");

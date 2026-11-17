@@ -133,6 +133,8 @@ impl gpui::Global for NativeHotkeys {}
 pub struct NativePort {
     shortcuts: Rc<RefCell<NativeShortcuts>>,
     base: Vec<Shortcut>,
+    // Only the macOS modifier-key listener sends through it; elsewhere it keeps the channel open.
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
     sender: UnboundedSender<ShortcutEvent>,
     shortcut: Option<String>,
     active: bool,
