@@ -251,11 +251,24 @@ impl Core {
     }
 
     async fn rpc(&self, lease: &AuthLease, name: &str, body: Value) -> Result<Value> {
+        self.rpc_with(lease, name, body, Transport::checked).await
+    }
+
+    /// `rpc`, checking each response with `check`.
+    async fn rpc_with(
+        &self,
+        lease: &AuthLease,
+        name: &str,
+        body: Value,
+        check: fn(transport::Response) -> Result<Value>,
+    ) -> Result<Value> {
         if name.starts_with("list_") && name != "list_session_share_comments" {
             let mut rows = Vec::new();
             let mut bytes = 0usize;
             loop {
-                let value = self.rpc_page(lease, name, &body, Some(rows.len())).await?;
+                let value = self
+                    .rpc_page(lease, name, &body, Some(rows.len()), check)
+                    .await?;
                 let batch = value
                     .as_array()
                     .filter(|rows| rows.len() <= 128)
@@ -267,7 +280,7 @@ impl Core {
                 }
             }
         }
-        self.rpc_page(lease, name, &body, None).await
+        self.rpc_page(lease, name, &body, None, check).await
     }
 
     async fn rpc_page(
@@ -276,6 +289,7 @@ impl Core {
         name: &str,
         body: &Value,
         offset: Option<usize>,
+        check: fn(transport::Response) -> Result<Value>,
     ) -> Result<Value> {
         let mut url = self
             .auth
@@ -301,7 +315,7 @@ impl Core {
             )
             .await?;
         lease.check()?;
-        Transport::checked(response)
+        check(response)
     }
 
     async fn api(

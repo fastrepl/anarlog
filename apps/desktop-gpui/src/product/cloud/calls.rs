@@ -151,7 +151,11 @@ impl CloudServices {
 impl CloudCalls for CloudServices {
     fn rpc(&self, name: &'static str, body: Value) -> BoxFuture<'static, Result<Value>> {
         self.worker(move |this, _, lease| {
-            Box::pin(async move { this.core.rpc(&lease, name, body).await })
+            Box::pin(async move {
+                this.core
+                    .rpc_with(&lease, name, body, Transport::checked_reason)
+                    .await
+            })
         })
     }
 
@@ -189,7 +193,7 @@ impl CloudCalls for CloudServices {
                         &[("apikey", transport.config.anon_key.clone())],
                     )
                     .await?;
-                Transport::checked(response)
+                Transport::checked_reason(response)
             })
         })
     }

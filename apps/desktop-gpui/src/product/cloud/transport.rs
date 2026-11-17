@@ -160,6 +160,26 @@ impl Transport {
             )),
         }
     }
+
+    /// `checked` for PostgREST calls whose rejections reach the user as written: shipping's
+    /// Supabase client surfaces the server's `message`, because the RPCs raise reasons a
+    /// manager needs (seat limit, permission). Sign-in, conflict and rate-limit responses keep
+    /// their own handling.
+    pub fn checked_reason(response: Response) -> Result<Value> {
+        let rejected = response.status.is_client_error()
+            && !matches!(
+                response.status,
+                StatusCode::UNAUTHORIZED | StatusCode::CONFLICT | StatusCode::TOO_MANY_REQUESTS
+            );
+        if rejected
+            && let Some(message) = response.body["message"]
+                .as_str()
+                .filter(|message| !message.is_empty())
+        {
+            return Err(failure(message));
+        }
+        Self::checked(response)
+    }
 }
 
 pub(crate) fn failure(message: &str) -> ServiceError {

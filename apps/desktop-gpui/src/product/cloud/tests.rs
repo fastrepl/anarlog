@@ -1411,6 +1411,32 @@ async fn cloud_api_enable_uploads_existing_meetings_and_surfaces_api_errors() {
 }
 
 #[tokio::test]
+async fn team_calls_show_the_servers_seat_limit_reason() {
+    use super::calls::CloudCalls;
+    let server = MockServer::start().await;
+    let directory = tempfile::tempdir().unwrap();
+    let (runtime, ready) = RuntimeHandle::start(Profile {
+        database: directory.path().join("cloud.sqlite"),
+    })
+    .unwrap();
+    ready.receive().await.unwrap();
+    let cloud = fixture_cloud(&runtime, &server, Arc::new(MemoryStore::default())).await;
+    Mock::given(method("POST"))
+        .and(path("/rest/v1/rpc/create_workspace_invitation"))
+        .respond_with(ResponseTemplate::new(400).set_body_json(json!({
+            "code": "22023", "details": null, "hint": null,
+            "message": "workspace seat limit reached",
+        })))
+        .mount(&server)
+        .await;
+    let error = cloud
+        .rpc("create_workspace_invitation", json!({}))
+        .await
+        .unwrap_err();
+    assert_eq!(error.to_string(), "workspace seat limit reached");
+    runtime.shutdown().await.unwrap();
+}
+#[tokio::test]
 async fn sync_setup_claims_the_recovery_key_it_showed_and_enabling_without_one_asks_for_setup() {
     use super::calls::{CloudCalls, SyncBlock, SyncCommand};
     let server = MockServer::start().await;
