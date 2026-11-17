@@ -83,6 +83,48 @@ pub async fn dialog<T, F: Future<Output = Option<T>>>(show: impl FnOnce() -> F) 
     .await
 }
 
+/// GPUI's Linux reveal task runs on workers without the Tokio context zbus requires.
+#[cfg(target_os = "linux")]
+pub fn reveal_path(path: &std::path::Path) {
+    if headless() {
+        return;
+    }
+    let runtime = match portal_runtime() {
+        Ok(runtime) => runtime,
+        Err(error) => {
+            tracing::error!(%error, "could not start native reveal runtime");
+            return;
+        }
+    };
+    let path = path.to_path_buf();
+    drop(runtime.spawn(async move {
+        let result = async {
+            use std::os::fd::AsFd;
+
+            let file = std::fs::File::open(&path)?;
+            ashpd::desktop::open_uri::OpenDirectoryRequest::default()
+                .send(&file.as_fd())
+                .await?
+                .response()?;
+            Ok::<_, anyhow::Error>(())
+        }
+        .await;
+        if let Err(error) = result {
+            tracing::warn!(%error, "could not reveal file through desktop portal");
+            let directory = if path.is_dir() {
+                Some(path.as_path())
+            } else {
+                path.parent()
+            };
+            if let Some(directory) = directory
+                && let Err(error) = open(directory)
+            {
+                tracing::error!(%error, "could not open containing folder");
+            }
+        }
+    }));
+}
+
 #[cfg(all(test, target_os = "linux"))]
 mod tests {
     #[test]

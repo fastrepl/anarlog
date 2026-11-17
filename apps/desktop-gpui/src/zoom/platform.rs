@@ -379,6 +379,9 @@ impl Platform for ZoomPlatform {
     }
 
     fn reveal_path(&self, path: &Path) {
+        #[cfg(target_os = "linux")]
+        crate::platform::os::reveal_path(path);
+        #[cfg(not(target_os = "linux"))]
         self.native.reveal_path(path)
     }
 
