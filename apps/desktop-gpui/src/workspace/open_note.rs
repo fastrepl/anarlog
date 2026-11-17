@@ -1510,6 +1510,43 @@ impl NoteView {
         cx.notify();
     }
 
+    fn searchable(&self) -> bool {
+        let tab = current_tab(
+            self.view.as_ref(),
+            self.mode == SessionMode::Active,
+            &self.tabs(),
+        );
+        self.current.is_some() && self.find_target(&tab).is_some()
+    }
+
+    /// Shipping's note search keys (`note-input/search/context.tsx`): ⌘F toggles the find bar
+    /// and ⌘H opens it with replace. Returns whether the note took the key; a taken ⌘H never
+    /// reaches the app menu's Hide.
+    pub(crate) fn find_shortcut(
+        &mut self,
+        event: &gpui::KeyDownEvent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        let modifiers = event.keystroke.modifiers;
+        let replace = match event.keystroke.key.as_str() {
+            "f" => false,
+            "h" => true,
+            _ => return false,
+        };
+        if !modifiers.secondary(cx) || modifiers.shift || modifiers.alt || !self.searchable() {
+            return false;
+        }
+        self.find.update(cx, |find, cx| {
+            if replace {
+                find.toggle_replace(window, cx)
+            } else {
+                find.toggle(window, cx)
+            }
+        });
+        true
+    }
+
     /// What the find bar searches on `tab`, and whether it may replace there.
     fn find_target(&self, tab: &NoteTab) -> Option<(FindTarget, bool)> {
         match tab {
@@ -2646,29 +2683,19 @@ impl Render for NoteView {
             .flex()
             .flex_col()
             .capture_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, window, cx| {
-                let modifiers = event.keystroke.modifiers;
-                let find = this.find.clone();
-                let tab = current_tab(
-                    this.view.as_ref(),
-                    this.mode == SessionMode::Active,
-                    &this.tabs(),
-                );
-                if this.current.is_none() || this.find_target(&tab).is_none() {
-                    return;
+                let handled = if event.keystroke.key == "escape" {
+                    let find = this.find.clone();
+                    let close = this.searchable() && find.read(cx).visible();
+                    if close {
+                        find.update(cx, |find, cx| find.dismiss(window, cx));
+                    }
+                    close
+                } else {
+                    this.find_shortcut(event, window, cx)
+                };
+                if handled {
+                    cx.stop_propagation();
                 }
-                match event.keystroke.key.as_str() {
-                    "f" if modifiers.secondary(cx) && !modifiers.shift && !modifiers.alt => {
-                        find.update(cx, |find, cx| find.toggle(window, cx))
-                    }
-                    "h" if modifiers.secondary(cx) && !modifiers.shift && !modifiers.alt => {
-                        find.update(cx, |find, cx| find.toggle_replace(window, cx))
-                    }
-                    "escape" if find.read(cx).visible() => {
-                        find.update(cx, |find, cx| find.dismiss(window, cx))
-                    }
-                    _ => return,
-                }
-                cx.stop_propagation();
             }))
             .on_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, window, cx| {
                 if event.keystroke.key == "escape"

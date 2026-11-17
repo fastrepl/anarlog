@@ -1277,6 +1277,16 @@ impl WorkspaceView {
             }
             return;
         }
+        // Shipping listens for the note's ⌘F/⌘H on the whole window, so they work from the
+        // sidebar and chat too.
+        if matches!(self.current_route(), Route::Session(_))
+            && self
+                .note
+                .update(cx, |note, cx| note.find_shortcut(event, window, cx))
+        {
+            cx.stop_propagation();
+            return;
+        }
         if !modifiers.secondary(cx) {
             return;
         }

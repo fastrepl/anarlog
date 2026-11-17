@@ -26,9 +26,9 @@ use desktop_gpui::{
 };
 use desktop_runtime::{CancellationToken, Profile, RuntimeHandle, ServiceError, SessionId};
 use gpui::{
-    AnyWindowHandle, AppContext, HeadlessAppContext, Modifiers, MouseButton, MouseDownEvent,
-    MouseMoveEvent, MouseUpEvent, PlatformInput, ScrollDelta, ScrollEvent, ScrollSource,
-    TouchPhase, WindowHandle, point, px, size,
+    AnyWindowHandle, AppContext, Focusable, HeadlessAppContext, Modifiers, MouseButton,
+    MouseDownEvent, MouseMoveEvent, MouseUpEvent, PlatformInput, ScrollDelta, ScrollEvent,
+    ScrollSource, TouchPhase, WindowHandle, point, px, size,
 };
 
 const WINDOW: (f32, f32) = (910., 600.);
@@ -758,6 +758,22 @@ fn find_replace(
     capture(cx, window, out, "note-find-next");
     type_text(cx, window, &["cmd-h"]);
     capture(cx, window, out, "note-find-replace");
+    type_text(cx, window, &["escape"]);
+    // With focus outside the note (the workspace, as after a sidebar click), ⌘H still opens
+    // replace, as shipping's window-wide listener does, instead of reaching Hide Anarlog.
+    let window_handle: AnyWindowHandle = window.into();
+    let handled = cx
+        .update_window(window_handle, |root, window, cx| {
+            let root = root.downcast::<ApplicationView>().unwrap();
+            let focus = root.read(cx).workspace().focus_handle(cx);
+            window.focus(&focus, cx);
+            window.draw(cx).clear(cx);
+            window.dispatch_keystroke(gpui::Keystroke::parse("cmd-h").unwrap(), cx)
+        })
+        .unwrap();
+    assert!(handled, "⌘H over a note fell through to the app menu");
+    settle(cx);
+    capture(cx, window, out, "note-replace-from-workspace");
     type_text(cx, window, &["escape"]);
 }
 
