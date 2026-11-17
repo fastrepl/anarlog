@@ -97,6 +97,9 @@ impl Harness {
 
     /// Lets runtime replies and timers land, then draws so the tree is current.
     pub fn settle(&self) {
+        // Rendering can create views that start asynchronous queries (e.g. Transcript).
+        // Start those before draining their replies, rather than on the final draw.
+        self.draw();
         for _ in 0..20 {
             self.platform
                 .dispatcher
