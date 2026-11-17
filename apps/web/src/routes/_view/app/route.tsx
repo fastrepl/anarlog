@@ -33,6 +33,10 @@ export const Route = createFileRoute("/_view/app")({
         search: {
           flow: "web",
           redirect: location.pathname + searchStr,
+          // Keep the iOS app's sign-in free of trial offers on the way back.
+          ...((location.search as Record<string, unknown>).client === "ios"
+            ? { client: "ios" as const }
+            : {}),
         },
       });
     }
