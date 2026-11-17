@@ -358,7 +358,7 @@ also exercises rich-document save/reopen through `SaveJournal`, preservation of
 opaque/table/task content, competing writes, explicit conflict resolution, and
 pin CAS/corrupt-storage behavior.
 
-`pnpm dev:gpui --profile /absolute/path/to/sandbox` runs the native binary.
+`cargo run --locked -- --profile /absolute/path/to/sandbox` (from this directory) runs the native binary.
 
 Equivalent release-build old/new profiling with reproducible large-library,
 large-document and streaming fixtures is required before claiming any speed,
