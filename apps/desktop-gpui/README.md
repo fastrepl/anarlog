@@ -28,9 +28,12 @@ requires account sign-in, encryption setup and explicit enablement.
 The integrated preview mounts the native workspace, TipTap JSON editor,
 transcript/audio pane, and concrete cloud/local product services. The editor
 autosaves through a background journal; save conflicts retain drafts. The note
-header opens transcript/audio, share, and export surfaces. Recording, recovery and
+header opens transcript/audio, share, and export surfaces; a note can also open in its
+own standalone window with its own editor and save journal. Recording, recovery and
 AI use the selected provider, secure credentials and running local models.
-Missing configuration produces an error; credentials are never fabricated.
+Missing configuration produces an error; credentials are never fabricated. Errors,
+confirmations and app notices appear as shipping's stacked toasts
+(`application/toasts.rs`); there is no status line.
 Transcription and intelligence settings expose provider/model/base-URL choices
 and a masked API-key input. Keys save separately to the system keyring; provider
 choices use an atomic CAS transaction. Local models are selected by starting
@@ -46,10 +49,12 @@ profile. Argmax also requires `ARGMAX_API_KEY`.
 Pinned tabs are restored and saved with CAS through `app_settings.gpui_pinned_tabs`
 inside the isolated profile. Malformed persisted pin data disables pin writes.
 This does not import the shipping application's file-based pinned-tab store.
-Title/editor/product drafts gate navigation and quit. Window close, the native
-Quit control, native application-menu quit and the quit keyboard shortcut flush
-all note windows, stop/finalize capture, and await runtime drain. Failed saves
-retain drafts and keep windows open. OS-forced termination remains outside this
+Title/editor/product drafts gate navigation and quit. Like shipping, closing the
+main window (or the application-menu Quit) hides it and the app keeps running in
+the tray; the first ⌘Q only shows the quit overlay. A second ⌘Q (or ⌘⇧Q) or a
+confirmed tray "Quit Completely…" quits through the drain: it flushes all note
+windows, stops/finalizes capture and awaits runtime drain. Failed saves retain
+drafts and keep windows open. OS-forced termination remains outside this
 guarantee; GPUI's generic shutdown callback has a 100 ms timeout.
 
 GPUI is pinned to an upstream `zed-industries/zed` revision without a fork or patch;
@@ -72,7 +77,8 @@ move ahead. The repository workspace and its lockfile are unchanged.
 - `application.rs`, `application_services.rs`, `native_events.rs` and
   `note_window.rs` own service construction, pane/window routing, shared
   capture/playback, recovery, persisted pins, menus/tray/shortcuts/deep links,
-  update barriers and the close/drain flow.
+  update barriers and the close/drain flow. `application/lifecycle.rs` holds the one
+  update state that the tray, the app menu and the sidebar update toast all render.
 - `ui/` provides source-derived light/dark HSL tokens, the system font policy,
   embedded existing logo and Hugeicons, focus restoration, and a bounded native
   text input with UTF-16/IME entry points and clipboard operations. Single-line
@@ -125,7 +131,8 @@ parity below). Focus/drag/drop/IME parity, native accessibility, i18n, Linux and
 Windows rendering, hardware/provider/keyring behavior, real floating windows and
 signed packaging/update installation remain unverified. Upstream GPUI
 now provides accessibility hooks, but the views do not publish roles, labels or text
-yet. A Wayland shortcut portal and per-window close-to-hide support are missing. Cloud attachment transfer/hydration, image
+yet. A Wayland shortcut portal is missing, and only macOS can hide the main window on
+close; elsewhere closing it quits through the drain. Cloud attachment transfer/hydration, image
 resize handles and full multiline soft wrapping remain incomplete. Shared-note
 previews retain source JSON but do not hydrate published attachments. This is
 not release-ready and does not switch the shipping default.
