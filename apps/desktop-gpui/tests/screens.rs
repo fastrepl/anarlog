@@ -169,6 +169,8 @@ fn main() {
     click(&mut cx, window, 850., 70.);
     type_text(&mut cx, window, &["space", "/"]);
     capture(&mut cx, window, &out, "note-slash");
+    // Later captures (find and replace) show this memo as seeded.
+    type_text(&mut cx, window, &["escape", "backspace", "backspace"]);
     // Recently opened notes lead the dialog, opened from the sidebar's search button; the
     // arrows move the selection.
     for id in ["s-hiring", "s-pricing", "s-offsite", "s-customer", "s-sync"] {
