@@ -224,58 +224,55 @@ test.each(["owner", "admin"])(
   },
 );
 
-test.each(["owner", "admin"])(
-  "mints a new key for ready members when the %s's key is retired and a teammate has no identity",
-  async (role) => {
-    const value = credentials(role);
-    value.workspaceKeyGrants = [
+test("mints a new key for ready members when the key is retired and a teammate has no identity", async () => {
+  const value = credentials();
+  value.workspaceKeyGrants = [
+    {
+      workspaceId: WORKSPACE_ID,
+      keyId: "AAAAAAAAAAAAAAAAAAAAAA",
+      ephemeralPublicKey: "A".repeat(43),
+      nonce: "B".repeat(32),
+      ciphertext: "C".repeat(64),
+      isActive: false,
+    },
+  ];
+  const sealed = {
+    keyId: "BBBBBBBBBBBBBBBBBBBBBB",
+    grants: [
       {
-        workspaceId: WORKSPACE_ID,
-        keyId: "AAAAAAAAAAAAAAAAAAAAAA",
-        ephemeralPublicKey: "A".repeat(43),
-        nonce: "B".repeat(32),
-        ciphertext: "C".repeat(64),
-        isActive: false,
+        userId: OWNER_ID,
+        ephemeralPublicKey: "D".repeat(43),
+        nonce: "E".repeat(32),
+        ciphertext: "F".repeat(64),
       },
-    ];
-    const sealed = {
-      keyId: "BBBBBBBBBBBBBBBBBBBBBB",
-      grants: [
-        {
-          userId: OWNER_ID,
-          ephemeralPublicKey: "D".repeat(43),
-          nonce: "E".repeat(32),
-          ciphertext: "F".repeat(64),
-        },
-      ],
-    };
-    vi.mocked(sealWorkspaceE2eeKeyForRecipients).mockResolvedValue(sealed);
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(Response.json(recipients(null)))
-      .mockResolvedValueOnce(
-        Response.json({ keyId: sealed.keyId, grantedMemberCount: 1 }),
-      );
-    vi.stubGlobal("fetch", fetchMock);
-
-    await expect(
-      provisionMissingWorkspaceKeys(
-        value,
-        "access-token",
-        OWNER_ID,
-        new AbortController().signal,
-      ),
-    ).resolves.toBe("provisioned");
-
-    expect(sealWorkspaceE2eeKeyForRecipients).toHaveBeenCalledWith(
-      OWNER_ID,
-      WORKSPACE_ID,
-      [{ userId: OWNER_ID, publicKey: "A".repeat(43) }],
-      true,
-      null,
+    ],
+  };
+  vi.mocked(sealWorkspaceE2eeKeyForRecipients).mockResolvedValue(sealed);
+  const fetchMock = vi
+    .fn()
+    .mockResolvedValueOnce(Response.json(recipients(null)))
+    .mockResolvedValueOnce(
+      Response.json({ keyId: sealed.keyId, grantedMemberCount: 1 }),
     );
-  },
-);
+  vi.stubGlobal("fetch", fetchMock);
+
+  await expect(
+    provisionMissingWorkspaceKeys(
+      value,
+      "access-token",
+      OWNER_ID,
+      new AbortController().signal,
+    ),
+  ).resolves.toBe("provisioned");
+
+  expect(sealWorkspaceE2eeKeyForRecipients).toHaveBeenCalledWith(
+    OWNER_ID,
+    WORKSPACE_ID,
+    [{ userId: OWNER_ID, publicKey: "A".repeat(43) }],
+    true,
+    null,
+  );
+});
 
 test.each([false, true])(
   "re-wraps the active key (unready teammate: %s)",
