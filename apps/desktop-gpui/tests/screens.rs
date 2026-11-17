@@ -95,6 +95,10 @@ fn main() {
         chat_edits(&mut cx, window, &runtime, &out);
         return;
     }
+    if std::env::var("ANLG_SCREENS_ONLY").as_deref() == Ok("ai-features") {
+        ai_features(&mut cx, window, &runtime, profile.path(), &out);
+        return;
+    }
 
     capture(&mut cx, window, &out, "main");
     // The open-note dialog before any note was opened: fresh, filtered, and without a match.
@@ -253,6 +257,7 @@ fn main() {
     teams_and_sync(&mut cx, window, &out);
     imports_crm_ticket(&mut cx, window, &out);
     app_links_and_transcript_selection(&mut cx, window, &out);
+    ai_features(&mut cx, window, &runtime, profile.path(), &out);
     capture_onboarding(&mut cx, window, &out);
 }
 
@@ -280,6 +285,226 @@ fn app_links_and_transcript_selection(
     click(cx, window, 330., 23.);
 }
 
+/// A file picker that never opens: a stray click cannot show an OS dialog.
+struct NoFiles;
+
+impl desktop_gpui::meeting::upload::Files for NoFiles {
+    fn pick(
+        &self,
+        _: desktop_gpui::platform::dialogs::Picker,
+        _: &mut gpui::App,
+    ) -> futures::future::LocalBoxFuture<'static, desktop_runtime::Result<Option<PathBuf>>> {
+        Box::pin(async { Ok(None) })
+    }
+
+    fn open_folder(&self, _: &std::path::Path, _: &mut gpui::App) {}
+}
+
+/// Hold the fake model's brief and summary halfway until their streaming captures are taken.
+static BRIEF_GATE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+static SUMMARY_GATE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+fn gated(
+    first: &'static str,
+    rest: &'static str,
+    gate: &'static std::sync::atomic::AtomicBool,
+) -> futures::stream::BoxStream<
+    'static,
+    desktop_runtime::Result<desktop_gpui::meeting::ai::ProviderEvent>,
+> {
+    use desktop_gpui::meeting::ai::ProviderEvent;
+    use futures::StreamExt;
+    let rest = futures::stream::once(async move {
+        while !gate.load(std::sync::atomic::Ordering::Acquire) {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        Ok(ProviderEvent::Text(rest.into()))
+    });
+    futures::stream::iter([Ok(ProviderEvent::Text(first.into()))])
+        .chain(rest)
+        .boxed()
+}
+
+/// Replies with a pre-meeting brief to structured requests and a summary otherwise.
+struct ScreensModel;
+
+impl desktop_gpui::meeting::ai::ProviderAdapter for ScreensModel {
+    fn stream(
+        &self,
+        request: desktop_gpui::meeting::ai::Request,
+    ) -> futures::future::BoxFuture<
+        'static,
+        desktop_runtime::Result<
+            futures::stream::BoxStream<
+                'static,
+                desktop_runtime::Result<desktop_gpui::meeting::ai::ProviderEvent>,
+            >,
+        >,
+    > {
+        let structured = request.structured.is_some();
+        Box::pin(async move {
+            Ok(if structured {
+                gated(
+                    r#"{"opener": "Confirm the 15% annual discount holds through Q3", "bullets": ["Maya owns the revised pricing page copy", "#,
+                    r#""Legal still has to approve the reseller terms", "Listen for whether Sam needs the discount in writing"]}"#,
+                    &BRIEF_GATE,
+                )
+            } else {
+                gated(
+                    "## Vendor terms\n\n- Globex offered net-60 payment terms for the annual contract.\n- Support moves to a shared Slack channel next month.\n",
+                    "\n## Next steps\n\n- Send the signed order form by Friday.",
+                    &SUMMARY_GATE,
+                )
+            })
+        })
+    }
+}
+
+/// The upcoming meeting's "Create a brief" suggestion and the streamed brief, the
+/// participants' "Enhance contact" sparkle, and the summary streaming once an uploaded
+/// recording is transcribed, all with fake models. The records are added late and removed
+/// after; `ai-features.sqlite` lets the shipping app render the same rows.
+fn ai_features(
+    cx: &mut HeadlessAppContext,
+    window: WindowHandle<ApplicationView>,
+    runtime: &RuntimeHandle,
+    profile: &std::path::Path,
+    out: &std::path::Path,
+) {
+    script(runtime, include_str!("screens/late/ai-features.sql"));
+    let copy = out.join("ai-features.sqlite");
+    let _ = std::fs::remove_file(&copy);
+    let copy = copy.to_string_lossy().into_owned();
+    let reply = runtime
+        .submit(move |services| async move {
+            sqlx::query("VACUUM INTO ?")
+                .bind(copy)
+                .execute(services.db.pool())
+                .await
+                .map_err(|error| ServiceError::Failed(error.to_string().into()))?;
+            Ok(())
+        })
+        .unwrap();
+    futures::executor::block_on(reply.receive()).unwrap();
+    cx.update(|cx| {
+        use desktop_gpui::meeting::{ai, ai_view::AiViewServices, context, tools};
+        cx.set_global(desktop_gpui::meeting::upload::FilesGlobal(
+            std::rc::Rc::new(NoFiles),
+        ));
+        let approvals = tools::Approvals::default();
+        cx.set_global(AiViewServices {
+            ai: Arc::new(
+                ai::AiServices::new(
+                    runtime.clone(),
+                    Arc::new(|_| {
+                        Box::pin(async {
+                            Ok(Arc::new(ScreensModel) as Arc<dyn ai::ProviderAdapter>)
+                        })
+                    }),
+                    tools::executor(runtime.clone(), approvals.clone(), None),
+                    Arc::new(|_| false),
+                )
+                .unwrap(),
+            ),
+            context: context::resolver(runtime.clone()),
+            approvals,
+        });
+    });
+    open(
+        cx,
+        window,
+        Route::Session(SessionId("s-ai-followup".into())),
+    );
+    capture(cx, window, out, "ai-brief-suggestion");
+    click(cx, window, 888., 23.);
+    click(cx, window, MEETING_INFO.0, MEETING_INFO.1);
+    capture(cx, window, out, "ai-meeting-info");
+    click(cx, window, ENHANCE_SAM.0, ENHANCE_SAM.1);
+    capture(cx, window, out, "ai-contact-enhanced");
+    type_text(cx, window, &["escape"]);
+    click(cx, window, BRIEF.0, BRIEF.1);
+    capture(cx, window, out, "ai-brief-streaming");
+    BRIEF_GATE.store(true, std::sync::atomic::Ordering::Release);
+    settle(cx);
+    capture(cx, window, out, "ai-brief");
+
+    // An uploaded recording of a blank note: its transcript lands, then the summary.
+    let recording = profile.join("Vendor call.wav");
+    std::fs::write(&recording, wav(8)).unwrap();
+    let words = "Globex offered net sixty payment terms for the annual contract and support moves to a shared Slack channel next month so please send the signed order form by Friday";
+    let transcriber: Transcriber = Arc::new(
+        move |_: SessionId,
+              _: PathBuf,
+              progress: Progress,
+              _: Warn,
+              _: CancellationToken|
+              -> Pending {
+            use owhisper_interface::batch::{Alternatives, Channel, Response, Results, Word};
+            let response = Response {
+                metadata: serde_json::json!({}),
+                results: Results {
+                    channels: vec![Channel {
+                        alternatives: vec![Alternatives {
+                            transcript: words.into(),
+                            confidence: 1.,
+                            words: words
+                                .split(' ')
+                                .enumerate()
+                                .map(|(index, word)| Word {
+                                    word: word.to_lowercase(),
+                                    start: index as f64 * 0.3,
+                                    end: index as f64 * 0.3 + 0.25,
+                                    confidence: 1.,
+                                    channel: 0,
+                                    speaker: Some(index / 12 % 2),
+                                    punctuated_word: Some(word.into()),
+                                })
+                                .collect(),
+                        }],
+                    }],
+                },
+            };
+            progress(1.);
+            Box::pin(async move {
+                Ok(Transcription {
+                    response,
+                    provider: "deepgram".into(),
+                    model: "nova-3".into(),
+                })
+            })
+        },
+    );
+    cx.update(|cx| cx.set_global(TranscriberGlobal(transcriber)));
+    let upload = SessionId("s-blank-upload".into());
+    open(cx, window, Route::Session(upload.clone()));
+    cx.update(|cx| {
+        let uploads = desktop_gpui::meeting::upload::Uploads::global(cx);
+        uploads.update(cx, |uploads, cx| {
+            uploads.drop_audio(runtime, upload.clone(), recording.clone(), cx)
+        });
+    });
+    settle(cx);
+    settle(cx);
+    capture(cx, window, out, "ai-upload-summary");
+    SUMMARY_GATE.store(true, std::sync::atomic::Ordering::Release);
+    settle(cx);
+
+    script(
+        runtime,
+        "DELETE FROM session_participants WHERE id IN ('sp-ai-maya', 'sp-ai-sam');
+         DELETE FROM sessions WHERE id = 's-ai-followup';
+         DELETE FROM events WHERE id = 'evt-ai-followup';
+         DELETE FROM humans WHERE id = 'h-ai-sam';
+         DELETE FROM session_documents WHERE id = 'd-ai-pricing-summary' OR session_id IN ('s-ai-followup', 's-blank-upload');
+         DELETE FROM transcripts WHERE session_id = 's-blank-upload';",
+    );
+}
+
+/// The memo's "Create a brief" row, the note menu's Meeting info row and Sam's sparkle, by
+/// window position.
+const BRIEF: (f32, f32) = (300., 104.);
+const MEETING_INFO: (f32, f32) = (790., 65.);
+const ENHANCE_SAM: (f32, f32) = (596., 199.);
 /// App toasts, stacked and expanded on hover; a timeline delete's Undo toast and its undo;
 /// and the multi-selection's delete confirmation.
 fn toasts(
@@ -2505,6 +2730,20 @@ impl desktop_gpui::chat::voice::VoiceInput for StandInVoice {
 }
 
 /// Runs a statement through the executor, so reactive watches see the change.
+/// Runs a multi-statement fixture script.
+fn script(runtime: &RuntimeHandle, script: &'static str) {
+    let reply = runtime
+        .submit(move |services| async move {
+            sqlx::raw_sql(sqlx::AssertSqlSafe(script))
+                .execute(services.db.pool())
+                .await
+                .map_err(|error| ServiceError::Failed(error.to_string().into()))?;
+            Ok(())
+        })
+        .unwrap();
+    futures::executor::block_on(reply.receive()).unwrap();
+}
+
 fn sql(runtime: &RuntimeHandle, statement: &'static str) {
     let reply = runtime
         .submit(move |services| async move {
