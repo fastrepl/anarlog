@@ -57,7 +57,6 @@ export async function provisionMissingWorkspaceKeys(
       publicKey: string;
       grantedKeyIds: string[];
     }> = [];
-    let waitingForIdentity = false;
     for (const value of recipientsValue) {
       if (!value || typeof value !== "object") {
         throw new Error("workspace E2EE recipients are invalid");
@@ -79,9 +78,9 @@ export async function provisionMissingWorkspaceKeys(
         throw new Error("workspace E2EE recipients are invalid");
       }
       recipientIds.add(recipient.userId);
-      if (recipient.publicKey === null) {
-        waitingForIdentity = true;
-      } else {
+      // A member without an identity gets the active key re-wrapped on a later
+      // pass once they publish one; waiting for them would stall every member.
+      if (recipient.publicKey !== null) {
         recipients.push({
           userId: recipient.userId,
           publicKey: recipient.publicKey,
@@ -98,11 +97,6 @@ export async function provisionMissingWorkspaceKeys(
         recipient.grantedKeyIds.includes(activeGrant.keyId),
       )
     ) {
-      continue;
-    }
-    if (waitingForIdentity && activeGrant === undefined) {
-      // Re-wrap an existing key for ready teammates, but wait before minting a new key.
-      waiting = true;
       continue;
     }
 
