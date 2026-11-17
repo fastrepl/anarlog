@@ -16,6 +16,7 @@ use super::{
     proposals::{self, Proposal},
     shell::WorkspaceView,
 };
+use crate::ui::a11y::Accessible;
 use crate::{
     meeting::{ai_view::AiViewServices, model::failure, tools::Approvals},
     ui::theme::{MEDIUM, Theme, monospace_font, theme},
@@ -80,7 +81,11 @@ pub fn button(
         })
         .when(enabled, |button| button.cursor_pointer())
         .when(!enabled, |button| button.opacity(0.5))
-        .child(label.into())
+        .a11y_disabled(!enabled)
+        .map(|button| {
+            let label = label.into();
+            button.a11y_button(label.clone()).child(label)
+        })
 }
 
 /// Shipping's `applyProposalReview` / `declineProposalReview`: updates the proposal, answers a

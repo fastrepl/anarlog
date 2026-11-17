@@ -16,6 +16,7 @@ use gpui::{
 use serde_json::{Map, Value, json};
 
 use super::search::{MentionItem, MentionKind, SearchIndex};
+use crate::ui::a11y::Accessible;
 use crate::{
     editor::{
         document::{Document, NodeRef},
@@ -779,6 +780,10 @@ impl Composer {
             .child(
                 div()
                     .id(("chat-attachment-remove", position))
+                    .a11y_button(format!("Remove {}", attachment_label(attr("name"))))
+                    .a11y_press(cx, move |this, _, cx| {
+                        this.apply(|model| model.replace(position..position + 1, ""), cx)
+                    })
                     .flex_shrink_0()
                     .p(px(2.))
                     .cursor_pointer()
@@ -982,6 +987,8 @@ impl Composer {
             };
             div()
                 .id(("chat-mention-option", index))
+                .a11y_option(item.label.clone(), index == mention.selected)
+                .a11y_press(cx, move |this, _, cx| this.insert_mention(index, cx))
                 .w_full()
                 .h(px(32.))
                 .px_2()
@@ -1030,6 +1037,7 @@ impl Composer {
                     .child(
                         div()
                             .id("chat-mention-menu")
+                            .a11y_group(gpui::Role::ListBox, "Mentions")
                             .occlude()
                             .max_w(px(280.))
                             .p_1()
@@ -1366,6 +1374,19 @@ impl Render for Composer {
             .id("chat-composer")
             .key_context("ChatComposer")
             .track_focus(&self.focus)
+            .role(gpui::Role::MultilineTextInput)
+            .aria_label("Chat draft")
+            .aria_placeholder(self.placeholder.clone())
+            .when(window.is_a11y_active(), |view| {
+                let (text, selection) = crate::editor::accessibility::plain_text(
+                    &self.model.document,
+                    self.model.selection,
+                );
+                view.aria_value(text.clone())
+                    .a11y_synthetic_children(move |builder| {
+                        crate::ui::a11y::text_runs(builder, &text, selection)
+                    })
+            })
             .relative()
             .w_full()
             .min_w_0()

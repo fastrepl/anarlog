@@ -15,6 +15,7 @@ use super::{
     MarkdownOptions, STARTERS, Settings, StarterCommand, StarterId, Step, StepKind, StepType,
     Target, Trigger, Workflow, assets,
 };
+use crate::ui::a11y::Accessible;
 use crate::{
     contracts::ProductRoute,
     product::{
@@ -957,6 +958,10 @@ impl AutomationsView {
         };
         let (click, menu) = (item.clone(), item.clone());
         list::list_row(key, selected, false, colors)
+            .aria_label(match &subtitle {
+                Some(subtitle) => SharedString::from(format!("{title}, {subtitle}")),
+                None => title.clone(),
+            })
             .on_click(cx.listener(move |this, _, window, cx| {
                 this.focus.focus(window, cx);
                 this.select(click.clone(), cx);
@@ -1340,6 +1345,7 @@ impl AutomationsView {
                     true,
                     colors,
                 )
+                .aria_label("Trigger")
                 .on_mouse_down(
                     MouseButton::Left,
                     cx.listener(|this, _, _, cx| this.toggle(Menu::Trigger, cx)),
@@ -1584,6 +1590,7 @@ impl AutomationsView {
                     true,
                     colors,
                 )
+                .aria_label("Step")
                 .on_mouse_down(
                     MouseButton::Left,
                     cx.listener({
@@ -2028,6 +2035,7 @@ impl AutomationsView {
                             !loading,
                             colors,
                         )
+                        .aria_label(placeholder)
                         .on_mouse_down(
                             MouseButton::Left,
                             cx.listener({
@@ -2255,6 +2263,7 @@ impl AutomationsView {
                             true,
                             colors,
                         )
+                        .aria_label("File format")
                         .h(px(36.))
                         .text_sm()
                         .on_mouse_down(
@@ -3132,8 +3141,13 @@ fn select_trigger(
     enabled: bool,
     colors: Theme,
 ) -> Stateful<Div> {
+    // Callers name it after the field it sits under.
     div()
         .id(id)
+        .role(gpui::Role::ComboBox)
+        .aria_value(label.clone())
+        .a11y_disabled(!enabled)
+        .a11y_pointer_press()
         .h(px(32.))
         .w_full()
         .px(px(11.))

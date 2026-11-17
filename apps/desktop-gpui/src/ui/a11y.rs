@@ -124,6 +124,12 @@ pub trait Accessible: StatefulInteractiveElement {
         })
     }
 
+    /// Advertises the screen reader's press on a control whose handler is `on_mouse_down`:
+    /// GPUI answers an unclaimed press with a pointer press at the control's center.
+    fn a11y_pointer_press(self) -> Self {
+        self.on_click(|_, _, _| {})
+    }
+
     /// GPUI's element API has no disabled state, so it is set on the element's own node.
     /// This takes the element's synthetic-children slot; don't combine it with another.
     fn a11y_disabled(self, disabled: bool) -> Self {

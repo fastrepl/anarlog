@@ -7,6 +7,7 @@ use gpui::{
     prelude::*, px, svg,
 };
 
+use crate::ui::a11y::Accessible;
 use crate::ui::theme::Theme;
 
 /// Shipping's `--font-hand` stack.
@@ -23,41 +24,55 @@ pub const CONTROL_WIDTH: f32 = 192.;
 
 type Handler = Box<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>;
 
-pub fn page_title(title: impl Into<SharedString>) -> Div {
+pub fn page_title(title: impl Into<SharedString>) -> Stateful<Div> {
+    let title = title.into();
     div()
+        .id(SharedString::from(format!("page-title:{title}")))
+        .a11y_heading(title.clone(), 1)
         .font_family(HAND_FONT)
         .text_size(px(30.))
         .line_height(px(37.5))
         .font_weight(FontWeight::SEMIBOLD)
-        .child(title.into())
+        .child(title)
 }
 
-pub fn section_title(title: impl Into<SharedString>) -> Div {
+pub fn section_title(title: impl Into<SharedString>) -> Stateful<Div> {
+    let title = title.into();
     div()
+        .id(SharedString::from(format!("section-title:{title}")))
+        .a11y_heading(title.clone(), 2)
         .text_size(px(18.))
         .line_height(px(28.))
         .font_weight(FontWeight::SEMIBOLD)
-        .child(title.into())
+        .child(title)
 }
 
-pub fn description(text: impl Into<SharedString>, colors: &Theme) -> Div {
+pub fn description(text: impl Into<SharedString>, colors: &Theme) -> Stateful<Div> {
+    let text = text.into();
     div()
+        .id(SharedString::from(format!("description:{text}")))
+        .a11y_text(text.clone())
         .text_xs()
         .line_height(px(16.))
         .text_color(colors.muted_foreground)
-        .child(text.into())
+        .child(text)
 }
 
 /// `SettingRow`: a title and description on the left, the control on the right.
-/// `fixed` keeps the control column at `w-48`; otherwise it shrinks to the control.
+/// `fixed` keeps the control column at `w-48`; otherwise it shrinks to the control. A screen
+/// reader meets it as a group named by the title, so its control has that context.
 pub fn setting_row(
     title: impl Into<SharedString>,
     detail: Option<SharedString>,
     fixed: bool,
     control: impl IntoElement,
     colors: &Theme,
-) -> Div {
+) -> Stateful<Div> {
+    let title = title.into();
     div()
+        .id(SharedString::from(format!("setting:{title}")))
+        .a11y_group(gpui::Role::Group, title.clone())
+        .when_some(detail.clone(), |view, detail| view.aria_description(detail))
         .w_full()
         .min_w_0()
         .flex()
@@ -74,10 +89,16 @@ pub fn setting_row(
                         .text_sm()
                         .line_height(px(20.))
                         .font_weight(crate::ui::theme::MEDIUM)
-                        .child(title.into()),
+                        .child(title),
                 )
                 .when_some(detail, |view, detail| {
-                    view.child(description(detail, colors))
+                    view.child(
+                        div()
+                            .text_xs()
+                            .line_height(px(16.))
+                            .text_color(colors.muted_foreground)
+                            .child(detail),
+                    )
                 }),
         )
         .child(
@@ -109,8 +130,12 @@ pub fn switch(
     colors: &Theme,
     on_click: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
 ) -> Stateful<Div> {
+    // Callers name the switch with its row's title.
     div()
         .id(id)
+        .role(gpui::Role::Switch)
+        .aria_toggled(crate::ui::a11y::toggled(checked))
+        .a11y_disabled(!enabled)
         .w(px(44.))
         .h(px(24.))
         .flex_shrink_0()
@@ -144,8 +169,11 @@ pub fn outline_button(
     colors: &Theme,
     on_click: Option<Handler>,
 ) -> Stateful<Div> {
+    let label = label.into();
     div()
         .id(id)
+        .a11y_button(label.clone())
+        .a11y_disabled(!enabled)
         .h(px(36.))
         .px_4()
         .flex()
@@ -159,7 +187,7 @@ pub fn outline_button(
         .shadow_xs()
         .text_sm()
         .font_weight(crate::ui::theme::MEDIUM)
-        .child(label.into())
+        .child(label)
         .when(!enabled, |view| view.opacity(0.5))
         .when_some(on_click.filter(|_| enabled), |view, on_click| {
             view.cursor_pointer()
@@ -186,8 +214,13 @@ pub fn select_trigger(
     colors: &Theme,
 ) -> Stateful<Div> {
     let empty = label.is_none();
+    // Radix's select trigger is a combobox showing its value; callers name it and set
+    // `aria_expanded`.
     div()
         .id(id)
+        .role(gpui::Role::ComboBox)
+        .aria_value(label.clone().unwrap_or_else(|| placeholder.into()))
+        .a11y_disabled(!enabled)
         .w_full()
         .h(px(36.))
         .pl_3()
@@ -238,8 +271,10 @@ pub fn dropdown(menu: impl IntoElement, align_end: bool) -> Div {
         )
 }
 
-pub fn menu_panel(width: f32, colors: &Theme) -> Div {
+pub fn menu_panel(width: f32, colors: &Theme) -> Stateful<Div> {
     div()
+        .id("menu-panel")
+        .role(gpui::Role::ListBox)
         .mt_1()
         .w(px(width))
         .p_1()
@@ -261,8 +296,16 @@ pub fn menu_item(
     colors: &Theme,
 ) -> Stateful<Div> {
     let hover = colors.accent;
+    let label = label.into();
     div()
         .id(id)
+        .a11y_option(
+            match &detail {
+                Some(detail) => SharedString::from(format!("{label}, {detail}")),
+                None => label.clone(),
+            },
+            selected,
+        )
         .w_full()
         .py(px(6.))
         .pl_2()
@@ -273,7 +316,7 @@ pub fn menu_item(
         .text_sm()
         .cursor_pointer()
         .hover(move |style| style.bg(hover))
-        .child(div().flex_1().min_w_0().truncate().child(label.into()))
+        .child(div().flex_1().min_w_0().truncate().child(label))
         .when_some(detail, |view, detail| {
             view.child(
                 div()

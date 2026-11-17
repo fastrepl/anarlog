@@ -1025,13 +1025,10 @@ impl DevelopersView {
                         .justify_between()
                         .gap_4()
                         .child(Self::cloud_heading(None, colors))
-                        .child(controls::switch(
-                            "cloud-api-switch",
-                            false,
-                            true,
-                            colors,
-                            |_, _, _| {},
-                        )),
+                        .child(
+                            controls::switch("cloud-api-switch", false, true, colors, |_, _, _| {})
+                                .aria_label("Enable Cloud API & Connectors"),
+                        ),
                 )
                 .child(self.endpoints(colors, cx));
             return plan_gate(
@@ -1058,13 +1055,16 @@ impl DevelopersView {
                     .justify_between()
                     .gap_4()
                     .child(Self::cloud_heading(error, colors))
-                    .child(controls::switch(
-                        "cloud-api-switch",
-                        enabled,
-                        interactive,
-                        colors,
-                        cx.listener(move |this, _, _, cx| this.toggle_cloud(!enabled, cx)),
-                    )),
+                    .child(
+                        controls::switch(
+                            "cloud-api-switch",
+                            enabled,
+                            interactive,
+                            colors,
+                            cx.listener(move |this, _, _, cx| this.toggle_cloud(!enabled, cx)),
+                        )
+                        .aria_label("Enable Cloud API & Connectors"),
+                    ),
             )
             .when(enabled, |view| {
                 view.child(self.endpoints(colors, cx))

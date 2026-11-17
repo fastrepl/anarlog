@@ -138,6 +138,25 @@ impl Harness {
         self.settle();
     }
 
+    pub fn chat(
+        &self,
+        action: impl FnOnce(
+            &mut desktop_gpui::chat::ChatView,
+            &mut gpui::Window,
+            &mut gpui::Context<desktop_gpui::chat::ChatView>,
+        ),
+    ) {
+        self.app.update(|cx| {
+            self.window
+                .update(cx, |root, window, cx| {
+                    let chat = root.workspace().read(cx).chat().clone();
+                    chat.update(cx, |chat, cx| action(chat, window, cx))
+                })
+                .unwrap()
+        });
+        self.settle();
+    }
+
     /// What VoiceOver does on VO-Space: the node's own Click action, not a pointer event.
     pub fn press(&self, node: accesskit::NodeId) {
         let state = self.platform.window(self.window.into());

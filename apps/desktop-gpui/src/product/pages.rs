@@ -14,6 +14,7 @@ use super::{
     locale,
     preferences_view::{PreferencesView, SelectOption},
 };
+use crate::ui::a11y::Accessible;
 
 fn page(title: &'static str, gap: f32) -> Div {
     div()
@@ -268,6 +269,8 @@ impl PreferencesView {
                     .child(
                         div()
                             .id(SharedString::from(format!("remove-language-{code}")))
+                            .a11y_button(format!("Remove {}", locale::language_name(code)))
+                            .a11y_disabled(!writable)
                             .ml(px(2.))
                             .when(writable, |view| {
                                 view.cursor_pointer().on_click(cx.listener(
@@ -309,6 +312,7 @@ impl PreferencesView {
             deferred(
                 div()
                     .id("language-options")
+                    .a11y_group(gpui::Role::ListBox, "Languages")
                     .absolute()
                     .top_full()
                     .left_0()
@@ -326,6 +330,8 @@ impl PreferencesView {
                     .when(matches.is_empty(), |view| {
                         view.child(
                             div()
+                                .id("no-languages")
+                                .a11y_text("No matching languages found")
                                 .px_3()
                                 .py_2()
                                 .text_center()
@@ -339,6 +345,10 @@ impl PreferencesView {
                         let hover = colors.accent;
                         div()
                             .id(SharedString::from(format!("language-option-{code}")))
+                            .a11y_option(
+                                locale::language_name(code),
+                                self.spoken_index == Some(index),
+                            )
                             .w_full()
                             .px_3()
                             .py_2()
@@ -460,6 +470,7 @@ impl PreferencesView {
                     .child(
                         div()
                             .id("open-export-location")
+                            .a11y_button(format!("Export location, {shown}"))
                             .flex_1()
                             .min_w_0()
                             .px_2()
@@ -515,6 +526,7 @@ impl PreferencesView {
                 view.child(
                     div()
                         .id("reset-export-folder")
+                        .a11y_button("Reset to Downloads")
                         .px_2()
                         .text_xs()
                         .font_weight(crate::ui::theme::MEDIUM)
@@ -588,6 +600,9 @@ impl PreferencesView {
                                 let selected = value == current;
                                 div()
                                     .id(value)
+                                    .a11y_radio(label, selected)
+                                    .aria_description(detail)
+                                    .a11y_disabled(!writable)
                                     .flex_1()
                                     .min_w_0()
                                     .overflow_hidden()
@@ -768,6 +783,14 @@ impl PreferencesView {
                                 };
                             div()
                                 .id(SharedString::from(format!("app-icon-{value}")))
+                                .a11y_radio(
+                                    if locked {
+                                        format!("{name}, Requires Anarlog Pro")
+                                    } else {
+                                        name.to_owned()
+                                    },
+                                    selected,
+                                )
                                 .group(SharedString::from(format!("app-icon-{value}")))
                                 .relative()
                                 .p(px(2.))
@@ -1074,6 +1097,8 @@ impl PreferencesView {
             // Unlike `SettingRow`, the description sits right under the title here.
             .child(
                 div()
+                    .id("detection-delay")
+                    .a11y_group(gpui::Role::Group, "Detection delay")
                     .flex()
                     .items_center()
                     .justify_between()
@@ -1193,6 +1218,8 @@ impl PreferencesView {
                     .child(
                         div()
                             .id(("excluded-app-remove", index))
+                            .a11y_button(format!("Remove {}", name(&id)))
+                            .a11y_disabled(!writable)
                             .ml(px(2.))
                             .size(px(12.))
                             .flex()
@@ -1210,6 +1237,9 @@ impl PreferencesView {
             });
         let trigger = div()
             .id(MENU)
+            .role(gpui::Role::ComboBox)
+            .aria_label("Search installed apps...")
+            .aria_expanded(self.menu == Some(MENU))
             .min_h(px(38.))
             .w_full()
             .p_2()
@@ -1298,6 +1328,7 @@ impl PreferencesView {
                                         let hover = colors.accent;
                                         div()
                                             .id(("excluded-app-option", index))
+                                            .a11y_option(app.name.clone(), false)
                                             .px_2()
                                             .py(px(6.))
                                             .flex()
@@ -1654,7 +1685,8 @@ impl PreferencesView {
                                 available && !self.authenticating && self.writable("lock_app"),
                                 &colors,
                                 cx.listener(move |this, _, _, cx| this.toggle_lock(!checked, cx)),
-                            ),
+                            )
+                            .aria_label("Lock app"),
                             &colors,
                         )
                     })
@@ -1736,6 +1768,11 @@ impl PreferencesView {
                                     .child(
                                         div()
                                             .id("dictation-shortcut")
+                                            .a11y_button(if self.recording_shortcut {
+                                                "Press shortcut…".to_owned()
+                                            } else {
+                                                format!("Dictation shortcut, {}", keys.join(" "))
+                                            })
                                             .track_focus(&self.shortcut_focus)
                                             .h(px(36.))
                                             .px_4()
@@ -1772,7 +1809,12 @@ impl PreferencesView {
                             ))
                             .when_some(self.shortcut_error.clone(), |view, error| {
                                 view.child(
-                                    div().text_sm().text_color(colors.destructive).child(error),
+                                    div()
+                                        .id("shortcut-error")
+                                        .a11y_status(error.clone(), true)
+                                        .text_sm()
+                                        .text_color(colors.destructive)
+                                        .child(error),
                                 )
                             })
                             .when(cfg!(target_os = "macos"), |view| {
@@ -1782,6 +1824,7 @@ impl PreferencesView {
                                         .map(|(value, label)| {
                                             div()
                                                 .id(value)
+                                                .a11y_button(label)
                                                 .h(px(28.))
                                                 .px_2()
                                                 .flex()

@@ -2,6 +2,7 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use gpui::{Context, EventEmitter, FontWeight, Render, SharedString, Window, div, prelude::*, px};
 
+use crate::ui::a11y::Accessible;
 use crate::{
     contracts::ProductEvent,
     product::controls,
@@ -265,6 +266,17 @@ impl LocalSettingsView {
                     .child(
                         div()
                             .id(SharedString::from(format!("permission-{id}")))
+                            .a11y_button(format!(
+                                "{}, {}",
+                                found.title,
+                                if granted {
+                                    "Open System Settings"
+                                } else {
+                                    "Request access"
+                                }
+                            ))
+                            .aria_description(if granted { "Granted" } else { "Not granted" })
+                            .a11y_disabled(busy || operation.is_none())
                             .size(px(32.))
                             .flex_shrink_0()
                             .flex()
@@ -441,6 +453,7 @@ impl Render for LocalSettingsView {
                                     .is_some_and(|v| v.as_ref() == format);
                                 div()
                                     .id(format)
+                                    .a11y_radio(format.to_uppercase(), selected)
                                     .px_3()
                                     .py_2()
                                     .border_1()
@@ -467,6 +480,7 @@ impl Render for LocalSettingsView {
                     view = view.child(
                         div()
                             .id(key)
+                            .a11y_checkbox(label, selected)
                             .flex()
                             .gap_2()
                             .text_sm()
@@ -506,6 +520,8 @@ impl Render for LocalSettingsView {
                             let enabled = !busy && operation.disabled_reason.is_none();
                             div()
                                 .id(SharedString::from(operation.id.clone()))
+                                .a11y_button(operation.label.to_string())
+                                .a11y_disabled(!enabled)
                                 .px_3()
                                 .py_2()
                                 .bg(colors.accent)
@@ -536,9 +552,18 @@ impl Render for LocalSettingsView {
                             .unwrap_or_default()
                             .to_string(),
                     )
+                    .id("confirmation")
+                    .a11y_dialog(
+                        operation
+                            .confirmation
+                            .clone()
+                            .unwrap_or_default()
+                            .to_string(),
+                    )
                     .child(
                         div()
                             .id("confirm")
+                            .a11y_button("Confirm")
                             .cursor_pointer()
                             .child("Confirm")
                             .on_click(cx.listener(move |this, _, _, cx| {
@@ -548,6 +573,7 @@ impl Render for LocalSettingsView {
                     .child(
                         div()
                             .id("cancel-confirm")
+                            .a11y_button("Cancel")
                             .cursor_pointer()
                             .child("Cancel")
                             .on_click(cx.listener(|this, _, _, cx| {
@@ -560,6 +586,7 @@ impl Render for LocalSettingsView {
         view.child(
             div()
                 .id("refresh")
+                .a11y_button(if busy { "Working…" } else { "Refresh" })
                 .text_sm()
                 .cursor_pointer()
                 .child(if busy { "Working…" } else { "Refresh" })

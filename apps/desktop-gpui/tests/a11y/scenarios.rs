@@ -168,3 +168,154 @@ fn note_tasks_are_checkboxes_and_slash_commands_a_listbox() {
         1
     );
 }
+
+#[test]
+fn chat_panel_names_its_toolbar_history_and_composer() {
+    use desktop_gpui::chat::state::ChatEvent;
+
+    let app = Harness::start();
+    app.chat(|chat, window, cx| chat.event(ChatEvent::Open, window, cx));
+    let tree = app.tree();
+    let chat = tree.find(Role::Complementary, "Chat");
+    for name in ["New chat", "Open in right panel", "Chat history"] {
+        chat.find(Role::Button, name);
+    }
+    let composer = chat.find(Role::MultilineTextInput, "Chat draft");
+    assert_eq!(composer.raw().placeholder(), Some("Ask anything"));
+    chat.find(Role::Button, "Start voice input");
+
+    app.chat(|chat, _, cx| chat.toggle_history(cx));
+    let tree = app.tree();
+    assert_eq!(
+        tree.find(Role::Button, "Chat history").expanded(),
+        Some(true)
+    );
+    let history = tree.find(Role::Menu, "Recent chats");
+    assert!(
+        !history.items(Role::MenuItemCheckBox).is_empty(),
+        "{}",
+        history.outline()
+    );
+
+    app.chat(|chat, _, cx| chat.select_group("g-launch".into(), cx));
+    let tree = app.tree();
+    let messages = tree.find(Role::List, "Messages");
+    let items = messages.items(Role::ListItem);
+    assert!(items.iter().any(|item| item.label() == "You"));
+    assert!(items.iter().any(|item| {
+        item.label() == "Anarlog AI"
+            && item
+                .raw()
+                .description()
+                .is_some_and(|text| !text.is_empty())
+    }));
+}
+
+#[test]
+fn settings_navigation_and_controls_are_named() {
+    let app = Harness::start();
+    app.open(Route::Settings("app".into()));
+    let tree = app.tree();
+    let nav = tree.find(Role::Navigation, "Settings");
+    let rows = nav.items(Role::Button);
+    assert!(rows.len() > 10, "{}", nav.outline());
+    assert_eq!(
+        rows.iter()
+            .filter(|row| row.selected() == Some(true))
+            .count(),
+        1
+    );
+    tree.find(Role::TextInput, "Search settings");
+    tree.find(Role::Heading, "General");
+    // Every switch is named and reports its state.
+    let switches = tree.root().items(Role::Switch);
+    assert!(!switches.is_empty(), "{}", tree.outline());
+    for switch in &switches {
+        assert!(!switch.label().is_empty(), "{}", switch.line());
+        assert!(switch.toggled().is_some());
+    }
+    let language = tree.find(Role::Group, "Main language");
+    let select = language.items(Role::ComboBox)[0];
+    assert_eq!(select.expanded(), Some(false));
+    assert!(select.value().is_some());
+    app.press(select.id);
+    let tree = app.tree();
+    let options = tree.root().items(Role::ListBoxOption);
+    assert!(options.len() > 1, "{}", tree.outline());
+    assert_eq!(
+        options
+            .iter()
+            .filter(|option| option.selected() == Some(true))
+            .count(),
+        1
+    );
+}
+
+/// Controls a screen reader can land on must say what they are.
+fn assert_named(tree: &crate::tree::Tree, place: &str) {
+    let controls = [
+        Role::Button,
+        Role::Link,
+        Role::CheckBox,
+        Role::Switch,
+        Role::RadioButton,
+        Role::Tab,
+        Role::MenuItem,
+        Role::MenuItemCheckBox,
+        Role::MenuItemRadio,
+        Role::ListBoxOption,
+        Role::ComboBox,
+        Role::Dialog,
+        Role::Heading,
+    ];
+    let unnamed = tree
+        .all()
+        .into_iter()
+        .filter(|node| controls.contains(&node.role()) && node.label().trim().is_empty())
+        .map(|node| node.line())
+        .collect::<Vec<_>>();
+    assert!(unnamed.is_empty(), "{place}: unnamed {unnamed:#?}");
+}
+
+#[test]
+fn every_page_names_its_controls() {
+    let app = Harness::start();
+    assert_named(&app.tree(), "main");
+    for route in [
+        Route::Session(SessionId("s-sync".into())),
+        Route::Session(SessionId("s-critique".into())),
+        Route::Calendar,
+        Route::Templates,
+        Route::Folders,
+        Route::Automations,
+        Route::Contacts,
+    ] {
+        let place = format!("{route:?}");
+        app.open(route);
+        assert_named(&app.tree(), &place);
+    }
+    for page in [
+        "app",
+        "account",
+        "billing",
+        "referrals",
+        "insights",
+        "team",
+        "sync",
+        "appearance",
+        "notifications",
+        "transcription",
+        "dictation",
+        "intelligence",
+        "dictionary",
+        "meetings",
+        "imports",
+        "crm",
+        "privacy",
+        "permissions",
+        "developers",
+    ] {
+        app.open(Route::Settings(page.into()));
+        assert_named(&app.tree(), page);
+    }
+}

@@ -21,6 +21,7 @@ use super::{
     controls,
     settings::{self, Snapshot},
 };
+use crate::ui::a11y::Accessible;
 
 type OnSelect = Rc<dyn Fn(&mut PreferencesView, String, &mut Context<PreferencesView>)>;
 
@@ -453,7 +454,8 @@ impl PreferencesView {
                 allowed && enabled && self.writable(key),
                 colors,
                 cx.listener(move |this, _, _, cx| this.set(key, Value::Bool(!checked), cx)),
-            ),
+            )
+            .aria_label(title),
             colors,
         )
         .into_any_element()
@@ -482,9 +484,14 @@ impl PreferencesView {
                 _ => option.label.clone(),
             });
         let open = self.menu == Some(id);
-        let trigger = controls::select_trigger(id, label, placeholder, enabled, &colors).when(
-            enabled,
-            |view| {
+        let trigger = controls::select_trigger(id, label, placeholder, enabled, &colors)
+            .aria_label(if placeholder.is_empty() {
+                "Select"
+            } else {
+                placeholder
+            })
+            .aria_expanded(open)
+            .when(enabled, |view| {
                 view.on_click(cx.listener(move |this, _, window, cx| {
                     this.menu = Some(id);
                     if searchable {
@@ -496,8 +503,7 @@ impl PreferencesView {
                     }
                     cx.notify();
                 }))
-            },
-        );
+            });
         let on_select: OnSelect = Rc::new(on_select);
         let query = self.menu_search.read(cx).buffer.text.to_lowercase();
         let menu = open.then(|| {
@@ -547,6 +553,8 @@ impl PreferencesView {
                         .when(empty, |view| {
                             view.child(
                                 div()
+                                    .id("no-results")
+                                    .a11y_text("No results found.")
                                     .px_2()
                                     .py(px(6.))
                                     .text_sm()

@@ -20,6 +20,7 @@ use super::{
     controls,
     provider_catalog::{self, ProviderInfo},
 };
+use crate::ui::a11y::Accessible;
 
 impl gpui::Global for ProviderServices {}
 
@@ -525,7 +526,7 @@ impl ProviderView {
         cx.notify();
     }
 
-    fn provider_menu(&self, colors: &Theme, cx: &mut Context<Self>) -> Div {
+    fn provider_menu(&self, colors: &Theme, cx: &mut Context<Self>) -> gpui::Stateful<Div> {
         let current = self.provider();
         controls::menu_panel(280., colors).child(
             div()
@@ -562,6 +563,7 @@ impl ProviderView {
                             .when(!enabled && !locked, |view| {
                                 view.opacity(0.5).cursor_default()
                             })
+                            .a11y_disabled(!enabled)
                             .when(enabled, |view| {
                                 view.on_click(
                                     cx.listener(move |this, _, _, cx| this.pick_provider(id, cx)),
@@ -590,6 +592,8 @@ impl ProviderView {
             .child(
                 div()
                     .id(SharedString::from(format!("provider-header-{id}")))
+                    .a11y_button(info.name)
+                    .aria_expanded(open)
                     .px_4()
                     .py_4()
                     .flex()
@@ -720,6 +724,10 @@ impl ProviderView {
             .child(
                 pill(colors)
                     .id("model-select")
+                    .role(gpui::Role::ComboBox)
+                    .aria_label("Model")
+                    .aria_value(selected.unwrap_or("Select a model"))
+                    .aria_expanded(self.model_menu)
                     .justify_between()
                     .cursor_pointer()
                     .on_click(cx.listener(|this, _, _, cx| {
@@ -772,7 +780,7 @@ impl ProviderView {
 
 impl ProviderView {
     /// `Reasoning effort` (`settings/ai/llm/select.tsx`), stored for providers that take one.
-    fn reasoning_effort(&self, colors: &Theme, cx: &mut Context<Self>) -> Div {
+    fn reasoning_effort(&self, colors: &Theme, cx: &mut Context<Self>) -> gpui::Stateful<Div> {
         const EFFORTS: [(&str, &str); 4] = [
             ("default", "Default"),
             ("low", "Low"),
@@ -807,6 +815,8 @@ impl ProviderView {
                         enabled,
                         colors,
                     )
+                    .aria_label("Reasoning effort")
+                    .aria_expanded(self.effort_menu)
                     .when(enabled, |view| {
                         view.on_click(cx.listener(|this, _, _, cx| {
                             this.effort_menu = !this.effort_menu;
@@ -921,6 +931,9 @@ impl Render for ProviderView {
                                     .child(
                                         pill(&colors)
                                             .id("provider-select")
+                                            .role(gpui::Role::ComboBox)
+                                            .aria_label("Provider")
+                                            .aria_expanded(self.menu)
                                             .justify_between()
                                             .cursor_pointer()
                                             .on_click(cx.listener(|this, _, _, cx| {

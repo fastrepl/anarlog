@@ -12,6 +12,7 @@ use gpui::{
 use serde_json::Value;
 
 use super::ChatView;
+use crate::ui::a11y::Accessible;
 use crate::ui::theme::Theme;
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -717,10 +718,9 @@ pub fn table_controls(
             })
         })
         .collect::<Vec<_>>();
-    let toggle = |menu: TableMenu| {
+    let toggle_menu = |menu: TableMenu| {
         let (chat, table_id) = (chat.clone(), table_id.clone());
-        move |_: &gpui::MouseDownEvent, _: &mut Window, cx: &mut gpui::App| {
-            cx.stop_propagation();
+        move |cx: &mut gpui::App| {
             let _ = chat.update(cx, |chat, cx| {
                 let current = chat.markdown.menu.take();
                 if current != Some((table_id.clone(), menu)) {
@@ -728,6 +728,19 @@ pub fn table_controls(
                 }
                 cx.notify();
             });
+        }
+    };
+    let toggle = |menu: TableMenu| {
+        let toggle = toggle_menu(menu);
+        move |_: &gpui::MouseDownEvent, _: &mut Window, cx: &mut gpui::App| {
+            cx.stop_propagation();
+            toggle(cx);
+        }
+    };
+    let press = |menu: TableMenu| {
+        let toggle = toggle_menu(menu);
+        move |_: Option<&gpui::accesskit::ActionData>, _: &mut Window, cx: &mut gpui::App| {
+            toggle(cx)
         }
     };
     let header_cells = header.to_vec();
@@ -751,6 +764,8 @@ pub fn table_controls(
                         },
                         style,
                     )
+                    .aria_expanded(open(TableMenu::Copy))
+                    .on_a11y_action(gpui::AccessibleAction::Click, press(TableMenu::Copy))
                     .on_mouse_down(MouseButton::Left, toggle(TableMenu::Copy)),
                 )
                 .when(open(TableMenu::Copy), |view| {
@@ -762,6 +777,8 @@ pub fn table_controls(
                 .relative()
                 .child(
                     control(format!("{id}-download"), "chat/Download01Icon.svg", style)
+                        .aria_expanded(open(TableMenu::Download))
+                        .on_a11y_action(gpui::AccessibleAction::Click, press(TableMenu::Download))
                         .on_mouse_down(MouseButton::Left, toggle(TableMenu::Download)),
                 )
                 .when(open(TableMenu::Download), |view| {
@@ -797,6 +814,7 @@ fn menu(items: Vec<gpui::Stateful<gpui::Div>>, style: &Style) -> impl IntoElemen
         anchored().anchor(gpui::Anchor::TopRight).child(
             div()
                 .id("chat-table-menu")
+                .role(gpui::Role::Menu)
                 .occlude()
                 .min_w(px(120.))
                 .overflow_hidden()
@@ -816,8 +834,12 @@ fn menu_item(
     style: &Style,
     choose: impl Fn(&mut gpui::App) + 'static,
 ) -> gpui::Stateful<gpui::Div> {
+    let choose = Rc::new(choose);
+    let press = choose.clone();
     div()
         .id(SharedString::from(id))
+        .a11y_menu_item(label)
+        .on_a11y_action(gpui::AccessibleAction::Click, move |_, _, cx| press(cx))
         .w_full()
         .px_3()
         .py_2()
@@ -849,6 +871,12 @@ fn control(id: String, path: &'static str, style: &Style) -> gpui::Stateful<gpui
     let group = SharedString::from(id.clone());
     div()
         .id(SharedString::from(id))
+        .a11y_button(match path {
+            "chat/CopyIcon.svg" | "chat/CheckIcon.svg" => "Copy",
+            "chat/Download01Icon.svg" => "Download",
+            _ => "Open fullscreen",
+        })
+        .a11y_disabled(style.streaming)
         .group(group.clone())
         .p_1()
         .when(style.streaming, |view| view.opacity(0.5))

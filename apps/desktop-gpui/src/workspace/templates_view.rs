@@ -18,6 +18,7 @@ use super::{
     },
     templates::{self, Changes, Library, Section, Selection, Sort},
 };
+use crate::ui::a11y::Accessible;
 use crate::{
     contracts::ProductRoute,
     product::{
@@ -807,6 +808,7 @@ impl TemplatesView {
                                     empty.child(
                                         div()
                                             .id("create-first-template")
+                                            .a11y_button("Create my first template")
                                             .mt_3()
                                             .text_sm()
                                             .underline()
@@ -865,6 +867,10 @@ impl TemplatesView {
             Selection::Auto => None,
         };
         list::list_row(key, selected, false, colors)
+            .aria_label(match subtitle {
+                Some(subtitle) => SharedString::from(format!("{title}, {subtitle}")),
+                None => title.clone(),
+            })
             .on_click(cx.listener(move |this, _, window, cx| {
                 this.focus.focus(window, cx);
                 this.select(item.clone(), cx);
@@ -985,6 +991,7 @@ impl TemplatesView {
         };
         div()
             .id(id)
+            .a11y_button(if default { "Current default" } else { label })
             .group(id)
             .h(px(28.))
             .px_2()

@@ -16,6 +16,7 @@ use super::{
     controls,
     services::{Action, Mutation, Operation, Outcome, ProductServices, Request, Surface},
 };
+use crate::ui::a11y::Accessible;
 use crate::ui::theme::Theme;
 
 const UNCONFIGURED: &str =
@@ -135,8 +136,10 @@ fn text_sm(colors: &Theme, muted: bool) -> Div {
         .when(muted, |view| view.text_color(colors.muted_foreground))
 }
 
-fn heading(text: &'static str) -> Div {
+fn heading(text: &'static str) -> Stateful<Div> {
     div()
+        .id(text)
+        .a11y_heading(text, 3)
         .text_sm()
         .line_height(px(20.))
         .font_weight(crate::ui::theme::MEDIUM)
@@ -181,11 +184,16 @@ fn pill(
                 .text_color(colors.muted_foreground)
                 .hover(move |style| style.text_color(foreground))
         })
-        .child(label.into())
+        .map(|view| {
+            let label = label.into();
+            view.a11y_button(label.clone()).child(label)
+        })
 }
 
-fn status_chip(label: &'static str, emphasis: bool, colors: &Theme) -> Div {
+fn status_chip(label: &'static str, emphasis: bool, colors: &Theme) -> Stateful<Div> {
     div()
+        .id(label)
+        .a11y_text(label)
         .px_2()
         .py(px(2.))
         .text_size(px(10.))
@@ -222,6 +230,8 @@ fn destructive_button(
         .shadow_xs()
         .text_sm()
         .font_weight(crate::ui::theme::MEDIUM)
+        .a11y_button(label)
+        .a11y_disabled(!enabled)
         .child(label)
         .when(!enabled, |view| view.opacity(0.5))
         .when(enabled, |view| {
@@ -239,6 +249,7 @@ fn small_outline(
     let hover = colors.accent;
     div()
         .id(id)
+        .a11y_button(label)
         .h(px(28.))
         .px_2()
         .flex()
@@ -302,7 +313,12 @@ fn section(title: &'static str, description: Option<&'static str>, colors: &Them
         .gap_1()
         .child(controls::section_title(title))
         .when_some(description, |view, description| {
-            view.child(text_sm(colors, true).child(description))
+            view.child(
+                text_sm(colors, true)
+                    .id(description)
+                    .a11y_text(description)
+                    .child(description),
+            )
         })
 }
 
@@ -583,6 +599,7 @@ impl ProductPane {
                         .child(
                             div()
                                 .id("account-get-started")
+                                .a11y_button("Get started")
                                 .h(px(40.))
                                 .px_6()
                                 .flex()
@@ -627,6 +644,7 @@ impl ProductPane {
                 match user.email.clone() {
                     Some(email) => div()
                         .id("account-email")
+                        .a11y_button(format!("{email}, Edit"))
                         .flex()
                         .items_center()
                         .gap(px(6.))
@@ -713,6 +731,11 @@ impl ProductPane {
                 .occlude()
                 .child(
                     div()
+                        .id("sign-out-dialog")
+                        .a11y_dialog("Sign out of Anarlog?")
+                        .aria_description(
+                            "You'll need to sign in again to use cloud sync and account features.",
+                        )
                         .w(px(320.))
                         .p_5()
                         .flex()
@@ -741,6 +764,7 @@ impl ProductPane {
                                 .child(
                                     div()
                                         .id("sign-out-cancel")
+                                        .a11y_button("Cancel")
                                         .h(px(32.))
                                         .flex()
                                         .items_center()
@@ -765,6 +789,7 @@ impl ProductPane {
                                 .child(
                                     div()
                                         .id("sign-out-confirm")
+                                        .a11y_button(if pending { "Signing out..." } else { "Sign out" })
                                         .h(px(32.))
                                         .flex()
                                         .items_center()
@@ -798,6 +823,7 @@ impl ProductPane {
                     div().flex().child(
                         div()
                             .id("billing-sign-in")
+                            .a11y_button("Sign in to Anarlog")
                             .text_sm()
                             .line_height(px(20.))
                             .font_weight(crate::ui::theme::MEDIUM)
@@ -1831,13 +1857,10 @@ fn sync_preview(colors: &Theme) -> Div {
                             ),
                         ),
                 )
-                .child(controls::switch(
-                    "sync-preview-switch",
-                    false,
-                    true,
-                    colors,
-                    |_, _, _| {},
-                )),
+                .child(
+                    controls::switch("sync-preview-switch", false, true, colors, |_, _, _| {})
+                        .aria_label("Cloud sync"),
+                ),
         )
         .child(
             div()

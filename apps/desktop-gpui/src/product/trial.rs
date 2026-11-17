@@ -17,6 +17,7 @@ use super::{
     account::{self, Account},
     cloud::{CloudServices, Referrals},
 };
+use crate::ui::a11y::Accessible;
 
 const SEEN_KEY: &str = "gpui_trial_dialogs_seen";
 const PRO_TRIAL_DAYS: i64 = 14;
@@ -227,6 +228,7 @@ fn button(
 ) -> gpui::Stateful<gpui::Div> {
     let base = div()
         .id(id)
+        .a11y_button(label)
         .h(px(32.))
         .px_4()
         .flex()
@@ -347,6 +349,7 @@ impl Render for TrialDialogs {
                 .child(
                     div()
                         .id("trial-refer-friend")
+                        .a11y_button("Invite friends")
                         .text_xs()
                         .line_height(px(16.))
                         .font_weight(crate::ui::theme::MEDIUM)
@@ -423,6 +426,8 @@ impl Render for TrialDialogs {
                         .child(
                             div()
                                 .id("trial-dialog")
+                                .a11y_dialog(title.clone())
+                                .aria_description(description.clone())
                                 .w(px(320.))
                                 .p_5()
                                 .flex()

@@ -787,13 +787,18 @@ impl SyncView {
                                     }),
                             ),
                     )
-                    .child(controls::switch(
-                        "cloud-sync-switch",
-                        switch_checked,
-                        switch_enabled,
-                        colors,
-                        cx.listener(move |this, _, _, cx| this.set_enabled(!switch_checked, cx)),
-                    )),
+                    .child(
+                        controls::switch(
+                            "cloud-sync-switch",
+                            switch_checked,
+                            switch_enabled,
+                            colors,
+                            cx.listener(move |this, _, _, cx| {
+                                this.set_enabled(!switch_checked, cx)
+                            }),
+                        )
+                        .aria_label("Cloud sync"),
+                    ),
             )
             .children(
                 self.error

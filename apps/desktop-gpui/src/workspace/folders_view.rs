@@ -17,6 +17,7 @@ use super::{
         ghost_icon_button, icon, menu_item,
     },
 };
+use crate::ui::a11y::Accessible;
 use crate::{
     product::{
         cloud::resources::ResourceKind,
@@ -601,6 +602,7 @@ impl FoldersView {
             .child(
                 div()
                     .id("folders-list")
+                    .a11y_group(gpui::Role::List, "Folders")
                     .flex_1()
                     .min_h_0()
                     .overflow_y_scroll()
@@ -626,6 +628,7 @@ impl FoldersView {
                                     true,
                                     colors,
                                 )
+                                .aria_label(path.clone())
                                 .when(selected, |row| row.font_weight(crate::ui::theme::MEDIUM))
                                 .on_click(cx.listener({
                                     let path = path.clone();

@@ -80,12 +80,18 @@ impl ProfileCard {
         let inputs = FIELDS
             .iter()
             .map(|(key, label, placeholder)| {
-                let input = cx.new(|cx| TextInput::new(*placeholder, cx).inline());
+                let input = cx.new(|cx| TextInput::new(*placeholder, cx).inline().label(*label));
                 watch(&input, cx);
                 (*key, *label, input)
             })
             .collect();
-        let memo = cx.new(|cx| TextInput::new("", cx).multiline().inline().rows(3, Some(3)));
+        let memo = cx.new(|cx| {
+            TextInput::new("", cx)
+                .multiline()
+                .inline()
+                .rows(3, Some(3))
+                .label("Notes")
+        });
         watch(&memo, cx);
         let mut this = Self {
             runtime,
@@ -340,6 +346,8 @@ impl Render for ProfileCard {
                     true,
                     &colors,
                 )
+                .aria_label("Company")
+                .aria_expanded(self.menu)
                 .on_click(cx.listener(|this, _, _, cx| {
                     this.menu = !this.menu;
                     cx.notify();

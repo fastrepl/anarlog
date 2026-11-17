@@ -2005,7 +2005,8 @@ impl TeamsView {
                         allowed,
                         colors,
                         cx.listener(move |this, _, _, cx| this.set_auto_join(!enabled, cx)),
-                    ),
+                    )
+                    .aria_label("Join automatically with a work email"),
                     colors,
                 ))
                 .children(error.map(|error| {
@@ -2463,6 +2464,7 @@ impl TeamsView {
                     enabled,
                     colors,
                 )
+                .aria_label("Role")
                 .h(px(32.))
                 .when(enabled, |view| {
                     view.on_click(
@@ -2572,7 +2574,7 @@ impl TeamsView {
                             form.require_sso = !require_sso;
                             cx.notify();
                         }
-                    })),
+                    })).aria_label("Require SSO"),
                     colors,
                 ))
                 .child(
@@ -2635,7 +2637,7 @@ impl TeamsView {
                             form.allow_link = !allow_link;
                             cx.notify();
                         }
-                    })),
+                    })).aria_label("Allow anyone-with-the-link sharing"),
                     colors,
                 ))
                 .child(controls::setting_row(
@@ -2647,7 +2649,7 @@ impl TeamsView {
                             form.allow_public = !allow_public;
                             cx.notify();
                         }
-                    })),
+                    })).aria_label("Allow public indexing"),
                     colors,
                 ))
                 .child(plan_gate(gated, enterprise, cx.listener(|_, _, _, cx| cx.emit(PlanRequired))))

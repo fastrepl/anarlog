@@ -13,14 +13,14 @@ use std::{
 
 use futures::channel::oneshot;
 use gpui::{
-    A11yCallbacks, ActivityGuard, AnyWindowHandle, AtlasKey, AtlasTile, BackgroundExecutor, Bounds,
-    Capslock, ClipboardItem, CursorStyle, DevicePixels, DispatchEventResult, DisplayId,
-    DummyKeyboardMapper, ForegroundExecutor, GpuSpecs, Keymap, Menu, MenuItem, Modifiers,
-    NoopTextSystem, PathPromptOptions, Pixels, Platform, PlatformAtlas, PlatformDisplay,
-    PlatformInput, PlatformInputHandler, PlatformKeyboardLayout, PlatformKeyboardMapper,
-    PlatformTextSystem, PlatformWindow, Point, PromptButton, PromptLevel, RequestFrameOptions,
-    Scene, Size, Task, TestDispatcher, ThermalState, WindowAppearance, WindowBackgroundAppearance,
-    WindowBounds, WindowControlArea, WindowParams, WindowVisibility, accesskit, point, px,
+    A11yCallbacks, ActivityGuard, AnyWindowHandle, BackgroundExecutor, Bounds, Capslock,
+    ClipboardItem, CursorStyle, DispatchEventResult, DisplayId, DummyKeyboardMapper,
+    ForegroundExecutor, GpuSpecs, Keymap, Menu, MenuItem, Modifiers, NoopTextSystem,
+    PathPromptOptions, Pixels, Platform, PlatformAtlas, PlatformDisplay, PlatformInput,
+    PlatformInputHandler, PlatformKeyboardLayout, PlatformKeyboardMapper, PlatformTextSystem,
+    PlatformWindow, Point, PromptButton, PromptLevel, RequestFrameOptions, Scene, Size, Task,
+    TestDispatcher, ThermalState, WindowAppearance, WindowBackgroundAppearance, WindowBounds,
+    WindowControlArea, WindowParams, WindowVisibility, accesskit, point, px,
 };
 
 #[derive(Default)]
@@ -95,23 +95,6 @@ impl PlatformKeyboardLayout for Layout {
     }
 }
 
-/// Glyphs and images are never rasterized: the tree needs layout, not pixels.
-struct Atlas;
-
-impl PlatformAtlas for Atlas {
-    fn get_or_insert_with<'a>(
-        &self,
-        _: AtlasKey,
-        _: &mut dyn FnMut() -> anyhow::Result<
-            Option<(Size<DevicePixels>, std::borrow::Cow<'a, [u8]>)>,
-        >,
-    ) -> anyhow::Result<Option<AtlasTile>> {
-        Ok(None)
-    }
-
-    fn remove(&self, _: &AtlasKey) {}
-}
-
 impl Platform for A11yPlatform {
     fn platform_info(&self) -> gpui::PlatformInfo {
         gpui::PlatformInfo {
@@ -179,7 +162,7 @@ impl Platform for A11yPlatform {
             bounds: options.bounds,
             state,
             input_handler: None,
-            atlas: Arc::new(Atlas),
+            atlas: Arc::new(gpui::HeadlessAtlas::default()),
         }))
     }
 

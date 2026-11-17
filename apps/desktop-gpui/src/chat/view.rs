@@ -13,6 +13,7 @@ use super::{
     store::Display,
     voice::{self, VoicePhase},
 };
+use crate::ui::a11y::Accessible;
 use crate::{
     chat::state::{ChatEvent, ChatMode},
     ui::theme::{Theme, monospace_font, theme},
@@ -146,6 +147,11 @@ pub fn overlay(
                     .child(
                         div()
                             .id("chat-cta")
+                            .a11y_button(if matches!(route, Route::Task(_)) {
+                                "Work on this task"
+                            } else {
+                                "Ask anything"
+                            })
                             .w_full()
                             .max_w(px(CTA_MAX_WIDTH))
                             .h(px(40.))
@@ -306,6 +312,13 @@ impl ChatView {
     ) -> Stateful<Div> {
         div()
             .id(id)
+            // Shipping's toolbar labels.
+            .a11y_button(match id {
+                "chat-new" => "New chat",
+                "chat-float" => "Float chat",
+                "chat-close" => "Close chat",
+                _ => "Open in right panel",
+            })
             .group(id)
             .size(px(size))
             .flex()
@@ -376,6 +389,8 @@ impl ChatView {
         let open = self.history_open;
         let trigger = div()
             .id("chat-history")
+            .a11y_button("Chat history")
+            .aria_expanded(open)
             .group("chat-history")
             .relative()
             .h(px(button))
@@ -436,6 +451,7 @@ impl ChatView {
             let id = group.id.clone();
             div()
                 .id(SharedString::from(format!("chat-group-{}", group.id)))
+                .a11y_menu_check(group.title.to_string(), active)
                 .w_full()
                 .flex()
                 .items_center()
@@ -492,6 +508,7 @@ impl ChatView {
         });
         let panel = div()
             .id("chat-history-menu")
+            .a11y_group(gpui::Role::Menu, "Recent chats")
             .occlude()
             .w(px(288.))
             .p(px(2.))
@@ -539,6 +556,8 @@ impl ChatView {
                                 )
                                 .child(
                                     div()
+                                        .id("chat-history-empty")
+                                        .a11y_text("No recent chats")
                                         .text_xs()
                                         .line_height(px(16.))
                                         .text_color(colors.muted_foreground)
@@ -626,6 +645,10 @@ impl ChatView {
         let (id, text) = (message.id.clone(), message.text());
         let body = self.visible_parts(entry, style, colors, window, cx);
         div()
+            .id(SharedString::from(format!("chat-message-{}", message.id)))
+            .role(gpui::Role::ListItem)
+            .aria_label(if user { "You" } else { "Anarlog AI" })
+            .aria_description(text.clone())
             .flex()
             .py_2()
             .when(user, |view| view.justify_end())
@@ -675,6 +698,7 @@ impl ChatView {
                                 view.child(
                                     div()
                                         .id(SharedString::from(format!("chat-copy-{}", message.id)))
+                                        .a11y_button("Copy message")
                                         .p_1()
                                         .cursor_pointer()
                                         .on_click(cx.listener(move |this, _, _, cx| {
@@ -690,6 +714,7 @@ impl ChatView {
                                     view.child(
                                         div()
                                             .id("chat-regenerate")
+                                            .a11y_button("Regenerate message")
                                             .p_1()
                                             .cursor_pointer()
                                             .on_click(
@@ -726,6 +751,8 @@ impl ChatView {
                             .gap_2()
                             .child(
                                 div()
+                                    .id("chat-setup-title")
+                                    .a11y_heading("Anarlog AI", 2)
                                     .text_sm()
                                     .line_height(px(20.))
                                     .font_weight(crate::ui::theme::MEDIUM)
@@ -748,6 +775,8 @@ impl ChatView {
                     )
                     .child(
                         div()
+                            .id("chat-setup-description")
+                            .a11y_text("Hi, I'm Anarlog AI. Set up a language model and I'll be ready to help.")
                             .mb_2()
                             .text_sm()
                             .line_height(px(20.))
@@ -757,6 +786,7 @@ impl ChatView {
                     .child(
                         div()
                             .id("chat-open-ai-settings")
+                            .a11y_button("Open AI Settings")
                             .flex()
                             .flex_none()
                             .self_start()
@@ -867,6 +897,7 @@ impl ChatView {
                         .children(suggestions.into_iter().map(|(label, path, prompt)| {
                             div()
                                 .id(label)
+                                .a11y_button(label)
                                 .group(label)
                                 .w_full()
                                 .flex()
@@ -1002,7 +1033,9 @@ impl ChatView {
                             .line_height(px(20.))
                             .text_color(colors.foreground)
                             .child(spinner("chat-thinking", 16., colors.foreground))
-                            .child("Thinking..."),
+                            .child("Thinking...")
+                            .id("chat-thinking-status")
+                            .a11y_status("Thinking...", false),
                     ),
                 );
             }
@@ -1010,6 +1043,8 @@ impl ChatView {
                 content = content.child(
                     div().flex().py_2().child(
                         div()
+                            .id("chat-error")
+                            .a11y_status(error.clone(), true)
                             .group("chat-error")
                             .relative()
                             .max_w_full()
@@ -1026,6 +1061,7 @@ impl ChatView {
                                 view.child(
                                     div()
                                         .id("chat-context-length-help")
+                                        .a11y_link("Learn how to fix this")
                                         .mt_2()
                                         .flex()
                                         .items_center()
@@ -1055,6 +1091,7 @@ impl ChatView {
                             .child(
                                 div()
                                     .id("chat-retry")
+                                    .a11y_button("Retry")
                                     .absolute()
                                     .top(px(-4.))
                                     .right(px(-4.))
@@ -1091,6 +1128,7 @@ impl ChatView {
             .child(
                 div()
                     .id("chat-scroll")
+                    .a11y_group(gpui::Role::List, "Messages")
                     .flex()
                     .flex_col()
                     .min_h_0()
@@ -1112,6 +1150,7 @@ impl ChatView {
                         .child(
                             div()
                                 .id("chat-go-to-recent")
+                                .a11y_button("Go to recent")
                                 .h(px(32.))
                                 .px_3()
                                 .flex()
@@ -1150,6 +1189,7 @@ impl ChatView {
                         let (id, text) = (queued.id, &queued.text);
                         div()
                             .id(SharedString::from(format!("chat-queued-{id}")))
+                            .a11y_text(text.clone())
                             .group("chat-queued")
                             .min_h(px(28.))
                             .flex()
@@ -1176,6 +1216,7 @@ impl ChatView {
                             .child(
                                 div()
                                     .id(SharedString::from(format!("chat-queued-remove-{id}")))
+                                    .a11y_button(format!("Remove queued message: {text}"))
                                     .size(px(24.))
                                     .flex()
                                     .items_center()
@@ -1213,10 +1254,13 @@ impl ChatView {
             .justify_center()
             .cursor_pointer()
             .hover(|style| style.bg(colors.muted))
+            .a11y_button("Start voice input")
             .on_click(cx.listener(|this, _, _, cx| this.start_voice(cx)))
             .child(icon("chat/Mic01Icon.svg", 17., colors.muted_foreground));
         let send = div()
             .id("chat-send")
+            .a11y_button("Send message")
+            .a11y_disabled(!has_content)
             .size(px(28.))
             .flex()
             .flex_none()
@@ -1243,6 +1287,7 @@ impl ChatView {
             ));
         let stop = div()
             .id("chat-stop")
+            .a11y_button("Stop response")
             .size(px(28.))
             .flex()
             .flex_none()
@@ -1428,6 +1473,14 @@ impl ChatView {
             });
         let stop_voice = div()
             .id("chat-voice-stop")
+            .a11y_button(if recording.is_some() {
+                "Stop listening"
+            } else if self.voice == VoicePhase::Starting {
+                "Starting voice input"
+            } else {
+                "Transcribing voice input"
+            })
+            .a11y_disabled(recording.is_none())
             .size(px(28.))
             .flex()
             .flex_none()
@@ -1482,6 +1535,7 @@ impl ChatView {
                     .child(
                         div()
                             .id("chat-toast")
+                            .a11y_status(message, true)
                             .occlude()
                             .w(px(320.).min(viewport.width - px(32.)))
                             .min_h(px(44.))
@@ -1544,6 +1598,7 @@ impl ChatView {
                 anchored().position(point(px(0.), px(0.))).child(
                     div()
                         .id("chat-table-fullscreen")
+                        .a11y_dialog("Table")
                         .occlude()
                         .w(viewport.width)
                         .h(viewport.height)
@@ -1564,6 +1619,7 @@ impl ChatView {
                                 .child(
                                     div()
                                         .id("chat-table-fullscreen-close")
+                                        .a11y_button("Close")
                                         .group("chat-table-fullscreen-close")
                                         .p_1()
                                         .cursor_pointer()
@@ -1617,6 +1673,7 @@ impl Render for ChatView {
         }
         div()
             .id("chat")
+            .a11y_group(gpui::Role::Complementary, "Chat")
             .track_focus(&self.focus)
             .flex()
             .flex_col()

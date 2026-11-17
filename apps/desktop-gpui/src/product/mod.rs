@@ -39,6 +39,7 @@ use crate::{
     },
 };
 
+use crate::ui::a11y::Accessible;
 use onboarding::OnboardingView;
 use preferences_view::PreferencesView;
 use services::{ProductServices, Scope, Surface, UnavailableServices};
@@ -117,7 +118,11 @@ impl ProductPane {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
-        let search = cx.new(|cx| TextInput::new("Search settings...", cx).inline());
+        let search = cx.new(|cx| {
+            TextInput::new("Search settings...", cx)
+                .inline()
+                .label("Search settings")
+        });
         let subscription = cx.subscribe(&search, |_, _, event, cx| {
             if matches!(event, InputEvent::Changed | InputEvent::Rejected) {
                 cx.notify();
@@ -515,6 +520,7 @@ impl ProductPane {
             .child(
                 div()
                     .id("settings-back")
+                    .a11y_button("Go home")
                     .group("settings-back")
                     .size(px(28.))
                     .flex()
@@ -564,6 +570,7 @@ impl ProductPane {
                     view.child(
                         div()
                             .id("clear-settings-search")
+                            .a11y_button("Clear search")
                             .group("clear-settings-search")
                             .cursor_pointer()
                             .on_click(cx.listener(|this, _, _, cx| {
@@ -595,11 +602,19 @@ impl ProductPane {
                         .items_center()
                         .text_color(muted)
                         .child(controls::icon("Search01Icon.svg", 32., muted.opacity(0.7)).mb_2())
-                        .child(div().text_sm().child("No results found.")),
+                        .child(
+                            div()
+                                .id("settings-no-results")
+                                .a11y_text("No results found.")
+                                .text_sm()
+                                .child("No results found."),
+                        ),
                 )
             })
             .children(groups.into_iter().map(|(group, pages)| {
                 div()
+                    .id(group)
+                    .a11y_group(gpui::Role::List, group)
                     .flex()
                     .flex_col()
                     .gap(px(2.))
@@ -620,6 +635,14 @@ impl ProductPane {
                         let group = SharedString::from(format!("settings-nav-{}", page.id));
                         div()
                             .id(page.id)
+                            .a11y_row(
+                                if locked {
+                                    format!("{}, Requires Anarlog Pro", page.label)
+                                } else {
+                                    page.label.to_owned()
+                                },
+                                active,
+                            )
                             .group(group.clone())
                             .w_full()
                             .px_3()
@@ -668,6 +691,7 @@ impl ProductPane {
             .child(
                 div()
                     .id("settings-navigation")
+                    .a11y_group(gpui::Role::Navigation, "Settings")
                     .flex_1()
                     .min_h_0()
                     .overflow_y_scroll()
@@ -716,6 +740,8 @@ impl ProductPane {
             .when(!self.notice.is_empty(), |view| {
                 view.child(
                     div()
+                        .id("settings-notice")
+                        .a11y_status(self.notice.clone(), true)
                         .text_sm()
                         .text_color(colors.destructive)
                         .child(self.notice.clone()),

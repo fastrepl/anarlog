@@ -16,6 +16,7 @@ use crate::{
 use super::services::{
     Mutation, Operation, Outcome, Panel, ProductServices, RequestGate, Scope, Surface,
 };
+use crate::ui::a11y::Accessible;
 
 struct FormInput {
     input: Entity<TextInput>,
@@ -308,6 +309,11 @@ impl Render for ServiceView {
             .child(
                 div()
                     .id("refresh-service")
+                    .a11y_button(if self.loading {
+                        "Refreshing…"
+                    } else {
+                        "Refresh"
+                    })
                     .child(if self.loading {
                         "Refreshing…"
                     } else {
@@ -351,6 +357,11 @@ impl Render for ServiceView {
                     let reason = operation.disabled_reason.clone();
                     div()
                         .id(SharedString::from(operation.id.clone()))
+                        .a11y_button(label.clone())
+                        .when_some(reason.clone(), |view, reason| {
+                            view.aria_description(reason.to_string())
+                        })
+                        .a11y_disabled(busy || reason.is_some())
                         .px_3()
                         .py_2()
                         .bg(colors.accent)
@@ -373,6 +384,7 @@ impl Render for ServiceView {
             view = view.child(
                 div()
                     .id("discard-form-edits")
+                    .a11y_button("Discard form edits")
                     .cursor_pointer()
                     .child("Discard form edits")
                     .on_click(cx.listener(|this, _, _, cx| {
@@ -386,6 +398,7 @@ impl Render for ServiceView {
             view = view.child(
                 div()
                     .id("cancel-pending-operation")
+                    .a11y_button("Cancel operation")
                     .cursor_pointer()
                     .child("Cancel operation")
                     .on_click(cx.listener(|this, _, _, cx| {
@@ -417,6 +430,7 @@ impl Render for ServiceView {
                             .child(
                                 div()
                                     .id("confirm-operation")
+                                    .a11y_button("Confirm")
                                     .cursor_pointer()
                                     .child("Confirm")
                                     .on_click(cx.listener(move |this, _, _, cx| {
@@ -426,6 +440,7 @@ impl Render for ServiceView {
                             .child(
                                 div()
                                     .id("cancel-operation")
+                                    .a11y_button("Cancel")
                                     .cursor_pointer()
                                     .child("Cancel")
                                     .on_click(cx.listener(|this, _, _, cx| {

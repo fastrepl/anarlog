@@ -15,6 +15,7 @@ use super::{
     store::{Display, ToolPart},
     view::{icon, spinner},
 };
+use crate::ui::a11y::Accessible;
 use crate::{
     meeting::ai_view::AiViewServices,
     ui::theme::{MEDIUM, Theme},
@@ -170,6 +171,8 @@ impl ChatView {
                 .child(
                     div()
                         .id(SharedString::from(format!("chat-activity-{id}")))
+                        .a11y_button("Activity")
+                        .aria_expanded(open)
                         .flex()
                         .items_center()
                         .gap_2()
@@ -437,6 +440,11 @@ impl ChatView {
                     "chat-carousel-{}-{id}",
                     if left { "previous" } else { "next" }
                 )))
+                .a11y_button(if left {
+                    "Previous results"
+                } else {
+                    "Next results"
+                })
                 .absolute()
                 .top_0()
                 .bottom_0()
@@ -484,6 +492,11 @@ impl ChatView {
                                             .id(SharedString::from(format!(
                                                 "chat-search-result-{session}"
                                             )))
+                                            .a11y_button(match &date {
+                                                Some(date) => format!("{title}, {date}"),
+                                                None => title.to_string(),
+                                            })
+                                            .aria_description(excerpt.to_string())
                                             .h_full()
                                             .border_1()
                                             .border_color(colors.border)
