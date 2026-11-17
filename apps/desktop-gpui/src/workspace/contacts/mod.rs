@@ -33,6 +33,7 @@ use organization::OrganizationPage;
 use person::PersonPage;
 
 use super::sidebar::{floating_panel, floating_panel_body};
+use crate::ui::a11y::Accessible;
 use crate::ui::theme::{Theme, theme};
 
 pub enum ContactsEvent {
@@ -191,6 +192,7 @@ pub(super) fn radio_item(
 ) -> gpui::Stateful<gpui::Div> {
     let item = div()
         .id(id)
+        .a11y_menu_radio(label, checked)
         .relative()
         .py(px(6.))
         .pl(px(32.))
@@ -291,7 +293,8 @@ impl Contacts {
     /// Opens `selection`, or yourself (then the first contact) when it is `None`.
     pub fn select(&mut self, selection: Option<Selection>, cx: &mut Context<Self>) {
         self.selected = selection;
-        self.list.update(cx, |_, cx| cx.notify());
+        // The list's own row click lands here while it is being updated, so it can't be leased.
+        gpui::App::notify(cx, self.list.entity_id());
         cx.notify();
     }
 
@@ -561,6 +564,8 @@ impl Contacts {
                                         self.menu,
                                         colors,
                                     )
+                                    .a11y_button("Contact options")
+                                    .aria_expanded(self.menu)
                                     .on_click(cx.listener(
                                         |this, event, _, cx| {
                                             if !this.menu_dismissal.closed_by(event) {
@@ -604,6 +609,7 @@ impl Contacts {
             };
             div()
                 .id(id)
+                .a11y_menu_item(label)
                 .group(id)
                 .h(px(32.))
                 .px_2()
@@ -698,6 +704,7 @@ impl Contacts {
     ) -> impl IntoElement {
         div()
             .id("change-photo")
+            .a11y_button("Change photo")
             .group("change-photo")
             .relative()
             .cursor_pointer()

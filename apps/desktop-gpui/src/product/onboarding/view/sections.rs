@@ -12,6 +12,7 @@ use gpui::{
 };
 
 use super::OnboardingView;
+use crate::ui::a11y::Accessible;
 use crate::{
     product::{
         controls::{HAND_FONT, dropdown, icon, menu_panel},
@@ -283,6 +284,8 @@ impl OnboardingView {
         }
         let active = status == Section::Active;
         let header = div()
+            .id(title)
+            .a11y_heading(if active { title } else { completed_title }, 2)
             .flex()
             .items_center()
             .gap_2()
@@ -319,6 +322,7 @@ impl OnboardingView {
                                 row.child(
                                     div()
                                         .id(SharedString::from(format!("onboarding-skip-{step:?}")))
+                                        .a11y_button("Skip")
                                         .flex()
                                         .items_center()
                                         .gap_1()
@@ -380,6 +384,8 @@ impl OnboardingView {
                     "onboarding-permission-{}",
                     permission.id()
                 )))
+                .a11y_button(if authorized { enabled } else { enable })
+                .a11y_disabled(pending)
                 .group("permission")
                 .w_full()
                 .min_w_0()
@@ -489,6 +495,7 @@ impl OnboardingView {
                 ))
                 .child(
                     primary_button("onboarding-sign-in", colors)
+                        .a11y_button("Get started")
                         .py_2()
                         .when(self.state.signing_in, |button| {
                             button.opacity(0.7).child(spinner(
@@ -665,13 +672,13 @@ impl OnboardingView {
                             ),
                     )
             };
-            div()
-                .flex()
-                .flex_1()
-                .min_w(px(224.))
-                .child(control.on_click(
-                    cx.listener(move |this, _: &ClickEvent, _, cx| this.connect_provider(id, cx)),
-                ))
+            div().flex().flex_1().min_w(px(224.)).child(
+                control
+                    .a11y_button(if connected { name } else { connect })
+                    .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                        this.connect_provider(id, cx)
+                    })),
+            )
         };
         let apple_authorized = self.state.calendar == Access::Authorized;
         let apple_pending = self.state.pending == Some(Permission::Calendar);
@@ -689,6 +696,12 @@ impl OnboardingView {
                         row.child(
                             div().flex().flex_1().min_w(px(224.)).child(
                                 outline("onboarding-calendar-apple")
+                                    .a11y_button(if apple_authorized {
+                                        "Apple Calendar connected"
+                                    } else {
+                                        "Connect Apple Calendar"
+                                    })
+                                    .a11y_disabled(apple_pending)
                                     .when(apple_pending, |button| button.opacity(0.6))
                                     .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
                                         this.connect_apple(cx)
@@ -726,6 +739,7 @@ impl OnboardingView {
                 column.child(
                     div().flex().child(
                         primary_button("onboarding-calendar-continue", colors)
+                            .a11y_button("Continue")
                             .on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.advance(cx)))
                             .child("Continue"),
                     ),
@@ -743,6 +757,7 @@ impl OnboardingView {
         let link = |id: &'static str, label: &'static str| {
             div()
                 .id(id)
+                .a11y_button(label)
                 .underline()
                 .cursor_pointer()
                 .hover(move |style| style.text_color(foreground))
@@ -812,6 +827,11 @@ impl OnboardingView {
             .child(
                 div()
                     .id("onboarding-import-connect")
+                    .a11y_button(if signed_in {
+                        "Connect a meeting app"
+                    } else {
+                        "Sign in to connect"
+                    })
                     .group("import-connect")
                     .relative()
                     .flex_1()
@@ -881,6 +901,7 @@ impl OnboardingView {
             .child(
                 div()
                     .id("onboarding-import-files")
+                    .a11y_button("More import options")
                     .w(px(24.))
                     .h_full()
                     .flex_none()
@@ -913,6 +934,7 @@ impl OnboardingView {
                 menu_panel(160., colors).child(
                     div()
                         .id("onboarding-import-use-files")
+                        .a11y_button("Use files")
                         .flex()
                         .items_center()
                         .gap_2()
@@ -950,6 +972,7 @@ impl OnboardingView {
                             .child(
                                 div()
                                     .id("onboarding-import-google-meet")
+                                    .a11y_button("Google Meet")
                                     .flex_1()
                                     .min_w_0()
                                     .flex()
@@ -1011,6 +1034,7 @@ impl OnboardingView {
                     .when(self.state.imported.is_some(), |row| {
                         row.child(
                             primary_button("onboarding-imports-continue", colors)
+                                .a11y_button("Continue")
                                 .on_click(
                                     cx.listener(|this, _: &ClickEvent, _, cx| this.advance(cx)),
                                 )
@@ -1019,6 +1043,7 @@ impl OnboardingView {
                     })
                     .child(
                         secondary_button("onboarding-imports-skip", colors)
+                            .a11y_button("Skip for now")
                             .on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.skip(cx)))
                             .child("Skip for now"),
                     ),
@@ -1030,6 +1055,11 @@ impl OnboardingView {
         let social = |id: &'static str, path: &'static str, size: f32, url: &'static str| {
             div()
                 .id(id)
+                .a11y_link(match id {
+                    "onboarding-discord" => "Discord",
+                    "onboarding-github" => "GitHub",
+                    _ => "X",
+                })
                 .size(px(20.))
                 .flex()
                 .items_center()
@@ -1080,6 +1110,7 @@ impl OnboardingView {
             .gap_2()
             .child(
                 primary_button("onboarding-finish", colors)
+                    .a11y_button("Open Anarlog")
                     .py_2()
                     .when(self.state.finishing, |button| {
                         button.opacity(0.7).child(spinner(
@@ -1258,6 +1289,7 @@ impl Render for OnboardingView {
                     .child(
                         div()
                             .id("onboarding-mute")
+                            .a11y_button(if self.state.muted { "Unmute" } else { "Mute" })
                             .p(px(6.))
                             .cursor_pointer()
                             .hover(|style| style.bg(colors.accent))

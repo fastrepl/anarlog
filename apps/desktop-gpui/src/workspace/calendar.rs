@@ -23,6 +23,7 @@ use super::{
     folder_picker::{FolderPicker, FolderPickerEvent},
     mutations::{failure, statement, transaction},
 };
+use crate::ui::a11y::Accessible;
 use crate::ui::theme::{Theme, monospace_font, theme};
 
 const COMPACT_PAST_DAYS: u64 = 42;
@@ -1062,6 +1063,8 @@ fn primary_button(
 ) -> gpui::Stateful<gpui::Div> {
     div()
         .id(id)
+        .a11y_button(label)
+        .a11y_disabled(busy)
         .w_full()
         .min_h(px(32.))
         .px_2()
@@ -1091,6 +1094,8 @@ fn secondary_button(
 ) -> gpui::Stateful<gpui::Div> {
     div()
         .id(id)
+        .a11y_button(label)
+        .a11y_disabled(disabled)
         .w_full()
         .min_h(px(32.))
         .px_2()
@@ -1164,6 +1169,11 @@ impl CalendarView {
                 "calendar-item:{day}:{}",
                 item.id
             )))
+            .a11y_button(match &start {
+                Some(start) => format!("{}, {start}", item.title()),
+                None => item.title().to_string(),
+            })
+            .aria_expanded(selected)
             .relative()
             .w_full()
             .flex_shrink_0()
@@ -1379,6 +1389,7 @@ impl CalendarView {
                             .child(
                                 div()
                                     .id("calendar-join")
+                                    .a11y_button("Join")
                                     .h(px(28.))
                                     .px_2()
                                     .flex()
@@ -1421,6 +1432,7 @@ impl CalendarView {
         };
         div()
             .id("calendar-popover")
+            .a11y_dialog(item.title())
             .occlude()
             .on_mouse_down_out(cx.listener(|this, _, _, cx| this.dismiss_popover(cx)))
             .child(floating(
@@ -1445,6 +1457,11 @@ impl CalendarView {
         let target = item.clone();
         div()
             .id("calendar-add-folder")
+            .a11y_button(if item.folder.is_empty() {
+                SharedString::from("Add to folder")
+            } else {
+                SharedString::from(format!("Folder: {}", folder_name(&item.folder)))
+            })
             .w_full()
             .min_h(px(32.))
             .px_2()
@@ -1499,6 +1516,7 @@ impl CalendarView {
     ) -> gpui::Stateful<gpui::Div> {
         div()
             .id(id)
+            .a11y_button("Back")
             .flex()
             .items_center()
             .gap_1()
@@ -1689,6 +1707,7 @@ impl CalendarView {
             .collect::<Vec<_>>();
         div()
             .id("calendar-more-popover")
+            .a11y_dialog(day.format("%A, %B %-d").to_string())
             .occlude()
             .on_mouse_down_out(cx.listener(|this, _, _, cx| this.dismiss_popover(cx)))
             .child(floating(
@@ -1719,7 +1738,7 @@ impl CalendarView {
         cell_height: Option<f32>,
         colors: Theme,
         cx: &mut Context<Self>,
-    ) -> gpui::Div {
+    ) -> gpui::Stateful<gpui::Div> {
         let items = self.days.get(&day).map(Vec::as_slice).unwrap_or_default();
         let today = day == self.today;
         let chip = items
@@ -1740,6 +1759,15 @@ impl CalendarView {
         });
         let weekend = weekend(day);
         div()
+            .id(SharedString::from(format!("calendar-day:{day}")))
+            .a11y_group(
+                gpui::Role::Group,
+                if today {
+                    format!("Today, {}", day.format("%A, %B %-d"))
+                } else {
+                    day.format("%A, %B %-d").to_string()
+                },
+            )
             .flex_1()
             .min_w_0()
             .flex()
@@ -1790,6 +1818,7 @@ impl CalendarView {
                         list.child(
                             div()
                                 .id(SharedString::from(format!("calendar-more:{day}")))
+                                .a11y_button(format!("{hidden} more"))
                                 .relative()
                                 .flex_shrink_0()
                                 .pl_1()
@@ -1844,6 +1873,8 @@ impl CalendarView {
                     .gap_2()
                     .child(
                         div()
+                            .id("calendar-title")
+                            .a11y_heading(title.clone(), 1)
                             .text_sm()
                             .line_height(px(20.))
                             .font_weight(FontWeight::SEMIBOLD)
@@ -1855,6 +1886,7 @@ impl CalendarView {
                         if self.showing_refresh || self.sync.read(cx).status() != SyncStatus::Idle {
                             div()
                                 .id("calendar-syncing")
+                                .a11y_status("Syncing calendars", false)
                                 .size(px(24.))
                                 .flex()
                                 .items_center()
@@ -1868,6 +1900,7 @@ impl CalendarView {
                         } else {
                             div()
                                 .id("calendar-refresh")
+                                .a11y_button("Refresh calendars")
                                 .size(px(24.))
                                 .flex()
                                 .items_center()
@@ -1891,6 +1924,7 @@ impl CalendarView {
                     .bg(colors.card)
                     .child(
                         segment("calendar-previous")
+                            .a11y_button("Previous")
                             .w(px(28.))
                             .child(icon(
                                 "workspace/ArrowLeft01Icon.svg",
@@ -1902,6 +1936,7 @@ impl CalendarView {
                     .child(divider())
                     .child(
                         segment("calendar-today")
+                            .a11y_button("Today")
                             .px_2()
                             .text_xs()
                             .font_weight(crate::ui::theme::MEDIUM)
@@ -1912,6 +1947,7 @@ impl CalendarView {
                     .child(divider())
                     .child(
                         segment("calendar-next")
+                            .a11y_button("Next")
                             .w(px(28.))
                             .child(icon(
                                 "workspace/ArrowRight01Icon.svg",

@@ -319,3 +319,138 @@ fn every_page_names_its_controls() {
         assert_named(&app.tree(), page);
     }
 }
+
+#[test]
+fn onboarding_steps_have_headings_and_named_actions() {
+    use desktop_gpui::product::onboarding::{Access, OnboardingPreview, State, Step};
+
+    let app = Harness::start();
+    let preview = |step, state: State| {
+        app.app.update(|cx| {
+            cx.set_global(OnboardingPreview {
+                step: Some(step),
+                state,
+            })
+        });
+    };
+    preview(Step::Permissions, State::default());
+    app.open(Route::Onboarding);
+    let tree = app.tree();
+    tree.find(Role::Heading, "Start with permissions");
+    assert!(
+        !tree.root().items(Role::Button).is_empty(),
+        "{}",
+        tree.outline()
+    );
+    assert_named(&tree, "permissions");
+    let granted = State {
+        microphone: Access::Authorized,
+        system_audio: Access::Authorized,
+        accessibility: Access::Authorized,
+        enabled_calendars: 1,
+        skipped_login: true,
+        ..State::default()
+    };
+    for step in [Step::Login, Step::Calendar, Step::Imports, Step::Final] {
+        preview(step, granted.clone());
+        app.settle();
+        let tree = app.tree();
+        assert_named(&tree, &format!("{step:?}"));
+        assert!(!tree.root().items(Role::Heading).is_empty(), "{step:?}");
+    }
+    app.tree().find(Role::Button, "Open Anarlog");
+}
+
+#[test]
+fn calendar_names_its_navigation_days_and_events() {
+    let app = Harness::start();
+    app.open(Route::Calendar);
+    let tree = app.tree();
+    for name in ["Previous", "Today", "Next"] {
+        tree.find(Role::Button, name);
+    }
+    assert!(!tree.root().items(Role::Heading).is_empty());
+    let days = tree
+        .root()
+        .items(Role::Group)
+        .into_iter()
+        .filter(|group| group.label().contains(", "))
+        .collect::<Vec<_>>();
+    assert!(days.len() >= 28, "{}", tree.outline());
+    assert!(days.iter().any(|day| day.label().starts_with("Today, ")));
+    let event = days
+        .iter()
+        .flat_map(|day| day.items(Role::Button))
+        .next()
+        .expect("a seeded event");
+    let label = event.label().to_owned();
+    app.press(event.id);
+    let tree = app.tree();
+    let chip = tree.find(Role::Button, &label);
+    assert_eq!(chip.expanded(), Some(true));
+    assert!(
+        !tree.root().items(Role::Dialog).is_empty(),
+        "{}",
+        tree.outline()
+    );
+}
+
+#[test]
+fn contacts_list_people_and_open_a_named_profile() {
+    let app = Harness::start();
+    app.open(Route::Contacts);
+    let tree = app.tree();
+    tree.find(Role::TextInput, "Search contacts");
+    for name in ["Go home", "Add contact"] {
+        tree.find(Role::Button, name);
+    }
+    let rows = tree
+        .root()
+        .items(Role::Button)
+        .into_iter()
+        .filter(|row| row.selected().is_some())
+        .collect::<Vec<_>>();
+    assert!(!rows.is_empty(), "{}", tree.outline());
+    let first = rows[0].id;
+    app.press(first);
+    let tree = app.tree();
+    let selected = tree
+        .root()
+        .items(Role::Button)
+        .into_iter()
+        .filter(|row| row.selected() == Some(true))
+        .count();
+    assert_eq!(selected, 1, "{}", tree.outline());
+    assert_named(&tree, "contact");
+}
+
+#[test]
+fn open_note_dialog_is_a_dialog_whose_highlight_is_read() {
+    let app = Harness::start();
+    app.keys(&["cmd-k"]);
+    let tree = app.tree();
+    let dialog = tree.find(Role::Dialog, "Search notes and pages...");
+    let input = dialog.find(Role::TextInput, "Search notes and pages");
+    assert_eq!(input.id, tree.focus, "the search field takes focus");
+    let results = dialog.find(Role::ListBox, "Notes and pages");
+    assert!(!results.items(Role::ListBoxOption).is_empty());
+    dialog.find(Role::Button, "Close");
+
+    app.keys(&["down"]);
+    let tree = app.tree();
+    let highlighted = tree
+        .root()
+        .items(Role::ListBoxOption)
+        .into_iter()
+        .find(|option| option.selected() == Some(true))
+        .expect("a highlighted option")
+        .label()
+        .to_owned();
+    let status = tree
+        .root()
+        .items(Role::Status)
+        .into_iter()
+        .find(|status| highlighted.starts_with(status.label()))
+        .is_some();
+    assert!(status, "{}", tree.outline());
+}

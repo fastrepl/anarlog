@@ -13,6 +13,7 @@ use super::{
     ops::{Field, Kind, Write},
     radio_item, red, related_note_label, text_sm, text_xs,
 };
+use crate::ui::a11y::Accessible;
 use crate::{
     ui::{
         input::{InputEvent, TextInput},
@@ -68,7 +69,7 @@ impl PersonPage {
         let mut subscriptions = Vec::new();
         let fields = FIELDS
             .iter()
-            .map(|&(field, _, placeholder)| {
+            .map(|&(field, label, placeholder)| {
                 let value = match field {
                     Field::Name => &human.name,
                     Field::JobTitle => &human.job_title,
@@ -79,7 +80,7 @@ impl PersonPage {
                     Field::Organization => &human.organization_id,
                 };
                 let input = cx.new(|cx| {
-                    let mut input = TextInput::new(placeholder, cx).inline();
+                    let mut input = TextInput::new(placeholder, cx).inline().label(label);
                     if field == Field::Memo {
                         input = input.multiline().fill();
                     }
@@ -156,7 +157,9 @@ impl PersonPage {
 
 fn email_row(value: SharedString, window: &mut Window, cx: &mut Context<Contacts>) -> EmailRow {
     let input = cx.new(|cx| {
-        let mut input = TextInput::new("jane@example.com", cx).inline();
+        let mut input = TextInput::new("jane@example.com", cx)
+            .inline()
+            .label("Email");
         input.set_text(value.to_string(), cx);
         input
     });
@@ -291,7 +294,11 @@ impl Contacts {
     }
 
     fn open_picker(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let search = cx.new(|cx| TextInput::new("Search or add company", cx).inline());
+        let search = cx.new(|cx| {
+            TextInput::new("Search or add company", cx)
+                .inline()
+                .label("Company")
+        });
         let subscription = cx.subscribe(&search, |this, _, event, cx| match event {
             InputEvent::Changed => {
                 if let Some(picker) = this.person_page().and_then(|page| page.picker.as_mut()) {
@@ -540,6 +547,7 @@ impl Contacts {
                                 14.,
                                 colors,
                             )
+                            .a11y_button("Remove email")
                             .size(px(24.))
                             .on_click(
                                 cx.listener(move |this, _, _, cx| this.remove_email(index, cx)),
@@ -553,6 +561,7 @@ impl Contacts {
                     div().flex_1().child(
                         text_xs(div())
                             .id("add-email")
+                            .a11y_button("Add email")
                             .ml(px(-8.))
                             .h(px(28.))
                             .px_2()
@@ -610,6 +619,14 @@ impl Contacts {
         let organization = self.data.organization(&human.organization_id);
         let trigger = div()
             .id("company-trigger")
+            .role(gpui::Role::ComboBox)
+            .aria_label("Company")
+            .aria_value(
+                organization
+                    .filter(|o| !o.name.is_empty())
+                    .map(|o| o.name.clone())
+                    .unwrap_or_else(|| "Select company".into()),
+            )
             .ml(px(-8.))
             .px_2()
             .py_1()
@@ -632,6 +649,7 @@ impl Contacts {
                         .child(
                             div()
                                 .id("remove-company")
+                                .a11y_button("Remove company")
                                 .ml_2()
                                 .group("remove-company")
                                 .on_click(cx.listener(|this, _, _, cx| {
@@ -685,6 +703,8 @@ impl Contacts {
         let option = |index: usize, cx: &mut Context<Self>| {
             div()
                 .id(("organization-option", index))
+                .role(gpui::Role::ListBoxOption)
+                .aria_selected(picker.highlighted == Some(index))
                 .w_full()
                 .px_3()
                 .py_2()
@@ -720,6 +740,7 @@ impl Contacts {
             .children(matches.iter().enumerate().map(|(index, (id, name))| {
                 let id = id.to_string();
                 option(index, cx)
+                    .aria_label(name.clone())
                     .on_click(
                         cx.listener(move |this, _, _, cx| this.set_organization(id.clone(), cx)),
                     )
@@ -751,6 +772,7 @@ impl Contacts {
                 let label = name.clone();
                 list.child(
                     option(index, cx)
+                        .aria_label(format!("Create {label}"))
                         .on_click(cx.listener(move |this, _, _, cx| {
                             this.create_organization(name.clone(), cx)
                         }))
@@ -1057,7 +1079,12 @@ impl Contacts {
             return None;
         }
         let link = |id: &'static str, label: &'static str| {
-            div().id(id).underline().cursor_pointer().child(label)
+            div()
+                .id(id)
+                .a11y_button(label)
+                .underline()
+                .cursor_pointer()
+                .child(label)
         };
         let body = match result {
             Err(error) => text_xs(div())
@@ -1121,6 +1148,8 @@ impl Contacts {
             .child(
                 text_xs(div())
                     .id("enrich-contact-button")
+                    .a11y_button("Enrich contact from CRM")
+                    .a11y_disabled(!enabled)
                     .group("enrich-contact-button")
                     .h(px(28.))
                     .px_2()
@@ -1324,6 +1353,7 @@ impl Contacts {
                         let id = note.id.clone();
                         div()
                             .id(SharedString::from(format!("related-{}", note.id)))
+                            .a11y_button(related_note_label(note))
                             .w_full()
                             .px_2()
                             .py_2()
@@ -1411,6 +1441,7 @@ impl Contacts {
                 view.child(
                     div()
                         .id("clear-related-search")
+                        .a11y_button("Clear search")
                         .flex_shrink_0()
                         .cursor_pointer()
                         .on_click(cx.listener(|this, _, _, cx| {

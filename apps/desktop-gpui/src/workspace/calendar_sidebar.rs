@@ -25,6 +25,7 @@ use super::{
     mutations::{statement, transaction},
     resource_list::{dialog_button, glass_dialog, modal},
 };
+use crate::ui::a11y::Accessible;
 use crate::ui::theme::{Theme, theme};
 
 pub enum CalendarSidebarEvent {
@@ -241,6 +242,7 @@ pub fn context_menu(
         anchored().position(position).snap_to_window().child(
             div()
                 .id(id)
+                .role(gpui::Role::Menu)
                 .w(px(224.))
                 .p_1()
                 .bg(colors.card)
@@ -259,6 +261,8 @@ pub fn context_menu(
                         .child(
                             div()
                                 .id(index)
+                                .a11y_menu_item(item.label.clone())
+                                .a11y_disabled(item.disabled)
                                 .h(px(30.))
                                 .px_3()
                                 .flex()
@@ -720,6 +724,8 @@ impl CalendarSidebar {
                         "calendar-provider:{}",
                         provider.id()
                     )))
+                    .a11y_button(provider.name())
+                    .when(!needs_permission, |row| row.aria_expanded(open))
                     .group(group.clone())
                     .mx(px(-8.))
                     .px_2()
@@ -767,6 +773,7 @@ impl CalendarSidebar {
                                     )),
                                     colors,
                                 )
+                                .a11y_button(format!("Connect {}", provider.name()))
                                 .when(self.apple_pending, |button| button.opacity(0.5))
                                 .child(plus(self.apple_pending))
                                 .on_click(cx.listener(
@@ -786,6 +793,7 @@ impl CalendarSidebar {
                                     )),
                                     colors,
                                 )
+                                .a11y_button(format!("Add {} account", provider.name()))
                                 .when(self.opening.is_some(), |button| button.opacity(0.5))
                                 .child(plus(busy))
                                 .on_click(cx.listener(
@@ -801,6 +809,7 @@ impl CalendarSidebar {
                                     SharedString::from(format!("calendar-more:{}", provider.id())),
                                     colors,
                                 )
+                                .a11y_button("Open calendar account actions")
                                 .invisible()
                                 .group_hover(group.clone(), |style| style.visible())
                                 .child(
@@ -852,8 +861,11 @@ impl CalendarSidebar {
         busy: bool,
         disabled: bool,
     ) -> gpui::Stateful<gpui::Div> {
+        let label = label.into();
         div()
             .id(id)
+            .a11y_button(label.clone())
+            .a11y_disabled(disabled)
             .flex()
             .items_center()
             .gap_1()
@@ -866,7 +878,7 @@ impl CalendarSidebar {
             .hover(move |style| style.text_color(hover))
             .when(disabled, |link| link.opacity(0.5))
             .when(busy, |link| link.child(spinner(12., color)))
-            .child(label.into())
+            .child(label)
     }
 
     fn provider_content(
@@ -1092,6 +1104,7 @@ impl CalendarSidebar {
                                         "calendar-refresh:{}",
                                         provider.id()
                                     )))
+                                    .a11y_button("Refresh calendars")
                                     .p_1()
                                     .cursor_pointer()
                                     .hover(move |style| style.bg(colors.accent))
@@ -1189,6 +1202,7 @@ impl CalendarSidebar {
                     )
                     .child(
                         Self::round_button(name.clone(), colors)
+                            .a11y_button("Open calendar account actions")
                             .invisible()
                             .group_hover(name, |style| style.visible())
                             .child(
@@ -1219,6 +1233,14 @@ impl CalendarSidebar {
         let target = row.clone();
         div()
             .id(SharedString::from(format!("calendar-toggle:{}", row.id)))
+            .a11y_checkbox(
+                if row.name.is_empty() {
+                    SharedString::from("Untitled")
+                } else {
+                    SharedString::from(row.name.clone())
+                },
+                enabled,
+            )
             .w_full()
             .py_1()
             .pr_2()
@@ -1275,6 +1297,7 @@ impl CalendarSidebar {
         modal(
             window,
             glass_dialog(colors)
+                .a11y_dialog("Apple Calendar access is off")
                 .on_mouse_down_out(cx.listener(|this, _, _, cx| {
                     this.permission_dialog = false;
                     cx.notify();
@@ -1403,6 +1426,7 @@ impl Render for CalendarSidebar {
                     .child(
                         div()
                             .id("calendar-back")
+                            .a11y_button("Go home")
                             .group("calendar-back")
                             .size(px(28.))
                             .flex()

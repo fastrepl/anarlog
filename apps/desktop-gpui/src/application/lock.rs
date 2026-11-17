@@ -12,6 +12,7 @@ use gpui::{
 };
 use serde_json::Value;
 
+use crate::ui::a11y::Accessible;
 use crate::{
     meeting::{access, capture::Phase},
     platform::device_auth,
@@ -435,6 +436,7 @@ pub fn screen(
     colors: Theme,
     on_unlock: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
 ) -> Div {
+    let title = title.into();
     div()
         .size_full()
         .flex()
@@ -466,14 +468,18 @@ pub fn screen(
                 )
                 .child(
                     div()
+                        .id("lock-title")
+                        .a11y_heading(title.clone(), 1)
                         .mt_5()
                         .text_size(px(18.))
                         .line_height(px(28.))
                         .font_weight(gpui::FontWeight::SEMIBOLD)
-                        .child(title.into()),
+                        .child(title),
                 )
                 .child(
                     div()
+                        .id("lock-hint")
+                        .a11y_text(hint())
                         .mt_2()
                         .text_sm()
                         .line_height(px(20.))
@@ -483,6 +489,12 @@ pub fn screen(
                 .child(
                     div()
                         .id(id)
+                        .a11y_button(if authenticating {
+                            "Authenticating…"
+                        } else {
+                            action
+                        })
+                        .a11y_disabled(authenticating)
                         .mt_6()
                         .h(px(36.))
                         .px_4()

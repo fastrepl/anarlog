@@ -19,6 +19,7 @@ use super::{
     navigation::Route,
     search::{self, MAX_RECENT, Move, Note, Row},
 };
+use crate::ui::a11y::Accessible;
 use crate::{
     product::account,
     ui::{
@@ -78,7 +79,11 @@ impl Focusable for NotePicker {
 
 impl NotePicker {
     pub fn new(runtime: RuntimeHandle, cx: &mut Context<Self>) -> Self {
-        let input = cx.new(|cx| TextInput::new("Search notes and pages...", cx).inline());
+        let input = cx.new(|cx| {
+            TextInput::new("Search notes and pages...", cx)
+                .inline()
+                .label("Search notes and pages")
+        });
         let subscription = cx.subscribe(&input, |this, _, event, cx| {
             if let InputEvent::Changed = event {
                 this.refilter(false, cx);
@@ -306,6 +311,8 @@ impl NotePicker {
             match &self.rows[index] {
                 Row::Heading { label, separator } => {
                     return div()
+                        .id(index)
+                        .a11y_heading(*label, 3)
                         .w_full()
                         .flex()
                         .flex_col()
@@ -346,6 +353,14 @@ impl NotePicker {
             };
         div()
             .id(index)
+            .a11y_option(
+                if locked {
+                    SharedString::from(format!("{title}, Requires Anarlog Pro"))
+                } else {
+                    title.clone()
+                },
+                self.selected == Some(index),
+            )
             .w_full()
             .flex()
             .items_center()
@@ -524,6 +539,7 @@ impl Render for NotePicker {
             .child(
                 div()
                     .id("close-open-note-dialog")
+                    .a11y_button("Close")
                     .size(px(20.))
                     .flex_shrink_0()
                     .flex()
@@ -543,6 +559,8 @@ impl Render for NotePicker {
                 .p_2()
                 .child(
                     div()
+                        .id("open-note-empty")
+                        .a11y_status("No results found.", false)
                         .py_6()
                         .text_center()
                         .text_size(px(14.))
@@ -554,17 +572,34 @@ impl Render for NotePicker {
         } else {
             // `max-h-80` around the `p-2` list.
             let height = self.rows.iter().map(row_height).sum::<f32>() + 16.;
-            list(
-                self.list.clone(),
-                cx.processor(|this, index: usize, window, cx| this.render_row(index, window, cx)),
-            )
-            .w_full()
-            .h(px(height.min(320.)))
-            .p_2()
-            .into_any_element()
+            div()
+                .id("open-note-results")
+                .a11y_group(gpui::Role::ListBox, "Notes and pages")
+                .w_full()
+                .child(
+                    list(
+                        self.list.clone(),
+                        cx.processor(|this, index: usize, window, cx| {
+                            this.render_row(index, window, cx)
+                        }),
+                    )
+                    .w_full()
+                    .h(px(height.min(320.)))
+                    .p_2(),
+                )
+                .into_any_element()
         };
+        // The input keeps focus while the arrows move the highlight, like shipping's combobox.
+        // GPUI follows an active descendant only inside the focused element, so a polite live
+        // region reads the highlighted row instead.
+        let highlighted = self.selected.and_then(|index| match &self.rows[index] {
+            Row::Page(page) => Some(SharedString::from(page.label)),
+            Row::Note { note, .. } => Some(SharedString::from(note.title.clone())),
+            _ => None,
+        });
         div()
             .id("open-note-dialog")
+            .a11y_dialog("Search notes and pages...")
             .absolute()
             .inset_0()
             .occlude()
@@ -605,7 +640,12 @@ impl Render for NotePicker {
                             .bg(colors.background)
                             .shadow_2xl()
                             .child(header)
-                            .child(results),
+                            .child(results)
+                            .when_some(highlighted, |view, title| {
+                                view.child(
+                                    div().id("open-note-highlight").a11y_status(title, false),
+                                )
+                            }),
                     ),
             )
     }

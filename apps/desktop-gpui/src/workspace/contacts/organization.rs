@@ -10,6 +10,7 @@ use super::{
     ops::{Kind, Write},
     text_sm, text_xs,
 };
+use crate::ui::a11y::Accessible;
 use crate::ui::{
     input::{InputEvent, TextInput},
     theme::theme,
@@ -24,7 +25,9 @@ pub(super) struct OrganizationPage {
 impl OrganizationPage {
     pub fn new(organization: &Organization, cx: &mut Context<Contacts>) -> Self {
         let name = cx.new(|cx| {
-            let mut input = TextInput::new("Organization name", cx).inline();
+            let mut input = TextInput::new("Organization name", cx)
+                .inline()
+                .label("Organization name");
             input.set_text(organization.name.to_string(), cx);
             input
         });
@@ -189,6 +192,11 @@ impl Contacts {
                                             let linkedin = human.linkedin.clone();
                                             div()
                                                 .id(SharedString::from(format!("member-{}", human.id)))
+                                                .a11y_button(if human.job_title.is_empty() {
+                                                    human.name.to_string()
+                                                } else {
+                                                    format!("{}, {}", human.name, human.job_title)
+                                                })
                                                 .min_w_0()
                                                 .p_4()
                                                 .border_1()
@@ -248,6 +256,7 @@ impl Contacts {
                                                                         // A plain ghost button keeps the foreground icon colour.
                                                                         div()
                                                                             .id(SharedString::from(format!("email-{}", human.id)))
+                                                                            .a11y_link(format!("Email {}", human.name))
                                                                             .size(px(28.))
                                                                             .flex()
                                                                             .items_center()
@@ -270,6 +279,7 @@ impl Contacts {
                                                                     view.child(
                                                                         div()
                                                                             .id(SharedString::from(format!("linkedin-{}", human.id)))
+                                                                            .a11y_link(format!("LinkedIn: {}", human.name))
                                                                             .size(px(28.))
                                                                             .flex()
                                                                             .items_center()

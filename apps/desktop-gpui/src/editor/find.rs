@@ -13,6 +13,7 @@ use super::{
     document::{Document, NodeRef, inline_text},
     transcript::TranscriptView,
 };
+use crate::ui::a11y::Accessible;
 use crate::ui::{
     input::{InputEvent, TextInput},
     theme::{Theme, theme},
@@ -255,11 +256,17 @@ pub struct FindBar {
 
 impl FindBar {
     pub fn new(cx: &mut Context<Self>) -> Self {
-        let query = cx.new(|cx| TextInput::new("Search...", cx).inline().text_size(px(12.)));
+        let query = cx.new(|cx| {
+            TextInput::new("Search...", cx)
+                .inline()
+                .text_size(px(12.))
+                .label("Find")
+        });
         let replacement = cx.new(|cx| {
             TextInput::new("Replace with...", cx)
                 .inline()
                 .text_size(px(12.))
+                .label("Replace")
         });
         let subscription = cx.subscribe(&query, |this, _, event, cx| {
             if matches!(event, InputEvent::Changed) {
@@ -413,8 +420,27 @@ impl FindBar {
         } else {
             colors.muted_foreground
         };
+        let label = match id {
+            "find-match-case" => "Match case",
+            "find-whole-word" => "Whole word",
+            "find-toggle-replace" => "Toggle replace",
+            "find-previous" => "Previous match",
+            "find-next" => "Next match",
+            "find-close" => "Close",
+            "find-replace" => "Replace",
+            _ => "Replace all",
+        };
         div()
             .id(id)
+            .a11y_button(label)
+            .when(
+                matches!(
+                    id,
+                    "find-match-case" | "find-whole-word" | "find-toggle-replace"
+                ),
+                |view| view.aria_toggled(crate::ui::a11y::toggled(active)),
+            )
+            .a11y_disabled(disabled)
             .p(px(2.))
             .flex_shrink_0()
             .when(active, |view| view.bg(colors.accent))

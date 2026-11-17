@@ -14,6 +14,7 @@ use super::{
     ops::Kind,
     radio_item, text_sm, text_xs,
 };
+use crate::ui::a11y::Accessible;
 use crate::{
     ui::{
         input::{InputEvent, TextInput},
@@ -64,7 +65,11 @@ pub struct ContactsList {
 
 impl ContactsList {
     pub fn new(contacts: WeakEntity<Contacts>, cx: &mut Context<Self>) -> Self {
-        let search = cx.new(|cx| TextInput::new("Search contacts...", cx).inline());
+        let search = cx.new(|cx| {
+            TextInput::new("Search contacts...", cx)
+                .inline()
+                .label("Search contacts")
+        });
         let subscription = cx.observe(&search, |_, _, cx| cx.notify());
         Self {
             contacts,
@@ -195,6 +200,13 @@ impl ContactsList {
         };
         text_sm(div())
             .id(group.clone())
+            .a11y_row(
+                match &subtitle {
+                    Some(subtitle) => SharedString::from(format!("{title}, {subtitle}")),
+                    None => title.clone(),
+                },
+                active,
+            )
             .group(group.clone())
             .w_full()
             .px_3()
@@ -254,6 +266,13 @@ impl ContactsList {
             .child(
                 div()
                     .id(SharedString::from(format!("pin-{id}")))
+                    .a11y_button(match (kind, pinned) {
+                        (Kind::Human, true) => "Unpin contact",
+                        (Kind::Human, false) => "Pin contact",
+                        (Kind::Organization, true) => "Unpin organization",
+                        (Kind::Organization, false) => "Pin organization",
+                    })
+                    .a11y_disabled(read_only)
                     .group(SharedString::from(format!("pin-{id}")))
                     .flex_shrink_0()
                     .p_1()
@@ -390,6 +409,7 @@ impl ContactsList {
                             16.,
                             colors,
                         )
+                        .a11y_button("Go home")
                         .on_click(cx.listener(|this, _, _, cx| {
                             this.contacts(cx, |_, cx| cx.emit(ContactsEvent::Back))
                         })),
@@ -414,6 +434,8 @@ impl ContactsList {
                                         self.sort_open,
                                         colors,
                                     )
+                                    .a11y_button("Sort options")
+                                    .aria_expanded(self.sort_open)
                                     .on_click(cx.listener(
                                         |this, event, _, cx| {
                                             if !this.sort_dismissal.closed_by(event) {
@@ -429,6 +451,7 @@ impl ContactsList {
                                         32.,
                                         floating_panel(128., colors)
                                             .id("contacts-sort-menu")
+                                            .a11y_group(gpui::Role::Menu, "Sort options")
                                             .occlude()
                                             .on_mouse_down_out(cx.listener(|this, event, _, cx| {
                                                 this.sort_open = false;
@@ -463,6 +486,7 @@ impl ContactsList {
                     })
                     .child(
                         icon_button("contacts-add", "workspace/PlusIcon.svg", 16., colors)
+                            .a11y_button("Add contact")
                             .on_click(cx.listener(|this, _, window, cx| this.add(window, cx))),
                     ),
             )
@@ -501,6 +525,7 @@ impl ContactsList {
                     view.child(
                         div()
                             .id("clear-contacts-search")
+                            .a11y_button("Clear search")
                             .size(px(16.))
                             .flex_shrink_0()
                             .cursor_pointer()
@@ -560,6 +585,7 @@ impl ContactsList {
                         view.child(
                             div()
                                 .id("submit-new-person")
+                                .a11y_button("Add person")
                                 .flex_shrink_0()
                                 .cursor_pointer()
                                 .on_click(cx.listener(|this, _, _, cx| this.submit_new_person(cx)))
@@ -588,6 +614,7 @@ impl ContactsList {
             anchored().position(menu.position).snap_to_window().child(
                 div()
                     .id("contacts-context-menu")
+                    .role(gpui::Role::Menu)
                     .w(px(224.))
                     .p_1()
                     .bg(colors.card)
@@ -603,6 +630,7 @@ impl ContactsList {
                         let menu = menu.clone();
                         text_sm(div())
                             .id(("contacts-menu-item", index))
+                            .a11y_menu_item(label.clone())
                             .h(px(30.))
                             .px_3()
                             .flex()
