@@ -18,7 +18,8 @@ buildscript {
 
 def reactNativeArchitectures() {
   def value = rootProject.getProperties().get("reactNativeArchitectures")
-  return value ? value.split(",") : ["armeabi-v7a", "x86", "x86_64", "arm64-v8a"]
+  def supported = ["arm64-v8a", "armeabi-v7a", "x86_64"]
+  return value ? value.split(",").findAll { it in supported } : supported
 }
 
 def isNewArchitectureEnabled() {
@@ -79,7 +80,7 @@ android {
       }
     }
     ndk {
-      abiFilters "arm64-v8a", "armeabi-v7a", "x86", "x86_64"
+      abiFilters "arm64-v8a", "armeabi-v7a", "x86_64"
     }
   }
 

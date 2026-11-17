@@ -1,0 +1,20 @@
+apply plugin: 'com.android.library'
+apply plugin: 'expo-module-gradle-plugin'
+
+group = 'so.anarlog.localspeech'
+version = '1.0.0'
+
+android {
+  namespace 'so.anarlog.localspeech'
+  defaultConfig {
+    versionCode 1
+    versionName '1.0.0'
+  }
+}
+
+dependencies {
+  implementation 'com.google.mlkit:genai-speech-recognition:1.0.0-alpha1'
+  testImplementation 'junit:junit:4.13.2'
+  testImplementation 'org.robolectric:robolectric:4.17'
+  testImplementation 'org.mockito:mockito-core:5.20.0'
+}

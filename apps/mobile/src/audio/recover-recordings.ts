@@ -8,6 +8,15 @@ import { captureAnalytics } from "@/lib/analytics";
 import { captureOperationalError } from "@/lib/error-reporting";
 import { clearStaleMeetingRecordingActivities } from "@/live-activity/meeting-recording-activity";
 
+const recoveryListeners = new Set<(accountUserId: string | null) => void>();
+
+export function subscribeRecordingRecovery(
+  listener: (accountUserId: string | null) => void,
+): () => void {
+  recoveryListeners.add(listener);
+  return () => recoveryListeners.delete(listener);
+}
+
 const RECOVERY_CANDIDATES_SQL = `
 SELECT session.id
 FROM sessions AS session
@@ -94,9 +103,11 @@ export async function recoverInterruptedRecordings(
     captureAnalytics("recording_recovered", {
       recording_count: recoveredSessionIds.length,
     });
-    for (const sessionId of recoveredSessionIds) {
-      void transcribeSession(sessionId);
-    }
+    // Let admitted work release its slots before retrying any rejected recordings.
+    await Promise.all(
+      recoveredSessionIds.map((sessionId) => transcribeSession(sessionId)),
+    );
+    for (const listener of recoveryListeners) listener(accountUserId);
   }
   return recoveredSessionIds.length;
 }

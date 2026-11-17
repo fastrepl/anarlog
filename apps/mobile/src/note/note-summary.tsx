@@ -14,7 +14,11 @@ import {
   summaryRecoveryOptions,
   useSessionSummaryState,
 } from "@/data/summarize";
-import { transcribeSession, useTranscriptionState } from "@/data/transcribe";
+import {
+  transcribeSession,
+  useTranscriptionState,
+  useLocalTranscriptionError,
+} from "@/data/transcribe";
 import { createStyleHook } from "@/settings/theme-provider";
 import { useProviderAccess } from "@/settings/use-provider-access";
 
@@ -43,6 +47,7 @@ export function NoteSummary({
   const canSummarize = useProviderAccess("llm");
   const summaryState = useSessionSummaryState(sessionId);
   const transcription = useTranscriptionState(sessionId);
+  const localError = useLocalTranscriptionError(sessionId);
   useQuery(
     summaryRecoveryOptions(
       sessionId,
@@ -89,6 +94,11 @@ export function NoteSummary({
       )}
       {!active && needsTranscription && transcription !== "running" && (
         <>
+          {localError && (
+            <Text accessibilityRole="alert" style={styles.summaryError}>
+              {localError}
+            </Text>
+          )}
           {!audio.availableLocally && <RemoteAudioCard {...audio.restore} />}
           {audio.availableLocally && (
             <Button
