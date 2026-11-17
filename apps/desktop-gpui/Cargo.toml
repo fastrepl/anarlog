@@ -194,6 +194,8 @@ harness = false
 anlg-audio-mock = { workspace = true }
 gpui = { git = "https://github.com/zed-industries/zed", rev = "053d91cb14b5fd138f221ec02bd76efb15e7b2af", features = ["test-support"] }
 gpui_platform = { git = "https://github.com/zed-industries/zed", rev = "053d91cb14b5fd138f221ec02bd76efb15e7b2af", features = ["font-kit", "test-support"] }
+# The accessibility tests' windowless platform implements GPUI's window-handle traits.
+raw-window-handle = "0.6"
 tempfile = { workspace = true }
 tokio-tungstenite = { workspace = true }
 wiremock = { workspace = true }

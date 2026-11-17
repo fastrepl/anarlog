@@ -1,3 +1,4 @@
+pub mod a11y;
 pub mod assets;
 pub mod caret;
 pub mod input;

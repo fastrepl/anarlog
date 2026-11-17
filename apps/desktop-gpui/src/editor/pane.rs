@@ -2335,6 +2335,25 @@ impl Render for EditorPane {
             .font_family(crate::ui::theme::system_font(cx))
             .text_color(colors.foreground)
             .track_focus(&self.focus)
+            .role(gpui::Role::MultilineTextInput)
+            .when_some(self.placeholder.clone(), |view, placeholder| {
+                view.aria_placeholder(placeholder)
+            })
+            .when(window.is_a11y_active(), |view| {
+                let (text, selection) = self
+                    .model
+                    .as_ref()
+                    .map(|model| super::accessibility::plain_text(&model.document, model.selection))
+                    .unwrap_or_default();
+                let read_only = self.read_only;
+                view.aria_value(text.clone())
+                    .a11y_synthetic_children(move |builder| {
+                        if read_only {
+                            builder.parent_node().set_read_only();
+                        }
+                        crate::ui::a11y::text_runs(builder, &text, selection);
+                    })
+            })
             .on_key_down(cx.listener(Self::key))
             .on_drag_move(cx.listener(
                 |this, event: &gpui::DragMoveEvent<super::drop::SessionDrag>, _, cx| {

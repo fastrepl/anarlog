@@ -1,6 +1,5 @@
 use desktop_runtime::ServiceError;
 
-pub mod accessibility;
 pub mod deeplinks;
 pub mod device_auth;
 pub mod dialogs;

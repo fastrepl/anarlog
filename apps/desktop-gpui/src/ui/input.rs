@@ -4,9 +4,9 @@ use gpui::{
     App, AvailableSpace, Bounds, ClipboardItem, ContentMask, Context, DispatchPhase, Element,
     ElementId, ElementInputHandler, Entity, EntityInputHandler, EventEmitter, FocusHandle,
     Focusable, GlobalElementId, InspectorElementId, KeyDownEvent, LayoutId, MouseButton,
-    MouseMoveEvent, Pixels, Point, ScrollEvent, ShapedLine, Style, TextAlign, TextRun,
-    UTF16Selection, UnderlineStyle, Window, WrappedLine, canvas, div, fill, point, prelude::*, px,
-    relative, rgb, size,
+    MouseMoveEvent, Pixels, Point, Role, ScrollEvent, ShapedLine, SharedString, Style, TextAlign,
+    TextRun, UTF16Selection, UnderlineStyle, Window, WrappedLine, canvas, div, fill, point,
+    prelude::*, px, relative, rgb, size,
 };
 
 use super::{
@@ -34,6 +34,9 @@ pub struct TextInput {
     focus: FocusHandle,
     layout: Option<(Bounds<Pixels>, ShapedLine)>,
     placeholder: String,
+    /// The accessible name, shipping's `aria-label`; without it a screen reader reads the
+    /// placeholder.
+    label: Option<SharedString>,
     scroll: Pixels,
     multiline: bool,
     secret: bool,
@@ -70,6 +73,7 @@ impl TextInput {
             focus: cx.focus_handle(),
             layout: None,
             placeholder: placeholder.into(),
+            label: None,
             scroll: px(0.),
             multiline: false,
             secret: false,
@@ -135,6 +139,11 @@ impl TextInput {
     /// Muted text, as for shipping's secondary fields (`text-muted-foreground`).
     pub fn muted(mut self) -> Self {
         self.muted = true;
+        self
+    }
+
+    pub fn label(mut self, label: impl Into<SharedString>) -> Self {
+        self.label = Some(label.into());
         self
     }
 
@@ -507,6 +516,30 @@ impl Render for TextInput {
                     .bg(colors.card)
             })
             .track_focus(&self.focus)
+            .role(if self.secret {
+                Role::PasswordInput
+            } else if self.multiline {
+                Role::MultilineTextInput
+            } else {
+                Role::TextInput
+            })
+            .when_some(self.label.clone(), |view, label| view.aria_label(label))
+            .when(!self.placeholder.is_empty(), |view| {
+                view.aria_placeholder(self.placeholder.clone())
+            })
+            .when(window.is_a11y_active(), |view| {
+                // A secret field is ASCII only, so its mask keeps the byte offsets.
+                let text = if self.secret {
+                    "*".repeat(self.buffer.text.len())
+                } else {
+                    self.buffer.text.clone()
+                };
+                let selection = (self.buffer.anchor, self.buffer.cursor);
+                view.aria_value(text.clone())
+                    .a11y_synthetic_children(move |builder| {
+                        crate::ui::a11y::text_runs(builder, &text, Some(selection))
+                    })
+            })
             .on_key_down(cx.listener(Self::key))
             .on_mouse_down(
                 MouseButton::Left,
