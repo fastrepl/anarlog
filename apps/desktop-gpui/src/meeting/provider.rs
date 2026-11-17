@@ -13,7 +13,9 @@ use futures::{
 use serde_json::{Value, json};
 
 use super::{
-    ai::{Message, Part, ProviderAdapter, ProviderEvent, ProviderResolver, Request, Role},
+    ai::{
+        Message, Part, ProviderAdapter, ProviderEvent, ProviderResolver, Request, Role, Structured,
+    },
     config::{Connection, ProviderKind, ProviderServices, preferences},
     model::{MAX_TEXT, failure},
 };
@@ -142,6 +144,9 @@ impl ProviderAdapter for HttpProvider {
                 Protocol::Anthropic => json!(tools.iter().map(|tool| json!({"name": tool["name"], "description": tool["description"], "input_schema": tool["parameters"]})).collect::<Vec<_>>()),
                 Protocol::Google => json!([{"functionDeclarations": tools.iter().map(google_schema).collect::<Vec<_>>()}]),
             };
+        }
+        if let Some(structured) = &request.structured {
+            structured_output(protocol, &self.connection.provider, structured, &mut body);
         }
         if self.connection.provider == "claude" && subscription.is_some() {
             body["system"] = json!([
@@ -628,6 +633,45 @@ fn google_messages(messages: &[Message]) -> Vec<Value> {
 
 /// Gemini accepts an OpenAPI subset: no `additionalProperties` or `default`, and `enum`
 /// instead of `const`, as the AI SDK's Google provider converts them.
+/// Shipping's AI SDK structured output: OpenRouter's JSON schema, plain JSON mode on other
+/// chat-completions servers, the Responses text format, Anthropic's forced `json` tool and
+/// Gemini's response schema.
+fn structured_output(
+    protocol: Protocol,
+    provider: &str,
+    structured: &Structured,
+    body: &mut Value,
+) {
+    let schema = &structured.schema;
+    let tokens = structured.max_tokens;
+    match protocol {
+        Protocol::OpenAi => {
+            body["max_tokens"] = json!(tokens);
+            body["response_format"] = if matches!(provider, "anarlog" | "openrouter") {
+                json!({"type": "json_schema", "json_schema": {"schema": schema, "strict": true, "name": "response"}})
+            } else {
+                json!({"type": "json_object"})
+            };
+        }
+        Protocol::Responses => {
+            body["max_output_tokens"] = json!(tokens);
+            body["text"] = json!({"format": {"type": "json_schema", "strict": true, "name": "response", "schema": schema}});
+        }
+        Protocol::Anthropic => {
+            body["max_tokens"] = json!(tokens);
+            body["tools"] = json!([{"name": "json", "description": "Respond with a JSON object.", "input_schema": schema}]);
+            body["tool_choice"] = json!({"type": "any", "disable_parallel_tool_use": true});
+        }
+        Protocol::Google => {
+            body["generationConfig"] = json!({
+                "maxOutputTokens": tokens,
+                "responseMimeType": "application/json",
+                "responseSchema": google_schema(schema),
+            });
+        }
+    }
+}
+
 fn google_schema(value: &Value) -> Value {
     match value {
         Value::Object(object) => Value::Object(

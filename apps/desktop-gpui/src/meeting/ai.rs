@@ -165,7 +165,16 @@ pub struct Request {
     pub session: SessionId,
     pub messages: Vec<Message>,
     pub tools_allowed: bool,
+    /// Asks for one JSON object instead of prose (shipping's `Output.object`).
+    pub structured: Option<Structured>,
     pub cancellation: CancellationToken,
+}
+
+/// A structured reply's JSON schema and output token cap.
+#[derive(Clone)]
+pub struct Structured {
+    pub schema: Value,
+    pub max_tokens: u32,
 }
 
 pub trait ProviderAdapter: Send + Sync {
@@ -347,6 +356,7 @@ impl AiServices {
                 },
             ],
             tools_allowed: false,
+            structured: None,
             cancellation: cancellation.clone(),
         };
         let provider = tokio::select! {
@@ -382,6 +392,57 @@ impl AiServices {
             .save_document(SaveDocument { base, body })?
             .receive()
             .await
+    }
+}
+
+impl AiServices {
+    /// One system and user prompt without tools (shipping's `streamText`), streaming text to
+    /// `observe`. A structured reply returns its JSON text.
+    pub async fn generate(
+        &self,
+        session: SessionId,
+        system: String,
+        prompt: String,
+        structured: Option<Structured>,
+        cancellation: CancellationToken,
+        observe: StreamObserver,
+    ) -> Result<String> {
+        if system.len() + prompt.len() > MAX_TEXT {
+            return Err(failure("Prompt exceeds the bounded provider input."));
+        }
+        let request = Request {
+            session: session.clone(),
+            messages: vec![
+                Message {
+                    id: "system".into(),
+                    role: Role::System,
+                    parts: vec![Part::Text { text: system }],
+                },
+                Message {
+                    id: "prompt".into(),
+                    role: Role::User,
+                    parts: vec![Part::Text { text: prompt }],
+                },
+            ],
+            tools_allowed: false,
+            structured,
+            cancellation: cancellation.clone(),
+        };
+        let provider = tokio::select! {
+            _ = cancellation.cancelled() => return Err(ServiceError::Cancelled),
+            result = (self.resolve)(session) => result?,
+        };
+        let stream = tokio::select! {
+            _ = cancellation.cancelled() => return Err(ServiceError::Cancelled),
+            result = provider.stream(request) => result?,
+        };
+        let output = consume(stream, &cancellation, 0, &observe).await?;
+        // Anthropic answers a structured request through its forced `json` tool.
+        match output.tools.into_iter().next() {
+            Some((_, name, input)) if name == "json" => Ok(input.to_string()),
+            Some(_) => Err(failure("Provider returned an unexpected tool call.")),
+            None => Ok(output.text),
+        }
     }
 }
 
@@ -511,6 +572,7 @@ impl ChatSession {
                 session: self.session.clone(),
                 messages: history.clone(),
                 tools_allowed: step < 5,
+                structured: None,
                 cancellation: cancellation.clone(),
             };
             let stream = tokio::select! {

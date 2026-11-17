@@ -1,3 +1,4 @@
+mod brief;
 mod export_modal;
 mod meeting_info;
 pub(super) mod meeting_records;
@@ -117,6 +118,9 @@ pub struct NoteView {
     standalone: bool,
     /// Shipping's ⌘F / ⌘H find & replace bar over the shown tab.
     find: Entity<FindBar>,
+    /// The open note's pre-meeting brief sources, and a brief being written.
+    brief: Option<Arc<brief::Brief>>,
+    brief_job: Option<brief::BriefJob>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -453,6 +457,8 @@ impl NoteView {
             versions: Default::default(),
             standalone: false,
             find: cx.new(FindBar::new),
+            brief: None,
+            brief_job: None,
             _subscriptions: subscriptions,
         }
     }
@@ -561,6 +567,9 @@ impl NoteView {
             .as_ref()
             .is_some_and(|session| &session.summary.id == session_id)
         {
+            if let Ok(editor) = content.clone().downcast::<EditorPane>() {
+                self.adopt_brief_editor(&editor, cx);
+            }
             self.memo_saved = content.clone().downcast::<EditorPane>().ok().map(|editor| {
                 let session = session_id.clone();
                 cx.subscribe(&editor, move |this, _, event: &EditorEvent, cx| {
@@ -615,6 +624,7 @@ impl NoteView {
         self.player = None;
         self.picker = None;
         self.versions = Default::default();
+        self.brief = None;
     }
 
     fn restore_title(&mut self, cx: &mut Context<Self>) {
@@ -764,6 +774,7 @@ impl NoteView {
         self.sync_batch(cx);
         self.load_audio(cx);
         self.load_model(cx);
+        self.load_brief(cx);
         cx.notify();
     }
 
@@ -1431,7 +1442,10 @@ impl NoteView {
 
     fn close_menu(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.menu = false;
-        self.meeting_info = None;
+        // Participants edited in Meeting info decide whether a brief is offered.
+        if self.meeting_info.take().is_some() {
+            self.load_brief(cx);
+        }
         if self.menu_focus.is_focused(window)
             && let Some(focus) = self.return_focus.take()
         {

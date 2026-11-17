@@ -709,6 +709,26 @@ impl EditorPane {
         self.edited(before, result, cx);
     }
 
+    /// Shipping's `replaceContent` for text streamed into the document (the pre-meeting
+    /// brief): the whole document becomes `body` (TipTap JSON) and autosaves, even while the
+    /// editor is read-only for the user.
+    pub fn replace_content(&mut self, body: &str, cx: &mut Context<Self>) {
+        let Some(model) = &mut self.model else {
+            return;
+        };
+        let before = model.revision;
+        let read_only = std::mem::replace(&mut model.read_only, false);
+        // The whole document, not its first to last caret: each streamed revision replaces it.
+        model.select(Selection {
+            anchor: 0,
+            head: model.document.units(),
+        });
+        let result = Document::parse(body.to_owned().into())
+            .and_then(|fragment| model.insert_slice(fragment, false));
+        model.read_only = read_only;
+        self.edited(before, result, cx);
+    }
+
     pub fn set_read_only(&mut self, read_only: bool, cx: &mut Context<Self>) {
         self.read_only = read_only;
         if let Some(model) = &mut self.model {

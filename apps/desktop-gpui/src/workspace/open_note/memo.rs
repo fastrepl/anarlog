@@ -119,7 +119,10 @@ impl NoteView {
         cx: &mut Context<Self>,
     ) -> Option<AnyElement> {
         let editor = self.memo_editor()?;
-        if !editor.read(cx).is_pristine() || self.tabs().contains(&super::NoteTab::Transcript) {
+        if !editor.read(cx).is_pristine()
+            || self.brief_generating()
+            || self.tabs().contains(&super::NoteTab::Transcript)
+        {
             return None;
         }
         let (favorites, suggested) = memo_templates(
@@ -210,6 +213,7 @@ impl NoteView {
                 .flex()
                 .flex_col()
                 .items_start()
+                .children(self.brief_suggestion(colors, cx))
                 .children(section("Start with a favorite template", favorites, cx))
                 .children(section("Suggested templates", suggested, cx))
                 .child(
