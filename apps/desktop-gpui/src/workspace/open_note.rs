@@ -372,11 +372,13 @@ impl NoteView {
             blur,
             cx.observe_global::<MeetingServices>(|this, cx| this.load_audio(cx)),
             cx.observe(&uploads, |this, _, cx| this.sync_batch(cx)),
-            cx.subscribe(&uploads, |this, _, event, cx| {
-                let UploadEvent::AudioChanged(session) = event;
-                if this.current.as_ref().map(|current| &current.summary.id) == Some(session) {
-                    this.load_audio(cx);
+            cx.subscribe(&uploads, |this, _, event, cx| match event {
+                UploadEvent::AudioChanged(session) => {
+                    if this.current.as_ref().map(|current| &current.summary.id) == Some(session) {
+                        this.load_audio(cx);
+                    }
                 }
+                UploadEvent::Transcribed(session) => this.transcribed(session.clone(), cx),
             }),
         ];
         if let Some(live) = LiveState::global(cx) {
@@ -1615,8 +1617,13 @@ impl NoteView {
             return Some(state);
         }
         let document = document?;
+        // A clean editor opened before a generated revision landed reopens on it.
+        let current = |editor: &Entity<EditorPane>| {
+            let editor = editor.read(cx);
+            editor.is_dirty() || editor.init.document.updated_at >= document.updated_at
+        };
         let editor = match &self.summary_editor {
-            Some((current, editor, _)) if current == &document.id => editor.clone(),
+            Some((id, editor, _)) if id == &document.id && current(editor) => editor.clone(),
             _ => {
                 let return_focus = self.title.focus_handle(cx);
                 let runtime = self.runtime.clone();

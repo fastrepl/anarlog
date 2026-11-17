@@ -761,6 +761,9 @@ pub enum Job {
 pub enum UploadEvent {
     /// The session's saved recording appeared or went away.
     AudioChanged(SessionId),
+    /// A transcript landed from an upload, re-transcription or import; a note view claims
+    /// its summary with [`Uploads::claim_summary`].
+    Transcribed(SessionId),
 }
 
 enum Update {
@@ -784,6 +787,9 @@ pub struct Uploads {
     jobs: HashMap<SessionId, Job>,
     runs: HashMap<SessionId, Run>,
     deleting: HashSet<SessionId>,
+    /// Summaries to generate after a transcript landed, by whether only an empty summary is
+    /// replaced (shipping's `queueAutoEnhanceIfSummaryEmpty`).
+    summaries: HashMap<SessionId, bool>,
     next_run: u64,
 }
 
@@ -843,6 +849,16 @@ impl Uploads {
 
     pub fn deleting(&self, session: &SessionId) -> bool {
         self.deleting.contains(session)
+    }
+
+    /// Takes the session's pending summary once; `Some(true)` keeps a summary with content.
+    pub fn claim_summary(&mut self, session: &SessionId) -> Option<bool> {
+        self.summaries.remove(session)
+    }
+
+    fn transcribed(&mut self, session: SessionId, if_empty: bool, cx: &mut Context<Self>) {
+        self.summaries.insert(session.clone(), if_empty);
+        cx.emit(UploadEvent::Transcribed(session));
     }
 
     /// Shipping's `stopTranscription`: the transcript returns to what it showed before.
@@ -1122,7 +1138,11 @@ impl Uploads {
             .remove(session)
             .is_some_and(|run| run.retranscribe);
         match result {
-            Ok(()) | Err(ServiceError::Cancelled) => {
+            Ok(()) => {
+                self.jobs.remove(session);
+                self.transcribed(session.clone(), true, cx);
+            }
+            Err(ServiceError::Cancelled) => {
                 self.jobs.remove(session);
             }
             Err(error) => {
@@ -1154,13 +1174,17 @@ impl Uploads {
         }
         let reply = {
             let runtime_copy = runtime.clone();
+            let session = session.clone();
             runtime.service(
                 move |_| async move { import_subtitle(&runtime_copy, session, path).await },
             )
         };
-        cx.spawn(async move |_, _| {
-            if let Ok(reply) = reply {
-                let _ = reply.receive().await;
+        cx.spawn(async move |this, cx| {
+            let Ok(reply) = reply else {
+                return;
+            };
+            if reply.receive().await.is_ok_and(|cues| cues > 0) {
+                let _ = this.update(cx, |this, cx| this.transcribed(session, false, cx));
             }
         })
         .detach();

@@ -113,7 +113,11 @@ fn eligible(words: usize, characters: usize) -> std::result::Result<(), &'static
     }
 }
 
-async fn check_eligible(runtime: &RuntimeHandle, session: SessionId) -> Result<()> {
+/// The session's transcripts, their non-empty words and the words' characters.
+async fn transcript_counts(
+    runtime: &RuntimeHandle,
+    session: SessionId,
+) -> Result<(usize, usize, usize)> {
     let rows = runtime
         .submit(move |services| async move {
             services
@@ -137,7 +141,76 @@ async fn check_eligible(runtime: &RuntimeHandle, session: SessionId) -> Result<(
         .collect();
     let joined = words.join(" ");
     let characters = joined.split_whitespace().collect::<Vec<_>>().join(" ");
-    eligible(words.len(), characters.chars().count()).map_err(failure)
+    Ok((rows.len(), words.len(), characters.chars().count()))
+}
+
+async fn check_eligible(runtime: &RuntimeHandle, session: SessionId) -> Result<()> {
+    let (_, words, characters) = transcript_counts(runtime, session).await?;
+    eligible(words, characters).map_err(failure)
+}
+
+/// What an uploaded or imported transcript leads to.
+#[derive(Debug, PartialEq)]
+pub(super) enum AutoSummary {
+    Generate,
+    Skip,
+    /// Shipping's "Summary wasn't generated" warning, with its reason.
+    TooShort(String),
+}
+
+/// Shipping's enhancer after a transcript lands: `queueAutoEnhanceIfSummaryEmpty` after audio
+/// (`if_empty`) and `enhance` after a subtitle import. Without a usable model, or (`if_empty`)
+/// with a summary that has content, nothing is generated.
+pub(super) async fn auto_summary(
+    runtime: &RuntimeHandle,
+    session: SessionId,
+    if_empty: bool,
+    pro: bool,
+) -> Result<AutoSummary> {
+    let model = load_model(runtime)?.receive().await?;
+    if !model.configured || (model.hosted && !pro) {
+        return Ok(AutoSummary::Skip);
+    }
+    if if_empty {
+        let id = session.clone();
+        let rows = runtime
+            .submit(move |services| async move {
+                services
+                    .executor
+                    .execute(
+                        "SELECT s.title, d.body FROM session_documents d JOIN sessions s ON s.id = d.session_id
+                         WHERE d.session_id = ? AND d.kind IN ('summary', 'template_output') AND d.deleted_at IS NULL"
+                            .into(),
+                        vec![json!(id)],
+                    )
+                    .await
+                    .map_err(failure)
+            })?
+            .receive()
+            .await?;
+        let text = |row: &Value, key: &str| row[key].as_str().unwrap_or_default().to_owned();
+        if rows
+            .iter()
+            .any(|row| super::summary_has_content(&text(row, "body"), &text(row, "title")))
+        {
+            return Ok(AutoSummary::Skip);
+        }
+    }
+    let (transcripts, words, characters) = transcript_counts(runtime, session).await?;
+    // Shipping's `getSummaryEligibility` reasons.
+    Ok(if transcripts == 0 || words == 0 {
+        AutoSummary::Skip
+    } else if words < MIN_WORDS {
+        AutoSummary::TooShort(format!(
+            "Not enough words recorded ({words}/{MIN_WORDS} minimum)"
+        ))
+    } else if characters < MIN_CHARACTERS {
+        AutoSummary::TooShort(format!(
+            "Transcript too short to summarize ({characters}/{MIN_CHARACTERS} characters minimum)"
+        ))
+    } else {
+        AutoSummary::Generate
+    })
 }
 
 /// Shipping's `getEnhancedNoteTitle`: the template's title, else a meaningful stored title.
@@ -336,13 +409,22 @@ impl NoteView {
         template: Option<Option<String>>,
         cx: &mut Context<Self>,
     ) {
-        let Some(session) = self
+        if let Some(session) = self
             .current
             .as_ref()
             .map(|session| session.summary.id.clone())
-        else {
-            return;
-        };
+        {
+            self.generate_summary_for(session, target, template, cx);
+        }
+    }
+
+    fn generate_summary_for(
+        &mut self,
+        session: SessionId,
+        target: Option<DocumentId>,
+        template: Option<Option<String>>,
+        cx: &mut Context<Self>,
+    ) {
         if self.jobs.get(&session).is_some_and(SummaryJob::running) {
             return;
         }
@@ -415,6 +497,52 @@ impl NoteView {
         })
         .detach();
         cx.notify();
+    }
+
+    /// Shipping's summary after an upload, re-transcription or transcript import: the view
+    /// showing the session takes it, else the main window's; it switches to the summary
+    /// unless the transcript is shown.
+    pub(super) fn transcribed(&mut self, session: SessionId, cx: &mut Context<Self>) {
+        if self.session_id() == Some(&session) {
+            self.claim_summary(session, cx);
+        } else if !self.standalone {
+            let this = cx.weak_entity();
+            cx.defer(move |cx| {
+                let _ = this.update(cx, |this, cx| this.claim_summary(session, cx));
+            });
+        }
+    }
+
+    fn claim_summary(&mut self, session: SessionId, cx: &mut Context<Self>) {
+        let uploads = crate::meeting::upload::Uploads::global(cx);
+        let Some(if_empty) = uploads.update(cx, |uploads, _| uploads.claim_summary(&session))
+        else {
+            return;
+        };
+        let runtime = self.runtime.clone();
+        let pro = crate::product::account::is_pro(cx);
+        cx.spawn(async move |this, cx| {
+            let decision = auto_summary(&runtime, session.clone(), if_empty, pro).await;
+            let _ = this.update(cx, |this, cx| match decision {
+                Ok(AutoSummary::Generate) => {
+                    this.generate_summary_for(session.clone(), None, None, cx);
+                    if this.session_id() == Some(&session)
+                        && this.view != Some(super::NoteTab::Transcript)
+                    {
+                        this.view = None;
+                    }
+                    cx.notify();
+                }
+                Ok(AutoSummary::TooShort(reason)) => crate::application::toasts::show(
+                    crate::application::toasts::Toast::warning("Summary wasn't generated")
+                        .id(format!("auto-summary-too-short-{}", session.0))
+                        .description(reason),
+                    cx,
+                ),
+                Ok(AutoSummary::Skip) | Err(_) => {}
+            });
+        })
+        .detach();
     }
 
     /// Copies streamed text into running jobs at about 30 fps while any runs.
@@ -1143,6 +1271,81 @@ mod tests {
         assert!(eligible(4, 400).is_err());
         assert!(eligible(40, 159).is_err());
         assert!(eligible(40, 160).is_ok());
+    }
+
+    #[tokio::test]
+    async fn transcripts_from_files_summarize_like_shipping_enhancer() {
+        let directory = tempfile::tempdir().unwrap();
+        let (runtime, ready) = desktop_runtime::RuntimeHandle::start(desktop_runtime::Profile {
+            database: directory.path().join("library.sqlite"),
+        })
+        .unwrap();
+        ready.receive().await.unwrap();
+        let sql = |sql: &'static str, params: Vec<Value>| {
+            let runtime = runtime.clone();
+            async move {
+                runtime
+                    .submit(move |services| async move {
+                        services
+                            .executor
+                            .execute(sql.into(), params)
+                            .await
+                            .map_err(failure)
+                    })
+                    .unwrap()
+                    .receive()
+                    .await
+                    .unwrap()
+            }
+        };
+        let words = |text: &str| {
+            json!(
+                text.split(' ')
+                    .map(|word| json!({"text": word}))
+                    .collect::<Vec<_>>()
+            )
+            .to_string()
+        };
+        sql(
+            "INSERT INTO sessions(id,title) VALUES ('s','Sync'),('short','Short')",
+            vec![],
+        )
+        .await;
+        sql(
+            "INSERT INTO transcripts(id,session_id,words_json) VALUES ('t','s',?),('u','short',?)",
+            vec![
+                json!(words(
+                    &"We agreed to ship the pricing page next week after legal review. ".repeat(4)
+                )),
+                json!(words("Hello there everyone")),
+            ],
+        )
+        .await;
+        let session = SessionId("s".into());
+        let decide =
+            |session: SessionId, if_empty: bool| auto_summary(&runtime, session, if_empty, false);
+        // Without a language model nothing is generated.
+        assert_eq!(
+            decide(session.clone(), true).await.unwrap(),
+            AutoSummary::Skip
+        );
+        sql("INSERT INTO app_settings(id,value_json) VALUES ('current_llm_provider','\"openai\"'),('current_llm_model','\"gpt-5\"')", vec![]).await;
+        assert_eq!(
+            decide(session.clone(), true).await.unwrap(),
+            AutoSummary::Generate
+        );
+        assert_eq!(
+            decide(SessionId("short".into()), true).await.unwrap(),
+            AutoSummary::TooShort("Not enough words recorded (3/5 minimum)".into())
+        );
+        // A summary with content stays after audio, while an imported transcript regenerates.
+        sql("INSERT INTO session_documents(id,session_id,kind,body) VALUES ('d','s','summary','Shipped')", vec![]).await;
+        assert_eq!(
+            decide(session.clone(), true).await.unwrap(),
+            AutoSummary::Skip
+        );
+        assert_eq!(decide(session, false).await.unwrap(), AutoSummary::Generate);
+        runtime.shutdown().await.unwrap();
     }
 
     #[test]
