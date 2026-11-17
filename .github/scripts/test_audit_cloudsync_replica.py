@@ -225,6 +225,31 @@ class AuditCloudsyncReplicaTests(unittest.TestCase):
         ]
         self.assertEqual(downloads, [2, 2, 1])
 
+    def test_shards_cover_each_workspace_once(self) -> None:
+        stores = Stores()
+        stores.source(WORKSPACE_A, "note", "v2")
+        stores.accepted(WORKSPACE_A, "note", "v1")
+        stores.accepted(WORKSPACE_A, "note", "v2")
+        stores.source(WORKSPACE_B, "missing", "never accepted")
+        upper = "40000000-0000-4000-8000-00000000000c"
+        stores.source(upper, "other", "v1")
+        stores.accepted(upper, "other", "v1")
+
+        with tempfile.TemporaryDirectory() as directory:
+            totals = []
+            for shard, after, before in (("low", None, "4"), ("high", "4", None)):
+                evidence = pathlib.Path(directory, shard)
+                evidence.mkdir()
+                totals.append(stores.run(str(evidence), after=after, before=before))
+            # A shard directory cannot be resumed as a different shard.
+            with self.assertRaisesRegex(ValueError, "different shard"):
+                stores.run(str(evidence), after=None, before=None)
+
+        self.assertEqual(
+            [(t["workspaces"], t["current"], t["missing"]) for t in totals],
+            [(2, 1, 1), (1, 1, 0)],
+        )
+
     def test_evidence_stays_out_of_git_and_identifiers_stay_literal(self) -> None:
         with self.assertRaisesRegex(ValueError, "outside any Git work tree"):
             audit.evidence_directory(str(MODULE_PATH.parent))
