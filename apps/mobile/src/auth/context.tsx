@@ -29,8 +29,8 @@ import {
   type BillingInfo,
 } from "@/auth/billing";
 import { refreshBillingEntitlement as retryBillingEntitlement } from "@/auth/billing-handoff";
-import { requiresPro } from "@/auth/companion";
 import { authStorageKey, supabase } from "@/auth/client";
+import { requiresPro } from "@/auth/companion";
 import {
   buildSignInUrl,
   lastSignInMethodStorageKey,

@@ -366,8 +366,8 @@ export function ProRequiredScreen({
           <View style={styles.accentDot} />
         </View>
         <Text style={styles.copy}>
-          Anarlog for iPhone is included with Anarlog Pro. This account does
-          not have Pro.
+          Anarlog for iPhone is included with Anarlog Pro. This account does not
+          have Pro.
         </Text>
         {refresh.data === false && (
           <Text style={styles.trialLine}>

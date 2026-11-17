@@ -13,8 +13,8 @@ import {
   subscribeMobileCapture,
 } from "@/audio/capture-lifecycle";
 import { recoverInterruptedRecordings } from "@/audio/recover-recordings";
-import { AuthProvider, useAuth } from "@/auth/context";
 import { requiresPro } from "@/auth/companion";
+import { AuthProvider, useAuth } from "@/auth/context";
 import { ProRequiredScreen, SignInScreen } from "@/auth/screens";
 import { useTrial } from "@/auth/use-trial";
 import { BrandLoadingView } from "@/components/brand-loading-view";

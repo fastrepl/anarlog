@@ -3,8 +3,8 @@ import { useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 
 import { accountPlanLabel, fetchWorkspacePlan } from "@/auth/account-plan";
-import { requiresPro } from "@/auth/companion";
 import { supabase } from "@/auth/client";
+import { requiresPro } from "@/auth/companion";
 import { useAuth } from "@/auth/context";
 import { useTrial } from "@/auth/use-trial";
 import { env } from "@/lib/env";
@@ -95,11 +95,11 @@ export default function AccountSettings() {
                 ? "Anarlog Pro includes this app, cloud sync, and Anarlog models."
                 : auth.billing.isTrialing
                   ? "Your Pro trial includes cloud sync and Anarlog models. After it ends, you can keep using your notes, recording, and your own API keys."
-                : auth.billing.isPro
-                  ? "Cloud sync and Anarlog models are included in your subscription."
-                  : trial.isFetching
-                    ? "Checking your free Pro trial. You can start taking notes and recording now."
-                    : "Notes and recording are free. Cloud sync and Anarlog models require an active Pro trial or subscription. You can also use your own API keys."}
+                  : auth.billing.isPro
+                    ? "Cloud sync and Anarlog models are included in your subscription."
+                    : trial.isFetching
+                      ? "Checking your free Pro trial. You can start taking notes and recording now."
+                      : "Notes and recording are free. Cloud sync and Anarlog models require an active Pro trial or subscription. You can also use your own API keys."}
             </Text>
           </FieldGroup.SectionFooter>
           {!auth.billing.isPro && trial.error && (
@@ -110,7 +110,9 @@ export default function AccountSettings() {
           )}
           <SettingsError error={!auth.billing.isPro ? trial.error : null} />
           <SettingsRow
-            title={requiresPro ? "Manage account" : "Manage account & subscription"}
+            title={
+              requiresPro ? "Manage account" : "Manage account & subscription"
+            }
             onPress={() => manage.mutate()}
           />
           <SettingsRow
