@@ -17,6 +17,7 @@ use super::{
     failure,
     webhooks::{self, WebhookInfo},
 };
+use crate::ui::a11y::Accessible;
 use crate::{
     application::toasts,
     product::{
@@ -778,6 +779,7 @@ impl DevelopersView {
         let mcp = row(
             label("MCP server"),
             button("copy-mcp", Variant::Outline, installed, colors)
+                .a11y_button("Copy config")
                 .child(controls::icon(
                     "product/CopyIcon.svg",
                     14.,
@@ -809,6 +811,7 @@ impl DevelopersView {
     fn skills_row(&mut self, colors: &Theme, cx: &mut Context<Self>) -> Div {
         let enabled = !self.agents.is_empty() && !self.adding_skill;
         let trigger = button("add-skill", Variant::Outline, enabled, colors)
+            .a11y_button("Add skill to…")
             .map(|button| {
                 if self.adding_skill {
                     button.child(spinner("skill-installing", 14., colors.foreground))
@@ -1098,6 +1101,7 @@ impl DevelopersView {
                     .child(code(value.clone(), colors, cx))
                     .child(
                         button(id, Variant::Ghost, true, colors)
+                            .a11y_button("Copy")
                             .child(controls::icon(
                                 "product/CopyIcon.svg",
                                 14.,
@@ -1140,6 +1144,7 @@ impl DevelopersView {
                     .child(input_box(self.key_name.clone(), 256., colors))
                     .child(
                         button("create-key", Variant::Outline, !self.creating_key, colors)
+                            .a11y_button("Create key")
                             .child("Create key")
                             .when(!self.creating_key, |button| {
                                 button.on_click(cx.listener(|this, _, _, cx| this.create_key(cx)))
@@ -1309,6 +1314,7 @@ impl DevelopersView {
                     .gap_1()
                     .child(
                         button(key("toggle"), Variant::Ghost, true, colors)
+                            .a11y_button(if active { "Pause" } else { "Enable" })
                             .child(if active { "Pause" } else { "Enable" })
                             .on_click(cx.listener({
                                 let id = id.clone();
@@ -1323,6 +1329,7 @@ impl DevelopersView {
                     )
                     .child(
                         button(key("test"), Variant::Ghost, !self.testing, colors)
+                            .a11y_button("Test")
                             .child("Test")
                             .when(!self.testing, |button| {
                                 let id = id.clone();
@@ -1367,6 +1374,7 @@ impl Render for DevelopersView {
                     .child(controls::page_title("Developers"))
                     .child(
                         button("developers-guide", Variant::Outline, true, &colors)
+                            .a11y_button("Guide")
                             .child("Guide")
                             .child(controls::icon(
                                 "product/ExternalLinkIcon.svg",

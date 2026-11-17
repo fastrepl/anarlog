@@ -10,6 +10,7 @@ use gpui::{
 
 use super::ai::{AiServices, ChatSession, Message, Part, Role, StreamObserver, SummaryContext};
 use super::model::{MAX_TEXT, failure};
+use crate::ui::a11y::Accessible;
 use crate::ui::{input::TextInput, theme::theme};
 
 pub struct AiContext {
@@ -389,6 +390,7 @@ impl Render for AiPane {
                                 .child(
                                     div()
                                         .id("apply-meeting-edit")
+                                        .a11y_button("Apply")
                                         .cursor_pointer()
                                         .child("Apply")
                                         .on_click(cx.listener(move |this, _, _, cx| {
@@ -399,6 +401,7 @@ impl Render for AiPane {
                                 .child(
                                     div()
                                         .id("reject-meeting-edit")
+                                        .a11y_button("Cancel")
                                         .cursor_pointer()
                                         .child("Cancel")
                                         .on_click(cx.listener(move |this, _, _, cx| {
@@ -421,6 +424,7 @@ impl Render for AiPane {
                         view.child(
                             div()
                                 .id("send-chat")
+                                .a11y_button("Send")
                                 .flex_shrink_0()
                                 .cursor_pointer()
                                 .child("Send")
@@ -429,6 +433,7 @@ impl Render for AiPane {
                         .child(
                             div()
                                 .id("regenerate-chat")
+                                .a11y_button("Regenerate reply")
                                 .flex_shrink_0()
                                 .cursor_pointer()
                                 .child("Regenerate reply")
@@ -437,6 +442,7 @@ impl Render for AiPane {
                         .child(
                             div()
                                 .id("summarize")
+                                .a11y_button("Generate summary")
                                 .flex_shrink_0()
                                 .cursor_pointer()
                                 .child("Generate summary")
@@ -444,14 +450,19 @@ impl Render for AiPane {
                         )
                     })
                     .when(self.busy, |view| {
-                        view.child(div().id("stop-ai").cursor_pointer().child("Stop").on_click(
-                            cx.listener(|this, _, _, _| {
-                                this.cancellation.cancel();
-                                if let Some(chat) = &this.chat {
-                                    let _ = chat.cancel();
-                                }
-                            }),
-                        ))
+                        view.child(
+                            div()
+                                .id("stop-ai")
+                                .a11y_button("Stop")
+                                .cursor_pointer()
+                                .child("Stop")
+                                .on_click(cx.listener(|this, _, _, _| {
+                                    this.cancellation.cancel();
+                                    if let Some(chat) = &this.chat {
+                                        let _ = chat.cancel();
+                                    }
+                                })),
+                        )
                     }),
             )
     }

@@ -17,6 +17,7 @@ use super::{
     calls::{CloudCalls, SyncBlock, SyncCommand, SyncState, SyncStatus},
     teams_view::{Variant, button, field, spinner},
 };
+use crate::ui::a11y::Accessible;
 use crate::{
     chat::state::distance_to_now,
     product::controls,
@@ -1514,6 +1515,7 @@ impl SyncView {
                     div().flex().justify_center().child(
                         div()
                             .id("setup-cancel")
+                            .a11y_button("Cancel")
                             .h(px(24.))
                             .px_3()
                             .flex()

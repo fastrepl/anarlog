@@ -14,6 +14,7 @@ use gpui::{
 };
 
 use super::{mutations::failure, resource_list::Glyph};
+use crate::ui::a11y::Accessible;
 use crate::ui::{
     input::{InputEvent, TextInput},
     theme::{Theme, theme},
@@ -417,6 +418,7 @@ impl Render for FolderPicker {
             .child(
                 div()
                     .id("folder-picker-all")
+                    .a11y_button("See all folders")
                     .w_full()
                     .flex()
                     .items_center()

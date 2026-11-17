@@ -1515,6 +1515,7 @@ impl AutomationsView {
                     .child(
                         div()
                             .id("add-step")
+                            .a11y_button("Add step")
                             .h(px(32.))
                             .w_full()
                             .px(px(11.))

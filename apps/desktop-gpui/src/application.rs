@@ -20,6 +20,7 @@ use gpui::{
     AppContext, Context, Entity, Focusable, Render, Subscription, Window, div, prelude::*, px,
 };
 
+use crate::ui::a11y::Accessible;
 use crate::{
     application_services::{Effects, HostCommand, NativeServices},
     contracts::{
@@ -1464,6 +1465,7 @@ impl Render for ApplicationView {
                                             .child(
                                                 div()
                                                     .id("hide-meeting")
+                                                    .a11y_button("Hide transcript")
                                                     .p_2()
                                                     .cursor_pointer()
                                                     .child("Hide transcript")

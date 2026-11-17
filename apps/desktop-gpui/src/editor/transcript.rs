@@ -28,6 +28,7 @@ use gpui::{
 use serde_json::{Value, json};
 
 use super::find::FindOptions;
+use crate::ui::a11y::Accessible;
 use crate::{
     meeting::{
         MeetingServices,
@@ -810,6 +811,7 @@ fn button(
     };
     div()
         .id(id)
+        .a11y_button(label)
         .h_7()
         .px_2()
         .flex()
@@ -1205,6 +1207,7 @@ impl TranscriptView {
             .child(
                 div()
                     .id("transcript-selection-clear")
+                    .a11y_button("Clear selection")
                     .size_7()
                     .flex_shrink_0()
                     .flex()
@@ -1374,6 +1377,7 @@ impl Render for TranscriptView {
         let screen = screen(job.as_ref(), live.as_ref(), has_words, self.audio.is_some());
         let frame = div()
             .id("note-transcript")
+            .a11y_group(gpui::Role::List, "Transcript")
             .size_full()
             .relative()
             .track_focus(&self.focus)
@@ -1572,12 +1576,16 @@ impl Render for TranscriptView {
                             .into_any_element(),
                     };
                     let id = row.id.clone();
+                    let spoken = format!("{}: {}", row.label, row.text);
                     children.push(
                         div()
                             .when(index > 0, |view| view.pt_4())
                             .child(
                                 div()
                                     .id(("segment", index))
+                                    .role(gpui::Role::ListItem)
+                                    .aria_label(spoken)
+                                    .aria_selected(selected)
                                     .relative()
                                     .px_2()
                                     .when(editing, |view| view.cursor_pointer())
@@ -1702,6 +1710,8 @@ impl TranscriptView {
                     .child(
                         div()
                             .id(("speaker", index))
+                            .a11y_button(format!("Speaker: {}", row.label))
+                            .aria_expanded(open)
                             .my(px(-2.))
                             .py(px(2.))
                             .pr_2()
@@ -1931,6 +1941,7 @@ impl TranscriptView {
             gpui::anchored().position(position).snap_to_window().child(
                 resource_list::context_menu(colors)
                     .id("transcript-tab-menu")
+                    .role(gpui::Role::Menu)
                     .occlude()
                     .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                     .on_mouse_down_out(cx.listener(|this, _, _, cx| {
@@ -1940,6 +1951,8 @@ impl TranscriptView {
                     .children(items.into_iter().map(|(action, label, disabled)| {
                         div()
                             .id(label)
+                            .a11y_menu_item(label)
+                            .a11y_disabled(disabled)
                             .h(px(30.))
                             .px_3()
                             .flex()
@@ -2047,6 +2060,8 @@ impl TranscriptView {
                         })
                         .child(
                             button("transcript-scroll-top", "editor/ArrowUp02Icon.svg", at_top)
+                                .a11y_button("Scroll to top")
+                                .a11y_disabled(at_top)
                                 .when(!at_top, |button| {
                                     button.on_click(cx.listener(|this, _, _, cx| {
                                         this.scroll.set_offset(point(px(0.), px(0.)));
@@ -2069,6 +2084,8 @@ impl TranscriptView {
                                 "editor/ArrowDown02Icon.svg",
                                 at_bottom,
                             )
+                            .a11y_button("Scroll to bottom")
+                            .a11y_disabled(at_bottom)
                             .when(!at_bottom, |button| {
                                 button.on_click(cx.listener(|this, _, _, cx| {
                                     this.scroll.scroll_to_bottom();

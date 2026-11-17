@@ -20,6 +20,7 @@ use super::{
         ShareWorkspace, default_general_access, is_invite_email, managed, remember,
     },
 };
+use crate::ui::a11y::Accessible;
 use crate::{
     contracts::ProductRoute,
     product::{account, cloud::ShareCommand, services::Scope},
@@ -435,6 +436,7 @@ impl Render for SharePopover {
         };
         div()
             .id("share-popover")
+            .a11y_dialog("Share note")
             .track_focus(&self.focus)
             .occlude()
             .text_color(colors.popover_foreground)
@@ -676,8 +678,11 @@ pub(super) fn select_item(
     color: Option<Hsla>,
     colors: Theme,
 ) -> Stateful<Div> {
+    let label = label.into();
     div()
         .id(id)
+        .a11y_menu_check(label.clone(), selected)
+        .a11y_disabled(!enabled)
         .relative()
         .w_full()
         .py(px(6.))
@@ -693,7 +698,7 @@ pub(super) fn select_item(
             |item| item.cursor_pointer().hover(|s| s.bg(colors.accent)),
             |item| item.opacity(0.5),
         )
-        .child(label.into())
+        .child(label)
         .when(selected, |item| {
             item.child(
                 div()
@@ -813,6 +818,7 @@ impl SharePopover {
                 )
                 .child(
                     button("share-upgrade", true, true, colors)
+                        .a11y_button("Upgrade to Pro")
                         .mt_4()
                         .on_click(cx.listener(|_, _, _, cx| {
                             cx.emit(SharePopoverEvent::Open(ProductRoute::Billing))
@@ -942,6 +948,7 @@ impl SharePopover {
                     )
                     .child(
                         button("share-sign-in", true, !pending, colors)
+                            .a11y_button(if pending { "Opening…" } else { "Sign in" })
                             .mt_4()
                             .when(!pending, |b| {
                                 b.on_click(cx.listener(|this, _, _, cx| this.sign_in(cx)))
@@ -971,6 +978,7 @@ impl SharePopover {
             )
             .child(
                 button("share-retry", false, true, colors)
+                    .a11y_button("Try again")
                     .on_click(cx.listener(|this, _, _, cx| this.load(cx)))
                     .child(icon("sharing/RefreshIcon.svg", 16., colors.foreground))
                     .child("Try again"),
@@ -1104,6 +1112,8 @@ impl SharePopover {
                     enabled,
                     colors,
                 )
+                .a11y_button(label)
+                .a11y_disabled(!enabled)
                 .h(px(32.))
                 .px_3()
                 .when(enabled, |b| b.on_click(on_submit))
@@ -1361,6 +1371,9 @@ impl SharePopover {
                 .child(
                     div()
                         .id(trigger_id)
+                        .role(gpui::Role::ComboBox)
+                        .aria_label("Permission")
+                        .aria_value(entry.capability.label())
                         .h(px(28.))
                         .min_w(px(84.))
                         .px(px(6.))
@@ -1679,6 +1692,11 @@ impl SharePopover {
                         .child(
                             div()
                                 .id("share-general-access")
+                                .role(gpui::Role::ComboBox)
+                                .aria_label("General access")
+                                .aria_value(value.label(&workspaces))
+                                .aria_expanded(open_access)
+                                .a11y_disabled(!select_enabled)
                                 .h(px(28.))
                                 .max_w_full()
                                 .px(px(6.))
@@ -1737,6 +1755,8 @@ impl SharePopover {
                             .child(
                                 div()
                                     .id("share-copy-link")
+                                    .a11y_button("Copy link")
+                                    .a11y_disabled(!copy_enabled)
                                     .h_full()
                                     .px(px(10.))
                                     .flex()
@@ -1771,6 +1791,7 @@ impl SharePopover {
                             .child(
                                 div()
                                     .id("share-more-options")
+                                    .a11y_button("More options")
                                     .group("share-more-options")
                                     .h_full()
                                     .w(px(24.))

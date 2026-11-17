@@ -15,6 +15,7 @@ use crate::meeting::{
     },
     widgets::{dancing_bars, spinner},
 };
+use crate::ui::a11y::Accessible;
 
 /// Dictation sends `opacity: 1`, which the panel clamps to its maximum.
 const OPACITY: f32 = 0.95;
@@ -174,6 +175,7 @@ impl DictationBar {
                         .child(
                             div()
                                 .id("dictation-bottom")
+                                .a11y_button("Go to bottom")
                                 .flex()
                                 .items_center()
                                 .gap(px(6.))
@@ -219,6 +221,12 @@ impl Render for DictationBar {
         };
         let stop = div()
             .id("dictation-done")
+            .a11y_button(if transcribing {
+                "Finishing dictation"
+            } else {
+                "Stop dictation"
+            })
+            .a11y_disabled(transcribing)
             .w(px(STOP_WIDTH))
             .h(px(ICON_SIZE))
             .flex()
@@ -272,6 +280,8 @@ impl Render for DictationBar {
             .child(
                 div()
                     .id("dictation-expand")
+                    .a11y_button(if expanded { "Collapse" } else { "Expand" })
+                    .aria_expanded(expanded)
                     .size(px(ICON_SIZE))
                     .flex()
                     .items_center()
@@ -293,6 +303,7 @@ impl Render for DictationBar {
         let bar_height = body + if handle { px(HANDLE_RESERVED) } else { px(0.) };
         div()
             .id("dictation-bar")
+            .a11y_group(gpui::Role::Toolbar, "Dictation")
             .size_full()
             .relative()
             .on_hover(cx.listener(|this, hovered: &bool, _, cx| {

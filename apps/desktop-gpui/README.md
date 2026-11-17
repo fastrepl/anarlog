@@ -137,11 +137,12 @@ uncached and reference samples; these are not whole-application measurements.
 ## Remaining parity and validation gates
 
 Screens are compared side by side with the shipping frontend on macOS (see Visual
-parity below). Focus/drag/drop/IME parity, native accessibility, i18n, Linux and
+parity below). Focus/drag/drop/IME parity, screen-reader behavior, i18n, Linux and
 Windows rendering, hardware/provider/keyring behavior, real floating windows and
-signed packaging/update installation remain unverified. Upstream GPUI
-now provides accessibility hooks, but the views do not publish roles, labels or text
-yet. A Wayland shortcut portal is missing, and only macOS can hide the main window on
+signed packaging/update installation remain unverified. The views publish roles, names
+and states to GPUI's AccessKit tree through `ui::a11y` (shipping's `aria-label`s and
+visible text); `tests/a11y` asserts that tree, but VoiceOver itself has not been run
+against it. A Wayland shortcut portal is missing, and only macOS can hide the main window on
 close; elsewhere closing it quits through the drain. Cloud attachment transfer/hydration, image
 resize handles and full multiline soft wrapping remain incomplete. Shared-note
 previews retain source JSON but do not hydrate published attachments. This is
@@ -350,7 +351,9 @@ The runtime tests use temporary databases only, covering durable reopen,
 opaque JSON preservation, CAS conflict and deleted-document rejection,
 queue saturation/drain, flush barriers, cancellation and reactive unsubscribe.
 Input model tests cover UTF-16, grapheme deletion and composition-relative ranges.
-These do not validate native input methods or accessibility. Integration coverage
+These do not validate native input methods. `tests/a11y` runs the app on a windowless
+platform that switches AccessKit on and asserts the accessibility tree (roles, names,
+states, text runs, focus, and presses as a screen reader sends them). Integration coverage
 also exercises rich-document save/reopen through `SaveJournal`, preservation of
 opaque/table/task content, competing writes, explicit conflict resolution, and
 pin CAS/corrupt-storage behavior.

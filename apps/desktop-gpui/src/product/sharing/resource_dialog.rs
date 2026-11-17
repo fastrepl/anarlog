@@ -16,6 +16,7 @@ use super::{
     model::ShareWorkspace,
     popover::{button, icon, select_item, select_list, spinner},
 };
+use crate::ui::a11y::Accessible;
 use crate::{
     product::{
         account,
@@ -322,6 +323,7 @@ impl Render for ResourceShareDialog {
             gate(
                 "Sign in to share folders, templates, and automations.",
                 button("resource-share-sign-in", true, true, colors)
+                    .a11y_button("Sign in")
                     .on_click(cx.listener(|_, _, _, cx| {
                         cx.emit(ResourceDialogEvent::Navigate(Route::settings("account")))
                     }))
@@ -334,6 +336,7 @@ impl Render for ResourceShareDialog {
             gate(
                 "Folder access controls and reusable sharing are included with Pro.",
                 button("resource-share-upgrade", true, true, colors)
+                    .a11y_button("Upgrade to Pro")
                     .on_click(cx.listener(|_, _, _, cx| {
                         cx.emit(ResourceDialogEvent::Navigate(Route::settings("billing")))
                     }))
@@ -464,6 +467,7 @@ impl ResourceShareDialog {
                             div().flex().child(
                                 div()
                                     .id("resource-share-create-team")
+                                    .a11y_button("Create a Team to share a library")
                                     .text_xs()
                                     .line_height(px(16.))
                                     .text_color(colors.muted_foreground)
@@ -629,6 +633,7 @@ impl ResourceShareDialog {
             .child(
                 div().flex().child(
                     button("resource-share-open-teams", true, true, colors)
+                        .a11y_button("Open Teams")
                         .on_click(cx.listener(|_, _, _, cx| {
                             cx.emit(ResourceDialogEvent::Navigate(Route::settings("team")))
                         }))

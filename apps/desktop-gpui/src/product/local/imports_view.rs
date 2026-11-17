@@ -11,6 +11,7 @@ use gpui::{
 use serde_json::{Value, json};
 
 use super::imports::{self, Direct, ImportResult, ImportRun, Mode, Provider, TextFile};
+use crate::ui::a11y::Accessible;
 use crate::{
     application::toasts,
     product::{
@@ -1002,6 +1003,7 @@ impl Render for ImportsView {
             .child(
                 div()
                     .id("imports-documentation")
+                    .a11y_button("Documentation")
                     .h(px(28.))
                     .px_2()
                     .flex()

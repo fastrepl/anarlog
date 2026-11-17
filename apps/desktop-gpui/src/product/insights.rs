@@ -12,6 +12,7 @@ use serde_json::json;
 use crate::ui::theme::{Theme, theme};
 
 use super::{controls, locale, settings};
+use crate::ui::a11y::Accessible;
 
 mod badges;
 
@@ -823,6 +824,7 @@ impl InsightsView {
                         .child(
                             div()
                                 .id("badges-retry")
+                                .a11y_button("Try again")
                                 .h_7()
                                 .px_2()
                                 .flex()

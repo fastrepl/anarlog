@@ -13,6 +13,7 @@ use gpui::{
 };
 use reqwest::Url;
 
+use crate::ui::a11y::Accessible;
 use crate::{
     platform::windows::{self, FrameWindow, SavedFrame},
     product::{account, cloud::host::Handoff},
@@ -414,6 +415,7 @@ impl Instruction {
                     .child(
                         div()
                             .id("instruction-submit")
+                            .a11y_button("Submit callback URL")
                             .h(px(40.))
                             .px_4()
                             .flex()

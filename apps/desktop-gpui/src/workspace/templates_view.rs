@@ -1330,6 +1330,7 @@ impl TemplatesView {
                 None => row.child(
                     chip()
                         .id("add-tag")
+                        .a11y_button("Add tag")
                         .text_color(colors.muted_foreground)
                         .cursor_pointer()
                         .hover(|style| style.bg(colors.muted.opacity(0.8)))
@@ -1492,6 +1493,7 @@ impl TemplatesView {
                     div().flex().child(
                         div()
                             .id("add-section")
+                            .a11y_button("Add Section")
                             .px_4()
                             .py(px(10.))
                             .flex()
@@ -1625,6 +1627,7 @@ impl TemplatesView {
             .child(
                 div()
                     .id("create-template")
+                    .a11y_button("Create template")
                     .h(px(28.))
                     .px_2()
                     .flex()

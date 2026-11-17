@@ -15,6 +15,7 @@ use gpui::{
 
 use super::live::{CaptureMode, LiveMeeting, LiveState};
 use super::widgets::dancing_bars;
+use crate::ui::a11y::Accessible;
 use crate::ui::theme::theme;
 
 pub const INSET: f32 = 4.;
@@ -343,6 +344,7 @@ impl FloatingBar {
                         .child(
                             div()
                                 .id("floating-bottom")
+                                .a11y_button("Go to bottom")
                                 .flex()
                                 .items_center()
                                 .gap(px(6.))
@@ -546,6 +548,7 @@ impl Render for FloatingBar {
         };
         let stop = div()
             .id("floating-stop")
+            .a11y_button("Stop listening")
             .w(px(stop_width))
             .h(px(ICON_SIZE))
             .flex()
@@ -606,6 +609,8 @@ impl Render for FloatingBar {
                 controls.child(
                     div()
                         .id("floating-expand")
+                        .a11y_button(if expanded { "Collapse" } else { "Expand" })
+                        .aria_expanded(expanded)
                         .size(px(ICON_SIZE))
                         .flex()
                         .items_center()
@@ -630,6 +635,7 @@ impl Render for FloatingBar {
         let bar_height = body + if handle { px(HANDLE_RESERVED) } else { px(0.) };
         div()
             .id("floating-bar")
+            .a11y_group(gpui::Role::Toolbar, "Meeting")
             .size_full()
             .relative()
             .on_hover(cx.listener(|this, hovered: &bool, _, cx| {

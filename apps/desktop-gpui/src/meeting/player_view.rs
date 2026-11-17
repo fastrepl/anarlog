@@ -13,6 +13,7 @@ use gpui::{
 
 use super::playback::{Command, Playback, RATES, Snapshot, State};
 use super::upload::Uploads;
+use crate::ui::a11y::Accessible;
 use crate::{
     product::account,
     ui::theme::{Theme, monospace_font, theme},
@@ -155,6 +156,8 @@ impl PlayerView {
                                 let disabled = matches!(action, MenuAction::Delete) && deleting;
                                 div()
                                     .id(("timeline-menu", index))
+                                    .a11y_menu_item(label)
+                                    .a11y_disabled(disabled)
                                     .h(px(30.))
                                     .px_3()
                                     .flex()
@@ -191,6 +194,15 @@ impl PlayerView {
             self.snapshot.error = Some(error);
         }
         cx.notify();
+    }
+
+    fn step_seek(&mut self, seconds: f32, cx: &mut Context<Self>) {
+        let position = self.snapshot.position.as_secs_f32() + seconds;
+        let target = position.clamp(0., self.snapshot.duration.as_secs_f32());
+        self.command(
+            Command::Seek(std::time::Duration::from_secs_f32(target)),
+            cx,
+        );
     }
 
     fn seek(&mut self, x: Pixels, cx: &mut Context<Self>) {
@@ -310,6 +322,7 @@ impl Render for PlayerView {
         row.child(
             div()
                 .id("play-pause")
+                .a11y_button(if playing { "Pause" } else { "Play" })
                 .size_7()
                 .flex()
                 .flex_shrink_0()
@@ -360,6 +373,8 @@ impl Render for PlayerView {
             row.child(
                 div()
                     .id("playback-rate")
+                    .a11y_button(format!("Playback speed, {}x", self.snapshot.rate))
+                    .aria_expanded(self.rates_open)
                     .h_6()
                     .px(px(6.))
                     .flex()
@@ -385,6 +400,25 @@ impl Render for PlayerView {
         .child(
             div()
                 .id("waveform")
+                // A seek slider in seconds; VoiceOver's increment and decrement step 5 s.
+                .role(gpui::Role::Slider)
+                .aria_label("Playback position")
+                .aria_numeric_value(position.into())
+                .aria_min_numeric_value(0.)
+                .aria_max_numeric_value(duration.into())
+                .aria_numeric_value_step(5.)
+                .on_a11y_action(gpui::AccessibleAction::Increment, {
+                    let view = cx.entity().downgrade();
+                    move |_, _, cx| {
+                        let _ = view.update(cx, |this, cx| this.step_seek(5., cx));
+                    }
+                })
+                .on_a11y_action(gpui::AccessibleAction::Decrement, {
+                    let view = cx.entity().downgrade();
+                    move |_, _, cx| {
+                        let _ = view.update(cx, |this, cx| this.step_seek(-5., cx));
+                    }
+                })
                 .flex_1()
                 .min_w_0()
                 .h(px(HEIGHT))
@@ -423,6 +457,7 @@ impl Render for PlayerView {
                             let current = rate == self.snapshot.rate;
                             div()
                                 .id(("rate", index))
+                                .a11y_menu_radio(format!("{rate}x"), current)
                                 .px_3()
                                 .py_1()
                                 .font_family(mono.clone())

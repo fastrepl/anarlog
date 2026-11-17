@@ -454,3 +454,28 @@ fn open_note_dialog_is_a_dialog_whose_highlight_is_read() {
         .is_some();
     assert!(status, "{}", tree.outline());
 }
+
+#[test]
+fn transcript_segments_read_as_speaker_and_text() {
+    let app = Harness::start();
+    app.open(Route::Session(SessionId("s-critique".into())));
+    let tab = app
+        .tree()
+        .find(Role::TabList, "Session note views")
+        .find(Role::Tab, "Transcript")
+        .id;
+    app.press(tab);
+    let tree = app.tree();
+    let transcript = tree.find(Role::List, "Transcript");
+    let segments = transcript.items(Role::ListItem);
+    assert!(!segments.is_empty(), "{}", transcript.outline());
+    for segment in &segments {
+        let (speaker, text) = segment.label().split_once(": ").expect("speaker: text");
+        assert!(
+            !speaker.is_empty() && !text.is_empty(),
+            "{}",
+            segment.line()
+        );
+    }
+    assert_named(&tree, "transcript");
+}

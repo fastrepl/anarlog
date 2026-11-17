@@ -10,6 +10,7 @@ use gpui::{
 use super::{
     CloudServices, ConflictDecision, ConflictReview, ManagementCommand, SecureAuthProvider,
 };
+use crate::ui::a11y::Accessible;
 use crate::{
     contracts::ProductEvent,
     product::services::{
@@ -332,6 +333,11 @@ impl Render for CloudView {
                 div().flex().items_center().justify_end().child(
                     div()
                         .id("refresh-cloud")
+                        .a11y_button(if self.loading {
+                            "Refreshing…"
+                        } else {
+                            "Refresh"
+                        })
                         .cursor_pointer()
                         .text_xs()
                         .child(if self.loading {
@@ -357,6 +363,10 @@ impl Render for CloudView {
                     let row = &rows[index];
                     let id = row.id.clone();
                     div().id(SharedString::from(id.clone())).h(px(60.)).px_3().flex().items_center().justify_between().border_b_1().border_color(colors.border)
+                        .map(|view| {
+                            let label = format!("{}, {}", row.title, row.detail);
+                            if id.contains(':') { view.a11y_button(label) } else { view.a11y_text(label) }
+                        })
                         .child(div().flex().flex_col().gap_1().child(row.title.to_string()).child(div().text_xs().text_color(colors.muted_foreground).child(row.detail.to_string())))
                         .when(id.contains(':'), |view| view.cursor_pointer().child("›").on_click(cx.listener(move |this, _, _, cx| {
                             if this.has_unsaved() { this.status = "Save or cancel the current form before changing selection".into(); cx.notify(); return; }
@@ -410,6 +420,7 @@ impl Render for CloudView {
                     view.child(
                         div()
                             .id("cloud-previous-page")
+                            .a11y_button("Previous")
                             .cursor_pointer()
                             .child("Previous")
                             .on_click(cx.listener(|this, _, _, cx| {
@@ -428,6 +439,7 @@ impl Render for CloudView {
                         view.child(
                             div()
                                 .id("cloud-next-page")
+                                .a11y_button("Next")
                                 .cursor_pointer()
                                 .child("Next")
                                 .on_click(cx.listener(|this, _, _, cx| {
@@ -443,6 +455,7 @@ impl Render for CloudView {
             body = body.child(
                 div()
                     .id("review-share-conflict")
+                    .a11y_button("Review publication conflict")
                     .cursor_pointer()
                     .child("Review publication conflict")
                     .when(!busy, |view| {
@@ -510,8 +523,10 @@ impl Render for CloudView {
                 .child(div().text_xs().child("Both original documents remain intact. Publishing local changes replaces the reviewed web revision; newer edits produce another conflict."))
                 .child(div().flex().gap_3()
                     .child(div().id("keep-remote").px_3().py_2().border_1().border_color(colors.border).child("Keep web copy; retain local draft")
+                    .a11y_button("Keep web copy; retain local draft")
                         .when(!busy, |view| view.cursor_pointer().on_click(cx.listener(|this, _, _, cx| this.resolve(ConflictDecision::KeepRemote, cx)))))
                     .child(div().id("publish-local").px_3().py_2().bg(colors.accent).child("Replace reviewed web copy with local draft")
+                    .a11y_button("Replace reviewed web copy with local draft")
                         .when(!busy, |view| view.cursor_pointer().on_click(cx.listener(|this, _, _, cx| this.resolve(ConflictDecision::PublishLocal, cx))))));
         }
         if let Some(operation) = &self.dialog {
@@ -584,6 +599,7 @@ impl Render for CloudView {
                         .child(
                             div()
                                 .id("cancel-cloud-dialog")
+                                .a11y_button("Cancel")
                                 .px_3()
                                 .py_2()
                                 .child("Cancel")
@@ -599,6 +615,7 @@ impl Render for CloudView {
                         .child(
                             div()
                                 .id("submit-cloud-dialog")
+                                .a11y_button(if busy { "Working…" } else { "Confirm" })
                                 .px_3()
                                 .py_2()
                                 .bg(colors.accent)
