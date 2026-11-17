@@ -1787,6 +1787,9 @@ impl EditorPane {
                 .then(|| placeholder_text.clone())
                 .flatten()
         };
+        if let Some(block) = &cached {
+            super::app_link::load_states(&block.rows, &self.context.runtime, cx);
+        }
         match cached {
             Some(block) if block.grid.is_some() => {
                 let grid = block.grid.as_ref().expect("grid");
@@ -2353,6 +2356,14 @@ impl Render for EditorPane {
             .on_mouse_down(
                 MouseButton::Left,
                 cx.listener(|this, event: &gpui::MouseDownEvent, window, cx| {
+                    // Shipping's chips are buttons: a click opens the link and leaves the caret.
+                    if let Some(position) =
+                        super::app_link::chip_at(this.layouts.values(), event.position)
+                    {
+                        this.activate_at(position, cx);
+                        cx.stop_propagation();
+                        return;
+                    }
                     this.selected_image = None;
                     this.focus.focus(window, cx);
                     Caret::reset_entity(&this.caret, cx);

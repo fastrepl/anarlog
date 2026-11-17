@@ -1,5 +1,5 @@
 //! Editor and open-note SVGs, served to GPUI under `editor/<Name>.svg`. Hugeicons come from
-//! `export-icons.mjs`; `TaskCheck` and `TranscriptAudioIcon` are drawn by hand.
+//! `export-icons.mjs`; `TaskCheck`, `TranscriptAudioIcon` and the `*Logo` marks are not.
 
 const ICONS: &[(&str, &[u8])] = &[
     (
@@ -117,6 +117,24 @@ const ICONS: &[(&str, &[u8])] = &[
     ("RepeatIcon", include_bytes!("icons/RepeatIcon.svg")),
     ("TextFontIcon", include_bytes!("icons/TextFontIcon.svg")),
     ("TextSquareIcon", include_bytes!("icons/TextSquareIcon.svg")),
+    // App-link chip marks: shipping's own (`app-link-view.tsx`) and the lobehub mono icons it
+    // imports. Multicolor ones carry a 64px size so they rasterize sharply.
+    ("AirtableLogo", include_bytes!("icons/AirtableLogo.svg")),
+    ("AsanaLogo", include_bytes!("icons/AsanaLogo.svg")),
+    ("AtlassianLogo", include_bytes!("icons/AtlassianLogo.svg")),
+    ("CalendlyLogo", include_bytes!("icons/CalendlyLogo.svg")),
+    ("DiscordLogo", include_bytes!("icons/DiscordLogo.svg")),
+    ("DropboxLogo", include_bytes!("icons/DropboxLogo.svg")),
+    ("FigmaLogo", include_bytes!("icons/FigmaLogo.svg")),
+    ("GithubLogo", include_bytes!("icons/GithubLogo.svg")),
+    ("GoogleLogo", include_bytes!("icons/GoogleLogo.svg")),
+    ("LinearLogo", include_bytes!("icons/LinearLogo.svg")),
+    ("LoomLogo", include_bytes!("icons/LoomLogo.svg")),
+    ("MiroLogo", include_bytes!("icons/MiroLogo.svg")),
+    ("NotionLogo", include_bytes!("icons/NotionLogo.svg")),
+    ("SlackLogo", include_bytes!("icons/SlackLogo.svg")),
+    ("TrelloLogo", include_bytes!("icons/TrelloLogo.svg")),
+    ("ZoomLogo", include_bytes!("icons/ZoomLogo.svg")),
 ];
 
 pub fn load(path: &str) -> Option<&'static [u8]> {

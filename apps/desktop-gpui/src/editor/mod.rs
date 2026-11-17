@@ -1,4 +1,5 @@
 pub mod accessibility;
+mod app_link;
 mod attachments;
 mod clipboard;
 pub mod document;

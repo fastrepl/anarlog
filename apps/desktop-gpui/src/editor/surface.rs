@@ -267,6 +267,10 @@ impl ProjectedBlock {
                         text.push_str(&content.as_string());
                     } else if child.kind() == "hardBreak" {
                         text.push('\n');
+                    } else if child.kind() == "appLink" {
+                        text.push_str(&super::app_link::label(
+                            child.fields.get("attrs").unwrap_or(&Value::Null),
+                        ));
                     } else {
                         let label = child
                             .attr("label")
@@ -461,8 +465,38 @@ pub fn render_row(
             color: None,
         });
     }
+    let rule = row.kind == "horizontalRule";
+    // Shipping's `note-title-editor > h1:first-child`: 1.5rem / 1.875rem with 1rem below.
+    let font_size = if rule {
+        1.
+    } else if title {
+        24.
+    } else if row.kind == "heading" {
+        match row.level {
+            1 => 20.,
+            2 => 18.,
+            _ => 16.,
+        }
+    } else if row.kind == "codeBlock" {
+        14.
+    } else {
+        16.
+    };
+    let (row, chips) = super::app_link::reserve(row, &base, px(font_size), colors, window, cx);
     let mut runs = Vec::new();
     for span in &row.spans {
+        // A chip's reserved space keeps the plain font it was measured in.
+        if !chips.is_empty() && span.node.kind() == "appLink" {
+            runs.push(TextRun {
+                len: span.bytes.len(),
+                color: gpui::transparent_black(),
+                background_color: None,
+                underline: None,
+                strikethrough: None,
+                ..base.clone()
+            });
+            continue;
+        }
         let mut run = TextRun {
             len: span.bytes.len(),
             ..base.clone()
@@ -536,23 +570,7 @@ pub fn render_row(
     let entity = cx.entity();
     let find_entity = entity.clone();
     let find_layout = visible.clone();
-    let rule = row.kind == "horizontalRule";
-    // Shipping's `note-title-editor > h1:first-child`: 1.5rem / 1.875rem with 1rem below.
-    let font_size = if rule {
-        1.
-    } else if title {
-        24.
-    } else if row.kind == "heading" {
-        match row.level {
-            1 => 20.,
-            2 => 18.,
-            _ => 16.,
-        }
-    } else if row.kind == "codeBlock" {
-        14.
-    } else {
-        16.
-    };
+    let chip_layout = visible.clone();
     let line_height = if rule {
         1.
     } else if title {
@@ -736,6 +754,9 @@ pub fn render_row(
             .left_0(),
         )
         .child(text)
+        .when(!chips.is_empty(), |view| {
+            view.child(super::app_link::paint(chip_layout, chips, colors))
+        })
         .child(
             canvas(
                 move |_, _, _| (),

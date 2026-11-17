@@ -15,6 +15,7 @@ use super::{
     document::{Document, inline_text},
     drop::SessionDrag,
     find::FindOptions,
+    menu::EditorRequest,
 };
 use crate::contracts::{EditorInit, LaneContext};
 
@@ -322,4 +323,92 @@ fn image_resizing_keeps_shipping_limits_and_stores_a_percentage(cx: &mut TestApp
         });
         assert_eq!(width(cx), json!(expected));
     }
+}
+
+struct ClosedIssues;
+
+impl crate::workspace::task::Github for ClosedIssues {
+    fn get(
+        &self,
+        _: String,
+    ) -> futures::future::BoxFuture<'static, desktop_runtime::Result<Value>> {
+        Box::pin(async { Ok(json!({"state": "closed"})) })
+    }
+}
+
+#[gpui::test]
+fn a_plain_click_on_a_github_chip_opens_its_task_tab_and_leaves_the_caret(cx: &mut TestAppContext) {
+    cx.update(|cx| {
+        cx.set_global(crate::workspace::task::GithubOverride(std::sync::Arc::new(
+            ClosedIssues,
+        )))
+    });
+    let chip = |kind: &str, number: u64| json!({"type": "appLink", "attrs": {"provider": "github", "kind": kind, "owner": "acme", "repo": "app", "number": number, "url": "https://github.com/acme/app"}});
+    let (fixture, cx) = fixture(
+        cx,
+        vec![json!({"type": "paragraph", "content": [
+            {"type": "text", "text": "Fix "}, chip("issue", 42), {"type": "text", "text": " and "}, chip("pull_request", 43)
+        ]})],
+    );
+    let editor = fixture.editor.clone();
+    let opened = Rc::new(RefCell::new(Vec::new()));
+    cx.update(|_, cx| {
+        let opened = opened.clone();
+        cx.subscribe(&editor, move |_, request: &EditorRequest, _| {
+            if let EditorRequest::OpenTask(route) = request {
+                opened.borrow_mut().push(route.clone());
+            }
+        })
+        .detach();
+    });
+    let laid_out = |cx: &mut VisualTestContext| {
+        editor.read_with(cx, |editor, _| {
+            editor.layouts.values().any(|layout| {
+                layout
+                    .row
+                    .spans
+                    .iter()
+                    .any(|span| span.node.kind() == "appLink")
+            })
+        })
+    };
+    settle(cx, laid_out);
+    let (target, caret) = editor.read_with(cx, |editor, _| {
+        let layout = editor
+            .layouts
+            .values()
+            .find(|layout| {
+                layout
+                    .row
+                    .spans
+                    .iter()
+                    .any(|span| span.node.kind() == "appLink")
+            })
+            .expect("the paragraph is laid out");
+        assert!(
+            !layout.row.text.contains("appLink"),
+            "the chip replaces the node's placeholder text"
+        );
+        let span = layout
+            .row
+            .spans
+            .iter()
+            .find(|span| span.node.kind() == "appLink")
+            .unwrap();
+        let start = layout.block_start + layout.row.start + span.position;
+        let bounds = layout.bounds_for(start..start + span.units).unwrap();
+        (bounds.center(), editor.model.as_ref().unwrap().selection)
+    });
+    cx.simulate_mouse_down(target, MouseButton::Left, Modifiers::none());
+    cx.simulate_mouse_up(target, MouseButton::Left, Modifiers::none());
+    assert_eq!(
+        opened.borrow().as_slice(),
+        [crate::workspace::navigation::Route::Task(
+            "github_issue:acme/app#42 github_pr:acme/app#43".into()
+        )]
+    );
+    assert_eq!(
+        editor.read_with(cx, |editor, _| editor.model.as_ref().unwrap().selection),
+        caret
+    );
 }
