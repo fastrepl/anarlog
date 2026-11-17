@@ -10,7 +10,7 @@ pub mod overlay;
 mod preview;
 pub mod recorder;
 pub mod shortcut;
-mod transcribe;
+pub(crate) mod transcribe;
 mod window;
 
 use std::{path::PathBuf, sync::Arc};

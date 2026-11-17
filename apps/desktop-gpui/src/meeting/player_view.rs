@@ -1,18 +1,22 @@
 //! Shipping's audio player `Timeline` (`audio-player/timeline.tsx`): play/pause, elapsed and
-//! total time, the Pro playback-rate menu, and the split-channel WaveSurfer waveform.
+//! total time, the Pro playback-rate menu, the split-channel WaveSurfer waveform, and the
+//! right-click menu (Play / Pause / Resume / Stop, Delete recording).
 
 use std::path::PathBuf;
 use std::time::Duration;
 
+use desktop_runtime::{RuntimeHandle, SessionId};
 use gpui::{
-    Bounds, Context, FontWeight, MouseButton, MouseDownEvent, MouseMoveEvent, Pixels, Render, Task,
-    Window, canvas, div, fill, point, prelude::*, px, rgb, size, svg,
+    Bounds, Context, FontWeight, MouseButton, MouseDownEvent, MouseMoveEvent, Pixels, Point,
+    Render, Task, Window, canvas, div, fill, point, prelude::*, px, rgb, size, svg,
 };
 
-use super::playback::{Command, Playback, RATES, Snapshot};
+use super::playback::{Command, Playback, RATES, Snapshot, State};
+use super::upload::Uploads;
 use crate::{
     product::account,
-    ui::theme::{RADIUS, monospace_font, theme},
+    ui::theme::{RADIUS, Theme, monospace_font, theme},
+    workspace::resource_list,
 };
 
 const BAR_WIDTH: f32 = 3.;
@@ -28,8 +32,35 @@ pub struct PlayerView {
     bounds: Option<Bounds<Pixels>>,
     dragging: bool,
     rates_open: bool,
-    /// Shipping offers playback rates to Pro accounts only.
+    /// The right-click menu, at its window position.
+    menu: Option<Point<Pixels>>,
+    /// The note whose recording this is, for Delete recording.
+    recording: Option<(RuntimeHandle, SessionId)>,
     _poll: Task<()>,
+}
+
+#[derive(Clone, Copy)]
+enum MenuAction {
+    Play,
+    Pause,
+    Stop,
+    Delete,
+}
+
+/// Shipping's timeline menu: the transport action for the current state, Stop unless already
+/// stopped, then Delete recording.
+fn menu_items(state: State) -> Vec<Option<(MenuAction, &'static str)>> {
+    let mut items = vec![Some(match state {
+        State::Paused => (MenuAction::Play, "Resume"),
+        State::Stopped => (MenuAction::Play, "Play"),
+        State::Playing => (MenuAction::Pause, "Pause"),
+    })];
+    if state != State::Stopped {
+        items.push(Some((MenuAction::Stop, "Stop")));
+    }
+    items.push(None);
+    items.push(Some((MenuAction::Delete, "Delete recording")));
+    items
 }
 
 impl PlayerView {
@@ -60,8 +91,95 @@ impl PlayerView {
             bounds: None,
             dragging: false,
             rates_open: false,
+            menu: None,
+            recording: None,
             _poll: poll,
         }
+    }
+
+    pub fn set_recording(&mut self, runtime: RuntimeHandle, session: SessionId) {
+        self.recording = Some((runtime, session));
+    }
+
+    fn menu_action(&mut self, action: MenuAction, cx: &mut Context<Self>) {
+        self.menu = None;
+        self.rates_open = false;
+        match action {
+            MenuAction::Play => self.command(Command::Play, cx),
+            MenuAction::Pause => self.command(Command::Pause, cx),
+            MenuAction::Stop => self.command(Command::Stop, cx),
+            MenuAction::Delete => {
+                if let Some((runtime, session)) = self.recording.clone() {
+                    Uploads::global(cx).update(cx, |uploads, cx| {
+                        uploads.delete_recording(&runtime, session, cx)
+                    });
+                }
+            }
+        }
+        cx.notify();
+    }
+
+    fn context_menu(
+        &self,
+        position: Point<Pixels>,
+        colors: Theme,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        let deleting = self
+            .recording
+            .as_ref()
+            .is_none_or(|(_, session)| Uploads::global(cx).read(cx).deleting(session));
+        gpui::deferred(
+            gpui::anchored().position(position).snap_to_window().child(
+                resource_list::context_menu(colors)
+                    .id("timeline-menu")
+                    .occlude()
+                    .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                    .on_mouse_down_out(cx.listener(|this, _, _, cx| {
+                        this.menu = None;
+                        cx.notify();
+                    }))
+                    .children(
+                        menu_items(self.snapshot.state())
+                            .into_iter()
+                            .enumerate()
+                            .map(|(index, item)| {
+                                let Some((action, label)) = item else {
+                                    return div()
+                                        .id(("timeline-menu-separator", index))
+                                        .mx(px(-4.))
+                                        .my_1()
+                                        .h(px(1.))
+                                        .bg(colors.muted);
+                                };
+                                let disabled = matches!(action, MenuAction::Delete) && deleting;
+                                div()
+                                    .id(("timeline-menu", index))
+                                    .h(px(30.))
+                                    .px_3()
+                                    .flex()
+                                    .items_center()
+                                    .text_sm()
+                                    .rounded(px(4.))
+                                    .text_color(colors.foreground)
+                                    .when_else(
+                                        disabled,
+                                        |item| item.opacity(0.5),
+                                        |item| {
+                                            item.cursor_pointer()
+                                                .hover(move |style| style.bg(colors.accent))
+                                                .on_click(cx.listener(move |this, _, _, cx| {
+                                                    cx.stop_propagation();
+                                                    this.menu_action(action, cx);
+                                                }))
+                                        },
+                                    )
+                                    .child(label)
+                            }),
+                    ),
+            ),
+        )
+        .with_priority(2)
     }
 
     pub fn open(&mut self, path: PathBuf, cx: &mut Context<Self>) {
@@ -122,7 +240,19 @@ impl Render for PlayerView {
             .gap_2()
             .py(px(6.))
             .pl_1()
-            .pr_3();
+            .pr_3()
+            .on_mouse_down(
+                MouseButton::Right,
+                cx.listener(|this, event: &MouseDownEvent, _, cx| {
+                    this.menu = Some(event.position);
+                    cx.stop_propagation();
+                    cx.notify();
+                }),
+            );
+        let menu = self
+            .menu
+            .map(|position| self.context_menu(position, colors, cx));
+        let row = row.children(menu);
         if let Some(error) = &self.snapshot.error {
             return row
                 .h(px(40.))
@@ -178,7 +308,8 @@ impl Render for PlayerView {
         )
         .size_full();
         let mono = monospace_font(cx);
-        let playing = self.snapshot.playing;
+        let state = self.snapshot.state();
+        let playing = state == State::Playing;
         row.child(
             div()
                 .id("play-pause")
@@ -326,6 +457,25 @@ impl Render for PlayerView {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_timeline_menu_offers_the_transport_action_for_the_player_state() {
+        let labels = |state| {
+            menu_items(state)
+                .into_iter()
+                .map(|item| item.map_or("-", |(_, label)| label))
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(labels(State::Stopped), ["Play", "-", "Delete recording"]);
+        assert_eq!(
+            labels(State::Paused),
+            ["Resume", "Stop", "-", "Delete recording"]
+        );
+        assert_eq!(
+            labels(State::Playing),
+            ["Pause", "Stop", "-", "Delete recording"]
+        );
+    }
 
     #[test]
     fn waveform_bars_keep_each_ranges_loudest_peak() {

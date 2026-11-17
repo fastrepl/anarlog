@@ -122,7 +122,7 @@ pub async fn preview(services: &ProviderServices, request: &Request) -> Option<P
     })
 }
 
-async fn target(services: &ProviderServices, request: &Request) -> Result<Target> {
+pub(crate) async fn target(services: &ProviderServices, request: &Request) -> Result<Target> {
     let preferences = &request.preferences;
     let provider = preferences.text("current_stt_provider");
     let model = preferences.text("current_stt_model");

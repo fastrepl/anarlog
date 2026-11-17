@@ -28,11 +28,16 @@ use super::{
 };
 use crate::{
     contracts::{EditorEvent, EditorInit, LaneContext, MeetingIntent, WorkspaceEvent},
-    editor::{EditorPane, title::first_line_title, transcript::TranscriptView},
+    editor::{
+        EditorPane,
+        title::first_line_title,
+        transcript::{TranscriptEvent, TranscriptView},
+    },
     meeting::{
         MeetingServices,
         live::{LiveState, SessionMode},
         player_view::PlayerView,
+        upload::{self, Job, UploadEvent, Uploads},
         widgets::{dancing_sticks, spinner},
     },
     product::sharing::{self, SharePopover, SharePopoverEvent},
@@ -63,6 +68,12 @@ pub struct NoteView {
     mode: SessionMode,
     /// Saved audio for the open session, which enables the transcript tab and its player.
     audio: Option<PathBuf>,
+    /// The open session's upload or batch transcription (shipping's `running_batch`).
+    batch: Option<Job>,
+    /// Shipping's `useCurrentNoteHasContent`, read when the note menu opens.
+    menu_note_content: bool,
+    /// The transcript view's Resume listening, for as long as that view lives.
+    transcript_events: Option<Subscription>,
     player: Option<Entity<PlayerView>>,
     menu: bool,
     menu_index: Option<usize>,
@@ -240,6 +251,10 @@ enum MenuAction {
     MeetingInfo,
     VersionHistory,
     Listen,
+    Retranscribe,
+    UploadAudio,
+    UploadTranscript,
+    ShowAudio,
     Export,
     OpenWindow,
     FloatingPanel,
@@ -335,10 +350,18 @@ impl NoteView {
         let blur = cx.on_blur(&title.focus_handle(cx), window, |this, _, cx| {
             this.rename(cx);
         });
+        let uploads = Uploads::global(cx);
         let mut subscriptions = vec![
             input,
             blur,
             cx.observe_global::<MeetingServices>(|this, cx| this.load_audio(cx)),
+            cx.observe(&uploads, |this, _, cx| this.sync_batch(cx)),
+            cx.subscribe(&uploads, |this, _, event, cx| {
+                let UploadEvent::AudioChanged(session) = event;
+                if this.current.as_ref().map(|current| &current.summary.id) == Some(session) {
+                    this.load_audio(cx);
+                }
+            }),
         ];
         if let Some(live) = LiveState::global(cx) {
             subscriptions.push(cx.observe(&live, |this, _, cx| this.live_changed(cx)));
@@ -376,6 +399,9 @@ impl NoteView {
             rename_error: false,
             mode: SessionMode::Inactive,
             audio: None,
+            batch: None,
+            menu_note_content: false,
+            transcript_events: None,
             player: None,
             menu: false,
             menu_index: None,
@@ -452,6 +478,19 @@ impl NoteView {
             // A resumed recording appends to the same file, so the player must reopen it.
             self.player = None;
             self.load_audio(cx);
+        }
+    }
+
+    fn sync_batch(&mut self, cx: &mut Context<Self>) {
+        let batch = self.current.as_ref().and_then(|session| {
+            Uploads::global(cx)
+                .read(cx)
+                .job(&session.summary.id)
+                .cloned()
+        });
+        if batch != self.batch {
+            self.batch = batch;
+            cx.notify();
         }
     }
 
@@ -689,6 +728,7 @@ impl NoteView {
         self.message.clear();
         self.mode = LiveState::mode(cx, &session.summary.id);
         self.current = Some(session);
+        self.sync_batch(cx);
         self.load_audio(cx);
         self.load_model(cx);
         cx.notify();
@@ -864,7 +904,10 @@ impl NoteView {
             ids
         };
         // Shipping's `getCanShowTranscript`.
-        let transcript = self.details.has_transcript || self.audio.is_some() || !inactive;
+        let transcript = self.details.has_transcript
+            || self.audio.is_some()
+            || !inactive
+            || self.batch.is_some();
         note_tabs(&ids, transcript)
     }
 
@@ -966,10 +1009,13 @@ impl NoteView {
                 MenuItem::new(VersionHistory, "editor/HistoryIcon.svg", "Version history")
                     .disabled(true),
             ],
-            vec![
+            // Shipping's recording rows follow Listen in its group.
+            std::iter::once(
                 MenuItem::new(Listen, listen_icon, listen_label)
                     .disabled(self.mode == SessionMode::Finalizing),
-            ],
+            )
+            .chain(self.recording_menu_items())
+            .collect(),
             vec![MenuItem::new(
                 Export,
                 "editor/FileDownloadIcon.svg",
@@ -1242,6 +1288,63 @@ impl NoteView {
         cx.notify();
     }
 
+    /// Shipping's overflow recording rows: Re-transcribe saved audio, upload into an empty
+    /// note, and reveal the audio folder.
+    fn recording_menu_items(&self) -> Vec<MenuItem> {
+        let row = MenuItem::new;
+        let running = matches!(self.batch, Some(Job::Running { .. }));
+        let inactive = self.mode == SessionMode::Inactive && !running;
+        let mut items = Vec::new();
+        if self.audio.is_some() && inactive {
+            items.push(row(
+                MenuAction::Retranscribe,
+                "editor/RefreshIcon.svg",
+                "Re-transcribe",
+            ));
+        }
+        if self.audio.is_none()
+            && !self.details.has_transcript
+            && !self.menu_note_content
+            && self.mode == SessionMode::Inactive
+        {
+            items.push(row(
+                MenuAction::UploadAudio,
+                "editor/AudioWaveformIcon.svg",
+                "Upload audio",
+            ));
+            items.push(row(
+                MenuAction::UploadTranscript,
+                "editor/FileTextIcon.svg",
+                "Upload transcript",
+            ));
+        }
+        if self.audio.is_some() {
+            items.push(row(
+                MenuAction::ShowAudio,
+                "meeting/FolderOpenIcon.svg",
+                if cfg!(target_os = "macos") {
+                    "Show Audio in Finder"
+                } else if cfg!(target_os = "windows") {
+                    "Show Audio in Explorer"
+                } else {
+                    "Show Audio in Folder"
+                },
+            ));
+        }
+        items
+    }
+
+    fn current_note_has_content(&self, cx: &gpui::App) -> bool {
+        let tabs = self.tabs();
+        match current_tab(self.view.as_ref(), self.mode == SessionMode::Active, &tabs) {
+            NoteTab::Summary(_) => self.editable_summary_shown(),
+            NoteTab::Transcript => self.details.has_transcript,
+            NoteTab::Memos => self
+                .memo_editor()
+                .is_some_and(|editor| !editor.read(cx).is_pristine()),
+        }
+    }
+
     fn step_menu(&mut self, forward: bool) {
         let items = self.menu_items();
         let enabled: Vec<usize> = (0..items.len())
@@ -1290,6 +1393,25 @@ impl NoteView {
         let id = session.summary.id.clone();
         match action {
             MenuAction::Listen => self.toggle_recording(cx),
+            MenuAction::Retranscribe => {
+                let runtime = self.runtime.clone();
+                Uploads::global(cx)
+                    .update(cx, |uploads, cx| uploads.retranscribe(&runtime, id, cx));
+            }
+            MenuAction::UploadAudio => {
+                let runtime = self.runtime.clone();
+                Uploads::global(cx)
+                    .update(cx, |uploads, cx| uploads.upload_audio(&runtime, id, cx));
+            }
+            MenuAction::UploadTranscript => {
+                let runtime = self.runtime.clone();
+                Uploads::global(cx).update(cx, |uploads, cx| {
+                    uploads.upload_transcript(&runtime, id, cx)
+                });
+            }
+            MenuAction::ShowAudio => {
+                Uploads::global(cx).update(cx, |uploads, cx| uploads.show_audio(id, cx));
+            }
             MenuAction::Export => self.open_export(window, cx),
             MenuAction::OpenWindow => cx.emit(NoteEvent::Request(OpenNote::Window(id))),
             MenuAction::FloatingPanel => cx.emit(NoteEvent::OpenFloatingPanel),
@@ -1597,7 +1719,10 @@ impl NoteView {
                 let target = tab.clone();
                 let transcript = matches!(tab, NoteTab::Transcript);
                 let recording = transcript && mode == SessionMode::Active;
-                let finalizing = transcript && mode == SessionMode::Finalizing;
+                // Shipping's `shouldShowTranscriptTabSpinner`: finalizing or running a batch.
+                let finalizing = transcript
+                    && (mode == SessionMode::Finalizing
+                        || matches!(self.batch, Some(Job::Running { .. })));
                 let group = SharedString::from(format!("note-tab-{index}"));
                 let generating = summary.as_ref().is_some_and(|summary| summary.3);
                 let failed = summary.as_ref().is_some_and(|summary| summary.4);
@@ -1742,6 +1867,19 @@ impl NoteView {
                             this.select_tab(target.clone(), cx)
                         }
                     }))
+                    .when(active && transcript, |view| {
+                        view.on_mouse_down(
+                            MouseButton::Right,
+                            cx.listener(|this, event: &gpui::MouseDownEvent, _, cx| {
+                                if let Some(transcript) = &this.transcript {
+                                    transcript.update(cx, |transcript, cx| {
+                                        transcript.open_tab_menu(event.position, cx)
+                                    });
+                                }
+                                cx.stop_propagation();
+                            }),
+                        )
+                    })
                     .group(group)
                     .child(tab_icon)
                     .when(active, |view| {
@@ -1802,9 +1940,16 @@ impl NoteView {
         let player = self
             .player
             .get_or_insert_with(|| {
+                let recording = self
+                    .current
+                    .as_ref()
+                    .map(|session| (self.runtime.clone(), session.summary.id.clone()));
                 cx.new(|cx| {
                     let mut player = PlayerView::new(playback, cx);
                     player.open(path, cx);
+                    if let Some((runtime, session)) = recording {
+                        player.set_recording(runtime, session);
+                    }
                     player
                 })
             })
@@ -1971,6 +2116,7 @@ impl NoteView {
                                     this.close_menu(window, cx);
                                 } else {
                                     this.return_focus = window.focused(cx);
+                                    this.menu_note_content = this.current_note_has_content(cx);
                                     this.menu = true;
                                     this.menu_index = None;
                                     this.always_on_top =
@@ -2341,17 +2487,27 @@ impl Render for NoteView {
             NoteTab::Transcript if ready => self.current.clone().map(|session| {
                 let runtime = self.runtime.clone();
                 let audio = self.audio.clone();
-                let transcript = self
-                    .transcript
-                    .get_or_insert_with(|| {
-                        cx.new(|cx| {
+                let transcript = match &self.transcript {
+                    Some(transcript) => transcript.clone(),
+                    None => {
+                        let transcript = cx.new(|cx| {
                             let mut view =
                                 TranscriptView::new(runtime, session.summary.id.clone(), cx);
                             view.set_audio(audio, cx);
                             view
-                        })
-                    })
-                    .clone();
+                        });
+                        self.transcript_events =
+                            Some(cx.subscribe(&transcript, |this, _, event, cx| match event {
+                                TranscriptEvent::ResumeListening => {
+                                    if this.mode == SessionMode::Inactive {
+                                        this.toggle_recording(cx)
+                                    }
+                                }
+                            }));
+                        self.transcript = Some(transcript.clone());
+                        transcript
+                    }
+                };
                 div()
                     .size_full()
                     .flex()
@@ -2370,6 +2526,21 @@ impl Render for NoteView {
                     .children(self.memo_templates_overlay(colors, cx))
                     .into_any_element()
             }),
+        };
+        // Shipping's `AudioDropTarget` wraps the memo and summary editors.
+        let body = match (body, &self.current) {
+            (Some(content), Some(session)) if current != NoteTab::Transcript => Some(
+                upload::audio_drop_target(
+                    content,
+                    colors,
+                    self.runtime.clone(),
+                    session.summary.id.clone(),
+                    window,
+                    cx,
+                )
+                .into_any_element(),
+            ),
+            (body, _) => body,
         };
         div()
             .size_full()

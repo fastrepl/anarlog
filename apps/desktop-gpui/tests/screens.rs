@@ -19,11 +19,12 @@ use desktop_gpui::{
     meeting::{
         floating::{FloatingBar, container_size, shows_expand},
         live::{CaptureMode, LiveMeeting, LiveState, SessionMode},
+        upload::{Progress, Transcriber, TranscriberGlobal, Transcription},
     },
     ui::theme::UiFonts,
     workspace::{assets::Assets, navigation::Route},
 };
-use desktop_runtime::{Profile, RuntimeHandle, ServiceError, SessionId};
+use desktop_runtime::{CancellationToken, Profile, RuntimeHandle, ServiceError, SessionId};
 use gpui::{
     AnyWindowHandle, AppContext, HeadlessAppContext, Modifiers, MouseButton, MouseDownEvent,
     MouseMoveEvent, MouseUpEvent, PlatformInput, ScrollDelta, ScrollEvent, ScrollSource,
@@ -166,6 +167,7 @@ fn main() {
     capture(&mut cx, window, &out, "search-keyboard");
     type_text(&mut cx, window, &["escape"]);
     meeting(&mut cx, window, profile.path(), &out);
+    transcript_files(&mut cx, window, profile.path(), &out);
     dictation(&mut cx, &out);
     contacts(&mut cx, window, &out);
     timeline_details(&mut cx, window, &out);
@@ -1047,6 +1049,103 @@ fn meeting(
     set_live(cx, None);
     capture(cx, window, out, "meeting-stopped");
 }
+
+/// Transcript and audio file flows: saved audio without a transcript, a running and a failed
+/// re-transcription (with fake providers), the note menu's recording rows, the Transcript tab
+/// and timeline menus, segment selection, and the audio drop overlay.
+fn transcript_files(
+    cx: &mut HeadlessAppContext,
+    window: WindowHandle<ApplicationView>,
+    profile: &std::path::Path,
+    out: &std::path::Path,
+) {
+    let audio = profile.join("vault/sessions/s-voice-memo");
+    std::fs::create_dir_all(&audio).unwrap();
+    std::fs::write(audio.join("audio.wav"), wav(20)).unwrap();
+    open(cx, window, Route::Session(SessionId("s-voice-memo".into())));
+    click(cx, window, TRANSCRIPT_TAB_LIVE.0, TRANSCRIPT_TAB_LIVE.1);
+    capture(cx, window, out, "transcript-audio-empty");
+    click(cx, window, 888., 23.);
+    capture(cx, window, out, "note-menu-audio");
+    type_text(cx, window, &["escape"]);
+
+    let waiting: Transcriber = Arc::new(
+        |_: SessionId,
+         _: PathBuf,
+         progress: Progress,
+         cancellation: CancellationToken|
+         -> Pending {
+            Box::pin(async move {
+                progress(0.42);
+                cancellation.cancelled().await;
+                Err(ServiceError::Cancelled)
+            })
+        },
+    );
+    cx.update(|cx| cx.set_global(TranscriberGlobal(waiting)));
+    click(cx, window, RETRANSCRIBE.0, RETRANSCRIBE.1);
+    capture(cx, window, out, "transcript-batching");
+    click(cx, window, STOP_TRANSCRIPTION.0, STOP_TRANSCRIPTION.1);
+    let failing: Transcriber = Arc::new(
+        |_: SessionId, _: PathBuf, _: Progress, _: CancellationToken| -> Pending {
+            Box::pin(async {
+                Err(ServiceError::Failed(
+                    "Deepgram rejected the API key (401).".into(),
+                ))
+            })
+        },
+    );
+    cx.update(|cx| cx.set_global(TranscriberGlobal(failing)));
+    click(cx, window, RETRANSCRIBE.0, RETRANSCRIBE.1);
+    capture(cx, window, out, "transcript-failed");
+
+    open(
+        cx,
+        window,
+        Route::Session(SessionId("s-blank-upload".into())),
+    );
+    click(cx, window, 888., 23.);
+    capture(cx, window, out, "note-menu-upload");
+    type_text(cx, window, &["escape"]);
+    // One audio file dragged over the memo shows the drop overlay; it leaves without dropping.
+    let position = point(px(600.), px(300.));
+    let paths = gpui::ExternalPaths(vec![profile.join("Interview.m4a")].into());
+    input(
+        cx,
+        window,
+        [
+            PlatformInput::FileDrop(gpui::FileDropEvent::Entered { position, paths }),
+            PlatformInput::FileDrop(gpui::FileDropEvent::Pending { position }),
+        ],
+    );
+    capture(cx, window, out, "note-audio-drop");
+    input(
+        cx,
+        window,
+        [PlatformInput::FileDrop(gpui::FileDropEvent::Exited)],
+    );
+
+    open(cx, window, Route::Session(SessionId("s-retro".into())));
+    click(cx, window, TRANSCRIPT_TAB_AFTER.0, TRANSCRIPT_TAB_AFTER.1);
+    right_click(cx, window, 340., 23.);
+    capture(cx, window, out, "transcript-tab-menu");
+    right_click(cx, window, 600., 73.);
+    capture(cx, window, out, "timeline-menu");
+    click(cx, window, 600., 400.);
+    // In edit mode a click selects the second segment; ⌘⇧↓ extends to the last one.
+    click(cx, window, 340., 23.);
+    click(cx, window, 230., 191.);
+    type_text(cx, window, &["cmd-shift-down"]);
+    capture(cx, window, out, "transcript-selection");
+    type_text(cx, window, &["escape"]);
+    click(cx, window, 340., 23.);
+}
+
+type Pending = futures::future::BoxFuture<'static, desktop_runtime::Result<Transcription>>;
+
+/// The empty transcript's Re-transcribe and the batching screen's Stop transcription.
+const RETRANSCRIBE: (f32, f32) = (495., 422.);
+const STOP_TRANSCRIPTION: (f32, f32) = (559., 425.);
 
 /// The transcript tab of a finished meeting (Summary, Memos, Transcript) and of a live one
 /// (Memos, Transcript), by window position.

@@ -23,6 +23,7 @@ const ICONS: &[(&str, &[u8])] = &[
         "AudioWaveformIcon",
         include_bytes!("icons/AudioWaveformIcon.svg"),
     ),
+    ("FolderOpenIcon", include_bytes!("icons/FolderOpenIcon.svg")),
     ("PauseIcon", include_bytes!("icons/PauseIcon.svg")),
     ("PlayIcon", include_bytes!("icons/PlayIcon.svg")),
     ("RefreshIcon", include_bytes!("icons/RefreshIcon.svg")),

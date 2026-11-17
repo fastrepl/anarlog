@@ -339,7 +339,7 @@ impl ProviderServices {
         })
     }
 
-    async fn session_hints(
+    pub(crate) async fn session_hints(
         &self,
         session: SessionId,
     ) -> Result<(String, Vec<String>, Vec<String>)> {

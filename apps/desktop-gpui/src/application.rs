@@ -283,6 +283,7 @@ impl ApplicationView {
             .await?;
             let storage = Arc::new(ProfileStorage(profile));
             let vault = storage.0.join("vault");
+            let audio_vault = vault.clone();
             let capture = CaptureService::spawn(
                 startup_runtime.clone(),
                 Arc::new(anlg_audio_actual::ActualAudio),
@@ -310,6 +311,7 @@ impl ApplicationView {
             let services = MeetingServices {
                 capture,
                 playback: Playback::spawn()?,
+                vault: audio_vault,
             };
             effects.attach(services.clone());
             let capture = services.capture.clone();

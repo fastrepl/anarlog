@@ -22,6 +22,7 @@ pub mod subscription;
 #[cfg(test)]
 mod tests;
 pub mod tools;
+pub mod upload;
 mod views;
 pub mod widgets;
 
@@ -47,6 +48,8 @@ use views::{TranscriptAction, TranscriptView};
 pub struct MeetingServices {
     pub capture: CaptureService,
     pub playback: playback::Playback,
+    /// The profile's audio vault (`<vault>/sessions/<session>/audio.*`).
+    pub vault: std::path::PathBuf,
 }
 impl Global for MeetingServices {}
 

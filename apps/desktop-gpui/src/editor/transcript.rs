@@ -1,7 +1,9 @@
 //! The open note's Transcript view: shipping's `TranscriptContent` screens (listening,
 //! finalizing, batch, empty) and its segment list (speaker label in its segment color, then the
 //! words), rendered by the same `anlg_transcript` segmenter. While a meeting is live, stored
-//! segments merge with the live ones and partial words show faded and italic.
+//! segments merge with the live ones and partial words show faded and italic. Uploads and
+//! re-transcription run through `meeting::upload`; the view also owns the Transcript tab's
+//! right-click menu, Space playback and segment selection (⌘⇧↑/↓).
 
 mod speakers;
 
@@ -18,9 +20,10 @@ use anlg_transcript::{
 };
 use desktop_runtime::{RuntimeHandle, SessionId};
 use gpui::{
-    AnyElement, App, Context, Entity, FocusHandle, Focusable, FontStyle, FontWeight,
-    HighlightStyle, Hsla, InteractiveText, Render, ScrollHandle, SharedString, StyledText,
-    Subscription, Task, Window, div, point, prelude::*, px, rgb, rgba, svg,
+    AnyElement, App, ClipboardItem, Context, Entity, EventEmitter, FocusHandle, Focusable,
+    FontStyle, FontWeight, HighlightStyle, Hsla, InteractiveText, KeyDownEvent, MouseButton,
+    MouseDownEvent, Pixels, Point, Render, ScrollHandle, SharedString, StyledText, Subscription,
+    Task, Window, div, point, prelude::*, px, rgb, rgba, svg,
 };
 use serde_json::{Value, json};
 
@@ -29,14 +32,16 @@ use crate::{
         MeetingServices,
         live::{CaptureMode, LiveMeeting, LiveState, SessionMode},
         model::Transcript,
-        playback::Command,
+        playback::{Command, State},
         store::TranscriptStore,
+        upload::{Job, Phase, Uploads},
         widgets::{dancing_sticks, spinner},
     },
     ui::{
         input::{InputEvent, TextInput},
         theme::{RADIUS, Theme, theme},
     },
+    workspace::resource_list,
 };
 
 pub struct TranscriptView {
@@ -59,10 +64,26 @@ pub struct TranscriptView {
     playing_ms: Option<i64>,
     picker: Option<speakers::SpeakerPicker>,
     focus: FocusHandle,
+    uploads: Entity<Uploads>,
+    /// The Transcript tab's right-click menu, at its window position.
+    tab_menu: Option<Point<Pixels>>,
+    /// Shipping's segment multi-selection: selected row ids and the last one clicked.
+    selected: HashSet<String>,
+    anchor: Option<String>,
+    /// The rendered segment ids in order, for range selection.
+    order: Vec<String>,
     _playback: Option<Task<()>>,
     _watch: Task<()>,
     _live: Option<Subscription>,
+    _uploads: Subscription,
 }
+
+pub enum TranscriptEvent {
+    /// The Transcript tab menu's "Resume listening".
+    ResumeListening,
+}
+
+impl EventEmitter<TranscriptEvent> for TranscriptView {}
 
 /// One segment's text while editing (shipping's `EditableSegmentText`).
 struct SegmentEditor {
@@ -138,6 +159,8 @@ impl TranscriptView {
                 cx.notify();
             })
         });
+        let uploads = Uploads::global(cx);
+        let observe_uploads = cx.observe(&uploads, |_, _, cx| cx.notify());
         Self {
             runtime,
             session,
@@ -154,9 +177,15 @@ impl TranscriptView {
             playing_ms: None,
             picker: None,
             focus: cx.focus_handle(),
+            uploads,
+            tab_menu: None,
+            selected: HashSet::new(),
+            anchor: None,
+            order: Vec::new(),
             _playback: None,
             _watch: watch,
             _live: observe,
+            _uploads: observe_uploads,
         }
     }
 
@@ -353,13 +382,30 @@ impl TranscriptView {
 /// Shipping's `useTranscriptScreen`.
 #[derive(Debug, PartialEq)]
 enum Screen {
-    Listening { finalizing: bool },
-    Batch { requested_live: bool },
-    Empty { audio: bool },
+    RunningBatch {
+        phase: Phase,
+        percentage: f64,
+    },
+    Listening {
+        finalizing: bool,
+    },
+    Batch {
+        requested_live: bool,
+    },
+    Empty {
+        audio: bool,
+        error: Option<SharedString>,
+    },
     Ready,
 }
 
-fn screen(live: Option<&LiveMeeting>, has_words: bool, audio: bool) -> Screen {
+fn screen(job: Option<&Job>, live: Option<&LiveMeeting>, has_words: bool, audio: bool) -> Screen {
+    if let Some(Job::Running { phase, percentage }) = job {
+        return Screen::RunningBatch {
+            phase: *phase,
+            percentage: *percentage,
+        };
+    }
     let visible = has_words || live.is_some_and(|live| !live.segments.is_empty());
     let active = live.is_some_and(|live| live.mode == SessionMode::Active);
     if active && live.is_some_and(|live| live.capture == CaptureMode::RecordOnly) {
@@ -378,7 +424,13 @@ fn screen(live: Option<&LiveMeeting>, has_words: bool, audio: bool) -> Screen {
         };
     }
     if !visible {
-        return Screen::Empty { audio };
+        // Shipping reports a failed run in a toast; until native toasts exist, the empty
+        // screen's error state shows it.
+        let error = match job {
+            Some(Job::Failed(error)) => Some(error.clone()),
+            _ => None,
+        };
+        return Screen::Empty { audio, error };
     }
     Screen::Ready
 }
@@ -669,7 +721,7 @@ fn status(
     colors: Theme,
     icon: gpui::AnyElement,
     title: &'static str,
-    description: &'static str,
+    description: impl Into<SharedString>,
 ) -> gpui::Div {
     // Shipping's transcript container adds `pt-2` above every screen.
     div()
@@ -702,7 +754,7 @@ fn status(
                         .text_sm()
                         .line_height(px(22.75))
                         .text_color(colors.muted_foreground)
-                        .child(description),
+                        .child(description.into()),
                 ),
         )
 }
@@ -729,9 +781,21 @@ fn paused_notice(colors: Theme, message: SharedString) -> impl IntoElement {
     )
 }
 
-/// A small shadcn `Button`, shown disabled where the native app has no implementation yet.
-fn disabled_button(colors: Theme, label: &'static str, primary: bool) -> impl IntoElement {
+/// A small shadcn `Button` (`size="sm"`): primary, or outline with an optional icon.
+fn button(
+    id: &'static str,
+    colors: Theme,
+    label: &'static str,
+    icon: Option<(&'static str, f32)>,
+    primary: bool,
+) -> gpui::Stateful<gpui::Div> {
+    let color = if primary {
+        colors.primary_foreground
+    } else {
+        colors.foreground
+    };
     div()
+        .id(id)
         .h_7()
         .px_2()
         .flex()
@@ -740,29 +804,125 @@ fn disabled_button(colors: Theme, label: &'static str, primary: bool) -> impl In
         .rounded(px(RADIUS))
         .text_xs()
         .font_weight(crate::ui::theme::MEDIUM)
-        .opacity(0.5)
+        .cursor_pointer()
+        .shadow_xs()
+        .text_color(color)
         .map(|button| {
             if primary {
                 button
                     .bg(colors.primary)
-                    .text_color(colors.primary_foreground)
-                    .shadow_xs()
-                    .child(
-                        svg()
-                            .path("meeting/RefreshIcon.svg")
-                            .size_4()
-                            .text_color(colors.primary_foreground),
-                    )
+                    .hover(move |style| style.bg(colors.primary.opacity(0.9)))
             } else {
                 button
                     .border_1()
                     .border_color(colors.input)
                     .bg(colors.background)
-                    .text_color(colors.foreground)
-                    .shadow_xs()
+                    .hover(move |style| style.bg(colors.accent))
             }
         })
+        .when_some(icon, |button, (path, size)| {
+            button.child(svg().path(path).size(px(size)).text_color(color))
+        })
         .child(label)
+}
+
+/// Shipping's batching `TranscriptEmptyState`: spinner, phase, progress and, once audio is
+/// imported, Stop transcription.
+fn batching(
+    colors: Theme,
+    phase: Phase,
+    percentage: f64,
+    stop: Option<gpui::Stateful<gpui::Div>>,
+) -> gpui::Div {
+    div()
+        .size_full()
+        .min_h(px(400.))
+        .pt_2()
+        .flex()
+        .flex_col()
+        .items_center()
+        .justify_center()
+        .px_6()
+        .text_center()
+        .child(div().mb_5().pb(px(6.5)).child(spinner(
+            "transcript-batching",
+            36.,
+            colors.muted_foreground,
+        )))
+        .child(
+            div()
+                .when(stop.is_some(), |view| view.mb_6())
+                .child(
+                    div()
+                        .text_base()
+                        .line_height(px(24.))
+                        .font_weight(crate::ui::theme::MEDIUM)
+                        .text_color(colors.foreground)
+                        .child(match phase {
+                            Phase::Importing => "Importing audio...",
+                            Phase::Transcribing => "Generating transcript...",
+                        }),
+                )
+                .when(percentage > 0., |view| {
+                    view.child(
+                        div()
+                            .mt_2()
+                            .text_sm()
+                            .line_height(px(22.75))
+                            .text_color(colors.muted_foreground)
+                            .child(format!("{}% complete", (percentage * 100.).round())),
+                    )
+                }),
+        )
+        .children(stop)
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum TabAction {
+    Copy,
+    ResumeListening,
+    Retranscribe,
+    DeleteRecording,
+}
+
+/// Shipping's `formatTranscriptExportSegments`.
+fn transcript_text(segments: &[RenderedTranscriptSegment]) -> String {
+    segments
+        .iter()
+        .map(|segment| format!("{}: {}", segment.speaker_label, segment.text))
+        .collect::<Vec<_>>()
+        .join("\n\n")
+}
+
+/// Shipping's segment selection click: with Shift, the range from the anchor joins the
+/// selection; otherwise the segment toggles.
+fn select(
+    selected: &mut HashSet<String>,
+    anchor: Option<&str>,
+    order: &[String],
+    target: &str,
+    range: bool,
+) {
+    let position = |id: &str| order.iter().position(|candidate| candidate == id);
+    if range && let (Some(from), Some(to)) = (anchor.and_then(position), position(target)) {
+        selected.extend(order[from.min(to)..=from.max(to)].iter().cloned());
+        return;
+    }
+    if !selected.remove(target) {
+        selected.insert(target.to_owned());
+    }
+}
+
+/// Shipping's ⌘⇧↑ / ⌘⇧↓: everything from the first segment to the anchor, or from the anchor
+/// to the last.
+fn extend(order: &[String], anchor: &str, up: bool) -> Option<HashSet<String>> {
+    let index = order.iter().position(|id| id == anchor)?;
+    let range = if up {
+        &order[..=index]
+    } else {
+        &order[index..]
+    };
+    Some(range.iter().cloned().collect())
 }
 
 impl Render for TranscriptView {
@@ -777,9 +937,32 @@ impl Render for TranscriptView {
             .segments
             .iter()
             .any(|segment| !segment.words.is_empty());
-        let screen = screen(live.as_ref(), has_words, self.audio.is_some());
-        let frame = div().id("note-transcript").size_full().relative();
-        match screen {
+        let job = self.uploads.read(cx).job(&self.session).cloned();
+        let screen = screen(job.as_ref(), live.as_ref(), has_words, self.audio.is_some());
+        let frame = div()
+            .id("note-transcript")
+            .size_full()
+            .relative()
+            .track_focus(&self.focus)
+            .on_key_down(cx.listener(Self::key_down));
+        let frame = match screen {
+            Screen::RunningBatch { phase, percentage } => {
+                let stop = (phase == Phase::Transcribing).then(|| {
+                    button(
+                        "transcript-stop",
+                        colors,
+                        "Stop transcription",
+                        Some(("meeting/SquareIcon.svg", 12.)),
+                        false,
+                    )
+                    .on_click(cx.listener(|this, _, _, cx| {
+                        let session = this.session.clone();
+                        this.uploads
+                            .update(cx, |uploads, cx| uploads.stop(&session, cx));
+                    }))
+                });
+                frame.child(batching(colors, phase, percentage, stop))
+            }
             Screen::Listening { finalizing } => frame.child(if finalizing {
                 status(
                     colors,
@@ -832,7 +1015,23 @@ impl Render for TranscriptView {
                 "Batch transcription mode",
                 "Recording continues. Your transcript will be generated after you stop.",
             )),
-            Screen::Empty { audio } => frame.child(
+            Screen::Empty {
+                audio: _,
+                error: Some(error),
+            } => frame.child(
+                status(
+                    colors,
+                    svg()
+                        .path("meeting/AlertCircleIcon.svg")
+                        .size(px(36.))
+                        .text_color(colors.muted_foreground)
+                        .into_any_element(),
+                    "Transcription failed",
+                    error,
+                )
+                .child(div().mt_6().child(self.retranscribe_button(colors, cx))),
+            ),
+            Screen::Empty { audio, error: None } => frame.child(
                 status(
                     colors,
                     waveform(colors),
@@ -855,12 +1054,44 @@ impl Render for TranscriptView {
                         .gap_2()
                         .map(|row| {
                             if audio {
-                                row.child(disabled_button(colors, "Re-transcribe", true))
+                                row.child(self.retranscribe_button(colors, cx))
                             } else {
-                                row.child(disabled_button(colors, "Upload audio", false))
+                                row.child(
+                                    button(
+                                        "transcript-upload-audio",
+                                        colors,
+                                        "Upload audio",
+                                        None,
+                                        false,
+                                    )
+                                    .on_click(cx.listener(
+                                        |this, _, _, cx| {
+                                            let (runtime, session) =
+                                                (this.runtime.clone(), this.session.clone());
+                                            this.uploads.update(cx, |uploads, cx| {
+                                                uploads.upload_audio(&runtime, session, cx)
+                                            });
+                                        },
+                                    )),
+                                )
                             }
                         })
-                        .child(disabled_button(colors, "Upload transcript", false)),
+                        .child(
+                            button(
+                                "transcript-upload-transcript",
+                                colors,
+                                "Upload transcript",
+                                None,
+                                false,
+                            )
+                            .on_click(cx.listener(|this, _, _, cx| {
+                                let (runtime, session) =
+                                    (this.runtime.clone(), this.session.clone());
+                                this.uploads.update(cx, |uploads, cx| {
+                                    uploads.upload_transcript(&runtime, session, cx)
+                                });
+                            })),
+                        ),
                 ),
             ),
             Screen::Ready => {
@@ -869,9 +1100,20 @@ impl Render for TranscriptView {
                     &self.segments,
                     live.as_ref().map(|live| &live.segments[..]).unwrap_or(&[]),
                 );
+                self.order = rows.iter().map(|row| row.id.clone()).collect();
                 // Shipping edits and seeks only once the meeting is over.
                 let editing = self.edit_mode && live.is_none();
                 let audio = self.audio.is_some() && live.is_none();
+                // Shipping's Space shortcut listens on the document: with nothing more specific
+                // focused, the transcript takes the keyboard.
+                if !editing
+                    && self.picker.is_none()
+                    && !self.focus.is_focused(window)
+                    && self.focus.within_focused(window, cx)
+                {
+                    let focus = self.focus.clone();
+                    window.defer(cx, move |window, cx| focus.focus(window, cx));
+                }
                 let mut children = Vec::with_capacity(rows.len());
                 for (index, row) in rows.iter().enumerate() {
                     let editor = if editing {
@@ -879,22 +1121,55 @@ impl Render for TranscriptView {
                     } else {
                         None
                     };
-                    let header = self.segment_header(index, row, editing, dark, colors, cx);
+                    let selected = self.selected.contains(&row.id);
+                    let header =
+                        self.segment_header(index, row, editing, selected, dark, colors, cx);
                     let body = div()
                         .mt(px(6.))
                         .text_sm()
                         .line_height(px(22.75))
                         .text_color(colors.foreground);
                     let body = match editor {
-                        Some(input) => body.child(input).into_any_element(),
+                        Some(input) => body
+                            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                            .child(input)
+                            .into_any_element(),
                         None => body
                             .child(self.words(index, row, audio, colors, cx))
                             .into_any_element(),
                     };
+                    let id = row.id.clone();
                     children.push(
                         div()
                             .when(index > 0, |view| view.pt_4())
-                            .child(div().px_2().rounded(px(8.)).child(header).child(body))
+                            .child(
+                                div()
+                                    .id(("segment", index))
+                                    .relative()
+                                    .px_2()
+                                    .rounded(px(8.))
+                                    .when(editing, |view| view.cursor_pointer())
+                                    .when(selected, |view| {
+                                        view.bg(colors.primary.opacity(0.1)).child(
+                                            div()
+                                                .absolute()
+                                                .inset_0()
+                                                .rounded(px(8.))
+                                                .border_1()
+                                                .border_color(colors.primary.opacity(0.3)),
+                                        )
+                                    })
+                                    .on_mouse_down(
+                                        MouseButton::Left,
+                                        cx.listener(
+                                            move |this, event: &MouseDownEvent, window, cx| {
+                                                this.click_segment(&id, event, window, cx)
+                                            },
+                                        ),
+                                    )
+                                    .child(header)
+                                    .child(body),
+                            )
                             .into_any_element(),
                     );
                 }
@@ -924,18 +1199,24 @@ impl Render for TranscriptView {
                     )
                     .children(self.scroll_controls(colors, cx))
             }
-        }
+        };
+        let menu = self
+            .tab_menu
+            .map(|position| self.tab_menu_view(position, colors, cx));
+        frame.children(menu)
     }
 }
 
 impl TranscriptView {
     /// Shipping's `SegmentHeader`: the select circle while editing, then the speaker label,
     /// which opens the speaker picker.
+    #[allow(clippy::too_many_arguments)]
     fn segment_header(
         &self,
         index: usize,
         row: &Row,
         editing: bool,
+        selected: bool,
         dark: bool,
         colors: Theme,
         cx: &mut Context<Self>,
@@ -960,14 +1241,33 @@ impl TranscriptView {
                     div()
                         .size_4()
                         .flex_shrink_0()
+                        .flex()
+                        .items_center()
+                        .justify_center()
                         .rounded_full()
                         .border_1()
-                        .border_color(colors.muted_foreground.opacity(0.4)),
+                        .map(|circle| {
+                            if selected {
+                                circle
+                                    .border_color(colors.primary)
+                                    .bg(colors.primary)
+                                    .child(
+                                        svg()
+                                            .path("editor/CheckIcon.svg")
+                                            .size(px(10.))
+                                            .text_color(colors.primary_foreground),
+                                    )
+                            } else {
+                                circle.border_color(colors.muted_foreground.opacity(0.4))
+                            }
+                        }),
                 )
             })
             .child(
                 div()
                     .relative()
+                    // Shipping's selection ignores clicks on the speaker label and its picker.
+                    .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                     .child(
                         div()
                             .id(("speaker", index))
@@ -1022,7 +1322,12 @@ impl TranscriptView {
         let hover_view = view.clone();
         let word_ranges = ranges.clone();
         InteractiveText::new(("transcript-words", index), text)
-            .on_click(ranges, move |word, _, cx| {
+            .on_click(ranges, move |word, window, cx| {
+                // Modifier clicks select segments instead (shipping's capture handler).
+                let modifiers = window.modifiers();
+                if modifiers.shift || modifiers.platform || modifiers.control {
+                    return;
+                }
                 let start = starts[word];
                 let _ = view.update(cx, |this, cx| this.seek(start, cx));
             })
@@ -1041,6 +1346,216 @@ impl TranscriptView {
                 });
             })
             .into_any_element()
+    }
+
+    fn retranscribe_button(&self, colors: Theme, cx: &mut Context<Self>) -> impl IntoElement {
+        button(
+            "transcript-retranscribe",
+            colors,
+            "Re-transcribe",
+            Some(("meeting/RefreshIcon.svg", 16.)),
+            true,
+        )
+        .on_click(cx.listener(|this, _, _, cx| this.tab_action(TabAction::Retranscribe, cx)))
+    }
+
+    fn click_segment(
+        &mut self,
+        id: &str,
+        event: &MouseDownEvent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        // Clicks on segment editors and the speaker picker never reach here.
+        self.focus.focus(window, cx);
+        let modifiers = event.modifiers;
+        let modified = modifiers.shift || modifiers.platform || modifiers.control;
+        if !self.edit_mode && !modified {
+            if !self.selected.is_empty() {
+                self.selected.clear();
+                self.anchor = None;
+                cx.notify();
+            }
+            return;
+        }
+        select(
+            &mut self.selected,
+            self.anchor.as_deref(),
+            &self.order,
+            id,
+            modifiers.shift,
+        );
+        self.anchor = Some(id.to_owned());
+        cx.notify();
+    }
+
+    fn key_down(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
+        let keystroke = &event.keystroke;
+        let modifiers = keystroke.modifiers;
+        if keystroke.key == "escape" && self.tab_menu.take().is_some() {
+            cx.stop_propagation();
+            cx.notify();
+            return;
+        }
+        // Keys typed into a segment editor or the speaker search stay there.
+        if !self.focus.is_focused(window) {
+            return;
+        }
+        let secondary = if cfg!(target_os = "macos") {
+            modifiers.platform
+        } else {
+            modifiers.control
+        };
+        match keystroke.key.as_str() {
+            "space" if !modifiers.modified() && !self.edit_mode => {
+                self.toggle_playback(cx);
+                cx.stop_propagation();
+            }
+            "escape" if self.edit_mode && !self.selected.is_empty() => {
+                self.selected.clear();
+                self.anchor = None;
+                cx.stop_propagation();
+                cx.notify();
+            }
+            "up" | "down" if modifiers.shift && secondary && !self.selected.is_empty() => {
+                if let Some(selected) = self
+                    .anchor
+                    .as_deref()
+                    .and_then(|anchor| extend(&self.order, anchor, keystroke.key == "up"))
+                {
+                    self.selected = selected;
+                    cx.stop_propagation();
+                    cx.notify();
+                }
+            }
+            _ => {}
+        }
+    }
+
+    /// Shipping's Space: pause while playing, otherwise play this note's recording.
+    fn toggle_playback(&mut self, cx: &mut Context<Self>) {
+        let (Some(audio), Some(services)) =
+            (self.audio.clone(), cx.try_global::<MeetingServices>())
+        else {
+            return;
+        };
+        if self.live(cx).is_some() {
+            return;
+        }
+        let playback = services.playback.clone();
+        let snapshot = playback.snapshot();
+        if snapshot.path.as_ref() != Some(&audio) {
+            let _ = playback.send(Command::Open(audio));
+            let _ = playback.send(Command::Play);
+            return;
+        }
+        let _ = playback.send(match snapshot.state() {
+            State::Playing => Command::Pause,
+            State::Paused | State::Stopped => Command::Play,
+        });
+    }
+
+    /// Opens shipping's Transcript tab context menu (`HeaderViewTranscriptActive`).
+    pub fn open_tab_menu(&mut self, position: Point<Pixels>, cx: &mut Context<Self>) {
+        self.tab_menu = Some(position);
+        cx.notify();
+    }
+
+    fn tab_menu_items(&self, cx: &App) -> Vec<(TabAction, &'static str, bool)> {
+        // Shipping offers listening and re-transcription only while the session is inactive
+        // (listening also while a batch runs).
+        let inactive = self
+            .live
+            .as_ref()
+            .is_none_or(|live| live.read(cx).session(&self.session).is_none());
+        let uploads = self.uploads.read(cx);
+        let has_words = self
+            .segments
+            .iter()
+            .any(|segment| !segment.words.is_empty());
+        let mut items = vec![(TabAction::Copy, "Copy", !has_words)];
+        if inactive {
+            items.push((TabAction::ResumeListening, "Resume listening", false));
+        }
+        if self.audio.is_some() && inactive && !uploads.running(&self.session) {
+            items.push((TabAction::Retranscribe, "Re-transcribe", false));
+        }
+        if self.audio.is_some() {
+            items.push((
+                TabAction::DeleteRecording,
+                "Delete recording",
+                uploads.deleting(&self.session),
+            ));
+        }
+        items
+    }
+
+    fn tab_menu_view(
+        &self,
+        position: Point<Pixels>,
+        colors: Theme,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let items = self.tab_menu_items(cx);
+        gpui::deferred(
+            gpui::anchored().position(position).snap_to_window().child(
+                resource_list::context_menu(colors)
+                    .id("transcript-tab-menu")
+                    .occlude()
+                    .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                    .on_mouse_down_out(cx.listener(|this, _, _, cx| {
+                        this.tab_menu = None;
+                        cx.notify();
+                    }))
+                    .children(items.into_iter().map(|(action, label, disabled)| {
+                        div()
+                            .id(label)
+                            .h(px(30.))
+                            .px_3()
+                            .flex()
+                            .items_center()
+                            .text_sm()
+                            .rounded(px(4.))
+                            .text_color(colors.foreground)
+                            .when_else(
+                                disabled,
+                                |item| item.opacity(0.5),
+                                |item| {
+                                    item.cursor_pointer()
+                                        .hover(move |style| style.bg(colors.accent))
+                                        .on_click(cx.listener(move |this, _, _, cx| {
+                                            cx.stop_propagation();
+                                            this.tab_menu = None;
+                                            this.tab_action(action, cx);
+                                        }))
+                                },
+                            )
+                            .child(label)
+                    })),
+            ),
+        )
+        .with_priority(2)
+        .into_any_element()
+    }
+
+    fn tab_action(&mut self, action: TabAction, cx: &mut Context<Self>) {
+        let (runtime, session) = (self.runtime.clone(), self.session.clone());
+        match action {
+            TabAction::Copy => {
+                let text = transcript_text(&self.segments);
+                if !text.is_empty() {
+                    cx.write_to_clipboard(ClipboardItem::new_string(text));
+                }
+            }
+            TabAction::ResumeListening => cx.emit(TranscriptEvent::ResumeListening),
+            TabAction::Retranscribe => self.uploads.update(cx, |uploads, cx| {
+                uploads.retranscribe(&runtime, session, cx)
+            }),
+            TabAction::DeleteRecording => self.uploads.update(cx, |uploads, cx| {
+                uploads.delete_recording(&runtime, session, cx)
+            }),
+        }
+        cx.notify();
     }
 
     /// Shipping's scroll-to-top and scroll-to-bottom controls, shown once the transcript scrolls.
@@ -1275,12 +1790,12 @@ mod tests {
     fn screens_follow_shipping_capture_states() {
         let mut live = LiveMeeting::new(SessionId("s".into()), SessionMode::Active);
         assert_eq!(
-            screen(Some(&live), false, false),
+            screen(None, Some(&live), false, false),
             Screen::Listening { finalizing: false }
         );
         live.capture = CaptureMode::RecordOnly;
         assert_eq!(
-            screen(Some(&live), true, false),
+            screen(None, Some(&live), true, false),
             Screen::Batch {
                 requested_live: false
             }
@@ -1288,19 +1803,66 @@ mod tests {
         live.capture = CaptureMode::FallbackRecordOnly;
         live.paused = Some("paused".into());
         assert_eq!(
-            screen(Some(&live), false, false),
+            screen(None, Some(&live), false, false),
             Screen::Batch {
                 requested_live: true
             }
         );
-        assert_eq!(screen(Some(&live), true, false), Screen::Ready);
+        assert_eq!(screen(None, Some(&live), true, false), Screen::Ready);
         live.mode = SessionMode::Finalizing;
         live.paused = None;
         assert_eq!(
-            screen(Some(&live), false, false),
+            screen(None, Some(&live), false, false),
             Screen::Listening { finalizing: true }
         );
-        assert_eq!(screen(None, false, true), Screen::Empty { audio: true });
-        assert_eq!(screen(None, true, false), Screen::Ready);
+        assert_eq!(
+            screen(None, None, false, true),
+            Screen::Empty {
+                audio: true,
+                error: None
+            }
+        );
+        assert_eq!(screen(None, None, true, false), Screen::Ready);
+        // A running upload or re-transcription replaces every other screen; a failure shows
+        // only while there are no words.
+        let running = Job::Running {
+            phase: Phase::Transcribing,
+            percentage: 0.4,
+        };
+        assert_eq!(
+            screen(Some(&running), None, true, true),
+            Screen::RunningBatch {
+                phase: Phase::Transcribing,
+                percentage: 0.4
+            }
+        );
+        let failed = Job::Failed("No speech was detected in the audio.".into());
+        assert_eq!(
+            screen(Some(&failed), None, false, true),
+            Screen::Empty {
+                audio: true,
+                error: Some("No speech was detected in the audio.".into())
+            }
+        );
+        assert_eq!(screen(Some(&failed), None, true, true), Screen::Ready);
+    }
+
+    #[test]
+    fn segment_selection_toggles_ranges_and_extends_from_the_anchor() {
+        let order: Vec<String> = ["a", "b", "c", "d"].map(String::from).into();
+        let mut selected = HashSet::new();
+        select(&mut selected, None, &order, "b", false);
+        select(&mut selected, Some("b"), &order, "d", true);
+        assert_eq!(selected, ["b", "c", "d"].map(String::from).into());
+        select(&mut selected, Some("d"), &order, "c", false);
+        assert!(!selected.contains("c"));
+        assert_eq!(
+            extend(&order, "b", true),
+            Some(["a", "b"].map(String::from).into())
+        );
+        assert_eq!(
+            extend(&order, "b", false),
+            Some(["b", "c", "d"].map(String::from).into())
+        );
     }
 }

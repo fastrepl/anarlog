@@ -50,6 +50,8 @@ pub enum Command {
     Open(PathBuf),
     Play,
     Pause,
+    /// Shipping's `stop`: back to the start, releasing the output device until the next play.
+    Stop,
     Seek(Duration),
     Rate(f32),
 }
@@ -70,6 +72,26 @@ pub struct Snapshot {
 pub struct Playback {
     commands: mpsc::SyncSender<Command>,
     state: Arc<Mutex<Snapshot>>,
+}
+
+/// Shipping's audio player state: `stopped` at the start or end, `paused` in between.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum State {
+    Playing,
+    Paused,
+    Stopped,
+}
+
+impl Snapshot {
+    pub fn state(&self) -> State {
+        if self.playing {
+            State::Playing
+        } else if self.position.is_zero() || self.position >= self.duration {
+            State::Stopped
+        } else {
+            State::Paused
+        }
+    }
 }
 
 impl Playback {
@@ -155,6 +177,18 @@ impl Playback {
                             if let Some(sink) = &player {
                                 sink.pause();
                             }
+                            Ok(())
+                        }
+                        Ok(Command::Stop) => {
+                            if let Some(player) = player.take() {
+                                player.stop();
+                            }
+                            device = None;
+                            let mut state =
+                                shared.lock().unwrap_or_else(|poison| poison.into_inner());
+                            state.position = Duration::ZERO;
+                            state.playing = false;
+                            state.revision += 1;
                             Ok(())
                         }
                         Ok(Command::Seek(position)) => match &player {
