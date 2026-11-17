@@ -335,6 +335,6 @@ impl MeetingApps for DetectMeetingApps {
     }
 
     fn open_url(&self, url: &str) -> Result<(), String> {
-        open::that(url).map_err(|error| error.to_string())
+        crate::platform::os::open(url).map_err(|error| error.to_string())
     }
 }

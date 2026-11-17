@@ -45,9 +45,9 @@ impl DialogAdapter for NativePicker {
         }
         Box::pin(async move {
             let selected = if request.directory {
-                dialog.pick_folder().await
+                super::os::dialog(|| dialog.pick_folder()).await
             } else {
-                dialog.pick_file().await
+                super::os::dialog(|| dialog.pick_file()).await
             };
             Ok(selected.map(|file| file.path().to_path_buf()))
         })

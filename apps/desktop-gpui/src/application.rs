@@ -1065,7 +1065,7 @@ impl ApplicationView {
                             runtime
                                 .service(move |_| async move {
                                     tokio::task::spawn_blocking(move || {
-                                        open::that(attachment.path.as_ref())
+                                        crate::platform::os::open(attachment.path.as_ref())
                                     })
                                     .await
                                     .map_err(|error| {

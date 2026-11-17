@@ -320,6 +320,9 @@ fn limit(samples: Vec<f32>) -> Vec<f32> {
 
 /// Plays a completion sound at shipping's preview volume, off the UI thread.
 pub fn play_completion(name: &'static str) {
+    if super::os::headless() {
+        return;
+    }
     std::thread::spawn(move || {
         let Some(samples) = render(name, COMPLETION_VOLUME) else {
             return;

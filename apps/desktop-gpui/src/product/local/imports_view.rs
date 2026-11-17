@@ -311,10 +311,12 @@ impl ImportsView {
         if self.rows.values().any(|row| row.importing) {
             return;
         }
-        let picker = rfd::AsyncFileDialog::new()
-            .set_title(format!("Choose {} export files", provider.name))
-            .add_filter("Meeting exports", imports::EXTENSIONS)
-            .pick_files();
+        let picker = crate::platform::os::dialog(|| {
+            rfd::AsyncFileDialog::new()
+                .set_title(format!("Choose {} export files", provider.name))
+                .add_filter("Meeting exports", imports::EXTENSIONS)
+                .pick_files()
+        });
         cx.spawn(async move |this, cx| {
             let Some(files) = picker.await else {
                 return;

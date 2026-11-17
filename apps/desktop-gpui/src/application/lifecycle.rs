@@ -215,6 +215,9 @@ impl Render for QuitOverlayView {
 /// A native alert like shipping's `tauri-plugin-dialog` message (also rfd's NSAlert).
 /// Returns whether the first button was chosen.
 async fn alert(title: &str, message: &str, buttons: Option<(&str, &str)>) -> bool {
+    if crate::platform::os::headless() {
+        return false;
+    }
     let buttons = match buttons {
         Some((ok, cancel)) => rfd::MessageButtons::OkCancelCustom(ok.into(), cancel.into()),
         None => rfd::MessageButtons::Ok,

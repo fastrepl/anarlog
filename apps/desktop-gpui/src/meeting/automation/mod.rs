@@ -899,7 +899,7 @@ impl Platform for NativePlatform {
     }
 
     fn open_url(&self, url: &str) -> Result<()> {
-        open::that(url).map_err(failure)
+        crate::platform::os::open(url).map_err(failure)
     }
 
     fn installed_apps(&self) -> Vec<MicApp> {

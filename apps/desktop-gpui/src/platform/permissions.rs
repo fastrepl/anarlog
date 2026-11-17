@@ -81,6 +81,9 @@ impl NativePermissions {
     }
 
     pub fn request(&self, permission: Permission) -> Status {
+        if super::os::headless() {
+            return self.check(permission);
+        }
         match permission {
             #[cfg(target_os = "macos")]
             Permission::Microphone => request_microphone(),
@@ -101,6 +104,9 @@ impl NativePermissions {
         #[cfg(target_os = "linux")]
         {
             let _ = permission;
+            if super::os::headless() {
+                return Ok(());
+            }
             for (command, args) in [
                 ("gnome-control-center", vec!["sound"]),
                 ("systemsettings", vec!["kcm_pulseaudio"]),
@@ -117,7 +123,7 @@ impl NativePermissions {
         #[cfg(not(target_os = "linux"))]
         {
             let url = settings_url(permission);
-            open::that(url).map_err(|e| ServiceError::Failed(e.to_string().into()))
+            super::os::open(url).map_err(|e| ServiceError::Failed(e.to_string().into()))
         }
     }
 }

@@ -35,6 +35,7 @@ impl Global for RevealExport {}
 fn reveal(path: &Path, cx: &mut App) {
     match cx.try_global::<RevealExport>() {
         Some(reveal) => (reveal.0.clone())(path),
+        None if crate::platform::os::headless() => {}
         None => cx.reveal_path(path),
     }
 }

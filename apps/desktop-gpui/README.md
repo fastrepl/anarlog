@@ -172,7 +172,9 @@ node parity/shoot.mjs http://127.0.0.1:1499/app/main /tmp/screens/shipping-note.
 ```
 
 `tests/screens/*.sql` hold the fictional library, applied in name order. Tests that
-drive `anlg-audio-mock` stay silent through `.cargo/config.toml` (`MOCK_PLAYBACK=0`). The shipping capture uses
+drive `anlg-audio-mock` stay silent through `.cargo/config.toml` (`MOCK_PLAYBACK=0`). The screens
+run starts with `platform::os::go_headless()`, so a click cannot show a system file dialog or
+alert, open another app, prompt for a permission or play a sound. The shipping capture uses
 headless Chromium from the Playwright cache (`CHROME` overrides it) and prints
 console errors plus any IPC command it had no answer for.
 

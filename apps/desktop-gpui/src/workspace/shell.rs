@@ -523,7 +523,7 @@ impl WorkspaceView {
                 let reply = super::notes::directory(&self.runtime, id.clone());
                 let job = cx.background_executor().spawn(async move {
                     let path = reply?.receive().await?;
-                    open::that(path).map_err(super::mutations::failure)
+                    crate::platform::os::open(path).map_err(super::mutations::failure)
                 });
                 cx.spawn(async move |this, cx| {
                     if let Err(error) = job.await {

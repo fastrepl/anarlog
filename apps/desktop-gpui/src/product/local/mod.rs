@@ -436,15 +436,17 @@ impl LocalServices {
                 .map_err(failure)??;
             }
             (Surface::Imports, Action::ImportFiles | Action::RetryImport) => {
-                let files = rfd::AsyncFileDialog::new()
-                    .set_title("Import meetings")
-                    .add_filter(
-                        "Meeting exports",
-                        &["json", "csv", "md", "markdown", "txt", "srt", "vtt"],
-                    )
-                    .pick_files()
-                    .await
-                    .ok_or(ServiceError::Cancelled)?;
+                let files = crate::platform::os::dialog(|| {
+                    rfd::AsyncFileDialog::new()
+                        .set_title("Import meetings")
+                        .add_filter(
+                            "Meeting exports",
+                            &["json", "csv", "md", "markdown", "txt", "srt", "vtt"],
+                        )
+                        .pick_files()
+                })
+                .await
+                .ok_or(ServiceError::Cancelled)?;
                 let ids = data::import_files(
                     &self.runtime,
                     files.iter().map(|file| file.path().to_owned()).collect(),
@@ -476,17 +478,19 @@ impl LocalServices {
                     summary_id: None,
                 };
                 let meeting = data::snapshot(&self.runtime, id).await?;
-                let file = rfd::AsyncFileDialog::new()
-                    .set_title("Export meeting")
-                    .set_file_name(format!(
-                        "{}.{}",
-                        anlg_meeting_import::safe_file_component(meeting.title()),
-                        options.format.extension()
-                    ))
-                    .add_filter("Export", &[options.format.extension()])
-                    .save_file()
-                    .await
-                    .ok_or(ServiceError::Cancelled)?;
+                let file = crate::platform::os::dialog(|| {
+                    rfd::AsyncFileDialog::new()
+                        .set_title("Export meeting")
+                        .set_file_name(format!(
+                            "{}.{}",
+                            anlg_meeting_import::safe_file_component(meeting.title()),
+                            options.format.extension()
+                        ))
+                        .add_filter("Export", &[options.format.extension()])
+                        .save_file()
+                })
+                .await
+                .ok_or(ServiceError::Cancelled)?;
                 if request.cancel.is_cancelled() {
                     return Err(ServiceError::Cancelled);
                 }
@@ -575,13 +579,15 @@ impl LocalServices {
                     .set_page(request.scope.clone(), target.parse().map_err(failure)?)?;
             }
             (Surface::Storage, Action::MoveStorage) => {
-                let target = rfd::AsyncFileDialog::new()
-                    .set_title("Choose empty storage location")
-                    .pick_folder()
-                    .await
-                    .ok_or(ServiceError::Cancelled)?
-                    .path()
-                    .to_owned();
+                let target = crate::platform::os::dialog(|| {
+                    rfd::AsyncFileDialog::new()
+                        .set_title("Choose empty storage location")
+                        .pick_folder()
+                })
+                .await
+                .ok_or(ServiceError::Cancelled)?
+                .path()
+                .to_owned();
                 self.host.flush_drafts().await?;
                 self.host.pause_writers().await?;
                 let root = self.storage_root.clone();

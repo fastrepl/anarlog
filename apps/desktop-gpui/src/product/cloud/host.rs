@@ -112,12 +112,14 @@ impl CloudHost for NativeHost {
 
     fn export_recovery(&self, code: Zeroizing<String>) -> BoxFuture<'static, Result<()>> {
         Box::pin(async move {
-            let file = rfd::AsyncFileDialog::new()
-                .set_title("Save your Anarlog recovery key securely")
-                .set_file_name("anarlog-recovery-key.txt")
-                .save_file()
-                .await
-                .ok_or(ServiceError::Cancelled)?;
+            let file = crate::platform::os::dialog(|| {
+                rfd::AsyncFileDialog::new()
+                    .set_title("Save your Anarlog recovery key securely")
+                    .set_file_name("anarlog-recovery-key.txt")
+                    .save_file()
+            })
+            .await
+            .ok_or(ServiceError::Cancelled)?;
             tokio::task::spawn_blocking(move || {
                 let mut options = std::fs::OpenOptions::new();
                 options.write(true).create_new(true);
@@ -142,11 +144,13 @@ impl CloudHost for NativeHost {
 
 pub fn import_recovery() -> BoxFuture<'static, Result<Zeroizing<String>>> {
     Box::pin(async {
-        let file = rfd::AsyncFileDialog::new()
-            .set_title("Import Anarlog recovery key")
-            .pick_file()
-            .await
-            .ok_or(ServiceError::Cancelled)?;
+        let file = crate::platform::os::dialog(|| {
+            rfd::AsyncFileDialog::new()
+                .set_title("Import Anarlog recovery key")
+                .pick_file()
+        })
+        .await
+        .ok_or(ServiceError::Cancelled)?;
         tokio::task::spawn_blocking(move || {
             let file = std::fs::File::open(file.path())
                 .map_err(|_| failure("Cannot open recovery-key file"))?;

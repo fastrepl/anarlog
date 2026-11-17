@@ -37,6 +37,8 @@ fn main() {
     let Some(out) = std::env::var_os("ANLG_SCREENS_DIR").map(PathBuf::from) else {
         return;
     };
+    // Before anything can click: no system dialog, app launch, permission prompt or sound.
+    desktop_gpui::platform::os::go_headless();
     std::fs::create_dir_all(&out).unwrap();
     let profile = tempfile::tempdir().unwrap();
     let (runtime, ready) = desktop_gpui::runtime_bridge::start(Profile {
@@ -54,14 +56,16 @@ fn main() {
     // The runtime answers from its own threads, so the dispatcher must wait for real I/O.
     cx.allow_parking();
     cx.update(UiFonts::init);
-    // Imports detection, Reminders access and GitHub answer from fixtures, never this Mac.
+    // Imports detection, Reminders access and GitHub answer from fixtures, never this Mac;
+    // the upload file picker answers as cancelled and its Finder reveal does nothing.
     cx.update(|cx| {
-        use desktop_gpui::{product, workspace::task};
+        use desktop_gpui::{meeting::upload::FilesGlobal, product, workspace::task};
         cx.set_global(product::local::imports::InstalledAppsOverride(Arc::new(
             Apps(vec![]),
         )));
         cx.set_global(product::ticket::RemindersOverride(Arc::new(Reminders)));
         cx.set_global(task::GithubOverride(Arc::new(Github)));
+        cx.set_global(FilesGlobal(std::rc::Rc::new(NoFiles)));
     });
     let window = {
         let runtime = runtime.clone();
@@ -388,9 +392,6 @@ fn ai_features(
     futures::executor::block_on(reply.receive()).unwrap();
     cx.update(|cx| {
         use desktop_gpui::meeting::{ai, ai_view::AiViewServices, context, tools};
-        cx.set_global(desktop_gpui::meeting::upload::FilesGlobal(
-            std::rc::Rc::new(NoFiles),
-        ));
         let approvals = tools::Approvals::default();
         cx.set_global(AiViewServices {
             ai: Arc::new(

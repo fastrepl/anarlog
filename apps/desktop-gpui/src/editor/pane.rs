@@ -1048,7 +1048,7 @@ impl EditorPane {
             let preview = service
                 .resolve(session, id.0.to_string(), CancellationToken::new())
                 .await?;
-            open::that(preview.path.as_ref()).map_err(|error| error.to_string())
+            crate::platform::os::open(preview.path.as_ref()).map_err(|error| error.to_string())
         });
         cx.spawn(async move |entity, cx| {
             if let Err(error) = job.await {
@@ -1071,7 +1071,9 @@ impl EditorPane {
         self.attachment_importing = true;
         let session = self.init.session_id.clone();
         let job = cx.background_executor().spawn(async move {
-            let Some(file) = rfd::AsyncFileDialog::new().pick_file().await else {
+            let Some(file) =
+                crate::platform::os::dialog(|| rfd::AsyncFileDialog::new().pick_file()).await
+            else {
                 return Ok(None);
             };
             service
@@ -1413,7 +1415,8 @@ impl EditorPane {
                             cx.listener(move |this, _, _, cx| {
                                 let path = path.clone();
                                 let job = cx.background_executor().spawn(async move {
-                                    open::that(path.as_ref()).map_err(|error| error.to_string())
+                                    crate::platform::os::open(path.as_ref())
+                                        .map_err(|error| error.to_string())
                                 });
                                 cx.spawn(async move |entity, cx| {
                                     if let Err(error) = job.await {
