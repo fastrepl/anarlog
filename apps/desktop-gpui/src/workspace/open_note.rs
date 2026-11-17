@@ -25,16 +25,17 @@ use super::{
     library::{OpenNote, folder_label},
     navigation::Route,
     resource_list::{self, Glyph},
-    templates::{self, Library},
+    templates::{self, Library, Template},
 };
 use crate::{
+    application::toasts,
     contracts::{EditorEvent, EditorInit, LaneContext, MeetingIntent, WorkspaceEvent},
     editor::{
         EditorPane,
+        find::{FindBar, FindTarget},
         title::first_line_title,
         transcript::{TranscriptEvent, TranscriptView},
     },
-    editor::find::{FindBar, FindTarget},
     meeting::{
         MeetingServices,
         live::{LiveState, SessionMode},
@@ -1280,6 +1281,7 @@ impl NoteView {
                 cx.write_to_clipboard(gpui::ClipboardItem::new_string(stored_markdown(
                     body, format,
                 )));
+                toasts::success("Memo copied to clipboard", cx);
             }
             (TabMenu::Summary(id), "Copy") => {
                 if let Some(summary) = self.details.summaries.iter().find(|s| s.id.0 == id) {
@@ -1287,6 +1289,8 @@ impl NoteView {
                         &summary.body,
                         &summary.body_format,
                     )));
+                    let title = self.summary_title(&id);
+                    toasts::success(format!("{title} copied to clipboard"), cx);
                 }
             }
             (TabMenu::Summary(_), "Regenerate") => self.regenerate(cx),
@@ -1294,6 +1298,24 @@ impl NoteView {
             _ => {}
         }
         cx.notify();
+    }
+
+    fn summary_template(&self, template_id: &str) -> Option<&Template> {
+        self.templates
+            .templates
+            .iter()
+            .find(|template| &*template.id == template_id && !template_id.is_empty())
+    }
+
+    /// Shipping's `useEnhancedViewTitle`: the template's title, else the stored title.
+    fn summary_title(&self, id: &str) -> SharedString {
+        let (raw, template_id) = self
+            .details
+            .summary_meta
+            .get(id)
+            .cloned()
+            .unwrap_or_default();
+        summary::tab_title(&raw, self.summary_template(&template_id), &template_id)
     }
 
     /// Shipping's `deleteEnhancedNote`; the removed tab hands over to the one before it.
@@ -1744,25 +1766,20 @@ impl NoteView {
                 let active = tab == current;
                 let summary = match tab {
                     NoteTab::Summary(id) => {
-                        let (raw, template_id) = self
+                        let template_id = self
                             .details
                             .summary_meta
                             .get(id)
-                            .cloned()
+                            .map(|(_, template_id)| template_id.clone())
                             .unwrap_or_default();
-                        let template = self
-                            .templates
-                            .templates
-                            .iter()
-                            .find(|template| template.id == template_id && !template_id.is_empty())
-                            .cloned();
+                        let template = self.summary_template(&template_id).cloned();
                         let job = self
                             .current
                             .as_ref()
                             .and_then(|session| self.jobs.get(&session.summary.id))
                             .filter(|job| job.shows(id));
                         Some((
-                            summary::tab_title(&raw, template.as_ref(), &template_id),
+                            self.summary_title(id),
                             template,
                             (!template_id.is_empty()).then_some(template_id),
                             job.is_some_and(|job| job.running()),

@@ -12,6 +12,7 @@ use serde_json::{Value, json};
 
 use super::imports::{self, Direct, ImportResult, ImportRun, Mode, Provider, TextFile};
 use crate::{
+    application::toasts,
     product::{
         account,
         controls::{self, dropdown, icon, menu_panel},
@@ -291,11 +292,12 @@ impl ImportsView {
             let _ = this.update(cx, |this, cx| {
                 let row = this.row(provider);
                 row.disconnecting = false;
-                // Toast: on failure shipping shows `integrations::SETUP_ERROR` as an error toast.
                 if result.is_ok() {
                     row.result = None;
                     row.warnings.clear();
                     this.load_connections(cx);
+                } else {
+                    toasts::error(integrations::SETUP_ERROR, cx);
                 }
                 cx.notify();
             });

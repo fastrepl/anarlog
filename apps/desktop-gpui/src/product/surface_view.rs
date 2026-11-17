@@ -70,14 +70,9 @@ impl SurfaceView {
             (Mounted::Cloud(view), subscriptions)
         } else if surface == Surface::Developers {
             let view = cx.new(DevelopersView::new);
-            let subscriptions = vec![
-                cx.subscribe(&view, |_, _, event: &ProductEvent, cx| {
-                    cx.emit(event.clone())
-                }),
-                cx.subscribe(&view, |_, _, _: &super::PlanRequired, cx| {
-                    cx.emit(super::PlanRequired)
-                }),
-            ];
+            let subscriptions = vec![cx.subscribe(&view, |_, _, _: &super::PlanRequired, cx| {
+                cx.emit(super::PlanRequired)
+            })];
             (Mounted::Developers(view), subscriptions)
         } else if matches!(
             surface,

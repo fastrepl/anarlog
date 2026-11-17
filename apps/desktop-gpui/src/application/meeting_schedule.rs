@@ -557,8 +557,9 @@ impl ApplicationView {
                         Ok(result) => {
                             let sample = state.observe(&result);
                             if let Some(warning) = sample.warning {
-                                let _ =
-                                    this.update(cx, |this, cx| this.status(warning.message(), cx));
+                                let _ = this.update(cx, |_, cx| {
+                                    warn("meeting-chat-capture-warning", warning.message(), cx)
+                                });
                             }
                             if !sample.entries.is_empty() {
                                 match persist_chat(&runtime, &session, &sample.entries).await {
@@ -569,7 +570,11 @@ impl ApplicationView {
                                         if declined {
                                             let _ = this.update(cx, |this, cx| {
                                                 if this.listening(&session) {
-                                                    this.status(capture::PARTICIPANT_DECLINED, cx);
+                                                    warn(
+                                                        "meeting-consent-declined",
+                                                        capture::PARTICIPANT_DECLINED,
+                                                        cx,
+                                                    );
                                                     this.stop_capture(cx);
                                                 }
                                             });
@@ -610,8 +615,13 @@ impl ApplicationView {
                 } else if apps.screen_recording_denied() {
                     if !warned {
                         warned = true;
-                        let _ =
-                            this.update(cx, |this, cx| this.status(capture::SCREEN_PERMISSION, cx));
+                        let _ = this.update(cx, |_, cx| {
+                            warn(
+                                "meeting-screen-capture-warning",
+                                capture::SCREEN_PERMISSION,
+                                cx,
+                            )
+                        });
                     }
                 } else {
                     let result = apps.capture_screen(reset).await;
@@ -727,9 +737,20 @@ impl ApplicationView {
             }
             record_disclosure(&runtime, &session, target, Delivery::NotSent, &reason).await;
             tracing::warn!(%reason, "meeting disclosure was not sent");
-            let _ = this.update(cx, |this, cx| this.status(capture::DISCLOSURE_FAILED, cx));
+            let _ = this.update(cx, |_, cx| {
+                warn(
+                    "meeting-disclosure-send-failed",
+                    capture::DISCLOSURE_FAILED,
+                    cx,
+                )
+            });
         })
     }
+}
+
+/// Shipping's capture warnings: a `toast.warning` that stays until dismissed.
+fn warn(id: &'static str, message: &'static str, cx: &mut gpui::App) {
+    super::toasts::show(super::toasts::Toast::warning(message).id(id).sticky(), cx);
 }
 
 async fn transact(

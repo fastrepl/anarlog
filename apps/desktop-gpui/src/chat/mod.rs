@@ -694,7 +694,7 @@ impl ChatView {
         self._poll = None;
         self.session = None;
         self.drain_pending();
-        self.drain_tools();
+        self.drain_tools(cx);
         match result {
             Ok(reply) => {
                 self.phase = Phase::Ready;
@@ -808,7 +808,7 @@ impl ChatView {
     }
 
     /// Moves tool updates from the stream into the visible reply, newest state per call.
-    fn drain_tools(&mut self) -> bool {
+    fn drain_tools(&mut self, cx: &mut gpui::App) -> bool {
         let updates = std::mem::take(
             &mut *self
                 .pending_tools
@@ -817,6 +817,10 @@ impl ChatView {
         );
         let changed = !updates.is_empty();
         for part in updates.iter().filter_map(ToolPart::from_part) {
+            // Shipping's `withProAccess` also asks the user to upgrade.
+            if part.failed() && part.error.as_deref() == Some(crate::meeting::tools::PRO_REQUIRED) {
+                crate::product::account::notify_plan_required(cx);
+            }
             match self.stream_tools.iter_mut().find(|tool| tool.id == part.id) {
                 Some(tool) => *tool = part,
                 None => self.stream_tools.push(part),
@@ -841,7 +845,7 @@ impl ChatView {
                             .lock()
                             .unwrap_or_else(|poison| poison.into_inner()),
                     );
-                    let tools = this.drain_tools();
+                    let tools = this.drain_tools(cx);
                     if !text.is_empty() || !reasoning.is_empty() || tools {
                         let follow = view::at_bottom(&this.scroll);
                         this.stream_text.push_str(&text);

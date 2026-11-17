@@ -19,7 +19,7 @@ use desktop_gpui::{
     meeting::{
         floating::{FloatingBar, container_size, shows_expand},
         live::{CaptureMode, LiveMeeting, LiveState, SessionMode},
-        upload::{Progress, Transcriber, TranscriberGlobal, Transcription},
+        upload::{Progress, Transcriber, TranscriberGlobal, Transcription, Warn},
     },
     ui::theme::UiFonts,
     workspace::{assets::Assets, navigation::Route},
@@ -1562,6 +1562,7 @@ fn transcript_files(
         |_: SessionId,
          _: PathBuf,
          progress: Progress,
+         _: Warn,
          cancellation: CancellationToken|
          -> Pending {
             Box::pin(async move {
@@ -1576,7 +1577,7 @@ fn transcript_files(
     capture(cx, window, out, "transcript-batching");
     click(cx, window, STOP_TRANSCRIPTION.0, STOP_TRANSCRIPTION.1);
     let failing: Transcriber = Arc::new(
-        |_: SessionId, _: PathBuf, _: Progress, _: CancellationToken| -> Pending {
+        |_: SessionId, _: PathBuf, _: Progress, _: Warn, _: CancellationToken| -> Pending {
             Box::pin(async {
                 Err(ServiceError::Failed(
                     "Deepgram rejected the API key (401).".into(),

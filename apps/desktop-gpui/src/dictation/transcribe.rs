@@ -23,6 +23,9 @@ pub struct Target {
     pub model: String,
     pub base_url: String,
     pub api_key: String,
+    /// Set when the fallback replaced the selected provider: shipping's "Using a batch
+    /// transcription provider" description.
+    pub replaced: Option<String>,
 }
 
 impl Target {
@@ -52,7 +55,17 @@ pub fn choose(selected: Selected, fallback: Option<Target>) -> Result<Target> {
     let target = if use_selected {
         selected.target.clone().or(fallback)
     } else {
-        fallback
+        fallback.map(|fallback| Target {
+            replaced: Some(format!(
+                "{} is not available for batch transcription. Using {} instead.",
+                selected.label,
+                match fallback.provider {
+                    BatchProvider::Anarlog => "Pro cloud transcription",
+                    _ => "Soniqo batch transcription",
+                }
+            )),
+            ..fallback
+        })
     };
     target.ok_or_else(|| {
         failed(if selected.target.is_some() && !selected.unavailable_here {
@@ -145,6 +158,7 @@ pub(crate) async fn target(services: &ProviderServices, request: &Request) -> Re
                 model: connection.model,
                 base_url: connection.base_url,
                 api_key: connection.api_key,
+                replaced: None,
             }),
         _ => None,
     };
@@ -165,12 +179,14 @@ pub(crate) async fn target(services: &ProviderServices, request: &Request) -> Re
             model: "cloud".into(),
             base_url: format!("{}/stt", services.api_url.trim_end_matches('/')),
             api_key: access.access_token,
+            replaced: None,
         }),
         None if LOCAL_AVAILABLE => Some(Target {
             provider: BatchProvider::Soniqo,
             model: "soniqo-parakeet-batch".into(),
             base_url: "soniqo://local".into(),
             api_key: String::new(),
+            replaced: None,
         }),
         None => None,
     };
@@ -258,6 +274,7 @@ mod tests {
             model: model.into(),
             base_url: "https://example.test".into(),
             api_key: "key".into(),
+            replaced: None,
         }
     }
 
@@ -282,12 +299,14 @@ mod tests {
             )),
             "nova-3"
         );
+        let replaced =
+            choose(selected(Some(deepgram.clone()), false), Some(cloud.clone())).unwrap();
+        assert_eq!(replaced.model, "cloud");
         assert_eq!(
-            model(choose(
-                selected(Some(deepgram.clone()), false),
-                Some(cloud.clone())
-            )),
-            "cloud"
+            replaced.replaced.as_deref(),
+            Some(
+                "nova-3 is not available for batch transcription. Using Pro cloud transcription instead."
+            )
         );
         assert_eq!(model(choose(selected(None, false), Some(cloud))), "cloud");
         let error = choose(selected(Some(deepgram), false), None).unwrap_err();

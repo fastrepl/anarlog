@@ -3,7 +3,7 @@
 
 use std::{sync::Arc, time::Duration};
 
-use desktop_runtime::{Result, RuntimeHandle, ServiceError};
+use desktop_runtime::{Result, RuntimeHandle};
 use futures::future::BoxFuture;
 use gpui::{
     Animation, AnimationExt, AnyElement, ClipboardItem, Context, Div, ElementId, Entity,
@@ -18,7 +18,7 @@ use super::{
     webhooks::{self, WebhookInfo},
 };
 use crate::{
-    contracts::ProductEvent,
+    application::toasts,
     product::{
         PlanRequired, account,
         account_view::plan_gate,
@@ -121,7 +121,6 @@ pub struct DevelopersView {
     _subscriptions: Vec<Subscription>,
 }
 
-impl EventEmitter<ProductEvent> for DevelopersView {}
 impl EventEmitter<PlanRequired> for DevelopersView {}
 
 impl DevelopersView {
@@ -188,12 +187,9 @@ impl DevelopersView {
 
     /// Shipping's `toast.success` / `toast.error`.
     fn toast(&mut self, tone: Tone, message: impl Into<SharedString>, cx: &mut Context<Self>) {
-        let message = message.into();
-        // Integration: show `message` with `application::toasts` (success or error).
-        if tone == Tone::Error {
-            cx.emit(ProductEvent::Failed(ServiceError::Failed(
-                message.to_string().into(),
-            )));
+        match tone {
+            Tone::Success => toasts::success(message, cx),
+            Tone::Error => toasts::error(message, cx),
         }
     }
 

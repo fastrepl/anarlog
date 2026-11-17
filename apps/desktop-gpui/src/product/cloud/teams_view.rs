@@ -19,6 +19,7 @@ use super::{
     },
 };
 use crate::{
+    application::{team_invitations, toasts},
     product::{
         PlanRequired,
         account::{self, WorkspaceTier},
@@ -645,14 +646,12 @@ impl TeamsView {
                             this.creating = false;
                             this.selected = Some(workspace);
                             this.calls.refresh_account(cx);
-                            // INTEGRATION toasts::show(..): success "Joined {workspace_name}".
+                            toasts::success(format!("Joined {}", invitation.workspace_name), cx);
                         }
-                        // INTEGRATION toasts::dismiss(&team_invitations::toast_id(&invitation.invitation_id)).
+                        toasts::dismiss(&team_invitations::toast_id(&invitation.invitation_id), cx);
                         this.refresh(cx);
                     }
-                    Err(_error) => {
-                        // INTEGRATION toasts::show(..): error with `_error`'s message.
-                    }
+                    Err(error) => toasts::error(error.to_string(), cx),
                 }
                 cx.notify();
             });
@@ -769,11 +768,13 @@ impl TeamsView {
                     input.update(cx, |input, cx| input.set_text(String::new(), cx));
                     Self::close_dialog(this, (), cx);
                 }
-                // INTEGRATION toasts::show(..): success, by delivery.
-                let _message = match delivery {
-                    Delivery::Email => "Invitation sent.",
-                    Delivery::Clipboard => "Email unavailable. Invite link copied instead.",
-                };
+                toasts::success(
+                    match delivery {
+                        Delivery::Email => "Invitation sent.",
+                        Delivery::Clipboard => "Email unavailable. Invite link copied instead.",
+                    },
+                    cx,
+                );
             },
             cx,
         );

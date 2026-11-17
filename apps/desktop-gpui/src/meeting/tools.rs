@@ -146,7 +146,7 @@ struct Services<'a> {
 }
 
 /// Shipping's `withProAccess` message for the model.
-const PRO_REQUIRED: &str = "This requires Anarlog Pro. Explain that an upgrade is required; do not claim the action succeeded.";
+pub(crate) const PRO_REQUIRED: &str = "This requires Anarlog Pro. Explain that an upgrade is required; do not claim the action succeeded.";
 
 async fn execute(
     services: Services<'_>,

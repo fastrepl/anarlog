@@ -16,9 +16,12 @@ use super::{
     local::imports_view::spinner,
     preferences_view::PreferencesView,
 };
-use crate::ui::{
-    input::{InputEvent, TextInput},
-    theme::{MEDIUM, Theme, theme},
+use crate::{
+    application::toasts,
+    ui::{
+        input::{InputEvent, TextInput},
+        theme::{MEDIUM, Theme, theme},
+    },
 };
 
 const REPOSITORY: &str = "todo_github_repository";
@@ -231,7 +234,7 @@ impl PreferencesView {
             let _ = this.update(cx, |this, cx| {
                 this.ticket.opening = None;
                 if result.is_err() {
-                    // Toast: shipping shows `integrations::SETUP_ERROR` as an error toast.
+                    toasts::error(integrations::SETUP_ERROR, cx);
                 }
                 this.load_ticket(cx);
                 cx.notify();

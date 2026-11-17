@@ -1640,8 +1640,11 @@ impl SharePopover {
             let _ = this.update(cx, |this, cx| {
                 this.connecting = false;
                 if let Err(error) = result {
-                    // Toasts lane: toast error "Could not start the integration setup. Try again."
                     tracing::warn!(%error, "Slack integration setup did not open");
+                    crate::application::toasts::error(
+                        crate::product::integrations::SETUP_ERROR,
+                        cx,
+                    );
                 }
                 cx.notify();
             });

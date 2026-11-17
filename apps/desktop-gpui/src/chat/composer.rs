@@ -654,7 +654,8 @@ impl Composer {
     ) {
         self.focus.focus(window, cx);
         let job = cx.background_executor().spawn(async move {
-            paths
+            let mut too_large = false;
+            let files = paths
                 .into_iter()
                 .filter_map(|path| {
                     let name = path.file_name()?.to_string_lossy().into_owned();
@@ -665,6 +666,7 @@ impl Composer {
                     let size = std::fs::metadata(&path).ok()?.len();
                     let image = mime.starts_with("image/");
                     if image && size > MAX_IMAGE_BYTES {
+                        too_large = true;
                         return None;
                     }
                     let bytes = if image {
@@ -674,11 +676,15 @@ impl Composer {
                     };
                     Some((name, mime, size, bytes))
                 })
-                .collect::<Vec<_>>()
+                .collect::<Vec<_>>();
+            (files, too_large)
         });
         cx.spawn(async move |this, cx| {
-            let files = job.await;
+            let (files, too_large) = job.await;
             let _ = this.update(cx, |this, cx| {
+                if too_large {
+                    crate::application::toasts::error("Images must be 8 MB or smaller.", cx);
+                }
                 for (name, mime, size, bytes) in files {
                     this.insert_attachment(name, mime, size, bytes, cx);
                 }

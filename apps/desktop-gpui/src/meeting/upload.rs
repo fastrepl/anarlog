@@ -32,6 +32,7 @@ use super::model::{Retention, failure};
 use super::playback::Command;
 use super::retention::{Activities, session_directory};
 use super::{MeetingServices, store::statement};
+use crate::application::toasts;
 use crate::platform::dialogs::{DialogAdapter, FileFilter, NativePicker, Picker};
 use crate::ui::theme::{MEDIUM, Theme};
 
@@ -71,6 +72,10 @@ fn is_transcript(path: &Path) -> bool {
 
 pub type Progress = Arc<dyn Fn(f64) + Send + Sync>;
 
+/// Receives shipping's "Using a batch transcription provider" description when the selected
+/// provider cannot transcribe the file and the fallback runs instead.
+pub type Warn = Arc<dyn Fn(String) + Send + Sync>;
+
 pub struct Transcription {
     pub response: Response,
     pub provider: String,
@@ -83,6 +88,7 @@ pub type Transcriber = Arc<
             SessionId,
             PathBuf,
             Progress,
+            Warn,
             CancellationToken,
         ) -> BoxFuture<'static, Result<Transcription>>
         + Send
@@ -135,6 +141,7 @@ pub fn provider_transcriber(services: ProviderServices) -> Transcriber {
         move |session: SessionId,
               path: PathBuf,
               progress: Progress,
+              warn: Warn,
               cancellation: CancellationToken|
               -> BoxFuture<'static, Result<Transcription>> {
             let services = services.clone();
@@ -143,6 +150,9 @@ pub fn provider_transcriber(services: ProviderServices) -> Transcriber {
                     preferences: config::preferences(&services.runtime).await?,
                 };
                 let target = crate::dictation::transcribe::target(&services, &request).await?;
+                if let Some(replaced) = &target.replaced {
+                    warn(replaced.clone());
+                }
                 let (_, participants, mut keywords) =
                     services.session_hints(session.clone()).await?;
                 keywords.extend(request.keywords());
@@ -365,10 +375,11 @@ pub async fn transcribe(
     audio: PathBuf,
     transcriber: Transcriber,
     progress: Progress,
+    warn: Warn,
     cancellation: CancellationToken,
 ) -> Result<()> {
     let started_at = chrono::Utc::now();
-    let output = transcriber(session.clone(), audio, progress, cancellation.clone()).await?;
+    let output = transcriber(session.clone(), audio, progress, warn, cancellation.clone()).await?;
     if cancellation.is_cancelled() {
         return Err(ServiceError::Cancelled);
     }
@@ -756,11 +767,14 @@ enum Update {
     Phase(Phase),
     Progress(f64),
     AudioChanged,
+    Warning(String),
 }
 
 struct Run {
     id: u64,
     cancellation: CancellationToken,
+    /// Shipping toasts a failed re-transcription; a failed upload only shows in the transcript.
+    retranscribe: bool,
 }
 
 /// Every session's upload, transcription and deletion state, shared by the note's transcript,
@@ -930,6 +944,7 @@ impl Uploads {
             runtime,
             session,
             Phase::Importing,
+            false,
             cx,
             move |host, session, updates, cancellation| {
                 Box::pin(async move {
@@ -972,15 +987,18 @@ impl Uploads {
             let audio = audio.await.ok().and_then(Result::ok);
             let _ = this.update(cx, |this, cx| {
                 let Some(audio) = audio else {
-                    this.jobs
-                        .insert(session, Job::Failed(MISSING_RECORDING.into()));
-                    cx.notify();
+                    toasts::show(
+                        toasts::Toast::error(MISSING_RECORDING)
+                            .id(format!("transcript-regenerate-audio-missing-{}", session.0)),
+                        cx,
+                    );
                     return;
                 };
                 this.start(
                     &runtime,
                     session,
                     Phase::Transcribing,
+                    true,
                     cx,
                     move |host, session, updates, cancellation| {
                         Box::pin(async move {
@@ -1000,6 +1018,7 @@ impl Uploads {
         runtime: &RuntimeHandle,
         session: SessionId,
         phase: Phase,
+        retranscribe: bool,
         cx: &mut Context<Self>,
         work: impl FnOnce(
             Host,
@@ -1030,6 +1049,7 @@ impl Uploads {
             Run {
                 id,
                 cancellation: cancellation.clone(),
+                retranscribe,
             },
         );
         self.jobs.insert(
@@ -1061,9 +1081,20 @@ impl Uploads {
     }
 
     fn apply(&mut self, session: &SessionId, id: u64, update: Update, cx: &mut Context<Self>) {
-        if let Update::AudioChanged = update {
-            cx.emit(UploadEvent::AudioChanged(session.clone()));
-            return;
+        match update {
+            Update::AudioChanged => {
+                cx.emit(UploadEvent::AudioChanged(session.clone()));
+                return;
+            }
+            Update::Warning(description) => {
+                toasts::show(
+                    toasts::Toast::warning("Using a batch transcription provider")
+                        .description(description),
+                    cx,
+                );
+                return;
+            }
+            _ => {}
         }
         if !self.current(session, id) {
             return;
@@ -1075,7 +1106,7 @@ impl Uploads {
                     *percentage = 0.;
                 }
                 Update::Progress(next) => *percentage = next.clamp(0., 1.),
-                Update::AudioChanged => {}
+                Update::AudioChanged | Update::Warning(_) => {}
             }
             cx.notify();
         }
@@ -1086,14 +1117,26 @@ impl Uploads {
         if !self.current(session, id) {
             return;
         }
-        self.runs.remove(session);
+        let retranscribe = self
+            .runs
+            .remove(session)
+            .is_some_and(|run| run.retranscribe);
         match result {
             Ok(()) | Err(ServiceError::Cancelled) => {
                 self.jobs.remove(session);
             }
             Err(error) => {
+                let message = message(&error);
+                if retranscribe {
+                    toasts::show(
+                        toasts::Toast::error("Re-transcription failed")
+                            .id(format!("transcript-regenerate-failed-{}", session.0))
+                            .description(message.clone()),
+                        cx,
+                    );
+                }
                 self.jobs
-                    .insert(session.clone(), Job::Failed(message(&error).into()));
+                    .insert(session.clone(), Job::Failed(message.into()));
             }
         }
         cx.notify();
@@ -1334,7 +1377,7 @@ async fn transcribe_and_retain(
     updates: mpsc::UnboundedSender<Update>,
     cancellation: CancellationToken,
 ) -> Result<()> {
-    let progress = updates.clone();
+    let (progress, warnings) = (updates.clone(), updates.clone());
     transcribe(
         &host.runtime,
         session.clone(),
@@ -1342,6 +1385,9 @@ async fn transcribe_and_retain(
         host.transcriber.clone(),
         Arc::new(move |percentage| {
             let _ = progress.unbounded_send(Update::Progress(percentage));
+        }),
+        Arc::new(move |description| {
+            let _ = warnings.unbounded_send(Update::Warning(description));
         }),
         cancellation,
     )
@@ -1462,6 +1508,7 @@ mod tests {
             move |_: SessionId,
                   _: PathBuf,
                   progress: Progress,
+                  _: Warn,
                   _: CancellationToken|
                   -> BoxFuture<'static, Result<Transcription>> {
                 let response = Response {
@@ -1522,6 +1569,7 @@ mod tests {
             audio,
             fake(&["Hello", "there.", "Goodbye", "now."]),
             quiet(),
+            Arc::new(|_| {}),
             CancellationToken::new(),
         )
         .await
@@ -1550,6 +1598,7 @@ mod tests {
             |_: SessionId,
              _: PathBuf,
              _: Progress,
+             _: Warn,
              _: CancellationToken|
              -> BoxFuture<'static, Result<Transcription>> {
                 Box::pin(async {
@@ -1570,6 +1619,7 @@ mod tests {
             fixture.wav(),
             silent,
             quiet(),
+            Arc::new(|_| {}),
             CancellationToken::new(),
         )
         .await

@@ -643,7 +643,10 @@ impl SyncView {
             let _ = this.update(cx, |this, cx| {
                 this.pending = None;
                 if result.is_err() {
-                    // INTEGRATION toasts::show(..): error "Couldn't open device add-ons. Try again."
+                    crate::application::toasts::error(
+                        "Couldn't open device add-ons. Try again.",
+                        cx,
+                    );
                 }
                 cx.notify();
             });

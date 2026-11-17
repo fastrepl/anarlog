@@ -431,8 +431,7 @@ fn screen(job: Option<&Job>, live: Option<&LiveMeeting>, has_words: bool, audio:
         };
     }
     if !visible {
-        // Shipping reports a failed run in a toast; until native toasts exist, the empty
-        // screen's error state shows it.
+        // Like shipping's `TranscriptEmptyState`, a failed run's error stays on the empty screen.
         let error = match job {
             Some(Job::Failed(error)) => Some(error.clone()),
             _ => None,
@@ -1666,6 +1665,7 @@ impl TranscriptView {
                 let text = transcript_text(&self.segments);
                 if !text.is_empty() {
                     cx.write_to_clipboard(ClipboardItem::new_string(text));
+                    crate::application::toasts::success("Transcript copied to clipboard", cx);
                 }
             }
             TabAction::ResumeListening => cx.emit(TranscriptEvent::ResumeListening),

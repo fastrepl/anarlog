@@ -18,7 +18,10 @@ use super::{
         connect_group, group_button, group_caret, hover_label, menu_entry, spinner,
     },
 };
-use crate::ui::theme::{MEDIUM, Theme, theme};
+use crate::{
+    application::toasts,
+    ui::theme::{MEDIUM, Theme, theme},
+};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Provider {
@@ -482,8 +485,10 @@ impl CrmView {
                     )
                     .await
                 }
-                // Toast: shipping also shows `integrations::SETUP_ERROR` as an error toast.
-                Err(_) => Err(integrations::failure(integrations::SETUP_ERROR)),
+                Err(_) => {
+                    cx.update(|cx| toasts::error(integrations::SETUP_ERROR, cx));
+                    Err(integrations::failure(integrations::SETUP_ERROR))
+                }
             };
             let _ = this.update(cx, |this, cx| {
                 let row = this.rows.entry(provider.id).or_default();
@@ -555,10 +560,11 @@ impl CrmView {
             let _ = this.update(cx, |this, cx| {
                 let row = this.rows.entry(provider.id).or_default();
                 row.disconnecting = false;
-                // Toast: on failure shipping shows `integrations::SETUP_ERROR` as an error toast.
                 if result.is_ok() {
                     row.verified = false;
                     this.load(cx);
+                } else {
+                    toasts::error(integrations::SETUP_ERROR, cx);
                 }
                 cx.notify();
             });

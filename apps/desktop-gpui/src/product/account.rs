@@ -268,6 +268,32 @@ pub fn locked(page: &str, requires_pro: bool, account: &Account) -> bool {
                 .is_some_and(|workspaces| !workspaces.is_empty()))
 }
 
+/// `useNotifyPlanRequired("pro")`: a warning toast whose Upgrade opens checkout.
+pub fn notify_plan_required(cx: &mut App) {
+    use crate::application::toasts;
+    toasts::show(
+        toasts::Toast::warning("This requires Anarlog Pro")
+            .id("plan-required")
+            .action("Upgrade", |_, cx| {
+                let Some(cloud) = super::cloud::calls::installed(cx) else {
+                    return;
+                };
+                let open = cloud.open_web(
+                    "/app/checkout",
+                    vec![("source", "feature_gate".into())],
+                    None,
+                );
+                cx.spawn(async move |cx| {
+                    if let Err(error) = open.await {
+                        cx.update(|cx| toasts::error(error.to_string(), cx));
+                    }
+                })
+                .detach();
+            }),
+        cx,
+    );
+}
+
 /// Replaces the app-wide account; views observing `Account` re-render.
 pub fn set(account: Account, cx: &mut App) {
     if cx.try_global::<Account>() != Some(&account) {
