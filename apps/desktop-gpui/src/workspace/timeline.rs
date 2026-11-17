@@ -347,6 +347,25 @@ impl Timeline {
             })
     }
 
+    /// Shipping's sticky bucket heading while `row` is the first visible row: the heading's row,
+    /// its label and the row where the next bucket starts and pushes it out. A current-time
+    /// line before a heading leads that next bucket, as in shipping's bucket markup; Today's
+    /// own line after its items stays in Today.
+    pub fn sticky(&self, row: usize) -> Option<(usize, &Arc<str>, Option<usize>)> {
+        let (index, label) = self.heading_for(row)?;
+        let end = (index + 1..self.rows.len())
+            .find(|next| matches!(self.rows[*next], Row::Heading(_)))
+            .map(|next| {
+                if &**label != "Today" && matches!(self.rows[next - 1], Row::Now { .. }) {
+                    next - 1
+                } else {
+                    next
+                }
+            });
+        end.is_none_or(|end| row < end)
+            .then_some((index, label, end))
+    }
+
     /// When the clock next changes what the timeline shows: every second while a meeting is
     /// about to start, otherwise the next minute or item boundary.
     pub fn next_refresh(&self) -> Duration {
@@ -878,7 +897,7 @@ mod tests {
     }
 
     #[test]
-    fn without_a_today_bucket_the_line_precedes_the_first_past_bucket() {
+    fn without_a_today_bucket_the_line_leads_the_first_past_bucket_and_ends_the_sticky_above() {
         let now = at("2026-11-16T12:00:00Z");
         let sessions = [
             session("a", "Yesterday note", "2026-11-15T09:00:00Z", ""),
@@ -914,6 +933,15 @@ mod tests {
                 below: 12.
             }
         );
+        // Tomorrow's heading is pushed out by the line, which belongs to Yesterday's bucket.
+        let sticky = |row| {
+            timeline
+                .sticky(row)
+                .map(|(index, label, end)| (index, label.to_string(), end))
+        };
+        assert_eq!(sticky(2), Some((1, "Tomorrow".into(), Some(3))));
+        assert_eq!(sticky(3), None);
+        assert_eq!(sticky(5), Some((4, "Yesterday".into(), Some(6))));
 
         let past_only = build(
             &sessions[1..],

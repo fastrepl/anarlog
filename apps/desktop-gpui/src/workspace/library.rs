@@ -42,6 +42,9 @@ pub struct LibraryView {
     show_tags: bool,
     /// A row `scroll_row_to` anchored at the top, centred once its neighbours are measured.
     centring: Option<(usize, f32, bool)>,
+    /// The open note's row has not loaded yet; reveal it when it does, like shipping's
+    /// selected-row ref.
+    reveal_active: bool,
 }
 
 #[derive(Clone)]
@@ -207,6 +210,7 @@ impl LibraryView {
             show_folder: true,
             show_tags: false,
             centring: None,
+            reveal_active: false,
         }
     }
 
@@ -310,20 +314,29 @@ impl LibraryView {
         }
         self.keys = keys;
         self.timeline = timeline;
+        if self.reveal_active {
+            self.reveal_active_row();
+        }
         cx.notify();
     }
 
     pub fn set_active(&mut self, active: Option<SessionId>, cx: &mut Context<Self>) {
         if self.active != active {
-            if let Some(row) = active.as_ref().and_then(|id| {
-                self.keys
-                    .iter()
-                    .position(|key| matches!(key, RowKey::Session(row) if row == id))
-            }) {
-                self.reveal_row(row);
-            }
             self.active = active;
+            self.reveal_active = self.active.is_some();
+            self.reveal_active_row();
             cx.notify();
+        }
+    }
+
+    fn reveal_active_row(&mut self) {
+        if let Some(row) = self.active.as_ref().and_then(|id| {
+            self.keys
+                .iter()
+                .position(|key| matches!(key, RowKey::Session(row) if row == id))
+        }) {
+            self.reveal_active = false;
+            self.reveal_row(row);
         }
     }
 
@@ -453,13 +466,17 @@ impl LibraryView {
                 self.centring = Some((row, ratio, true));
                 window.request_animation_frame();
             }
+            // Measured from where the row landed: near the end the list clamps the anchor, so
+            // the row is not necessarily at the top.
             Some((row, ratio, true)) => {
-                let height = self.scroll.viewport_bounds().size.height;
-                let row_height = self
-                    .scroll
-                    .bounds_for_item(row)
-                    .map_or(px(0.), |bounds| bounds.size.height);
-                self.scroll.scroll_by(row_height * 0.5 - height * ratio);
+                if let Some(bounds) = self.scroll.bounds_for_item(row) {
+                    let viewport = self.scroll.viewport_bounds();
+                    self.scroll.scroll_by(
+                        bounds.top() + bounds.size.height * 0.5
+                            - viewport.top()
+                            - viewport.size.height * ratio,
+                    );
+                }
             }
             None => {}
         }
@@ -1076,35 +1093,32 @@ impl LibraryView {
             }))
     }
 
+    /// Shipping's `sticky` bucket heading: one pins at a time, and the next bucket pushes it up
+    /// and out of the timeline, which clips it like the scroll container clips CSS sticky.
     fn sticky_heading(&self, colors: Theme) -> Option<gpui::Div> {
         let top = self.scroll.logical_scroll_top();
         if top.item_ix == 0 && top.offset_in_item <= px(0.) {
             return None;
         }
-        let (index, label) = self.timeline.heading_for(top.item_ix)?;
+        let (index, label, end) = self.timeline.sticky(top.item_ix)?;
         if index == top.item_ix && top.offset_in_item <= px(0.) {
             return None;
         }
         let viewport = self.scroll.viewport_bounds();
-        // The next bucket's heading pushes this one out, like CSS sticky inside its bucket.
-        let shift = self
-            .timeline
-            .rows
-            .get(top.item_ix + 1..)
-            .unwrap_or_default()
-            .iter()
-            .position(|row| matches!(row, Row::Heading(_)))
-            .and_then(|next| self.scroll.bounds_for_item(top.item_ix + 1 + next))
+        let shift = end
+            .and_then(|end| self.scroll.bounds_for_item(end))
             .map_or(px(0.), |bounds| {
                 (bounds.top() - viewport.top() - px(HEADING_HEIGHT)).min(px(0.))
             });
         Some(
-            div()
-                .absolute()
-                .top(shift)
-                .left_0()
-                .right_0()
-                .child(heading(label.clone(), colors)),
+            div().absolute().inset_0().overflow_hidden().child(
+                div()
+                    .absolute()
+                    .top(shift)
+                    .left_0()
+                    .right_0()
+                    .child(heading(label.clone(), colors)),
+            ),
         )
     }
 }
@@ -1309,7 +1323,7 @@ mod tests {
 
     #[gpui::test]
     fn opening_a_note_scrolls_only_a_hidden_timeline_row_into_view(cx: &mut gpui::TestAppContext) {
-        let items: Arc<[desktop_runtime::SessionSummary]> = (0..60)
+        let items: Vec<desktop_runtime::SessionSummary> = (0..60)
             .map(|day| {
                 let at: Arc<str> = (Utc::now() - chrono::Duration::days(day + 1))
                     .to_rfc3339()
@@ -1329,16 +1343,14 @@ mod tests {
         cx.update(crate::ui::theme::UiFonts::init);
         let (library, cx) = cx.add_window_view(|_, cx| LibraryView::new(cx));
         cx.simulate_resize(gpui::size(px(280.), px(400.)));
-        library.update(cx, |library, cx| {
-            library.set_page(
-                Arc::new(LibraryPage {
-                    items,
-                    offset: 0,
-                    has_more: false,
-                }),
-                cx,
-            )
-        });
+        let page = |count: usize| {
+            Arc::new(LibraryPage {
+                items: items[..count].to_vec().into(),
+                offset: 0,
+                has_more: false,
+            })
+        };
+        library.update(cx, |library, cx| library.set_page(page(59), cx));
         cx.run_until_parked();
         let offset = |cx: &mut gpui::VisualTestContext| {
             library.read_with(cx, |library, _| library.scroll.logical_scroll_top())
@@ -1349,25 +1361,41 @@ mod tests {
         });
         cx.run_until_parked();
         assert_eq!(offset(cx), top, "a visible row stays put");
+        let assert_shown = |id: &str, cx: &mut gpui::VisualTestContext| {
+            library.read_with(cx, |library, _| {
+                let row = library
+                    .keys
+                    .iter()
+                    .position(|key| matches!(key, RowKey::Session(row) if row.0.as_ref() == id))
+                    .unwrap();
+                let viewport = library.scroll.viewport_bounds();
+                let bounds = library.scroll.bounds_for_item(row).unwrap();
+                assert!(
+                    bounds.top() >= viewport.top() && bounds.bottom() <= viewport.bottom(),
+                    "{id} is in view"
+                );
+            });
+        };
+        // The last rows cannot scroll to the top, so they are centred from where they land.
         library.update(cx, |library, cx| {
-            library.set_active(Some(SessionId("note-50".into())), cx)
+            library.set_active(Some(SessionId("note-58".into())), cx)
         });
         cx.run_until_parked();
-        let revealed = offset(cx);
         assert!(
-            revealed.item_ix > top.item_ix,
+            offset(cx).item_ix > top.item_ix,
             "a hidden row scrolls into view"
         );
-        library.read_with(cx, |library, _| {
-            let row = library
-                .keys
-                .iter()
-                .position(|key| matches!(key, RowKey::Session(id) if id.0.as_ref() == "note-50"))
-                .unwrap();
-            let viewport = library.scroll.viewport_bounds();
-            let bounds = library.scroll.bounds_for_item(row).unwrap();
-            assert!(bounds.top() >= viewport.top() && bounds.bottom() <= viewport.bottom());
+        assert_shown("note-58", cx);
+        // A note opened before its row loads, like one created from a calendar event, is
+        // revealed once the row arrives.
+        library.update(cx, |library, cx| {
+            library.set_active(Some(SessionId("note-2".into())), cx);
+            library.set_active(Some(SessionId("note-59".into())), cx);
         });
+        cx.run_until_parked();
+        library.update(cx, |library, cx| library.set_page(page(60), cx));
+        cx.run_until_parked();
+        assert_shown("note-59", cx);
     }
 
     #[test]
