@@ -168,6 +168,7 @@ impl WorkspaceView {
         cx: &mut Context<Self>,
     ) {
         let runtime = self.runtime.clone();
+        crate::product::local::webhooks::dispatch(&runtime, trigger, session.clone());
         let client = self.automation_client.clone();
         let starters = super::automation_runner::run_starters(
             &runtime,

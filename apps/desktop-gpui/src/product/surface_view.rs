@@ -6,7 +6,7 @@ use crate::contracts::ProductEvent;
 
 use super::{
     cloud::{CloudServices, view::CloudView},
-    local::view::LocalSettingsView,
+    local::{developers_view::DevelopersView, view::LocalSettingsView},
     service_view::ServiceView,
     services::{ProductServices, Scope, Surface},
 };
@@ -14,6 +14,7 @@ use super::{
 enum Mounted {
     Cloud(Entity<CloudView>),
     Local(Entity<LocalSettingsView>),
+    Developers(Entity<DevelopersView>),
     Generic(Entity<ServiceView>),
 }
 
@@ -25,6 +26,7 @@ pub struct SurfaceView {
 
 impl EventEmitter<ProductEvent> for SurfaceView {}
 impl EventEmitter<Scope> for SurfaceView {}
+impl EventEmitter<super::PlanRequired> for SurfaceView {}
 
 impl SurfaceView {
     pub fn new(
@@ -51,6 +53,17 @@ impl SurfaceView {
                 cx.subscribe(&view, |_, _, scope: &Scope, cx| cx.emit(scope.clone())),
             ];
             (Mounted::Cloud(view), subscriptions)
+        } else if surface == Surface::Developers {
+            let view = cx.new(DevelopersView::new);
+            let subscriptions = vec![
+                cx.subscribe(&view, |_, _, event: &ProductEvent, cx| {
+                    cx.emit(event.clone())
+                }),
+                cx.subscribe(&view, |_, _, _: &super::PlanRequired, cx| {
+                    cx.emit(super::PlanRequired)
+                }),
+            ];
+            (Mounted::Developers(view), subscriptions)
         } else if matches!(
             surface,
             Surface::Onboarding
@@ -91,6 +104,7 @@ impl SurfaceView {
         match &self.mounted {
             Mounted::Cloud(view) => view.read(cx).has_unsaved(),
             Mounted::Local(view) => view.read(cx).has_unsaved(),
+            Mounted::Developers(_) => false,
             Mounted::Generic(view) => view.read(cx).has_unsaved(),
         }
     }
@@ -99,6 +113,7 @@ impl SurfaceView {
         match &self.mounted {
             Mounted::Cloud(view) => view.update(cx, |view, _| view.suspend()),
             Mounted::Local(view) => view.update(cx, |view, _| view.suspend()),
+            Mounted::Developers(_) => {}
             Mounted::Generic(view) => view.update(cx, |view, _| view.suspend()),
         }
     }
@@ -107,6 +122,8 @@ impl SurfaceView {
         match &self.mounted {
             Mounted::Cloud(view) => view.update(cx, |view, cx| view.change_scope(scope, cx)),
             Mounted::Local(view) => view.update(cx, |view, cx| view.change_scope(scope, cx)),
+            // The page follows the app-wide account itself.
+            Mounted::Developers(_) => {}
             Mounted::Generic(view) => view.update(cx, |view, cx| view.change_scope(scope, cx)),
         }
     }
@@ -117,6 +134,7 @@ impl Render for SurfaceView {
         match &self.mounted {
             Mounted::Cloud(view) => div().child(view.clone()),
             Mounted::Local(view) => div().child(view.clone()),
+            Mounted::Developers(view) => div().child(view.clone()),
             Mounted::Generic(view) => div().child(view.clone()),
         }
     }

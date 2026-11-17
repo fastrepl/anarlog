@@ -65,6 +65,15 @@ const IMAGES: &[(&str, &[u8])] = &[
         "product/GoogleMeet.png",
         include_bytes!("icons/GoogleMeet.png"),
     ),
+    // The OpenCode mark shipping inlines in `settings/developers/skills.tsx`.
+    (
+        "product/OpenCodeLight.svg",
+        include_bytes!("icons/OpenCodeLight.svg"),
+    ),
+    (
+        "product/OpenCodeDark.svg",
+        include_bytes!("icons/OpenCodeDark.svg"),
+    ),
     (
         "product/AnarlogIcon.png",
         include_bytes!("../../../desktop/public/assets/anarlog-icon.png"),
@@ -123,6 +132,7 @@ provider_logos!(
     "claude",
     "cloudflare_workers_ai",
     "cohere",
+    "cursor",
     "dashscope",
     "deepseek",
     "elevenlabs",

@@ -82,6 +82,7 @@ pub struct ProductPane {
     plan_subscription: Option<Subscription>,
     open_page_subscription: Option<Subscription>,
     scope_subscription: Option<Subscription>,
+    surface_plan_subscription: Option<Subscription>,
     _account_subscriptions: [Subscription; 2],
 }
 
@@ -155,6 +156,7 @@ impl ProductPane {
             plan_subscription: None,
             open_page_subscription: None,
             scope_subscription: None,
+            surface_plan_subscription: None,
             _account_subscriptions: account_subscriptions,
         };
         this.open_route(route, window, cx);
@@ -280,6 +282,10 @@ impl ProductPane {
                 cx.emit(scope.clone());
                 cx.notify();
             }));
+            self.surface_plan_subscription =
+                Some(cx.subscribe(&view, |this, _, _: &PlanRequired, cx| {
+                    this.notify_plan_required(cx)
+                }));
             self.service = Some(view);
         } else {
             if let Some(providers) = &self.providers {
@@ -698,7 +704,7 @@ impl ProductPane {
             .map(|view| view.read(cx).surface.title())
             .unwrap_or(self.active.label);
         // These surfaces lay out their own title row, like shipping's pages.
-        let titled = matches!(surface, Some(Surface::Permissions));
+        let titled = matches!(surface, Some(Surface::Permissions | Surface::Developers));
         div()
             .flex()
             .flex_col()

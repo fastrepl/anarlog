@@ -233,6 +233,7 @@ fn main() {
         open(&mut cx, window, Route::Settings(page.into()));
         capture(&mut cx, window, &out, &format!("settings-{page}"));
     }
+    developers(&mut cx, window, &runtime, &out);
     chat_edits(&mut cx, window, &runtime, &out);
     account_states(&mut cx, window, &out);
     detection(&mut cx, window, &out);
@@ -1240,6 +1241,81 @@ fn account_states(
     open(cx, window, Route::Settings("account".into()));
     click(cx, window, 850., 100.);
     capture(cx, window, out, "settings-account-sign-out");
+    cx.update(|cx| account::set(Account::default(), cx));
+}
+
+/// Settings › Developers over a temporary home: the installed CLI, the skill menu, a new
+/// webhook, and the Cloud API section signed out, on Free and on Pro.
+fn developers(
+    cx: &mut HeadlessAppContext,
+    window: WindowHandle<ApplicationView>,
+    runtime: &RuntimeHandle,
+    out: &std::path::Path,
+) {
+    use desktop_gpui::product::{
+        account::{self, Account, Claims, User},
+        local::{developers::DeveloperTools, developers_view::Developers},
+    };
+    let home = tempfile::tempdir().unwrap();
+    let bundled = home.path().join("resources/anarlog");
+    std::fs::create_dir_all(bundled.parent().unwrap()).unwrap();
+    std::fs::write(&bundled, b"fixture-cli").unwrap();
+    std::fs::create_dir_all(home.path().join(".claude")).unwrap();
+    std::fs::create_dir_all(home.path().join(".codex/skills/anarlog")).unwrap();
+    std::fs::write(home.path().join(".codex/skills/anarlog/SKILL.md"), "skill").unwrap();
+    let tools = DeveloperTools {
+        bundled_cli: bundled,
+        home: home.path().into(),
+        command_name: "anarlog",
+        version: "0.1.0",
+    };
+    tools.install_cli().unwrap();
+    cx.update(|cx| {
+        cx.set_global(Developers {
+            runtime: runtime.clone(),
+            tools,
+        })
+    });
+    open(cx, window, Route::Settings("developers".into()));
+    capture(cx, window, out, "developers-installed");
+    click(cx, window, 828., 245.);
+    capture(cx, window, out, "developers-skill-menu");
+    click(cx, window, 400., 120.);
+    click(cx, window, 400., 490.);
+    type_text(
+        cx,
+        window,
+        &[
+            "h", "t", "t", "p", "s", ":", "/", "/", "h", "o", "o", "k", "s", ".", "t", "e", "s",
+            "t",
+        ],
+    );
+    click(cx, window, 733., 488.);
+    capture(cx, window, out, "developers-webhook");
+    let user = Some(User {
+        id: "7f1c2a9e-3b4d-4e5f-8a6b-9c0d1e2f3a4b".into(),
+        email: Some("alex@example.com".into()),
+    });
+    let free = Account {
+        user: user.clone(),
+        claims: Some(Claims::default()),
+        workspaces: Some(vec![].into()),
+        ..Account::default()
+    };
+    let pro = Account {
+        claims: Some(Claims {
+            entitlements: vec!["hyprnote_pro".into()],
+            subscription_status: Some("active".into()),
+            current_period_end: Some(account::now() + 86_400),
+            ..Claims::default()
+        }),
+        ..free.clone()
+    };
+    for (name, state) in [("developers-free", free), ("developers-pro", pro)] {
+        cx.update(|cx| account::set(state, cx));
+        open(cx, window, Route::Settings("developers".into()));
+        capture(cx, window, out, name);
+    }
     cx.update(|cx| account::set(Account::default(), cx));
 }
 

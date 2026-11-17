@@ -6,6 +6,7 @@ pub mod lock;
 mod meeting_schedule;
 mod note_windows;
 mod enterprise_capture;
+mod cloud_api;
 mod notifications;
 pub mod toasts;
 mod updates;
@@ -353,6 +354,7 @@ impl ApplicationView {
                     if let Some(cloud) = native.cloud.service.clone() {
                         this.watch_cloud(cloud, cx);
                     }
+                    cloud_api::start(&native, cx);
                     this.native = Some(native);
                     this.start_schedule(cx);
                     this.watch_preferences(cx);

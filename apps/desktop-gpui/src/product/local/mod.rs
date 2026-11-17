@@ -1,6 +1,7 @@
 pub mod calendar;
 pub mod data;
 pub mod developers;
+pub mod developers_view;
 pub mod export;
 pub mod models;
 pub mod storage;
@@ -8,6 +9,7 @@ pub mod storage;
 mod tests;
 mod transcript;
 pub mod view;
+pub mod webhooks;
 
 use std::{path::PathBuf, sync::Arc};
 
@@ -378,48 +380,6 @@ impl LocalServices {
                     ));
                 }
             }
-            Surface::Developers => {
-                let developer = self.developers.clone();
-                let installed = tokio::task::spawn_blocking(move || developer.cli_installed())
-                    .await
-                    .map_err(failure)??;
-                rows.push(row(
-                    "cli",
-                    "Anarlog CLI",
-                    if installed {
-                        "Installed"
-                    } else {
-                        "Use Anarlog from your terminal"
-                    },
-                ));
-                rows.push(row(
-                    "mcp",
-                    "MCP",
-                    "Connect Claude Desktop or another MCP client to your local notes",
-                ));
-                rows.push(row(
-                    "skills",
-                    "Agent skills",
-                    "Teach your coding agent how to use Anarlog",
-                ));
-                actions.extend([
-                    operation("install-cli", "Install", Action::InstallCli, None),
-                    operation(
-                        "install-mcp",
-                        "Install MCP config",
-                        Action::InstallMcp,
-                        None,
-                    ),
-                ]);
-                for agent in ["claude_code", "codex", "cursor", "opencode"] {
-                    actions.push(operation(
-                        &format!("skill:{agent}"),
-                        agent,
-                        Action::InstallSkills,
-                        Some(agent),
-                    ));
-                }
-            }
             Surface::Storage => {
                 rows.push(row(
                     "storage",
@@ -611,35 +571,6 @@ impl LocalServices {
             (Surface::Calendar, Action::NextPage) => {
                 self.calendar
                     .set_page(request.scope.clone(), target.parse().map_err(failure)?)?;
-            }
-            (
-                Surface::Developers,
-                Action::InstallCli | Action::InstallMcp | Action::InstallSkills,
-            ) => {
-                let tools = self.developers.clone();
-                match mutation.operation.action {
-                    Action::InstallCli => tokio::task::spawn_blocking(move || tools.install_cli())
-                        .await
-                        .map_err(failure)??,
-                    Action::InstallSkills => {
-                        let agent = target.to_owned();
-                        tokio::task::spawn_blocking(move || tools.install_skills(&agent))
-                            .await
-                            .map_err(failure)??;
-                    }
-                    Action::InstallMcp => {
-                        let file = rfd::AsyncFileDialog::new()
-                            .set_title("Choose MCP client JSON configuration")
-                            .add_filter("JSON", &["json"])
-                            .pick_file()
-                            .await
-                            .ok_or(ServiceError::Cancelled)?;
-                        tokio::task::spawn_blocking(move || tools.install_mcp(file.path()))
-                            .await
-                            .map_err(failure)??;
-                    }
-                    _ => unreachable!(),
-                }
             }
             (Surface::Storage, Action::MoveStorage) => {
                 let target = rfd::AsyncFileDialog::new()

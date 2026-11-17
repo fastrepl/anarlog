@@ -355,13 +355,9 @@ impl NativeServices {
                 } else {
                     "anarlog"
                 }),
-                installed_cli: home.join(".local/bin").join(if cfg!(windows) {
-                    "anarlog.exe"
-                } else {
-                    "anarlog"
-                }),
-                skills_bundle: resources.join("skills"),
                 home,
+                command_name: "anarlog",
+                version: env!("CARGO_PKG_VERSION"),
             },
             storage_root: profile,
             storage_pointer: pointer,

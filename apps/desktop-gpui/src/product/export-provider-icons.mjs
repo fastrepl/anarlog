@@ -28,6 +28,7 @@ const PROVIDERS = {
   claude: "Claude",
   cloudflare_workers_ai: "WorkersAI",
   cohere: "Cohere",
+  cursor: "Cursor",
   dashscope: "AlibabaCloud",
   deepseek: "DeepSeek",
   elevenlabs: "ElevenLabs",

@@ -15,7 +15,6 @@ use serde_json::{Value, json};
 use super::{
     calendar::{AccessToken, CalendarAuth, CalendarService},
     data,
-    developers::DeveloperTools,
     export::{self, ExportOptions, Format},
     storage::PreparedMove,
 };
@@ -519,57 +518,4 @@ fn storage_move_checks_containment_tampering_and_rolls_back_pointer() {
         PreparedMove::prepare(&source, &root.path().join("cancelled"), &cancel),
         Err(ServiceError::Cancelled)
     ));
-}
-
-#[test]
-fn developer_installs_preserve_user_configuration_and_modified_skills() {
-    let root = tempfile::tempdir().unwrap();
-    let source = root.path().join("bundled");
-    fs::write(&source, b"fixture-cli").unwrap();
-    let skills = root.path().join("skill-bundle");
-    fs::create_dir_all(skills.join("references")).unwrap();
-    let files = [
-        "SKILL.md",
-        "references/cli.md",
-        "references/errors.md",
-        "references/mcp.md",
-        "references/setup.md",
-    ];
-    for file in files {
-        fs::write(skills.join(file), file).unwrap();
-    }
-    let tools = DeveloperTools {
-        bundled_cli: source,
-        installed_cli: root.path().join("bin/anarlog"),
-        home: root.path().into(),
-        skills_bundle: skills,
-    };
-    assert!(!tools.cli_installed().unwrap());
-    tools.install_cli().unwrap();
-    tools.install_cli().unwrap();
-    let config = root.path().join("client.json");
-    fs::write(
-        &config,
-        r#"{"mcpServers":{"other":{"command":"other"}},"custom":true}"#,
-    )
-    .unwrap();
-    tools.install_mcp(&config).unwrap();
-    tools.install_mcp(&config).unwrap();
-    let value: Value = serde_json::from_slice(&fs::read(&config).unwrap()).unwrap();
-    assert_eq!(value["custom"], true);
-    assert_eq!(value["mcpServers"]["other"]["command"], "other");
-    fs::create_dir(root.path().join(".claude")).unwrap();
-    tools.install_skills("claude_code").unwrap();
-    let installed = root.path().join(".claude/skills/anarlog");
-    fs::write(installed.join("references/setup.md"), "user content").unwrap();
-    fs::remove_file(installed.join("SKILL.md")).unwrap();
-    assert!(tools.install_skills("claude_code").is_err());
-    assert!(!installed.join("SKILL.md").exists());
-    assert_eq!(
-        fs::read_to_string(installed.join("references/setup.md")).unwrap(),
-        "user content"
-    );
-    fs::write(&tools.installed_cli, b"user binary").unwrap();
-    assert!(tools.install_cli().is_err());
-    assert_eq!(fs::read(&tools.installed_cli).unwrap(), b"user binary");
 }

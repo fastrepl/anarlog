@@ -1354,3 +1354,59 @@ async fn enterprise_capture_applies_acknowledges_and_queues_finished_meetings() 
     );
     runtime.shutdown().await.unwrap();
 }
+
+
+#[tokio::test]
+async fn cloud_api_enable_uploads_existing_meetings_and_surfaces_api_errors() {
+    let server = MockServer::start().await;
+    let directory = tempfile::tempdir().unwrap();
+    let (runtime, ready) = RuntimeHandle::start(Profile {
+        database: directory.path().join("cloud-api.sqlite"),
+    })
+    .unwrap();
+    ready.receive().await.unwrap();
+    let note = runtime
+        .create_note("Roadmap".into())
+        .unwrap()
+        .receive()
+        .await
+        .unwrap();
+    let cloud = fixture_cloud(&runtime, &server, Arc::new(MemoryStore::default())).await;
+    let api = super::cloud_api::CloudApi::new(cloud, directory.path().join("cloud-api.json"));
+    for enabled in [true, false] {
+        Mock::given(method("PUT"))
+            .and(path("/v1/cloud-api/settings"))
+            .and(body_json(json!({ "enabled": enabled })))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(json!({ "enabled": enabled, "updated_at": null })),
+            )
+            .expect(1)
+            .mount(&server)
+            .await;
+    }
+    Mock::given(method("PUT"))
+        .and(path(format!("/v1/sync-snapshots/{}", note.summary.id.0)))
+        .and(body_partial_json(json!({ "title": "Roadmap" })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/v1/cloud-api/keys"))
+        .respond_with(ResponseTemplate::new(403).set_body_json(
+            json!({ "error": { "code": "subscription_required", "message": "Cloud API requires Pro." } }),
+        ))
+        .mount(&server)
+        .await;
+
+    let enabled = api.set_enabled(true).await.unwrap();
+    assert_eq!(
+        (enabled.enabled, enabled.uploaded, enabled.backfill_failed),
+        (true, 1, false)
+    );
+    let error = api.create_key("Claude Code".into()).await.unwrap_err();
+    assert_eq!(error.to_string(), "Cloud API requires Pro.");
+    assert!(!api.set_enabled(false).await.unwrap().enabled);
+    runtime.shutdown().await.unwrap();
+}
