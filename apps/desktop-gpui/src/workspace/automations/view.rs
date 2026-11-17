@@ -105,6 +105,8 @@ pub struct AutomationsView {
     client: Option<AutomationClient>,
     signed_in: bool,
     connections: Option<Load<Vec<Connection>>>,
+    /// An integration page is being opened; shipping disables the connect buttons meanwhile.
+    opening: bool,
     targets: HashMap<TargetList, Load<Vec<Choice>>>,
     notion_queries: HashMap<Arc<str>, (Entity<TextInput>, Subscription)>,
     filenames: HashMap<Arc<str>, (Entity<TextInput>, Subscription)>,
@@ -147,6 +149,7 @@ impl AutomationsView {
             client: None,
             signed_in: false,
             connections: None,
+            opening: false,
             targets: HashMap::new(),
             notion_queries: HashMap::new(),
             filenames: HashMap::new(),
@@ -500,17 +503,63 @@ impl AutomationsView {
         .detach();
     }
 
-    fn connect(&mut self, cx: &mut Context<Self>) {
-        if self.client.is_none() {
+    /// Shipping's `openIntegration`: the integration page opens with the browser hand-off.
+    fn connect(
+        &mut self,
+        integration: &'static str,
+        connection: Option<Connection>,
+        cx: &mut Context<Self>,
+    ) {
+        if self.opening {
+            return;
+        }
+        let cloud = cx
+            .try_global::<crate::product::sharing::SharingCloud>()
+            .map(|cloud| cloud.0.clone())
+            .filter(|_| self.client.is_some());
+        let Some(cloud) = cloud else {
             // Shipping cannot open the setup without a session and says so.
             self.toast(
                 Tone::Error,
                 "Could not start the integration setup. Try again.",
                 cx,
             );
+            return;
+        };
+        let action = if connection.is_some() {
+            "reconnect"
         } else {
-            cx.emit(AutomationsEvent::Product(ProductRoute::Integrations));
-        }
+            "connect"
+        };
+        let job = cloud.open_integration(
+            integration.into(),
+            action,
+            connection.map(|connection| connection.id.to_string()),
+            None,
+        );
+        self.opening = true;
+        cx.notify();
+        cx.spawn(async move |this, cx| {
+            let result = job.await;
+            let _ = this.update(cx, |this, cx| {
+                this.opening = false;
+                if result.is_err() {
+                    this.toast(
+                        Tone::Error,
+                        "Could not start the integration setup. Try again.",
+                        cx,
+                    );
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+    }
+
+    /// The integration callback may have connected or disconnected an account.
+    pub fn refresh_connections(&mut self, cx: &mut Context<Self>) {
+        self.connections = None;
+        cx.notify();
     }
 
     fn request_connections(&mut self, cx: &mut Context<Self>) {
@@ -1859,10 +1908,12 @@ impl AutomationsView {
                     None,
                     label,
                     Variant::Outline,
-                    true,
+                    !self.opening,
                     colors,
                 )
-                .on_click(cx.listener(|this, _, _, cx| this.connect(cx)))
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    this.connect(integration, connection.clone(), cx)
+                }))
                 .into_any_element())
             }
         }
@@ -2278,10 +2329,15 @@ impl AutomationsView {
                         None,
                         "Reconnect Google Drive",
                         Variant::Link,
-                        true,
+                        !self.opening,
                         colors,
                     )
-                    .on_click(cx.listener(|this, _, _, cx| this.connect(cx))),
+                    .on_click({
+                        let connection = connection.clone();
+                        cx.listener(move |this, _, _, cx| {
+                            this.connect("google-drive", Some(connection.clone()), cx)
+                        })
+                    }),
                 )
                 .when(
                     !connection_id.is_empty() && connection_id.as_str() != connection.id.as_ref(),

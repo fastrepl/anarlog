@@ -253,7 +253,12 @@ impl CloudServices {
             }
             url.query_pairs_mut().clear().extend_pairs(pairs);
             url.set_fragment(fragment);
-            core.host.open_url(url).await
+            // Shipping opens every checkout and billing-portal page with the hand-off card.
+            if matches!(path, "/app/checkout" | "/app/portal" | "/app/team-checkout") {
+                core.host.hand_off(url, super::host::Handoff::Billing).await
+            } else {
+                core.host.open_url(url).await
+            }
         })
     }
 

@@ -226,6 +226,7 @@ fn main() {
     }
     account_states(&mut cx, window, &out);
     detection(&mut cx, window, &out);
+    instruction(&mut cx, &out);
     capture_onboarding(&mut cx, window, &out);
 }
 
@@ -494,6 +495,93 @@ fn locks(
     });
     settle(cx);
 }
+
+/// The browser hand-off card at shipping's 340×500, without moving any window.
+fn instruction(cx: &mut HeadlessAppContext, out: &std::path::Path) {
+    use desktop_gpui::{
+        application::instruction::{CARD, Instruction},
+        product::cloud::host::Handoff,
+    };
+    let url = reqwest::Url::parse("https://anarlog.so/app/checkout").unwrap();
+    for (name, handoff) in [
+        ("instruction-sign-in", Handoff::SignIn),
+        ("instruction-billing", Handoff::Billing),
+        (
+            "instruction-google-calendar",
+            Handoff::Integration("google-calendar".into()),
+        ),
+        ("instruction-slack", Handoff::Integration("slack".into())),
+    ] {
+        let url = url.clone();
+        let card = cx
+            .open_window(size(px(CARD.0), px(CARD.1)), move |window, cx| {
+                let main = window.window_handle();
+                cx.new(|cx| {
+                    let mut card = Instruction::new(main, cx);
+                    card.show(handoff, url, None, cx);
+                    card
+                })
+            })
+            .unwrap();
+        settle(cx);
+        capture_window(cx, card.into(), out, name);
+        if name == "instruction-sign-in" {
+            // The callback-link fallback, then a pasted link.
+            click_window(cx, card.into(), 170., 382.);
+            capture_window(cx, card.into(), out, "instruction-sign-in-paste");
+            cx.update_window(card.into(), |_, window, cx| {
+                window.dispatch_keystroke(gpui::Keystroke::parse("a").unwrap(), cx)
+            })
+            .unwrap();
+            settle(cx);
+            capture_window(cx, card.into(), out, "instruction-sign-in-pasted");
+        }
+        cx.update_window(card.into(), |_, window, _| window.remove_window())
+            .unwrap();
+    }
+}
+
+fn capture_window(
+    cx: &mut HeadlessAppContext,
+    window: AnyWindowHandle,
+    out: &std::path::Path,
+    name: &str,
+) {
+    cx.update_window(window, |_, window, cx| window.draw(cx).clear(cx))
+        .unwrap();
+    let image = cx.capture_screenshot(window).unwrap();
+    let path = out.join(format!("{name}.png"));
+    image.save(&path).unwrap();
+    println!("{}", path.display());
+}
+
+fn click_window(cx: &mut HeadlessAppContext, window: AnyWindowHandle, x: f32, y: f32) {
+    let position = point(px(x), px(y));
+    for event in [
+        PlatformInput::MouseDown(MouseDownEvent {
+            button: MouseButton::Left,
+            position,
+            modifiers: Modifiers::default(),
+            click_count: 1,
+            first_mouse: false,
+        }),
+        PlatformInput::MouseUp(MouseUpEvent {
+            button: MouseButton::Left,
+            position,
+            modifiers: Modifiers::default(),
+            click_count: 1,
+        }),
+    ] {
+        cx.update_window(window, |_, window, cx| {
+            window.draw(cx).clear(cx);
+            window.dispatch_event(event, cx);
+        })
+        .unwrap();
+        cx.run_until_parked();
+    }
+    settle(cx);
+}
+
 /// The month grid's cell for `day`, top-left in window pixels (Sunday-first, as captured).
 fn calendar_cell(day: chrono::NaiveDate) -> Option<(f32, f32)> {
     use chrono::Datelike;

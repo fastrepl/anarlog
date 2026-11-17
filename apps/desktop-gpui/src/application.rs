@@ -1,8 +1,9 @@
 mod automation;
 mod chrome;
+pub mod instruction;
 pub(crate) mod lifecycle;
-mod meeting_schedule;
 pub mod lock;
+mod meeting_schedule;
 mod notifications;
 pub mod toasts;
 mod updates;
@@ -66,6 +67,7 @@ pub struct ApplicationView {
     dictation: Option<Entity<crate::dictation::Dictation>>,
     product: Option<Entity<ProductPane>>,
     trial_dialogs: Entity<crate::product::trial::TrialDialogs>,
+    instruction: Entity<instruction::Instruction>,
     services: Option<MeetingServices>,
     native: Option<NativeServices>,
     editor_vault: PathBuf,
@@ -209,7 +211,18 @@ impl ApplicationView {
         let tray_settings = profile.join("tray.json");
         let (effects, mut commands) = Effects::channel(runtime.clone());
         let flush_effects = effects.clone();
-        let host = NativeHost::install(cx, move |_, _| flush_effects.flush_drafts());
+        let instruction = cx.new(|cx| instruction::Instruction::new(window.window_handle(), cx));
+        subscriptions.push(
+            cx.subscribe_in(&instruction, window, |this, _, event, window, cx| {
+                this.instruction_event(event, window, cx)
+            }),
+        );
+        let card = instruction.downgrade();
+        let host = NativeHost::install(
+            cx,
+            move |_, _| flush_effects.flush_drafts(),
+            move |url, handoff, cx| instruction::hand_off(card.clone(), url, handoff, cx),
+        );
         cx.spawn(async move |this, cx| {
             while let Some(command) = commands.next().await {
                 match command {
@@ -364,6 +377,7 @@ impl ApplicationView {
             dictation,
             product: None,
             trial_dialogs,
+            instruction,
             services: None,
             native: None,
             editor_vault,
@@ -404,6 +418,15 @@ impl ApplicationView {
             NativeEvent::Quit => self.quit_now(window, cx),
             NativeEvent::Action(action) => self.lifecycle_action(action, window, cx),
             NativeEvent::DeepLink { raw, .. } => {
+                if let Ok(link) = desktop_runtime::deeplink::DeepLink::parse(&raw)
+                    && instruction::dismissed_by(&link)
+                {
+                    self.instruction.update(cx, |card, cx| card.dismiss(cx));
+                    if matches!(link, desktop_runtime::deeplink::DeepLink::Integration(_)) {
+                        self.workspace
+                            .update(cx, |view, cx| view.integrations_changed(cx));
+                    }
+                }
                 match desktop_runtime::deeplink::DeepLink::parse(&raw) {
                     Ok(desktop_runtime::deeplink::DeepLink::ShareAccount { share_id }) => {
                         self.open_shared(share_id, false, cx)
@@ -1395,6 +1418,10 @@ impl Render for ApplicationView {
         self.sync_notice(window, cx);
         if let Some(gate) = lock::gate(window, cx) {
             return gate;
+        }
+        // Shipping's `/app/instruction` route replaces the app while the browser hand-off runs.
+        if self.instruction.read(cx).is_active() {
+            return self.instruction_root(cx);
         }
         div()
             .size_full()

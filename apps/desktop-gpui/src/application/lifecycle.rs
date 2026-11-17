@@ -443,6 +443,7 @@ impl ApplicationView {
         if self.closing {
             return;
         }
+        self.main_window_hidden(cx);
         if crate::platform::windows::hide_main(window, cx).is_err() {
             self.request_quit(cx);
         }
@@ -496,6 +497,7 @@ impl ApplicationView {
             }
             TrayAction::CheckUpdate => self.check_for_updates(cx),
             TrayAction::Hide => {
+                self.main_window_hidden(cx);
                 if let Err(error) = crate::platform::windows::hide_main(window, cx) {
                     self.status(&error.to_string(), cx);
                 }

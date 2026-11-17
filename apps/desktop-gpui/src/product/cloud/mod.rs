@@ -35,6 +35,10 @@ use transport::{Transport, failure};
 
 pub trait CloudHost: Send + Sync {
     fn open_url(&self, url: Url) -> BoxFuture<'static, Result<()>>;
+    /// Opens a sign-in, checkout or integration page with the browser hand-off card.
+    fn hand_off(&self, url: Url, _: host::Handoff) -> BoxFuture<'static, Result<()>> {
+        self.open_url(url)
+    }
     fn copy_text(&self, text: Zeroizing<String>) -> BoxFuture<'static, Result<()>>;
     fn export_recovery(&self, code: Zeroizing<String>) -> BoxFuture<'static, Result<()>>;
     fn flush_editor(&self, session: SessionId) -> BoxFuture<'static, Result<()>>;
@@ -358,7 +362,7 @@ impl Core {
         }
         if *action == Action::SignIn {
             let url = self.auth.begin_sign_in().await?;
-            self.host.open_url(url).await?;
+            self.host.hand_off(url, host::Handoff::SignIn).await?;
             return Ok(Outcome::Refresh);
         }
         if matches!(action, Action::SignOut | Action::LogoutLibrary) {
@@ -408,7 +412,7 @@ impl Core {
                             .append_pair("plan", "pro")
                             .append_pair("source", "settings");
                     }
-                    self.host.open_url(url).await?;
+                    self.host.hand_off(url, host::Handoff::Billing).await?;
                 }
                 Action::RefreshAccount => {
                     self.auth.lease(account(&lease)?, true).await?;

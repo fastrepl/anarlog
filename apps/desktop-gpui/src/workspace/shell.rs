@@ -227,6 +227,12 @@ impl WorkspaceView {
         self.automations
             .update(cx, |automations, cx| automations.set_client(client, cx));
     }
+
+    /// An integration callback arrived; connected accounts may have changed.
+    pub fn integrations_changed(&mut self, cx: &mut Context<Self>) {
+        self.automations
+            .update(cx, |automations, cx| automations.refresh_connections(cx));
+    }
     pub fn new(
         context: LaneContext,
         ready: Reply<()>,

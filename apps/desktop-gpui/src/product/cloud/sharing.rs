@@ -595,7 +595,10 @@ impl CloudServices {
             this.runtime
                 .service(move |_| async move {
                     let url = this.core.auth.begin_sign_in().await?;
-                    this.core.host.open_url(url).await
+                    this.core
+                        .host
+                        .hand_off(url, super::host::Handoff::SignIn)
+                        .await
                 })?
                 .receive()
                 .await

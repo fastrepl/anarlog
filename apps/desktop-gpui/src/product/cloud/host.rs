@@ -13,8 +13,19 @@ use zeroize::Zeroizing;
 
 use super::{CloudHost, transport::failure};
 
+/// The card the main window shows while a page continues in the browser (shipping's
+/// `InstructionType`).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Handoff {
+    SignIn,
+    Billing,
+    /// The integration's id, such as `google-calendar` or `slack`.
+    Integration(String),
+}
+
 pub enum HostCommand {
     OpenUrl(Url, oneshot::Sender<Result<()>>),
+    HandOff(Url, Handoff, oneshot::Sender<Result<()>>),
     Copy(Zeroizing<String>, oneshot::Sender<Result<()>>),
     Flush(SessionId, oneshot::Sender<Result<()>>),
 }
@@ -28,6 +39,7 @@ impl NativeHost {
     pub fn install(
         cx: &mut gpui::App,
         flush: impl Fn(SessionId, &mut gpui::App) -> BoxFuture<'static, Result<()>> + 'static,
+        hand_off: impl Fn(Url, Handoff, &mut gpui::App) + 'static,
     ) -> Arc<Self> {
         let (host, mut commands) = Self::channel();
         cx.spawn(async move |cx| {
@@ -35,6 +47,10 @@ impl NativeHost {
                 match command {
                     HostCommand::OpenUrl(url, reply) => {
                         cx.update(|cx| cx.open_url(url.as_str()));
+                        let _ = reply.send(Ok(()));
+                    }
+                    HostCommand::HandOff(url, handoff, reply) => {
+                        cx.update(|cx| hand_off(url, handoff, cx));
                         let _ = reply.send(Ok(()));
                     }
                     HostCommand::Copy(text, reply) => {
@@ -80,6 +96,10 @@ impl NativeHost {
 impl CloudHost for NativeHost {
     fn open_url(&self, url: Url) -> BoxFuture<'static, Result<()>> {
         self.request(move |reply| HostCommand::OpenUrl(url, reply))
+    }
+
+    fn hand_off(&self, url: Url, handoff: Handoff) -> BoxFuture<'static, Result<()>> {
+        self.request(move |reply| HostCommand::HandOff(url, handoff, reply))
     }
 
     fn copy_text(&self, text: Zeroizing<String>) -> BoxFuture<'static, Result<()>> {

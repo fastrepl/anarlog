@@ -102,6 +102,8 @@ pub struct SharePopover {
     error: Option<SharedString>,
     /// The access the user just picked, shown until the refreshed share confirms it.
     optimistic: Option<GeneralAccess>,
+    /// Slack's integration page is being opened.
+    connecting: bool,
     areas: Areas,
     focus: FocusHandle,
     cancel: CancellationToken,
@@ -165,6 +167,7 @@ impl SharePopover {
             load_failed: false,
             error: None,
             optimistic: None,
+            connecting: false,
             areas: Areas::default(),
             focus,
             cancel: CancellationToken::new(),
@@ -1608,17 +1611,42 @@ impl SharePopover {
             ))
             .child(
                 div().flex().child(
-                    button("share-connect-slack", false, !disabled, colors)
-                        .h(px(32.))
-                        .when(!disabled, |b| {
-                            b.on_click(cx.listener(|_, _, _, cx| {
-                                cx.emit(SharePopoverEvent::Open(ProductRoute::Integrations))
-                            }))
-                        })
-                        .child(img("sharing/SlackLogo.svg").size(px(16.)))
-                        .child("Connect Slack"),
+                    button(
+                        "share-connect-slack",
+                        false,
+                        !disabled && !self.connecting,
+                        colors,
+                    )
+                    .h(px(32.))
+                    .when(!disabled && !self.connecting, |b| {
+                        b.on_click(cx.listener(|this, _, _, cx| this.connect_slack(cx)))
+                    })
+                    .child(img("sharing/SlackLogo.svg").size(px(16.)))
+                    .child("Connect Slack"),
                 ),
             )
+    }
+
+    /// Shipping's delivery panel opens Slack's integration page with the browser hand-off.
+    fn connect_slack(&mut self, cx: &mut Context<Self>) {
+        let Some(cloud) = cx.try_global::<SharingCloud>().map(|cloud| cloud.0.clone()) else {
+            return;
+        };
+        self.connecting = true;
+        cx.notify();
+        let job = cloud.open_integration("slack".into(), "connect", None, None);
+        cx.spawn(async move |this, cx| {
+            let result = job.await;
+            let _ = this.update(cx, |this, cx| {
+                this.connecting = false;
+                if let Err(error) = result {
+                    // Toasts lane: toast error "Could not start the integration setup. Try again."
+                    tracing::warn!(%error, "Slack integration setup did not open");
+                }
+                cx.notify();
+            });
+        })
+        .detach();
     }
 
     fn footer(

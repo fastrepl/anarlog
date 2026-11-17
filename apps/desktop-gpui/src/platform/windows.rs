@@ -228,6 +228,252 @@ mod macos {
     }
 }
 
+/// The main window's geometry for the browser hand-off (shipping's `windowSaveFrame`,
+/// `windowSetFrameAnimated` and `windowRestoreFrameAnimated`), in the platform's screen
+/// coordinates.
+pub trait FrameWindow {
+    fn frame(&self) -> Result<Frame>;
+    /// The screen's usable area, without the menu bar and Dock.
+    fn visible_frame(&self) -> Result<Frame>;
+    fn is_maximized(&self) -> bool;
+    fn set_maximized(&self, maximized: bool);
+    fn set_frame_animated(&self, frame: Frame);
+    fn set_always_on_top(&self, on_top: bool);
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct SavedFrame {
+    pub frame: Frame,
+    pub maximized: bool,
+}
+
+const ANCHOR_MARGIN: f32 = 8.0;
+
+/// Saves the frame to restore; a maximized window is un-maximized first, as shipping does.
+pub fn save_frame(window: &dyn FrameWindow) -> Result<SavedFrame> {
+    let maximized = window.is_maximized();
+    if maximized {
+        window.set_maximized(false);
+    }
+    let frame = window.frame().and_then(|frame| {
+        frame
+            .valid()
+            .then_some(frame)
+            .ok_or_else(|| ServiceError::Failed("Invalid window frame".into()))
+    });
+    if frame.is_err() && maximized {
+        window.set_maximized(true);
+    }
+    Ok(SavedFrame {
+        frame: frame?,
+        maximized,
+    })
+}
+
+/// Animates the window to a `width`×`height` card in the screen's top-right corner, above
+/// other windows.
+pub fn show_top_right(window: &dyn FrameWindow, width: f32, height: f32) -> Result<()> {
+    if window.is_maximized() {
+        window.set_maximized(false);
+    }
+    window.set_always_on_top(true);
+    let screen = window.visible_frame()?;
+    window.set_frame_animated(Frame {
+        x: screen.x + screen.width - width - ANCHOR_MARGIN,
+        // AppKit measures y from the bottom of the screen.
+        y: if cfg!(target_os = "macos") {
+            screen.y + screen.height - height - ANCHOR_MARGIN
+        } else {
+            screen.y + ANCHOR_MARGIN
+        },
+        width,
+        height,
+    });
+    Ok(())
+}
+
+/// Animates back to the saved frame. Without one only the window level is reset, as in
+/// shipping.
+pub fn restore_frame(window: &dyn FrameWindow, saved: Option<SavedFrame>) {
+    if let Some(saved) = saved {
+        if window.is_maximized() {
+            window.set_maximized(false);
+        }
+        window.set_frame_animated(saved.frame);
+        if saved.maximized {
+            window.set_maximized(true);
+        }
+    }
+    window.set_always_on_top(false);
+}
+
+/// The window's native frame, retained so callers can drive it outside GPUI's window update:
+/// AppKit reports resizes synchronously, and GPUI drops them while the app is borrowed.
+/// Other platforms have no adapter, so the hand-off keeps the window as it is.
+pub fn frame_window(window: &Window) -> Option<Box<dyn FrameWindow>> {
+    #[cfg(target_os = "macos")]
+    {
+        appkit::AppKitWindow::of(window).map(|window| Box::new(window) as Box<dyn FrameWindow>)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = window;
+        None
+    }
+}
+
+#[cfg(target_os = "macos")]
+mod appkit {
+    use objc2::{
+        encode::{Encode, Encoding},
+        msg_send,
+        rc::Retained,
+        runtime::{AnyObject, Bool},
+    };
+    use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+
+    use super::{FrameWindow, Result, ServiceError};
+
+    #[repr(C)]
+    #[derive(Clone, Copy)]
+    struct CGPoint {
+        x: f64,
+        y: f64,
+    }
+
+    #[repr(C)]
+    #[derive(Clone, Copy)]
+    struct CGSize {
+        width: f64,
+        height: f64,
+    }
+
+    #[repr(C)]
+    #[derive(Clone, Copy)]
+    struct CGRect {
+        origin: CGPoint,
+        size: CGSize,
+    }
+
+    // SAFETY: these match CoreGraphics' 64-bit layouts and encodings.
+    unsafe impl Encode for CGPoint {
+        const ENCODING: Encoding = Encoding::Struct("CGPoint", &[f64::ENCODING, f64::ENCODING]);
+    }
+    unsafe impl Encode for CGSize {
+        const ENCODING: Encoding = Encoding::Struct("CGSize", &[f64::ENCODING, f64::ENCODING]);
+    }
+    unsafe impl Encode for CGRect {
+        const ENCODING: Encoding =
+            Encoding::Struct("CGRect", &[CGPoint::ENCODING, CGSize::ENCODING]);
+    }
+
+    impl From<CGRect> for super::Frame {
+        fn from(rect: CGRect) -> Self {
+            Self {
+                x: rect.origin.x as f32,
+                y: rect.origin.y as f32,
+                width: rect.size.width as f32,
+                height: rect.size.height as f32,
+            }
+        }
+    }
+
+    const FULL_SCREEN: usize = 1 << 14;
+    const NORMAL_LEVEL: isize = 0;
+    const FLOATING_LEVEL: isize = 3;
+
+    pub struct AppKitWindow(Retained<AnyObject>);
+
+    impl AppKitWindow {
+        pub fn of(window: &gpui::Window) -> Option<Self> {
+            let RawWindowHandle::AppKit(handle) =
+                HasWindowHandle::window_handle(window).ok()?.as_raw()
+            else {
+                return None;
+            };
+            let view = handle.ns_view.as_ptr().cast::<AnyObject>();
+            // SAFETY: the view belongs to this open window; retaining keeps its NSWindow alive.
+            unsafe {
+                let ns_window: *mut AnyObject = msg_send![view, window];
+                Retained::retain(ns_window).map(Self)
+            }
+        }
+    }
+
+    impl FrameWindow for AppKitWindow {
+        fn frame(&self) -> Result<super::Frame> {
+            // SAFETY: plain NSWindow getters on a retained window, on the main thread.
+            unsafe {
+                let style: usize = msg_send![&*self.0, styleMask];
+                if style & FULL_SCREEN != 0 {
+                    return Err(ServiceError::Unsupported(
+                        "A full-screen window keeps its frame".into(),
+                    ));
+                }
+                let frame: CGRect = msg_send![&*self.0, frame];
+                Ok(frame.into())
+            }
+        }
+
+        fn visible_frame(&self) -> Result<super::Frame> {
+            // SAFETY: NSWindow/NSScreen getters on the main thread; nil screens are checked.
+            unsafe {
+                let mut screen: *mut AnyObject = msg_send![&*self.0, screen];
+                if screen.is_null() {
+                    screen = msg_send![objc2::class!(NSScreen), mainScreen];
+                }
+                if screen.is_null() {
+                    return Err(ServiceError::Unsupported("No screen".into()));
+                }
+                let frame: CGRect = msg_send![screen, visibleFrame];
+                Ok(frame.into())
+            }
+        }
+
+        fn is_maximized(&self) -> bool {
+            // SAFETY: NSWindow getter on the main thread.
+            let zoomed: Bool = unsafe { msg_send![&*self.0, isZoomed] };
+            zoomed.as_bool()
+        }
+
+        fn set_maximized(&self, maximized: bool) {
+            if self.is_maximized() != maximized {
+                // SAFETY: `zoom:` toggles the zoomed state and accepts a nil sender.
+                unsafe {
+                    let _: () = msg_send![&*self.0, zoom: std::ptr::null::<AnyObject>()];
+                }
+            }
+        }
+
+        fn set_frame_animated(&self, frame: super::Frame) {
+            let rect = CGRect {
+                origin: CGPoint {
+                    x: f64::from(frame.x),
+                    y: f64::from(frame.y),
+                },
+                size: CGSize {
+                    width: f64::from(frame.width),
+                    height: f64::from(frame.height),
+                },
+            };
+            // SAFETY: NSWindow setter on the main thread. Unlike user resizing, this frame
+            // change is not held to the window's minimum size, so the card can be narrower.
+            unsafe {
+                let _: () =
+                    msg_send![&*self.0, setFrame: rect, display: Bool::YES, animate: Bool::YES];
+            }
+        }
+
+        fn set_always_on_top(&self, on_top: bool) {
+            let level = if on_top { FLOATING_LEVEL } else { NORMAL_LEVEL };
+            // SAFETY: NSWindow setter on the main thread.
+            unsafe {
+                let _: () = msg_send![&*self.0, setLevel: level];
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

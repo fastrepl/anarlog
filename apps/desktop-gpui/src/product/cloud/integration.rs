@@ -83,14 +83,15 @@ impl CloudServices {
     /// reconnect hand over a Nango session; disconnect confirms on the page itself.
     pub fn open_integration(
         &self,
-        integration: &'static str,
+        integration: String,
         action: &'static str,
         connection: Option<String>,
-        return_to: &'static str,
+        return_to: Option<&'static str>,
     ) -> BoxFuture<'static, Result<()>> {
         let this = self.clone();
         Box::pin(async move {
             let host = this.core.host.clone();
+            let handoff = super::host::Handoff::Integration(integration.clone());
             let url = this
                 .runtime
                 .clone()
@@ -103,8 +104,10 @@ impl CloudServices {
                         .web_flow("/app/integration")?;
                     url.query_pairs_mut()
                         .append_pair("action", action)
-                        .append_pair("integration_id", integration)
-                        .append_pair("return_to", return_to);
+                        .append_pair("integration_id", &integration);
+                    if let Some(return_to) = return_to {
+                        url.query_pairs_mut().append_pair("return_to", return_to);
+                    }
                     if let Some(connection) = &connection {
                         url.query_pairs_mut()
                             .append_pair("connection_id", connection);
@@ -142,7 +145,7 @@ impl CloudServices {
                 })?
                 .receive()
                 .await?;
-            host.open_url(url).await
+            host.hand_off(url, handoff).await
         })
     }
 

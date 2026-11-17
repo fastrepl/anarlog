@@ -169,10 +169,10 @@ impl CalendarAccounts for HostCalendarAccounts {
             cloud
                 .ok_or_else(|| failure("Cloud sign-in is not configured"))?
                 .open_integration(
-                    integration,
+                    integration.into(),
                     flow.action(),
                     connection.map(|id| id.to_string()),
-                    "calendar",
+                    Some("calendar"),
                 )
                 .await
         })
