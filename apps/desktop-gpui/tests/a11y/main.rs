@@ -106,8 +106,8 @@ impl Harness {
                 .advance_clock(Duration::from_millis(50));
             self.platform.dispatcher.run_until_parked();
             std::thread::sleep(Duration::from_millis(10));
+            self.draw();
         }
-        self.draw();
     }
 
     fn draw(&self) {
