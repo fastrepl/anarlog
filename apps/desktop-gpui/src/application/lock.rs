@@ -555,9 +555,11 @@ mod presence {
         }
     }
 
+    /// Elsewhere the main window cannot be taken off screen (`hide_main` is unsupported), and
+    /// GPUI does not tell a minimized window from a covered one, so a hidden window never locks.
     #[cfg(not(target_os = "macos"))]
-    pub fn ordered_out(window: &Window) -> bool {
-        !window.is_visible() && !window.is_minimized()
+    pub fn ordered_out(_window: &Window) -> bool {
+        false
     }
 }
 
