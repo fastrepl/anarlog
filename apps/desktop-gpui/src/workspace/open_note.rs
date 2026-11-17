@@ -118,6 +118,8 @@ pub struct NoteView {
     versions: versions::Versions,
     /// Shown in its own window, which has no "Open in New Window" and clears the traffic lights.
     standalone: bool,
+    /// Whether the main window's sidebar is open; when it is collapsed its toggle sits over the header.
+    sidebar_expanded: bool,
     /// Shipping's ⌘F / ⌘H find & replace bar over the shown tab.
     find: Entity<FindBar>,
     /// The open note's pre-meeting brief sources, and a brief being written.
@@ -465,6 +467,7 @@ impl NoteView {
             pending_edits,
             versions: Default::default(),
             standalone: false,
+            sidebar_expanded: true,
             find: cx.new(FindBar::new),
             brief: None,
             brief_job: None,
@@ -474,6 +477,10 @@ impl NoteView {
 
     pub fn set_standalone(&mut self) {
         self.standalone = true;
+    }
+
+    pub fn set_sidebar_expanded(&mut self, expanded: bool) {
+        self.sidebar_expanded = expanded;
     }
 
     /// Shipping's `SessionShareButton` toggles its popover under the button.
@@ -2229,8 +2236,13 @@ impl NoteView {
             .flex_shrink_0()
             .pb(px(2.))
             // A standalone window's header starts after the macOS traffic lights.
-            .pl(if self.standalone && cfg!(target_os = "macos") {
+            .pl(if !cfg!(target_os = "macos") {
+                px(12.)
+            } else if self.standalone {
                 crate::zoom::window_controls_gutter(cx) + px(4.)
+            } else if !self.sidebar_expanded {
+                // Shipping's header gutter clears the collapsed sidebar's toggle.
+                crate::zoom::window_controls_gutter(cx) + px(36.)
             } else {
                 px(12.)
             })

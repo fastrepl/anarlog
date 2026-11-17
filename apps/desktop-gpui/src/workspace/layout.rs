@@ -268,7 +268,12 @@ impl Render for WorkspaceView {
                     )
                     .when(self.route_content.is_none(), |view| match &route {
                         _ if contacts.is_some() => view.child(contacts.clone().unwrap()),
-                        Route::Session(_) => view.child(self.note.clone()),
+                        Route::Session(_) => {
+                            let expanded = self.sidebar.expanded;
+                            self.note
+                                .update(cx, |note, _| note.set_sidebar_expanded(expanded));
+                            view.child(self.note.clone())
+                        }
                         Route::Calendar => view.child(self.calendar.clone()),
                         Route::Templates => view.child(self.templates.clone()),
                         Route::Folders | Route::Folder(_) => view.child(self.folders.clone()),

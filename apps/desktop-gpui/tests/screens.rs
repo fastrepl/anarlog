@@ -174,6 +174,10 @@ fn main() {
     capture(&mut cx, window, &out, "note-memos");
     click(&mut cx, window, 362., 23.);
     capture(&mut cx, window, &out, "note-transcript");
+    // With the sidebar collapsed, the header starts after its toggle.
+    click(&mut cx, window, 94., 23.);
+    capture(&mut cx, window, &out, "note-sidebar-collapsed");
+    click(&mut cx, window, 94., 23.);
     // Typing "/" after the customer note's first line opens the slash menu.
     open(
         &mut cx,
