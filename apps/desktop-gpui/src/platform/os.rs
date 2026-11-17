@@ -141,8 +141,9 @@ mod tests {
             super::reveal_path(&file);
             let deadline = std::time::Instant::now() + Duration::from_secs(5);
             loop {
-                if let Ok(directory) = std::fs::read_to_string(&result) {
-                    assert_eq!(std::path::Path::new(&directory), file.parent().unwrap());
+                if std::fs::read_to_string(&result).is_ok_and(|directory| {
+                    std::path::Path::new(&directory) == file.parent().unwrap()
+                }) {
                     return;
                 }
                 assert!(
