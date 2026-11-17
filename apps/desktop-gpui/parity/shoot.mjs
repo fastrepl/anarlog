@@ -1,7 +1,8 @@
 // Screenshots the parity frontend in headless Chromium at the native harness's window size
-// (910x600 at 2x). Optional steps click elements by visible text or aria-label first.
+// (910x600 at 2x). Optional steps click elements by visible text or aria-label, or click a
+// window point (`--at x,y`, for controls with neither), first.
 //
-// node apps/desktop-gpui/parity/shoot.mjs <url> <out.png> [--click <text> | --label <aria-label>]...
+// node apps/desktop-gpui/parity/shoot.mjs <url> <out.png> [--click <text> | --label <aria-label> | --at <x,y>]...
 // CHROME=<path to chrome-headless-shell> overrides the Playwright cache lookup.
 import { spawn } from "node:child_process";
 import { readdirSync, writeFileSync } from "node:fs";
@@ -11,7 +12,7 @@ import path from "node:path";
 const [url, out, ...steps] = process.argv.slice(2);
 if (!url || !out)
   throw new Error(
-    "usage: shoot.mjs <url> <out.png> [--click <text> | --label <aria-label>]...",
+    "usage: shoot.mjs <url> <out.png> [--click <text> | --label <aria-label> | --at <x,y>]...",
   );
 const settle = Number(process.env.PARITY_SETTLE_MS ?? 2500);
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -99,16 +100,21 @@ try {
 
   for (let index = 0; index < steps.length; index += 2) {
     const [kind, text] = [steps[index], steps[index + 1]];
-    if (!["--click", "--label"].includes(kind))
+    if (!["--click", "--label", "--at"].includes(kind))
       throw new Error(`unknown step ${kind}`);
     const matches =
       kind === "--label"
         ? `element.getAttribute("aria-label") === ${JSON.stringify(text)}`
         : `element.textContent.trim() === ${JSON.stringify(text)}`;
     // The innermost visible match, so the click lands on the control itself.
-    const { result } = await send("Runtime.evaluate", {
-      returnByValue: true,
-      expression: `(() => {
+    const [x, y] = text.split(",").map(Number);
+    const target =
+      kind === "--at"
+        ? { x, y }
+        : (
+            await send("Runtime.evaluate", {
+              returnByValue: true,
+              expression: `(() => {
         const matches = [...document.querySelectorAll("body *")].filter((element) =>
           (${matches}) && element.getClientRects().length);
         const target = matches.find((element) => ![...element.children].some((child) => matches.includes(child)));
@@ -117,13 +123,14 @@ try {
         const box = target.getBoundingClientRect();
         return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
       })()`,
-    });
-    if (!result.value)
+            })
+          ).result.value;
+    if (!target)
       throw new Error(`no visible element for ${kind} ${JSON.stringify(text)}`);
     for (const type of ["mouseMoved", "mousePressed", "mouseReleased"]) {
       await send("Input.dispatchMouseEvent", {
         type,
-        ...result.value,
+        ...target,
         button: "left",
         clickCount: 1,
       });

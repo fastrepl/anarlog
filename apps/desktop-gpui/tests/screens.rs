@@ -252,7 +252,32 @@ fn main() {
     polish(&mut cx, window, &out);
     teams_and_sync(&mut cx, window, &out);
     imports_crm_ticket(&mut cx, window, &out);
+    app_links_and_transcript_selection(&mut cx, window, &out);
     capture_onboarding(&mut cx, window, &out);
+}
+
+/// App-link chips in a memo (`170-app-links.sql`), revealed at the end of the timeline, and the
+/// transcript's selection bar over two adjacent segments, then its speaker picker.
+fn app_links_and_transcript_selection(
+    cx: &mut HeadlessAppContext,
+    window: WindowHandle<ApplicationView>,
+    out: &std::path::Path,
+) {
+    // The settings back arrow returns to the workspace.
+    click(cx, window, 90., 23.);
+    open(cx, window, Route::Session(SessionId("s-links".into())));
+    capture(cx, window, out, "note-app-links");
+    open(cx, window, Route::Session(SessionId("s-vendor".into())));
+    click(cx, window, TRANSCRIPT_TAB_AFTER.0, TRANSCRIPT_TAB_AFTER.1);
+    click(cx, window, 330., 23.);
+    // The select circles of "It does." (Speaker 2) and the Speaker 3 segment after it.
+    click(cx, window, 229., 436.);
+    click(cx, window, 229., 505.);
+    capture(cx, window, out, "transcript-selection-bar");
+    click(cx, window, 497., 521.);
+    capture(cx, window, out, "transcript-selection-speaker");
+    type_text(cx, window, &["escape"]);
+    click(cx, window, 330., 23.);
 }
 
 /// App toasts, stacked and expanded on hover; a timeline delete's Undo toast and its undo;

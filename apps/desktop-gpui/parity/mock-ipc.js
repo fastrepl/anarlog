@@ -69,6 +69,9 @@ const handlers = {
   "plugin:db|execute_proxy": (args) => database("execute_proxy", args),
   "plugin:db|execute_transaction": (args) =>
     database("execute_transaction", args),
+  // The screens' GitHub fixture: #43 is a merged pull request.
+  "plugin:todo|github_issue_state": ({ number }) =>
+    number === 43 ? "Merged" : "Open",
   "plugin:db|subscribe": async (args) => {
     const rows = await database("subscribe", args);
     args.onEvent.onmessage({ event: "result", data: rows });
