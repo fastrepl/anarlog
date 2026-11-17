@@ -39,6 +39,7 @@ anlg-local-stt-core = { path = "../../crates/local-stt-core", package = "local-s
 anlg-meeting-import = { path = "../../crates/meeting-import", package = "meeting-import" }
 anlg-model-downloader = { path = "../../crates/model-downloader", package = "model-downloader" }
 anlg-notification-interface = { path = "../../crates/notification-interface", package = "notification-interface" }
+anlg-session-ingest = { path = "../../crates/session-ingest", package = "session-ingest" }
 anlg-shortcut-macos = { path = "../../crates/shortcut-macos", package = "shortcut-macos" }
 anlg-storage = { path = "../../crates/storage", package = "storage" }
 anlg-supabase-auth = { path = "../../crates/supabase-auth", package = "supabase-auth" }
@@ -128,6 +129,7 @@ anlg-local-stt-core = { workspace = true }
 anlg-meeting-import = { workspace = true }
 anlg-model-downloader = { workspace = true }
 anlg-notification-interface = { workspace = true }
+anlg-session-ingest = { workspace = true }
 anlg-storage = { workspace = true }
 anlg-supabase-auth = { workspace = true, features = ["refresh"] }
 anlg-template-app = { workspace = true }

@@ -14,6 +14,7 @@ pub mod persistence;
 mod sequence;
 mod services;
 pub(crate) mod surface;
+mod tasks;
 pub mod title;
 pub mod transcript;
 mod transform;

@@ -307,7 +307,12 @@ impl ProductPane {
                 self.open_page_subscription = Some(cx.subscribe(
                     &view,
                     |this, _, OpenSettingsPage(id): &OpenSettingsPage, cx| {
-                        this.select_page(navigation::page(id), cx)
+                        // Show release notes opens the workspace's changelog tab.
+                        if *id == "changelog" {
+                            cx.emit(OpenWorkspaceSection(id));
+                        } else {
+                            this.select_page(navigation::page(id), cx)
+                        }
                     },
                 ));
                 self.preferences = Some(view);

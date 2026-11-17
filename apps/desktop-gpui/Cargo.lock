@@ -3108,6 +3108,7 @@ dependencies = [
  "rodio",
  "serde",
  "serde_json",
+ "session-ingest",
  "sha2 0.11.0",
  "shortcut-macos",
  "sqlx",
@@ -10865,6 +10866,17 @@ dependencies = [
  "ryu",
  "serde",
  "unsafe-libyaml",
+]
+
+[[package]]
+name = "session-ingest"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "sqlx",
+ "thiserror 2.0.18",
 ]
 
 [[package]]

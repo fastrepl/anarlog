@@ -40,6 +40,8 @@ pub struct LibraryView {
     timezone: Option<Tz>,
     show_folder: bool,
     show_tags: bool,
+    /// A row `scroll_row_to` anchored at the top, centred once its neighbours are measured.
+    centring: Option<(usize, f32, bool)>,
 }
 
 #[derive(Clone)]
@@ -204,6 +206,7 @@ impl LibraryView {
             timezone: None,
             show_folder: true,
             show_tags: false,
+            centring: None,
         }
     }
 
@@ -312,8 +315,28 @@ impl LibraryView {
 
     pub fn set_active(&mut self, active: Option<SessionId>, cx: &mut Context<Self>) {
         if self.active != active {
+            if let Some(row) = active.as_ref().and_then(|id| {
+                self.keys
+                    .iter()
+                    .position(|key| matches!(key, RowKey::Session(row) if row == id))
+            }) {
+                self.reveal_row(row);
+            }
             self.active = active;
             cx.notify();
+        }
+    }
+
+    /// Shipping's `scrollTimelineItemIntoView`: only a row outside, or within 12px of an edge
+    /// of, the viewport moves, and it lands centred a little above the middle.
+    fn reveal_row(&mut self, row: usize) {
+        let viewport = self.scroll.viewport_bounds();
+        let margin = px(12.);
+        let visible = self.scroll.bounds_for_item(row).is_some_and(|item| {
+            item.top() >= viewport.top() + margin && item.bottom() <= viewport.bottom() - margin
+        });
+        if !visible {
+            self.scroll_row_to(row, 0.45);
         }
     }
 
@@ -413,17 +436,33 @@ impl LibraryView {
     }
 
     /// Scrolls a row so its middle sits at `ratio` of the viewport height.
-    fn scroll_row_to(&self, row: usize, ratio: f32) {
-        let height = self.scroll.viewport_bounds().size.height;
-        let row_height = self
-            .scroll
-            .bounds_for_item(row)
-            .map_or(px(0.), |bounds| bounds.size.height);
+    /// Puts `row`'s centre at `ratio` of the viewport height. Rows the list has not laid out
+    /// yet have no height, so the row is anchored first and centred on the next frame, after
+    /// the anchored layout measured it and the rows above it.
+    fn scroll_row_to(&mut self, row: usize, ratio: f32) {
         self.scroll.scroll_to(ListOffset {
             item_ix: row,
             offset_in_item: px(0.),
         });
-        self.scroll.scroll_by(row_height * 0.5 - height * ratio);
+        self.centring = Some((row, ratio, false));
+    }
+
+    fn centre_row(&mut self, window: &mut Window) {
+        match self.centring.take() {
+            Some((row, ratio, false)) => {
+                self.centring = Some((row, ratio, true));
+                window.request_animation_frame();
+            }
+            Some((row, ratio, true)) => {
+                let height = self.scroll.viewport_bounds().size.height;
+                let row_height = self
+                    .scroll
+                    .bounds_for_item(row)
+                    .map_or(px(0.), |bounds| bounds.size.height);
+                self.scroll.scroll_by(row_height * 0.5 - height * ratio);
+            }
+            None => {}
+        }
     }
 
     fn scroll_offset(&self) -> (Pixels, Pixels) {
@@ -1122,6 +1161,7 @@ fn fade(color: Hsla) -> gpui::Div {
 
 impl Render for LibraryView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        self.centre_row(window);
         let colors = theme(window);
         let (_, remaining) = self.scroll_offset();
         let (chips, bottom_now) = self.chips(colors, cx);
@@ -1266,6 +1306,69 @@ impl Render for LibraryView {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[gpui::test]
+    fn opening_a_note_scrolls_only_a_hidden_timeline_row_into_view(cx: &mut gpui::TestAppContext) {
+        let items: Arc<[desktop_runtime::SessionSummary]> = (0..60)
+            .map(|day| {
+                let at: Arc<str> = (Utc::now() - chrono::Duration::days(day + 1))
+                    .to_rfc3339()
+                    .into();
+                desktop_runtime::SessionSummary {
+                    id: SessionId(format!("note-{day}").into()),
+                    title: format!("Note {day}").into(),
+                    updated_at: at.clone(),
+                    created_at: at,
+                    folder_path: "".into(),
+                    tag_line: "".into(),
+                    event_start: "".into(),
+                    event_end: "".into(),
+                }
+            })
+            .collect();
+        cx.update(crate::ui::theme::UiFonts::init);
+        let (library, cx) = cx.add_window_view(|_, cx| LibraryView::new(cx));
+        cx.simulate_resize(gpui::size(px(280.), px(400.)));
+        library.update(cx, |library, cx| {
+            library.set_page(
+                Arc::new(LibraryPage {
+                    items,
+                    offset: 0,
+                    has_more: false,
+                }),
+                cx,
+            )
+        });
+        cx.run_until_parked();
+        let offset = |cx: &mut gpui::VisualTestContext| {
+            library.read_with(cx, |library, _| library.scroll.logical_scroll_top())
+        };
+        let top = offset(cx);
+        library.update(cx, |library, cx| {
+            library.set_active(Some(SessionId("note-2".into())), cx)
+        });
+        cx.run_until_parked();
+        assert_eq!(offset(cx), top, "a visible row stays put");
+        library.update(cx, |library, cx| {
+            library.set_active(Some(SessionId("note-50".into())), cx)
+        });
+        cx.run_until_parked();
+        let revealed = offset(cx);
+        assert!(
+            revealed.item_ix > top.item_ix,
+            "a hidden row scrolls into view"
+        );
+        library.read_with(cx, |library, _| {
+            let row = library
+                .keys
+                .iter()
+                .position(|key| matches!(key, RowKey::Session(id) if id.0.as_ref() == "note-50"))
+                .unwrap();
+            let viewport = library.scroll.viewport_bounds();
+            let bounds = library.scroll.bounds_for_item(row).unwrap();
+            assert!(bounds.top() >= viewport.top() && bounds.bottom() <= viewport.bottom());
+        });
+    }
 
     #[test]
     fn opening_a_note_sets_the_range_anchor_without_selecting_it_for_deletion() {

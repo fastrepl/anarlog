@@ -201,15 +201,18 @@ fn run(runtime: RuntimeHandle, shared: Arc<Shared>, mut events: mpsc::Sender<Sav
                 }
             }
         };
-        let result = draft
-            .document
-            .serialize_for_save()
-            .map_err(failed)
-            .and_then(|body| {
-                runtime
-                    .save_document(SaveDocument { base, body })
-                    .and_then(|reply| block_on(reply.receive()))
-            });
+        let body = draft.document.serialize_for_save().map_err(failed);
+        let result = body.clone().and_then(|body| {
+            runtime
+                .save_document(SaveDocument { base, body })
+                .and_then(|reply| block_on(reply.receive()))
+        });
+        // Before acknowledging, so a flushed save has its tasks written too.
+        if let (Ok(snapshot), Ok(body)) = (&result, &body)
+            && let Err(error) = super::tasks::sync(&runtime, snapshot, body)
+        {
+            tracing::warn!(%error, "note tasks were not saved");
+        }
         let event = {
             let mut state = shared.state.lock().expect("editor journal");
             state.saving = false;

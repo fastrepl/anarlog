@@ -237,6 +237,7 @@ fn main() {
     account_states(&mut cx, window, &out);
     detection(&mut cx, window, &out);
     instruction(&mut cx, &out);
+    polish(&mut cx, window, &out);
     capture_onboarding(&mut cx, window, &out);
 }
 
@@ -746,6 +747,94 @@ fn find_replace(
     type_text(cx, window, &["cmd-h"]);
     capture(cx, window, out, "note-find-replace");
     type_text(cx, window, &["escape"]);
+}
+
+/// Insights badges, the changelog tab, the trial reminder's referral nudge and the timeline
+/// revealing the opened note.
+fn polish(
+    cx: &mut HeadlessAppContext,
+    window: WindowHandle<ApplicationView>,
+    out: &std::path::Path,
+) {
+    use desktop_gpui::product::account::{self, Account, Claims, User};
+    let draw = |cx: &mut HeadlessAppContext| {
+        let window: AnyWindowHandle = window.into();
+        cx.update_window(window, |_, window, cx| window.draw(cx).clear(cx))
+            .unwrap();
+        settle(cx);
+    };
+    open(cx, window, Route::Settings("insights".into()));
+    pointer(cx, window, 600., 400.);
+    input(
+        cx,
+        window,
+        [PlatformInput::Scroll(ScrollEvent {
+            position: point(px(600.), px(400.)),
+            delta: ScrollDelta::Pixels(point(px(0.), px(-1400.))),
+            modifiers: Modifiers::default(),
+            touch_phase: TouchPhase::Moved,
+            source: ScrollSource::Pointer,
+        })],
+    );
+    capture(cx, window, out, "settings-insights-badges");
+    let badge = std::env::var("ANLG_SCREENS_BADGE")
+        .ok()
+        .and_then(|at| {
+            at.split_once(',')
+                .map(|(x, y)| (x.parse().unwrap(), y.parse().unwrap()))
+        })
+        .unwrap_or((470., 300.));
+    click(cx, window, badge.0, badge.1);
+    capture(cx, window, out, "badge-dialog");
+    type_text(cx, window, &["escape"]);
+    // Settings' back arrow returns to the workspace.
+    click(cx, window, 94., 23.);
+    open(cx, window, Route::Changelog);
+    capture(cx, window, out, "changelog");
+    // A fresh trial account: the started dialog, then the reminder with the referral nudge.
+    let now = account::now();
+    cx.update(|cx| {
+        account::set(
+            Account {
+                user: Some(User {
+                    id: "polish-trial-user".into(),
+                    email: Some("sam@example.com".into()),
+                }),
+                claims: Some(Claims {
+                    subscription_status: Some("trialing".into()),
+                    trial_end: Some(now + 5 * 86_400 - 60),
+                    has_payment_method: Some(false),
+                    ..Claims::default()
+                }),
+                workspaces: Some(vec![].into()),
+                trial_eligible: true,
+                devices: None,
+            },
+            cx,
+        )
+    });
+    cx.update(|cx| {
+        window
+            .update(cx, |root, _, cx| {
+                root.trial_dialogs()
+                    .clone()
+                    .update(cx, |dialogs, cx| dialogs.set_can_refer(true, cx))
+            })
+            .unwrap()
+    });
+    open(cx, window, Route::Settings("billing".into()));
+    click(cx, window, 455., 371.);
+    capture(cx, window, out, "trial-reminder-referral");
+    click(cx, window, 383., 310.);
+    cx.update(|cx| account::set(Account::default(), cx));
+    click(cx, window, 94., 23.);
+    open(cx, window, Route::Empty);
+    // The timeline scrolled away from the top, then a recent note opens and comes into view.
+    pointer(cx, window, 100., 400.);
+    scroll(cx, window, -2000.);
+    open(cx, window, Route::Session(SessionId("s-sync".into())));
+    draw(cx);
+    capture(cx, window, out, "timeline-reveal");
 }
 /// The month grid's cell for `day`, top-left in window pixels (Sunday-first, as captured).
 fn calendar_cell(day: chrono::NaiveDate) -> Option<(f32, f32)> {

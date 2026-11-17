@@ -65,4 +65,34 @@ fn main() {
         output,
     )
     .expect("generated palette");
+    bundle_changelog();
+}
+
+/// Shipping's changelog Vite plugin: the newest stable release notes ship with the app.
+fn bundle_changelog() {
+    let directory = "../../packages/changelog/content/desktop";
+    println!("cargo:rerun-if-changed={directory}");
+    let latest = fs::read_dir(directory)
+        .into_iter()
+        .flatten()
+        .filter_map(|entry| {
+            let name = entry.ok()?.file_name().into_string().ok()?;
+            let version = name.strip_suffix(".md")?.to_owned();
+            let parts = version
+                .split('.')
+                .map(|part| part.parse::<u64>().ok())
+                .collect::<Option<Vec<_>>>()?;
+            (parts.len() == 3).then_some((parts, version))
+        })
+        .max();
+    let (version, content) = latest.map_or_else(Default::default, |(_, version)| {
+        let content = fs::read_to_string(format!("{directory}/{version}.md")).unwrap_or_default();
+        (version, content)
+    });
+    println!("cargo:rustc-env=ANLG_CHANGELOG_VERSION={version}");
+    fs::write(
+        PathBuf::from(env::var_os("OUT_DIR").expect("OUT_DIR")).join("changelog.md"),
+        content,
+    )
+    .expect("bundled changelog");
 }

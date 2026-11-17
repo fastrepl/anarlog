@@ -40,7 +40,7 @@ impl Route {
             "account" | "billing" | "stats" | "insights" | "app" | "meetings" | "appearance"
             | "sync" | "team" | "notifications" | "imports" | "developers" | "privacy"
             | "permissions" | "dictionary" | "dictation" | "transcription" | "intelligence"
-            | "todo" => Self::Settings(section.into()),
+            | "todo" | "referrals" => Self::Settings(section.into()),
             _ => Self::Settings("app".into()),
         }
     }
@@ -624,6 +624,10 @@ mod tests {
         );
         assert_eq!(Route::settings("folders"), Route::Folders);
         assert_eq!(Route::settings("removed"), Route::Settings("app".into()));
+        assert_eq!(
+            Route::settings("referrals"),
+            Route::Settings("referrals".into())
+        );
     }
 
     #[test]

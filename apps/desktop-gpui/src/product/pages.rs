@@ -75,13 +75,14 @@ impl PreferencesView {
                         &colors,
                         cx,
                     ))
-                    // The native preview has no release version or changelog view yet.
                     .child(div().flex().child(controls::outline_button(
                         "release-notes",
                         "Show release notes",
-                        false,
+                        true,
                         &colors,
-                        None,
+                        Some(Box::new(cx.listener(|_, _, _, cx| {
+                            cx.emit(super::OpenSettingsPage("changelog"))
+                        }))),
                     )))
                     .when(macos, |view| {
                         view.child(self.switch_row(

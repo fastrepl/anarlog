@@ -5,9 +5,11 @@ pub(crate) mod lifecycle;
 pub mod lock;
 mod meeting_schedule;
 mod note_windows;
+mod enterprise_capture;
 mod notifications;
 pub mod toasts;
 mod updates;
+mod release_notes;
 
 use std::{path::PathBuf, sync::Arc, time::Duration};
 
@@ -99,6 +101,10 @@ impl ApplicationView {
 
     pub fn workspace(&self) -> &Entity<WorkspaceView> {
         &self.workspace
+    }
+
+    pub fn trial_dialogs(&self) -> &Entity<crate::product::trial::TrialDialogs> {
+        &self.trial_dialogs
     }
 
     pub fn new(
@@ -205,6 +211,9 @@ impl ApplicationView {
                     });
                 }
                 Err(error) => this.status(&error.to_string(), cx),
+            });
+            let _ = this.update(cx, |_, cx| {
+                release_notes::open_after_update(pins_runtime.clone(), cx)
             });
         })
         .detach();
@@ -366,6 +375,14 @@ impl ApplicationView {
         .detach();
         let trial_dialogs =
             cx.new(|cx| crate::product::trial::TrialDialogs::new(runtime.clone(), cx));
+        subscriptions.push(cx.subscribe(
+            &trial_dialogs,
+            |this, _, _: &crate::product::trial::ReferFriend, cx| {
+                this.workspace.update(cx, |workspace, cx| {
+                    workspace.open_route(Route::settings("referrals"), true, cx)
+                })
+            },
+        ));
         Self {
             window: window.window_handle(),
             notifications: notifications::Notifications::default(),
@@ -785,6 +802,7 @@ impl ApplicationView {
     fn watch_cloud(&mut self, cloud: crate::product::cloud::CloudServices, cx: &mut Context<Self>) {
         self.trial_dialogs
             .update(cx, |dialogs, _| dialogs.set_cloud(cloud.clone()));
+        enterprise_capture::watch(cloud.clone(), cx);
         cx.set_global(crate::product::sharing::SharingCloud(cloud.clone()));
         let mut identities = cloud.identities();
         let identity_cloud = cloud.clone();
@@ -1210,6 +1228,8 @@ impl ApplicationView {
                     "templates" => Route::Templates,
                     "automations" => Route::Automations,
                     "calendar" => Route::Calendar,
+                    // Shipping opens release notes in a new tab beside Settings.
+                    "changelog" => return this.leave_product_to(Route::Changelog, true, cx),
                     _ => Route::settings(event.0),
                 };
                 this.leave_product(route, cx);
@@ -1239,6 +1259,10 @@ impl ApplicationView {
     }
 
     fn leave_product(&mut self, route: Route, cx: &mut Context<Self>) {
+        self.leave_product_to(route, false, cx)
+    }
+
+    fn leave_product_to(&mut self, route: Route, new_slot: bool, cx: &mut Context<Self>) {
         if self
             .product
             .as_ref()
@@ -1248,8 +1272,9 @@ impl ApplicationView {
         }
         self.product = None;
         self.product_subscriptions.clear();
-        self.workspace
-            .update(cx, |workspace, cx| workspace.open_route(route, false, cx));
+        self.workspace.update(cx, |workspace, cx| {
+            workspace.open_route(route, new_slot, cx)
+        });
         let view = cx.entity().downgrade();
         cx.defer(move |cx| {
             let _ = view.update(cx, |this, cx| {

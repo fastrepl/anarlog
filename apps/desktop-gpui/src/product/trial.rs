@@ -1,18 +1,21 @@
 //! The personal Pro trial dialogs from `auth/billing.tsx`: trial started, payment reminder
 //! (7 and 3 days before the end, without a payment method) and trial ended. Each shows once
 //! per account; shipping keeps that in localStorage, the native app in `app_settings`.
+//! The reminder ends with shipping's referral nudge when the account can still refer friends.
 
 use std::collections::BTreeSet;
 
 use desktop_runtime::{RuntimeHandle, ServiceError};
-use gpui::{Context, FontWeight, Hsla, Render, SharedString, Window, div, prelude::*, px};
+use gpui::{
+    Context, EventEmitter, FontWeight, Hsla, Render, SharedString, Window, div, prelude::*, px,
+};
 use serde_json::json;
 
 use crate::ui::theme::{Theme, theme};
 
 use super::{
     account::{self, Account},
-    cloud::CloudServices,
+    cloud::{CloudServices, Referrals},
 };
 
 const SEEN_KEY: &str = "gpui_trial_dialogs_seen";
@@ -77,13 +80,24 @@ pub fn next(account: &Account, now: i64, seen: &BTreeSet<String>) -> Option<(Dia
     None
 }
 
+/// Shipping's `canRefer`: referrals are on, the account is eligible and has friends left.
+pub fn can_refer(referrals: &Referrals) -> bool {
+    referrals.enabled && referrals.eligible && referrals.remaining > 0
+}
+
+/// The reminder's "Invite friends" link; the host opens Settings › Invite friends in a new tab.
+pub struct ReferFriend;
+
 pub struct TrialDialogs {
     runtime: RuntimeHandle,
     cloud: Option<CloudServices>,
     seen: Option<BTreeSet<String>>,
     open: Option<Dialog>,
+    can_refer: bool,
     _account: gpui::Subscription,
 }
+
+impl EventEmitter<ReferFriend> for TrialDialogs {}
 
 impl TrialDialogs {
     pub fn new(runtime: RuntimeHandle, cx: &mut Context<Self>) -> Self {
@@ -93,6 +107,7 @@ impl TrialDialogs {
             cloud: None,
             seen: None,
             open: None,
+            can_refer: false,
             _account: account,
         };
         cx.spawn(async move |this, cx| {
@@ -115,6 +130,12 @@ impl TrialDialogs {
         self.cloud = Some(cloud);
     }
 
+    /// For previews without a cloud account: whether the reminder offers referrals.
+    pub fn set_can_refer(&mut self, can_refer: bool, cx: &mut Context<Self>) {
+        self.can_refer = can_refer;
+        cx.notify();
+    }
+
     fn evaluate(&mut self, cx: &mut Context<Self>) {
         let Some(seen) = &mut self.seen else {
             return;
@@ -127,6 +148,9 @@ impl TrialDialogs {
         };
         seen.insert(key);
         let stored = json!(seen).to_string();
+        if matches!(dialog, Dialog::Reminder { .. }) {
+            self.load_referrals(cx);
+        }
         self.open = Some(dialog);
         let write = self.runtime.submit(move |services| async move {
             services
@@ -149,6 +173,25 @@ impl TrialDialogs {
             })
             .detach();
         cx.notify();
+    }
+
+    /// Shipping's referral summary query; the nudge appears once it says the account can refer.
+    fn load_referrals(&mut self, cx: &mut Context<Self>) {
+        let Some(cloud) = self.cloud.clone() else {
+            return;
+        };
+        self.can_refer = false;
+        cx.spawn(async move |this, cx| {
+            let can = cloud
+                .referrals()
+                .await
+                .is_ok_and(|summary| can_refer(&summary));
+            let _ = this.update(cx, |this, cx| {
+                this.can_refer = can;
+                cx.notify();
+            });
+        })
+        .detach();
     }
 
     fn close(&mut self, cx: &mut Context<Self>) {
@@ -279,6 +322,46 @@ impl Render for TrialDialogs {
                 .to_owned(),
             ),
         };
+        let nudge = (matches!(dialog, Dialog::Reminder { .. }) && self.can_refer).then(|| {
+            div()
+                .pt_4()
+                .border_t_1()
+                .border_color(colors.border.opacity(0.6))
+                .flex()
+                .flex_col()
+                .items_center()
+                .gap_2()
+                .text_center()
+                .child(
+                    div()
+                        .text_size(px(13.))
+                        .line_height(px(20.))
+                        .font_weight(crate::ui::theme::MEDIUM)
+                        .child("Need more time? Refer a friend."),
+                )
+                .child(
+                    div()
+                        .text_xs()
+                        .line_height(px(19.5))
+                        .text_color(colors.muted_foreground)
+                        .child("When they start their free trial, yours gets one more month. Up to 3 friends."),
+                )
+                .child(
+                    div()
+                        .id("trial-refer-friend")
+                        .text_xs()
+                        .line_height(px(16.))
+                        .font_weight(crate::ui::theme::MEDIUM)
+                        .text_color(colors.primary)
+                        .cursor_pointer()
+                        .hover(|style| style.underline())
+                        .on_click(cx.listener(|this, _, _, cx| {
+                            cx.emit(ReferFriend);
+                            this.close(cx);
+                        }))
+                        .child("Invite friends"),
+                )
+        });
         let footer = match dialog {
             Dialog::Started { .. } => div().child(
                 button("trial-got-it", "Got it", true, &colors)
@@ -376,7 +459,8 @@ impl Render for TrialDialogs {
                                                 .child(SharedString::from(description)),
                                         ),
                                 )
-                                .child(footer),
+                                .child(footer)
+                                .children(nudge),
                         ),
                 ),
         )
@@ -412,6 +496,24 @@ mod tests {
             trial_eligible: false,
             devices: None,
         }
+    }
+
+    #[test]
+    fn referral_nudge_needs_an_eligible_account_with_friends_left() {
+        let summary = |enabled, eligible, remaining| Referrals {
+            enabled,
+            eligible,
+            code: None,
+            accepted: 3 - remaining,
+            remaining,
+            months_earned: 0,
+            invites: Vec::new(),
+            link: None,
+        };
+        assert!(can_refer(&summary(true, true, 1)));
+        assert!(!can_refer(&summary(true, true, 0)));
+        assert!(!can_refer(&summary(true, false, 3)));
+        assert!(!can_refer(&summary(false, true, 3)));
     }
 
     #[test]

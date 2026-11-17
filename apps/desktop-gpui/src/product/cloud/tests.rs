@@ -1238,3 +1238,119 @@ async fn template_shares_publish_the_editable_template_fields() {
     );
     runtime.shutdown().await.unwrap();
 }
+
+#[tokio::test]
+async fn enterprise_capture_applies_acknowledges_and_queues_finished_meetings() {
+    let server = MockServer::start().await;
+    let directory = tempfile::tempdir().unwrap();
+    let (runtime, ready) = RuntimeHandle::start(Profile {
+        database: directory.path().join("capture.sqlite"),
+    })
+    .unwrap();
+    ready.receive().await.unwrap();
+    let cloud = fixture_cloud(&runtime, &server, Arc::new(MemoryStore::default())).await;
+    const WORKSPACE: &str = "5b0f2a3c-9d7e-4a51-8f6b-2c1d0e9a8b7c";
+    Mock::given(method("GET"))
+        .and(path("/rest/v1/workspace_memberships"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([
+            {"workspace_id": WORKSPACE, "role": "member",
+             "workspaces": {"id": WORKSPACE, "name": "Acme", "kind": "shared"}}
+        ])))
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/rest/v1/rpc/get_workspace_access"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([
+            {"workspace_role": "member", "workspace_tier": "enterprise",
+             "capabilities": ["enterprise.capture"]}
+        ])))
+        .mount(&server)
+        .await;
+    let envelope = json!({
+        "schema_version": 1, "source_id": "capture-job-1", "revision": 1, "finalized": true,
+        "workspace_id": WORKSPACE, "owner_user_id": ACCOUNT,
+        "session": {"id": "captured-session", "title": "Board sync", "status": "completed",
+            "created_at": "2026-11-17T08:00:00.000Z", "updated_at": "2026-11-17T09:00:00.000Z",
+            "started_at": "2026-11-17T08:00:00.000Z", "ended_at": "2026-11-17T09:00:00.000Z"},
+        "documents": [], "transcripts": [], "participants": [], "attachments": []
+    });
+    let envelopes = format!("/v1/workspaces/{WORKSPACE}/session-envelopes");
+    let first = Mock::given(method("GET"))
+        .and(path(envelopes.clone()))
+        .and(query_param("after", "0"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "items": [{"cursor": 1, "jobId": "job-1", "revision": 1, "finalized": true,
+                "contentHash": "a".repeat(64), "acknowledged": false,
+                "createdAt": "2026-11-17T09:00:00.000Z", "envelope": envelope}],
+            "nextCursor": 1, "hasMore": false
+        })))
+        .expect(1)
+        .mount_as_scoped(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path(format!("{envelopes}/job-1/ack")))
+        .and(body_json(
+            json!({"consumerId": "fixture-device", "revision": 1, "contentHash": "a".repeat(64)}),
+        ))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"acknowledged": true})))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let url: reqwest::Url = server.uri().parse().unwrap();
+    let delivery = cloud.deliver_captures(url.clone()).await.unwrap();
+    assert!(delivery.error.is_none(), "{:?}", delivery.error);
+    assert_eq!(delivery.completions.len(), 1);
+    assert_eq!(
+        delivery.completions[0].session.0.as_ref(),
+        "captured-session"
+    );
+    drop(first);
+    let title = runtime
+        .service(|services| async move {
+            Ok(sqlx::query_scalar::<_, String>(
+                "SELECT title FROM sessions WHERE id = 'captured-session'",
+            )
+            .fetch_one(services.db.pool())
+            .await
+            .unwrap())
+        })
+        .unwrap()
+        .receive()
+        .await
+        .unwrap();
+    assert_eq!(title, "Board sync");
+    // The next poll resumes after the stored cursor; the meeting stays queued until its
+    // automations were started.
+    Mock::given(method("GET"))
+        .and(path(envelopes))
+        .and(query_param("after", "1"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(json!({"items": [], "nextCursor": 1, "hasMore": false})),
+        )
+        .expect(2)
+        .mount(&server)
+        .await;
+    assert_eq!(
+        cloud
+            .deliver_captures(url.clone())
+            .await
+            .unwrap()
+            .completions
+            .len(),
+        1
+    );
+    cloud
+        .complete_capture("capture-job-1".into())
+        .await
+        .unwrap();
+    assert!(
+        cloud
+            .deliver_captures(url)
+            .await
+            .unwrap()
+            .completions
+            .is_empty()
+    );
+    runtime.shutdown().await.unwrap();
+}

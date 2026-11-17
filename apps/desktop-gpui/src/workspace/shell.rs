@@ -788,6 +788,32 @@ impl WorkspaceView {
         }
     }
 
+    /// Shipping's `close(tab)`: removes the current tab and shows its neighbour, reopening a
+    /// note tab through the note view like any tab switch.
+    pub(super) fn close_current(&mut self, cx: &mut Context<Self>) {
+        let Some(slot) = self.navigation.active else {
+            return;
+        };
+        if !self.can_navigate(cx) {
+            return;
+        }
+        self.navigation.close(slot);
+        if self.navigation.tabs.is_empty() {
+            self.navigation.open(Route::Empty, true, false);
+        }
+        let Some(active) = self.navigation.active else {
+            return;
+        };
+        match self.navigation.current().map(|tab| tab.route.clone()) {
+            Some(Route::Session(id)) => {
+                self.pending = Some(Navigate::Select(active));
+                self.note.update(cx, |note, cx| note.open(id, cx));
+            }
+            _ => self.sync_route(cx),
+        }
+        cx.notify();
+    }
+
     pub(super) fn navigate(&mut self, intent: Navigate, cx: &mut Context<Self>) {
         if self.note.read(cx).has_unsaved_title(cx) {
             self.pending = Some(intent);

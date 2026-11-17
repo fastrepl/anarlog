@@ -270,6 +270,7 @@ impl Render for WorkspaceView {
                         // Shipping renders nothing for a daily summary tab.
                         Route::DailySummary(_) => view,
                         Route::Edit(id) => view.child(self.edit_review(id.clone(), cx)),
+                        Route::Changelog => view.child(self.changelog(window, cx)),
                         Route::Empty => view.child(
                             div()
                                 .size_full()

@@ -13,11 +13,18 @@ use crate::ui::theme::{Theme, theme};
 
 use super::{controls, locale, settings};
 
+mod badges;
+
+const DEFAULT_USER_ID: &str = "00000000-0000-0000-0000-000000000000";
+
 const ACTIVITY_SQL: &str = "
   SELECT
     transcript.session_id,
     transcript.started_at_ms,
     transcript.created_at,
+    CASE WHEN json_valid(session.event_json)
+      THEN COALESCE(json_extract(session.event_json, '$.tracking_id') = 'anarlog-onboarding-demo-v1', 0)
+      ELSE 0 END AS is_demo,
     MAX(CASE
       WHEN word.type = 'object'
         AND json_type(word.value, '$.end_ms') IN ('integer', 'real')
@@ -47,6 +54,8 @@ pub struct Record {
     /// Milliseconds since the epoch.
     pub started_at: i64,
     pub duration_ms: i64,
+    /// The onboarding welcome demo, which badges do not count.
+    pub is_demo: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -219,6 +228,11 @@ pub struct InsightsView {
     monday: bool,
     range: Range,
     cancel: CancellationToken,
+    collection: Option<Result<badges::Collection>>,
+    /// Saving newly earned badges failed; shipping offers "Try again".
+    collect_failed: bool,
+    selected_badge: Option<&'static str>,
+    dialog_focus: gpui::FocusHandle,
 }
 
 impl InsightsView {
@@ -231,9 +245,89 @@ impl InsightsView {
             monday: locale::system_week_start() == "monday",
             range: Range::All,
             cancel: CancellationToken::new(),
+            collection: None,
+            collect_failed: false,
+            selected_badge: None,
+            dialog_focus: cx.focus_handle(),
         };
         this.load(cx);
+        this.load_badges(cx);
         this
+    }
+
+    fn signed_up(&self) -> bool {
+        self.user_id != DEFAULT_USER_ID
+    }
+
+    fn badge_progress(&self) -> Option<Vec<u32>> {
+        let records = self.records.as_ref()?.as_ref().ok()?;
+        let collection = self.collection.as_ref()?.as_ref().ok()?;
+        Some(badges::progress(
+            records,
+            self.signed_up(),
+            collection.onboarding_complete,
+            Utc::now(),
+            self.zone,
+            self.monday,
+        ))
+    }
+
+    fn load_badges(&mut self, cx: &mut Context<Self>) {
+        let runtime = self.runtime.clone();
+        let owner = self.user_id.clone();
+        let art = cx
+            .background_executor()
+            .spawn(async { badges::decode_emblems() });
+        cx.spawn(async move |this, cx| {
+            let collection = badges::load(&runtime, owner).await;
+            let _ = this.update(cx, |this, cx| {
+                this.collection = Some(collection);
+                this.collect_new(cx);
+                cx.notify();
+            });
+            art.await;
+            let _ = this.update(cx, |_, cx| cx.notify());
+        })
+        .detach();
+    }
+
+    /// Shipping's `CollectNewBadges`: badges that reached their target are saved as collected.
+    fn collect_new(&mut self, cx: &mut Context<Self>) {
+        let Some(progress) = self.badge_progress() else {
+            return;
+        };
+        let Some(Ok(collection)) = &self.collection else {
+            return;
+        };
+        let ids: Vec<&'static str> = badges::BADGES
+            .iter()
+            .zip(progress)
+            .filter(|(badge, value)| {
+                *value >= badge.target && !collection.collected.contains_key(badge.id)
+            })
+            .map(|(badge, _)| badge.id)
+            .collect();
+        if ids.is_empty() {
+            return;
+        }
+        self.collect_failed = false;
+        let runtime = self.runtime.clone();
+        let owner = self.user_id.clone();
+        cx.spawn(async move |this, cx| {
+            let saved = badges::collect(&runtime, owner.clone(), ids).await;
+            let reloaded = match saved {
+                Ok(()) => Some(badges::load(&runtime, owner).await),
+                Err(_) => None,
+            };
+            let _ = this.update(cx, |this, cx| {
+                match reloaded {
+                    Some(collection) => this.collection = Some(collection),
+                    None => this.collect_failed = true,
+                }
+                cx.notify();
+            });
+        })
+        .detach();
     }
 
     fn load(&mut self, cx: &mut Context<Self>) {
@@ -279,6 +373,7 @@ impl InsightsView {
                             session_id: row["session_id"].as_str()?.to_owned(),
                             started_at: started,
                             duration_ms: row["duration_ms"].as_f64().unwrap_or(0.) as i64,
+                            is_demo: row["is_demo"].as_i64().unwrap_or(0) != 0,
                         })
                     })
                     .collect()
@@ -302,6 +397,7 @@ impl InsightsView {
                     }
                 }
                 this.records = Some(records);
+                this.collect_new(cx);
                 cx.notify();
             });
         })
@@ -623,6 +719,283 @@ fn heatmap(stats: &Stats, monday: bool, colors: &Theme) -> gpui::Div {
         )
 }
 
+impl InsightsView {
+    /// `BadgeCollection`.
+    fn badge_collection(&self, colors: &Theme, cx: &mut Context<Self>) -> gpui::AnyElement {
+        let small = |text: SharedString| {
+            div()
+                .text_xs()
+                .line_height(px(16.))
+                .text_color(colors.muted_foreground)
+                .child(text)
+        };
+        let collection = match &self.collection {
+            None => {
+                return div()
+                    .text_sm()
+                    .text_color(colors.muted_foreground)
+                    .child("Loading your badges…")
+                    .into_any_element();
+            }
+            Some(Err(_)) => {
+                return div()
+                    .text_sm()
+                    .text_color(colors.muted_foreground)
+                    .child("Couldn't load your badges. Reopen this page to try again.")
+                    .into_any_element();
+            }
+            Some(Ok(collection)) => collection,
+        };
+        let Some(progress) = self.badge_progress() else {
+            return div().into_any_element();
+        };
+        let cards = badges::BADGES.iter().zip(progress).map(|(badge, value)| {
+            let collected = collection.collected.contains_key(badge.id);
+            let id = badge.id;
+            div()
+                .id(SharedString::from(format!("badge-{id}")))
+                .size_full()
+                .px_3()
+                .py_5()
+                .flex()
+                .flex_col()
+                .items_center()
+                .gap_3()
+                .rounded(px(16.))
+                .border_1()
+                .border_color(colors.border)
+                .bg(colors.background)
+                .cursor_pointer()
+                .hover(|style| style.bg(colors.muted))
+                .on_click(cx.listener(move |this, _, window, cx| {
+                    this.selected_badge = Some(id);
+                    this.dialog_focus.focus(window, cx);
+                    cx.notify();
+                }))
+                .child(badges::emblem(id, collected, false, colors))
+                .child(
+                    div()
+                        .flex()
+                        .flex_col()
+                        .items_center()
+                        .gap_1()
+                        .text_center()
+                        .child(
+                            div()
+                                .text_sm()
+                                .line_height(px(20.))
+                                .font_weight(crate::ui::theme::MEDIUM)
+                                .child(badge.name),
+                        )
+                        .child(small(if collected {
+                            "Collected".into()
+                        } else {
+                            badges::progress_label(badge, value)
+                        })),
+                )
+        });
+        div()
+            .flex()
+            .flex_col()
+            .gap_5()
+            .child(
+                div()
+                    .flex()
+                    .flex_wrap()
+                    .items_baseline()
+                    .justify_between()
+                    .gap_2()
+                    .child(
+                        div()
+                            .flex()
+                            .flex_col()
+                            .gap_1()
+                            .child(heading("Your badges"))
+                            .child(small(
+                                "Little steps worth keeping. Collect them at your own pace.".into(),
+                            )),
+                    )
+                    .child(small(
+                        format!(
+                            "{} of {} collected",
+                            collection.collected.len(),
+                            badges::BADGES.len()
+                        )
+                        .into(),
+                    )),
+            )
+            .child(div().grid().grid_cols(3).gap_3().children(cards))
+            .child(small(
+                "Collected badges stay yours on this device, even when you delete a note or take a break. Imported transcripts count; the welcome demo doesn't.".into(),
+            ))
+            .when(self.collect_failed, |view| {
+                view.child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .gap_3()
+                        .text_xs()
+                        .text_color(colors.muted_foreground)
+                        .child("Couldn't save your new badges.")
+                        .child(
+                            div()
+                                .id("badges-retry")
+                                .h_7()
+                                .px_2()
+                                .flex()
+                                .items_center()
+                                .rounded(px(6.))
+                                .font_weight(crate::ui::theme::MEDIUM)
+                                .text_color(colors.foreground)
+                                .cursor_pointer()
+                                .hover(|style| style.bg(colors.accent))
+                                .on_click(cx.listener(|this, _, _, cx| this.collect_new(cx)))
+                                .child("Try again"),
+                        ),
+                )
+            })
+            .into_any_element()
+    }
+
+    /// The badge `Dialog`: artwork, name, description, then the collected date or progress.
+    fn badge_dialog(&self, window: &Window, cx: &mut Context<Self>) -> Option<gpui::AnyElement> {
+        let id = self.selected_badge?;
+        let colors = theme(window);
+        let Some(Ok(collection)) = &self.collection else {
+            return None;
+        };
+        let index = badges::BADGES.iter().position(|badge| badge.id == id)?;
+        let badge = &badges::BADGES[index];
+        let value = self.badge_progress()?.get(index).copied().unwrap_or(0);
+        let collected = collection.collected.get(id).copied();
+        let small = |text: SharedString| {
+            div()
+                .text_xs()
+                .line_height(px(16.))
+                .text_color(colors.muted_foreground)
+                .text_center()
+                .child(text)
+        };
+        let status = match collected {
+            Some(at) => small(
+                format!(
+                    "Collected {}",
+                    at.with_timezone(&chrono::Local).format("%b %-d, %Y")
+                )
+                .into(),
+            ),
+            None => div()
+                .flex()
+                .flex_col()
+                .gap_3()
+                .child(small(badges::progress_label(badge, value)))
+                .child(
+                    div()
+                        .h_2()
+                        .w_full()
+                        .overflow_hidden()
+                        .rounded(px(8.))
+                        .bg(colors.muted)
+                        .child(
+                            div()
+                                .h_full()
+                                .rounded(px(8.))
+                                .w(relative(value as f32 / badge.target.max(1) as f32))
+                                .bg(colors.foreground.opacity(0.8)),
+                        ),
+                ),
+        };
+        let size = window.viewport_size();
+        Some(
+            gpui::deferred(
+                gpui::anchored()
+                    .position(gpui::point(px(0.), px(0.)))
+                    .child(
+                        div()
+                            .id("badge-dialog-backdrop")
+                            .w(size.width)
+                            .h(size.height)
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .bg(gpui::black().opacity(0.8))
+                            .occlude()
+                            .track_focus(&self.dialog_focus)
+                            .on_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, _, cx| {
+                                if event.keystroke.key == "escape" {
+                                    this.selected_badge = None;
+                                    cx.stop_propagation();
+                                    cx.notify();
+                                }
+                            }))
+                            .on_click(cx.listener(|this, _, _, cx| {
+                                this.selected_badge = None;
+                                cx.notify();
+                            }))
+                            .child(
+                                div()
+                                    .id("badge-dialog")
+                                    .relative()
+                                    .w(px(384.))
+                                    .p_6()
+                                    .flex()
+                                    .flex_col()
+                                    .gap_4()
+                                    .rounded(px(16.))
+                                    .border_1()
+                                    .border_color(colors.border)
+                                    .bg(colors.background)
+                                    .text_color(colors.foreground)
+                                    .shadow_lg()
+                                    .on_click(|_, _, cx| cx.stop_propagation())
+                                    .child(
+                                        div()
+                                            .id("badge-dialog-close")
+                                            .absolute()
+                                            .top_4()
+                                            .right_4()
+                                            .opacity(0.7)
+                                            .hover(|style| style.opacity(1.))
+                                            .cursor_pointer()
+                                            .on_click(cx.listener(|this, _, _, cx| {
+                                                this.selected_badge = None;
+                                                cx.notify();
+                                            }))
+                                            .child(controls::icon(
+                                                "product/XIcon.svg",
+                                                16.,
+                                                colors.foreground,
+                                            )),
+                                    )
+                                    .child(div().py_2().flex().justify_center().child(
+                                        badges::emblem(id, collected.is_some(), true, &colors),
+                                    ))
+                                    .child(
+                                        div()
+                                            .text_center()
+                                            .text_lg()
+                                            .line_height(px(18.))
+                                            .font_weight(gpui::FontWeight::SEMIBOLD)
+                                            .child(badge.name),
+                                    )
+                                    .child(
+                                        div()
+                                            .text_center()
+                                            .text_sm()
+                                            .line_height(px(20.))
+                                            .text_color(colors.muted_foreground)
+                                            .child(badge.description),
+                                    )
+                                    .child(status),
+                            ),
+                    ),
+            )
+            .with_priority(2)
+            .into_any_element(),
+        )
+    }
+}
+
 impl Render for InsightsView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let colors = theme(window);
@@ -743,9 +1116,11 @@ impl Render for InsightsView {
                         ),
                 ),
         )
+        .child(self.badge_collection(&colors, cx))
         .child(small(
             "Includes imported transcripts. Deleted conversations are excluded.".into(),
         ))
+        .children(self.badge_dialog(window, cx))
     }
 }
 
@@ -772,6 +1147,7 @@ mod tests {
             session_id: id.into(),
             started_at: at(day, 9),
             duration_ms: minutes * 60_000,
+            is_demo: false,
         };
         let records = [
             // Two transcripts of one meeting overlap; its time counts once.
