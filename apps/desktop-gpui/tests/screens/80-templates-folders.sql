@@ -71,8 +71,10 @@ VALUES
 INSERT INTO
   app_settings (id, value_json)
 VALUES
-  ('selected_template_id', '"t-1-sync"')
-ON CONFLICT(id) DO UPDATE SET value_json = excluded.value_json;
+  ('selected_template_id', '"t-1-sync"') ON CONFLICT(id) DO
+UPDATE
+SET
+  value_json = excluded.value_json;
 INSERT INTO
   folders (id, path, icon_json, instructions)
 VALUES
@@ -82,14 +84,24 @@ VALUES
     '{"type":"icon","value":"lightbulb","color":"#f2bd00"}',
     'Customer interviews, usability studies and market research for the product team.'
   ),
-  ('f-clients', 'Clients', '{"type":"emoji","value":"💼"}', ''),
+  (
+    'f-clients',
+    'Clients',
+    '{"type":"emoji","value":"💼"}',
+    ''
+  ),
   (
     'f-northwind',
     'Clients/Northwind',
     '{"type":"icon","value":"folder","color":"#9ca3af"}',
     ''
   ),
-  ('f-hiring', 'Hiring', '{"type":"icon","value":"users","color":"#5b67d8"}', '');
+  (
+    'f-hiring',
+    'Hiring',
+    '{"type":"icon","value":"users","color":"#5b67d8"}',
+    ''
+  );
 INSERT INTO
   folder_attachments (
     id,

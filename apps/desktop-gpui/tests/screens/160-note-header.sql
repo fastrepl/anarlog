@@ -1,7 +1,14 @@
 -- Meeting info: a participant on a note without an event, and a past calendar event with a
 -- meeting link, location and description on another.
 INSERT INTO
-  session_participants (id, session_id, human_id, display_name, email, source)
+  session_participants (
+    id,
+    session_id,
+    human_id,
+    display_name,
+    email,
+    source
+  )
 VALUES
   (
     'sp-sync-maya',
@@ -11,7 +18,8 @@ VALUES
     'maya@northwind.example',
     'manual'
   );
-UPDATE sessions
+UPDATE
+  sessions
 SET
   event_json = json_object(
     'title',

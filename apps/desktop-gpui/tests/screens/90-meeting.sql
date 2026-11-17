@@ -23,11 +23,24 @@ VALUES
     'Sprint retro',
     strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '-2 days'),
     strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '-2 days'),
-    strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '-2 days', '+25 minutes'),
+    strftime(
+      '%Y-%m-%dT%H:%M:%SZ',
+      'now',
+      '-2 days',
+      '+25 minutes'
+    ),
     ''
   );
 INSERT INTO
-  session_documents (id, session_id, kind, title, body_format, body, sort_order)
+  session_documents (
+    id,
+    session_id,
+    kind,
+    title,
+    body_format,
+    body,
+    sort_order
+  )
 VALUES
   (
     's-standup',
@@ -48,7 +61,13 @@ VALUES
     0
   );
 INSERT INTO
-  transcripts (id, session_id, started_at_ms, ended_at_ms, words_json)
+  transcripts (
+    id,
+    session_id,
+    started_at_ms,
+    ended_at_ms,
+    words_json
+  )
 VALUES
   (
     't-retro',

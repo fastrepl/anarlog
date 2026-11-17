@@ -23,11 +23,24 @@ VALUES
     'Design critique',
     strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '-50 days'),
     strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '-50 days'),
-    strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '-50 days', '+30 minutes'),
+    strftime(
+      '%Y-%m-%dT%H:%M:%SZ',
+      'now',
+      '-50 days',
+      '+30 minutes'
+    ),
     'Research'
   );
 INSERT INTO
-  session_documents (id, session_id, kind, title, body_format, body, sort_order)
+  session_documents (
+    id,
+    session_id,
+    kind,
+    title,
+    body_format,
+    body,
+    sort_order
+  )
 VALUES
   (
     's-typography',
@@ -92,7 +105,13 @@ VALUES
     0
   );
 INSERT INTO
-  transcripts (id, session_id, started_at_ms, ended_at_ms, words_json)
+  transcripts (
+    id,
+    session_id,
+    started_at_ms,
+    ended_at_ms,
+    words_json
+  )
 VALUES
   (
     't-critique',

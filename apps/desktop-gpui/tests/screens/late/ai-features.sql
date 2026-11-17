@@ -26,7 +26,15 @@ VALUES
     'apple'
   );
 INSERT INTO
-  sessions (id, title, owner_user_id, created_at, event_id, event_json, folder_path)
+  sessions (
+    id,
+    title,
+    owner_user_id,
+    created_at,
+    event_id,
+    event_json,
+    folder_path
+  )
 VALUES
   (
     's-ai-followup',
@@ -55,7 +63,14 @@ INSERT INTO
 VALUES
   ('h-ai-sam', 'sam.ortiz@globex.example', '');
 INSERT INTO
-  session_participants (id, session_id, human_id, display_name, email, source)
+  session_participants (
+    id,
+    session_id,
+    human_id,
+    display_name,
+    email,
+    source
+  )
 VALUES
   (
     'sp-ai-maya',
@@ -74,7 +89,15 @@ VALUES
     'auto'
   );
 INSERT INTO
-  session_documents (id, session_id, kind, title, body_format, body, sort_order)
+  session_documents (
+    id,
+    session_id,
+    kind,
+    title,
+    body_format,
+    body,
+    sort_order
+  )
 VALUES
   (
     'd-ai-pricing-summary',

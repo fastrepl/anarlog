@@ -1,3 +1,4 @@
+import * as icons from "@lobehub/icons";
 // Renders the @lobehub/icons provider logos shipping shows in AI settings (`ProviderLobeIcon` in
 // apps/desktop/src/settings/ai/shared) to SVGs: the color variant when there is one, the brand
 // color unless it is black or white, else `currentColor` so the app tints it. The package needs
@@ -7,8 +8,6 @@
 // node /tmp/provider-icons.cjs apps/desktop-gpui/src/product/icons/providers
 import { writeFileSync } from "node:fs";
 import path from "node:path";
-
-import * as icons from "@lobehub/icons";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 

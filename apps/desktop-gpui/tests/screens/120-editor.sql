@@ -2,14 +2,26 @@
 -- "Generate summary" screen and a long, multi-speaker transcript to edit and scroll), and a
 -- note with no memo document (the empty editor with suggested templates).
 INSERT INTO
-  sessions (id, title, created_at, started_at, ended_at, folder_path)
+  sessions (
+    id,
+    title,
+    created_at,
+    started_at,
+    ended_at,
+    folder_path
+  )
 VALUES
   (
     's-vendor',
     'Vendor review',
     strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '-9 days'),
     strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '-9 days'),
-    strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '-9 days', '+40 minutes'),
+    strftime(
+      '%Y-%m-%dT%H:%M:%SZ',
+      'now',
+      '-9 days',
+      '+40 minutes'
+    ),
     ''
   ),
   (
@@ -21,7 +33,15 @@ VALUES
     ''
   );
 INSERT INTO
-  session_documents (id, session_id, kind, title, body_format, body, sort_order)
+  session_documents (
+    id,
+    session_id,
+    kind,
+    title,
+    body_format,
+    body,
+    sort_order
+  )
 VALUES
   (
     's-vendor',
@@ -33,7 +53,14 @@ VALUES
     0
   );
 INSERT INTO
-  transcripts (id, session_id, started_at_ms, ended_at_ms, words_json, speaker_hints_json)
+  transcripts (
+    id,
+    session_id,
+    started_at_ms,
+    ended_at_ms,
+    words_json,
+    speaker_hints_json
+  )
 VALUES
   (
     't-vendor',

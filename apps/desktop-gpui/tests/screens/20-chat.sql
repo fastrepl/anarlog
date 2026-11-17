@@ -59,7 +59,12 @@ VALUES
     '',
     '{}',
     '[{"type":"step-start"},{"type":"reasoning","text":"Looking up the weekly product sync notes.","state":"done"},{"type":"tool-search_meetings","toolCallId":"call-1","state":"output-available","input":{"query":"weekly product sync"},"output":[]},{"type":"text","state":"done","text":"Here is a recap of the **Weekly product sync**.\n\n### Decisions\n- Ship the beta to design partners on **Friday**.\n- Keep the `chat` flag on for internal builds only.\n\n### Action items\n1. Ana drafts the release notes.\n2. Ben confirms the QA matrix with [the release checklist](https://example.com/release).\n\n| Owner | Task | Due |\n|---|---|---|\n| Ana | Release notes | Thu |\n| Ben | QA matrix | Fri |"}]',
-    strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-2 hours', '+20 seconds')
+    strftime(
+      '%Y-%m-%dT%H:%M:%fZ',
+      'now',
+      '-2 hours',
+      '+20 seconds'
+    )
   ),
   (
     'm-launch-3',
@@ -68,7 +73,12 @@ VALUES
     'Who owns the QA matrix?',
     '{}',
     '[{"type":"text","text":"Who owns the QA matrix?"}]',
-    strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-2 hours', '+2 minutes')
+    strftime(
+      '%Y-%m-%dT%H:%M:%fZ',
+      'now',
+      '-2 hours',
+      '+2 minutes'
+    )
   ),
   (
     'm-launch-4',
@@ -77,7 +87,13 @@ VALUES
     '',
     '{}',
     '[{"type":"step-start"},{"type":"text","state":"done","text":"**Ben** owns the QA matrix and will confirm it by Friday."}]',
-    strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-2 hours', '+2 minutes', '+10 seconds')
+    strftime(
+      '%Y-%m-%dT%H:%M:%fZ',
+      'now',
+      '-2 hours',
+      '+2 minutes',
+      '+10 seconds'
+    )
   ),
   (
     'm-hiring-1',
@@ -95,7 +111,12 @@ VALUES
     '',
     '{}',
     '[{"type":"step-start"},{"type":"reasoning","text":"Reading the hiring debrief.","state":"done"},{"type":"tool-search_meetings","toolCallId":"call-2","state":"output-available","input":{"query":"hiring debrief"},"output":[]},{"type":"text","state":"done","text":"Two questions came up.\n\n> Can they own the release process end to end?\n\n- Ownership of **on-call** rotations\n- Pairing on the `sync` engine\n\n```ts\nconst panelWidth = 320;\n```"}]',
-    strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-1 day', '+15 seconds')
+    strftime(
+      '%Y-%m-%dT%H:%M:%fZ',
+      'now',
+      '-1 day',
+      '+15 seconds'
+    )
   ),
   (
     'm-automation-1',
