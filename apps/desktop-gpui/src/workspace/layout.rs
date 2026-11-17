@@ -139,7 +139,25 @@ impl WorkspaceView {
             .into_any_element()
     }
 }
-
+impl WorkspaceView {
+    fn edit_review(
+        &mut self,
+        id: std::sync::Arc<str>,
+        cx: &mut Context<Self>,
+    ) -> gpui::Entity<super::edit_review::EditReview> {
+        if let Some(review) = self
+            .edit_review
+            .as_ref()
+            .filter(|review| review.read(cx).id == id)
+        {
+            return review.clone();
+        }
+        let (runtime, workspace) = (self.runtime.clone(), cx.weak_entity());
+        let review = cx.new(|cx| super::edit_review::EditReview::new(id, runtime, workspace, cx));
+        self.edit_review = Some(review.clone());
+        review
+    }
+}
 impl Render for WorkspaceView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let colors = theme(window);
@@ -251,6 +269,7 @@ impl Render for WorkspaceView {
                         Route::Automations => view.child(self.automations.clone()),
                         // Shipping renders nothing for a daily summary tab.
                         Route::DailySummary(_) => view,
+                        Route::Edit(id) => view.child(self.edit_review(id.clone(), cx)),
                         Route::Empty => view.child(
                             div()
                                 .size_full()

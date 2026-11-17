@@ -41,7 +41,7 @@ fn shadow(y: f32, blur: f32, alpha: f32) -> BoxShadow {
     }
 }
 
-fn icon(path: &'static str, size: f32, color: Hsla) -> Svg {
+pub(super) fn icon(path: &'static str, size: f32, color: Hsla) -> Svg {
     svg()
         .path(path)
         .size(px(size))
@@ -49,7 +49,7 @@ fn icon(path: &'static str, size: f32, color: Hsla) -> Svg {
         .text_color(color)
 }
 
-fn spinner(id: &'static str, size: f32, color: Hsla) -> impl IntoElement {
+pub(super) fn spinner(id: impl Into<gpui::ElementId>, size: f32, color: Hsla) -> impl IntoElement {
     icon("chat/LoaderCircleIcon.svg", size, color).with_animation(
         id,
         Animation::new(Duration::from_secs(1)).repeat(),
@@ -279,15 +279,19 @@ fn context_length_error(message: &str) -> bool {
         || message.contains("context size")
 }
 
-fn humanize(name: &str) -> String {
-    let mut text = name.replace('_', " ");
-    if let Some(first) = text.get(..1) {
-        text.replace_range(..1, &first.to_uppercase());
-    }
-    text
-}
-
 impl ChatView {
+    /// The background behind messages: the floating panel's, or the card in the right panel.
+    pub(super) fn surface(&self, window: &Window) -> Hsla {
+        let colors = theme(window);
+        if self.mode == ChatMode::RightPanelOpen {
+            colors.card
+        } else if dark(window) {
+            rgb(0x202020).into()
+        } else {
+            rgb(0xf4f4f5).into()
+        }
+    }
+
     fn toolbar_button(
         &self,
         id: &'static str,
@@ -575,115 +579,37 @@ impl ChatView {
         })
     }
 
-    fn activity(
+    /// A reply's visible parts in order: its text segments and the edit cards between them.
+    fn visible_parts(
         &self,
-        id: &str,
-        parts: &[Display],
-        running: bool,
+        entry: &Entry,
+        style: &markdown::Style,
         colors: &Theme,
+        window: &Window,
         cx: &mut Context<Self>,
-    ) -> Option<AnyElement> {
-        let parts = parts
-            .iter()
-            .filter(|part| match part {
-                Display::Reasoning(text) => !text.trim().is_empty(),
-                Display::Tool { .. } => true,
-                Display::Text(_) => false,
-            })
-            .collect::<Vec<_>>();
-        if parts.is_empty() {
-            return None;
-        }
-        let open = self.expanded.contains(id);
-        let running = running
-            || parts
-                .iter()
-                .any(|part| matches!(part, Display::Tool { running: true, .. }));
-        let toggle = id.to_owned();
-        Some(
-            div()
-                .my_2()
-                .px_2()
-                .py_1()
-                .rounded(px(6.))
-                .border_1()
-                .border_color(colors.border)
-                .child(
-                    div()
-                        .id(SharedString::from(format!("chat-activity-{id}")))
-                        .flex()
-                        .items_center()
-                        .gap_2()
-                        .cursor_pointer()
-                        .text_xs()
-                        .line_height(px(16.))
-                        .text_color(colors.muted_foreground)
-                        .on_click(cx.listener(move |this, _, _, cx| {
-                            if !this.expanded.remove(&toggle) {
-                                this.expanded.insert(toggle.clone());
-                            }
-                            cx.notify();
-                        }))
-                        .child(if running {
-                            spinner("chat-activity-spinner", 12., colors.muted_foreground)
-                                .into_any_element()
+    ) -> Vec<AnyElement> {
+        let mut segment = 0;
+        let mut parts = Vec::new();
+        for part in &entry.message.parts {
+            match part {
+                Display::Text(_) => {
+                    if let Some(blocks) = entry.blocks.get(segment) {
+                        let key = if segment == 0 {
+                            format!("chat-md-{}", entry.message.id)
                         } else {
-                            icon("chat/BrainIcon.svg", 12., colors.muted_foreground)
-                                .into_any_element()
-                        })
-                        .child(
-                            div()
-                                .flex_1()
-                                .truncate()
-                                .when(open, |view| view.font_weight(crate::ui::theme::MEDIUM))
-                                .child("Activity"),
-                        )
-                        .child(
-                            icon("chat/ArrowRight01Icon.svg", 12., colors.muted_foreground).when(
-                                open,
-                                |icon| {
-                                    icon.with_transformation(Transformation::rotate(percentage(
-                                        0.25,
-                                    )))
-                                },
-                            ),
-                        ),
-                )
-                .when(open, |view| {
-                    view.child(
-                        div()
-                            .mt_1()
-                            .px_1()
-                            .pt_2()
-                            .border_t_1()
-                            .border_color(colors.border)
-                            .flex()
-                            .flex_col()
-                            .children(parts.into_iter().map(|part| {
-                                let (path, text) = match part {
-                                    Display::Reasoning(text) => {
-                                        ("chat/BrainIcon.svg", text.clone())
-                                    }
-                                    Display::Tool { name, .. } => {
-                                        ("workspace/ZapIcon.svg", humanize(name))
-                                    }
-                                    Display::Text(_) => unreachable!(),
-                                };
-                                div()
-                                    .my(px(6.))
-                                    .flex()
-                                    .items_start()
-                                    .gap_2()
-                                    .text_xs()
-                                    .line_height(px(16.))
-                                    .text_color(colors.muted_foreground)
-                                    .child(icon(path, 12., colors.muted_foreground).mt(px(2.)))
-                                    .child(div().flex_1().min_w_0().child(SharedString::from(text)))
-                            })),
-                    )
-                })
-                .into_any_element(),
-        )
+                            format!("chat-md-{}-{segment}", entry.message.id)
+                        };
+                        parts.push(markdown::render(blocks, style, &key));
+                    }
+                    segment += 1;
+                }
+                Display::Tool(tool) if tool.edit() && !entry.message.user => {
+                    parts.push(self.edit_card(tool, style, colors, window, cx));
+                }
+                _ => {}
+            }
+        }
+        parts
     }
 
     fn message(
@@ -692,6 +618,7 @@ impl ChatView {
         last_assistant: bool,
         style: &markdown::Style,
         colors: &Theme,
+        window: &Window,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let message = &entry.message;
@@ -699,7 +626,7 @@ impl ChatView {
         let group = SharedString::from(format!("chat-message-{}", message.id));
         let copied = self.copied.as_deref() == Some(message.id.as_str());
         let (id, text) = (message.id.clone(), message.text());
-        let body = markdown::render(&entry.blocks, style, &format!("chat-md-{}", message.id));
+        let body = self.visible_parts(entry, style, colors, window, cx);
         div()
             .flex()
             .py_2()
@@ -732,10 +659,11 @@ impl ChatView {
                                     &message.parts,
                                     false,
                                     colors,
+                                    window,
                                     cx,
                                 ))
                             })
-                            .child(body),
+                            .children(body),
                     )
                     .child(
                         div()
@@ -992,7 +920,9 @@ impl ChatView {
         let last_assistant = self.entries.iter().rposition(|entry| !entry.message.user);
         let busy = self.busy();
         let streaming = busy
-            && !(self.stream_text.trim().is_empty() && self.stream_reasoning.trim().is_empty());
+            && !(self.stream_text.trim().is_empty()
+                && self.stream_reasoning.trim().is_empty()
+                && self.stream_tools.is_empty());
         let mut content = div()
             .flex()
             .flex_col()
@@ -1018,6 +948,7 @@ impl ChatView {
                         Some(index) == last_assistant && !busy,
                         &style,
                         &colors,
+                        window,
                         cx,
                     )
                 }));
@@ -1030,13 +961,31 @@ impl ChatView {
                             .text_sm()
                             .line_height(px(20.))
                             .text_color(colors.foreground)
-                            .children(self.activity(
-                                "streaming",
-                                &[Display::Reasoning(self.stream_reasoning.clone())],
-                                true,
-                                &colors,
-                                cx,
-                            ))
+                            .children(
+                                self.activity(
+                                    "streaming",
+                                    &std::iter::once(Display::Reasoning(
+                                        self.stream_reasoning.clone(),
+                                    ))
+                                    .chain(self.stream_tools.iter().cloned().map(Display::Tool))
+                                    .collect::<Vec<_>>(),
+                                    // A waiting edit means the model is idle until the review.
+                                    !self
+                                        .stream_tools
+                                        .iter()
+                                        .any(|tool| tool.edit() && tool.running()),
+                                    &colors,
+                                    window,
+                                    cx,
+                                ),
+                            )
+                            .children(
+                                self.stream_tools
+                                    .iter()
+                                    .filter(|tool| tool.edit())
+                                    .map(|tool| self.edit_card(tool, &style, &colors, window, cx))
+                                    .collect::<Vec<_>>(),
+                            )
                             .child(markdown::render(
                                 &self.stream_blocks,
                                 &markdown::Style {

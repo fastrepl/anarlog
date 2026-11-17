@@ -15,6 +15,7 @@ use tokio::sync::{mpsc, oneshot};
 use super::model::{MAX_TEXT, failure};
 use super::store::{statement, string};
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "kebab-case")]
 pub enum Part {
@@ -33,6 +34,8 @@ pub enum Part {
         state: String,
         input: Value,
         output: Value,
+        #[serde(rename = "errorText", default, skip_serializing_if = "Option::is_none")]
+        error: Option<String>,
     },
 }
 
@@ -51,54 +54,101 @@ pub enum Role {
     System,
 }
 
-#[derive(Clone, Deserialize)]
+/// Shipping's chat tools (`chat/tools/index.ts`), by tool name with shipping's input fields.
+#[derive(Clone, Debug, Deserialize)]
 #[serde(tag = "tool", rename_all = "snake_case")]
 pub enum MeetingTool {
-    Meeting {
-        session_id: String,
+    ListFolders {
+        query: Option<String>,
+        limit: Option<u32>,
+        offset: Option<u32>,
     },
-    Transcript {
-        session_id: String,
+    CreateFolder {
+        folder_path: String,
     },
-    History {
-        session_id: String,
+    MoveMeetingsToFolder {
+        meeting_ids: Vec<String>,
+        folder_path: String,
     },
-    Search {
+    ListMeetings(anlg_agent_access::ListMeetingsInput),
+    GetMeeting(anlg_agent_access::GetMeetingInput),
+    GetMeetingTranscript(anlg_agent_access::GetMeetingTranscriptInput),
+    GetRecurringMeetingHistory(anlg_agent_access::GetRecurringMeetingHistoryInput),
+    SearchMeetingContent {
         query: String,
+        meeting_ids: Option<Vec<String>>,
+        limit: Option<u32>,
     },
-    EditMemo {
-        session_id: String,
-        expected: String,
-        body: String,
+    #[serde(rename_all = "camelCase")]
+    ReadFolderMaterial {
+        material_id: String,
+        max_chars: Option<u32>,
     },
-    EditSummary {
-        document_id: String,
-        expected: String,
-        body: String,
+    FindRelatedMeetings {
+        meeting_id: Option<String>,
+        limit: Option<u32>,
     },
-    CorrectTranscript {
-        transcript_id: String,
-        word_id: String,
-        expected: String,
-        text: String,
+    SearchMeetings {
+        query: Option<String>,
+        filters: Option<Value>,
+        limit: Option<u32>,
     },
-    MoveContents {
-        source: String,
-        destination: String,
+    SearchContacts {
+        query: String,
+        limit: Option<u32>,
     },
-    Folder {
-        path: String,
+    SearchCalendarEvents {
+        query: String,
+        limit: Option<u32>,
     },
-    Contact {
-        human_id: String,
-    },
-    Calendar {
-        start: String,
-        end: String,
-    },
+    #[serde(rename_all = "camelCase")]
     WebSearch {
         query: String,
+        include_domains: Option<Vec<String>>,
+        exclude_domains: Option<Vec<String>>,
+        limit: Option<u32>,
     },
+    #[serde(rename_all = "camelCase")]
+    EditMemo {
+        session_id: Option<String>,
+        content: String,
+    },
+    #[serde(rename_all = "camelCase")]
+    EditSummary {
+        session_id: Option<String>,
+        enhanced_note_id: Option<String>,
+        content: String,
+    },
+    #[serde(rename_all = "camelCase")]
+    ApplySessionCorrection {
+        session_id: Option<String>,
+        target: Option<String>,
+        enhanced_note_id: Option<String>,
+        old_text: String,
+        new_text: String,
+        #[serde(default)]
+        dictionary_terms: Vec<String>,
+    },
+    #[serde(rename_all = "camelCase")]
+    MoveMeetingContents {
+        source_meeting_id: Option<String>,
+        target_meeting_id: String,
+    },
+}
+
+/// Opens the review tab for a pending edit, like shipping's `openEditTab`.
+pub type ReviewOpener = Arc<dyn Fn(Arc<str>) + Send + Sync>;
+
+/// What shipping's tools read from the chat at call time: the tool call (a proposal's id),
+/// the note attached to the message, the shown summary, mentioned folders and Pro access.
+#[derive(Clone, Default)]
+pub struct ToolContext {
+    pub call_id: String,
+    pub session: Option<String>,
+    pub summary: Option<String>,
+    pub folders: Vec<String>,
+    pub pro: bool,
+    pub review: Option<ReviewOpener>,
 }
 
 pub enum ProviderEvent {
@@ -127,8 +177,11 @@ pub trait ProviderAdapter: Send + Sync {
 
 pub type ProviderResolver =
     Arc<dyn Fn(SessionId) -> BoxFuture<'static, Result<Arc<dyn ProviderAdapter>>> + Send + Sync>;
-pub type ToolExecutor =
-    Arc<dyn Fn(MeetingTool, CancellationToken) -> BoxFuture<'static, Result<Value>> + Send + Sync>;
+pub type ToolExecutor = Arc<
+    dyn Fn(MeetingTool, ToolContext, CancellationToken) -> BoxFuture<'static, Result<Value>>
+        + Send
+        + Sync,
+>;
 pub type StreamObserver = Arc<dyn Fn(StreamUpdate) + Send + Sync>;
 type Job = BoxFuture<'static, ()>;
 pub type CaptureActivity = Arc<dyn Fn(&SessionId) -> bool + Send + Sync>;
@@ -137,6 +190,8 @@ pub struct StreamUpdate {
     pub task: u64,
     pub text: String,
     pub reasoning: String,
+    /// Tool parts as they start and finish, so chat can show cards while a tool waits.
+    pub tools: Vec<Part>,
 }
 
 pub struct AiServices {
@@ -353,6 +408,23 @@ impl ChatSession {
         previous_assistant: Option<String>,
         observe: StreamObserver,
     ) -> Result<oneshot::Receiver<Result<Message>>> {
+        self.queue_send_with(
+            user,
+            history,
+            previous_assistant,
+            observe,
+            ToolContext::default(),
+        )
+    }
+
+    pub fn queue_send_with(
+        self: &Arc<Self>,
+        user: Message,
+        history: Vec<Message>,
+        previous_assistant: Option<String>,
+        observe: StreamObserver,
+        context: ToolContext,
+    ) -> Result<oneshot::Receiver<Result<Message>>> {
         let session = self.clone();
         let epoch = self.cancel_epoch.load(Ordering::Acquire);
         let (send, receive) = oneshot::channel();
@@ -361,7 +433,7 @@ impl ChatSession {
             .try_send(Box::pin(async move {
                 let _ = send.send(
                     session
-                        .send_inner(user, history, previous_assistant, observe, epoch)
+                        .send_inner(user, history, previous_assistant, observe, context, epoch)
                         .await,
                 );
             }))
@@ -387,6 +459,7 @@ impl ChatSession {
             history,
             previous_assistant,
             observe,
+            ToolContext::default(),
             self.cancel_epoch.load(Ordering::Acquire),
         )
         .await
@@ -398,6 +471,7 @@ impl ChatSession {
         mut history: Vec<Message>,
         previous_assistant: Option<String>,
         observe: StreamObserver,
+        context: ToolContext,
         epoch: u64,
     ) -> Result<Message> {
         if user.role != Role::User || user.id.is_empty() {
@@ -458,27 +532,69 @@ impl ChatSession {
             }
             let finished = output.tools.is_empty();
             for (call_id, name, input) in output.tools {
+                let mut part = Part::Tool {
+                    call_id: call_id.clone(),
+                    name: name.clone(),
+                    input: input.clone(),
+                    output: Value::Null,
+                    state: "input-available".into(),
+                    error: None,
+                };
+                observe(StreamUpdate {
+                    task: generation,
+                    text: String::new(),
+                    reasoning: String::new(),
+                    tools: vec![part.clone()],
+                });
                 let mut typed = input.clone();
                 typed
                     .as_object_mut()
                     .ok_or_else(|| failure("Malformed tool input."))?
                     .insert("tool".into(), json!(name));
-                let tool: MeetingTool = serde_json::from_value(typed).map_err(failure)?;
-                let result = (self.services.execute)(tool, cancellation.clone()).await;
-                let output = match result {
-                    Ok(output) => output,
-                    Err(error) => json!({"error": error.to_string()}),
+                let result = match serde_json::from_value::<MeetingTool>(typed) {
+                    Ok(tool) => {
+                        let context = ToolContext {
+                            call_id: call_id.clone(),
+                            ..context.clone()
+                        };
+                        (self.services.execute)(tool, context, cancellation.clone()).await
+                    }
+                    Err(error) => Err(failure(format!("Invalid input for tool {name}: {error}"))),
                 };
-                if output.to_string().len() > MAX_TEXT {
-                    return Err(failure("Tool output exceeds context limit."));
+                if let Err(ServiceError::Cancelled) = result {
+                    return Err(ServiceError::Cancelled);
                 }
-                parts.push(Part::Tool {
-                    call_id,
-                    name,
-                    input,
+                if let Part::Tool {
                     output,
-                    state: "output-available".into(),
+                    state,
+                    error,
+                    ..
+                } = &mut part
+                {
+                    match result {
+                        Ok(value) => {
+                            *output = value;
+                            *state = "output-available".into();
+                        }
+                        // The model still sees the failure; the card shows it like shipping's
+                        // `output-error`.
+                        Err(failed) => {
+                            *output = json!({"error": failed.to_string()});
+                            *state = "output-error".into();
+                            *error = Some(failed.to_string());
+                        }
+                    }
+                    if output.to_string().len() > MAX_TEXT {
+                        return Err(failure("Tool output exceeds context limit."));
+                    }
+                }
+                observe(StreamUpdate {
+                    task: generation,
+                    text: String::new(),
+                    reasoning: String::new(),
+                    tools: vec![part.clone()],
                 });
+                parts.push(part);
             }
             history.push(Message {
                 id: assistant.id.clone(),
@@ -527,7 +643,7 @@ impl ChatSession {
             for message in user.iter().chain(std::iter::once(&message)) {
                 let content = message.parts.iter().filter_map(|part| match part { Part::Text { text } => Some(text.as_str()), _ => None }).collect::<String>();
                 let role = match message.role { Role::User => "user", Role::Assistant => "assistant", Role::System => return Err(ServiceError::Conflict) };
-                let parts = serde_json::to_string(&message.parts).map_err(failure)?;
+                let parts = stored_parts(&message.parts)?;
                 if parts.len() > MAX_TEXT { return Err(failure("Chat message exceeds storage limit.")); }
                 statements.push(statement(
                     "INSERT INTO chat_messages (id, chat_group_id, owner_user_id, workspace_id, role, content, parts_json) SELECT ?, ?, ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM chat_groups WHERE id = ? AND deleted_at IS NULL) ON CONFLICT(id) DO UPDATE SET updated_at = chat_messages.updated_at WHERE chat_messages.chat_group_id = excluded.chat_group_id AND chat_messages.deleted_at IS NULL AND chat_messages.role = excluded.role AND chat_messages.content = excluded.content AND chat_messages.parts_json = excluded.parts_json",
@@ -540,6 +656,20 @@ impl ChatSession {
             Ok(())
         })?.receive().await
     }
+}
+
+/// Tool parts are stored as shipping's typed `tool-<name>` parts, so both apps render them.
+fn stored_parts(parts: &[Part]) -> Result<String> {
+    let mut value = serde_json::to_value(parts).map_err(failure)?;
+    for part in value.as_array_mut().into_iter().flatten() {
+        if part["type"] == "dynamic-tool"
+            && let Some(object) = part.as_object_mut()
+            && let Some(Value::String(name)) = object.remove("toolName")
+        {
+            object.insert("type".into(), json!(format!("tool-{name}")));
+        }
+    }
+    serde_json::to_string(&value).map_err(failure)
 }
 
 pub fn window_history(mut history: Vec<Message>) -> Vec<Message> {
@@ -581,7 +711,7 @@ async fn consume(
             _ = cancellation.cancelled() => return Err(ServiceError::Cancelled),
             _ = interval.tick() => {
                 if !projected_text.is_empty() || !projected_reasoning.is_empty() {
-                    observe(StreamUpdate { task, text: std::mem::take(&mut projected_text), reasoning: std::mem::take(&mut projected_reasoning) });
+                    observe(StreamUpdate { task, text: std::mem::take(&mut projected_text), reasoning: std::mem::take(&mut projected_reasoning), tools: Vec::new() });
                 }
             }
             event = stream.next() => match event {
@@ -601,6 +731,7 @@ async fn consume(
             task,
             text: projected_text,
             reasoning: projected_reasoning,
+            tools: Vec::new(),
         });
     }
     Ok(output)

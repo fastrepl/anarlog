@@ -141,7 +141,14 @@ impl ProviderServices {
             ai: Arc::new(super::ai::AiServices::new(
                 self.runtime.clone(),
                 self.ai_resolver(),
-                super::tools::executor(self.runtime.clone(), approvals.clone()),
+                super::tools::executor(
+                    self.runtime.clone(),
+                    approvals.clone(),
+                    Some(super::tools::WebAccess {
+                        api_url: self.api_url.clone(),
+                        cloud: self.cloud.clone(),
+                    }),
+                ),
                 capture_active,
             )?),
             context: super::context::resolver(self.runtime.clone()),

@@ -363,7 +363,7 @@ fn timestamp(value: &str) -> i64 {
 }
 
 /// An event's start, else the session's creation, like shipping's `sessionSearchTimestamp`.
-fn session_timestamp(event_json: &str, created_at: &str) -> i64 {
+pub(crate) fn session_timestamp(event_json: &str, created_at: &str) -> i64 {
     serde_json::from_str::<Value>(event_json)
         .ok()
         .and_then(|event| match &event["started_at"] {

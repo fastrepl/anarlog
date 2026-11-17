@@ -20,11 +20,65 @@ pub struct ChatGroup {
     pub created_at: Option<DateTime<Utc>>,
 }
 
+// Parts are short-lived per message; boxing tool parts would only add indirection.
+#[allow(clippy::large_enum_variant)]
 #[derive(Clone, Debug, PartialEq)]
 pub enum Display {
     Text(String),
     Reasoning(String),
-    Tool { name: String, running: bool },
+    Tool(ToolPart),
+}
+
+/// A tool call as shipping's AI SDK part keeps it: call id, state, input and output.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ToolPart {
+    pub id: String,
+    pub name: String,
+    pub state: String,
+    pub input: Value,
+    pub output: Value,
+    pub error: Option<String>,
+}
+
+impl ToolPart {
+    pub fn from_part(part: &Part) -> Option<Self> {
+        let Part::Tool {
+            call_id,
+            name,
+            state,
+            input,
+            output,
+            error,
+        } = part
+        else {
+            return None;
+        };
+        Some(Self {
+            id: call_id.clone(),
+            name: name.clone(),
+            state: state.clone(),
+            input: input.clone(),
+            output: output.clone(),
+            error: error.clone(),
+        })
+    }
+
+    pub fn running(&self) -> bool {
+        matches!(self.state.as_str(), "input-streaming" | "input-available")
+    }
+
+    pub fn failed(&self) -> bool {
+        self.state == "output-error"
+    }
+
+    pub fn done(&self) -> bool {
+        self.state == "output-available"
+    }
+
+    /// Shipping renders memo and summary edits as cards outside the activity list.
+    pub fn edit(&self) -> bool {
+        matches!(self.name.as_str(), "edit_memo" | "edit_summary")
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -72,10 +126,7 @@ impl ChatMessage {
                 .map(|part| match part {
                     Part::Text { text } => Display::Text(text.clone()),
                     Part::Reasoning { text } => Display::Reasoning(text.clone()),
-                    Part::Tool { name, .. } => Display::Tool {
-                        name: name.clone(),
-                        running: false,
-                    },
+                    Part::Tool { .. } => Display::Tool(ToolPart::from_part(part).unwrap()),
                 })
                 .collect(),
             created_at: Some(Utc::now()),
@@ -86,7 +137,7 @@ impl ChatMessage {
     fn renderable(&self) -> bool {
         self.parts.iter().any(|part| match part {
             Display::Text(text) | Display::Reasoning(text) => !text.trim().is_empty(),
-            Display::Tool { .. } => true,
+            Display::Tool(_) => true,
         })
     }
 }
@@ -191,20 +242,18 @@ fn display(part: &Value) -> Option<Display> {
                 .strip_prefix("tool-")
                 .or_else(|| part["toolName"].as_str())
                 .unwrap_or(kind);
-            // Edits render as their own tools in shipping, not inside the activity list.
-            if matches!(
-                name,
-                "edit_memo" | "edit_summary" | "update_prompt_template"
-            ) {
+            // Template edits belong to the templates chat, which this app does not offer.
+            if name == "update_prompt_template" {
                 return None;
             }
-            Some(Display::Tool {
+            Some(Display::Tool(ToolPart {
+                id: part["toolCallId"].as_str().unwrap_or_default().to_owned(),
                 name: name.to_owned(),
-                running: matches!(
-                    part["state"].as_str(),
-                    Some("input-streaming" | "input-available")
-                ),
-            })
+                state: part["state"].as_str().unwrap_or_default().to_owned(),
+                input: part["input"].clone(),
+                output: part["output"].clone(),
+                error: part["errorText"].as_str().map(str::to_owned),
+            }))
         }
     }
 }
@@ -420,17 +469,29 @@ mod tests {
         let decoded = message(&row(
             "assistant",
             "",
-            r#"[{"type":"step-start"},{"type":"reasoning","text":"think"},{"type":"tool-search_meetings","state":"output-available"},{"type":"tool-edit_summary"},{"type":"text","text":"Done"}]"#,
+            r#"[{"type":"step-start"},{"type":"reasoning","text":"think"},{"type":"tool-search_meetings","toolCallId":"c1","state":"output-available","input":{"query":"sync"},"output":{"results":[]}},{"type":"tool-edit_summary","toolCallId":"c2","state":"output-available","input":{"content":"New"},"output":{"status":"applied"}},{"type":"tool-update_prompt_template","state":"output-available"},{"type":"text","text":"Done"}]"#,
         ))
         .unwrap();
         assert_eq!(
             decoded.parts,
             vec![
                 Display::Reasoning("think".into()),
-                Display::Tool {
+                Display::Tool(ToolPart {
+                    id: "c1".into(),
                     name: "search_meetings".into(),
-                    running: false
-                },
+                    state: "output-available".into(),
+                    input: json!({"query": "sync"}),
+                    output: json!({"results": []}),
+                    error: None,
+                }),
+                Display::Tool(ToolPart {
+                    id: "c2".into(),
+                    name: "edit_summary".into(),
+                    state: "output-available".into(),
+                    input: json!({"content": "New"}),
+                    output: json!({"status": "applied"}),
+                    error: None,
+                }),
                 Display::Text("Done".into()),
             ]
         );

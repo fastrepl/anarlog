@@ -129,12 +129,16 @@ impl EditorPane {
                 sender,
             ))
             .detach();
-        cx.spawn(async move |entity, cx| {
+        // The window's focus decides whether a remote revision waits: the `focused` flag is
+        // not updated while the editor is off screen.
+        cx.spawn_in(window, async move |entity, cx| {
             while let Some(result) = receiver.next().await {
                 if entity
-                    .update(cx, |this, cx| {
+                    .update_in(cx, |this, window, cx| {
                         match result {
-                            Ok(Some(snapshot)) => this.remote_revision(snapshot, cx),
+                            Ok(Some(snapshot)) => {
+                                this.apply_external_revision(snapshot, window, cx)
+                            }
                             // An unsaved memo has no row until its first save creates it.
                             Ok(None) if this.init.document.is_unsaved() => {}
                             Ok(None) => {

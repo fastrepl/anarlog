@@ -82,6 +82,10 @@ fn main() {
     });
     seed(&runtime, &out);
     settle(&mut cx);
+    if std::env::var("ANLG_SCREENS_ONLY").as_deref() == Ok("chat-edits") {
+        chat_edits(&mut cx, window, &runtime, &out);
+        return;
+    }
 
     capture(&mut cx, window, &out, "main");
     // The open-note dialog before any note was opened: fresh, filtered, and without a match.
@@ -227,6 +231,7 @@ fn main() {
         open(&mut cx, window, Route::Settings(page.into()));
         capture(&mut cx, window, &out, &format!("settings-{page}"));
     }
+    chat_edits(&mut cx, window, &runtime, &out);
     account_states(&mut cx, window, &out);
     detection(&mut cx, window, &out);
     instruction(&mut cx, &out);
@@ -585,6 +590,143 @@ fn click_window(cx: &mut HeadlessAppContext, window: AnyWindowHandle, x: f32, y:
     settle(cx);
 }
 
+/// A model that proposes a summary edit, then answers once the edit is decided.
+struct EditingModel;
+
+impl desktop_gpui::meeting::ai::ProviderAdapter for EditingModel {
+    fn stream(
+        &self,
+        request: desktop_gpui::meeting::ai::Request,
+    ) -> futures::future::BoxFuture<
+        'static,
+        desktop_runtime::Result<
+            futures::stream::BoxStream<
+                'static,
+                desktop_runtime::Result<desktop_gpui::meeting::ai::ProviderEvent>,
+            >,
+        >,
+    > {
+        use desktop_gpui::meeting::ai::{Part, ProviderEvent};
+        use futures::StreamExt;
+        let decided = request
+            .messages
+            .iter()
+            .flat_map(|message| &message.parts)
+            .any(|part| matches!(part, Part::Tool { .. }));
+        Box::pin(async move {
+            let event = if decided {
+                ProviderEvent::Text("I shortened the **Design critique** summary.".into())
+            } else {
+                ProviderEvent::Tool {
+                    call_id: "call-live-summary".into(),
+                    name: "edit_summary".into(),
+                    input: serde_json::json!({"content": "## Decisions\n\n- Ship the simplified onboarding next release.\n- The calendar step stays optional.\n\n## Follow-ups\n\nMina shares updated mocks by Friday."}),
+                }
+            };
+            Ok(futures::stream::iter([Ok(event)]).boxed())
+        })
+    }
+}
+
+/// Chat edit review: the note's pending-edits banner, the Edit tab's diff, saved tool cards,
+/// and a live summary edit waiting for review, then applied.
+fn chat_edits(
+    cx: &mut HeadlessAppContext,
+    window: WindowHandle<ApplicationView>,
+    runtime: &RuntimeHandle,
+    out: &std::path::Path,
+) {
+    let fixture = include_str!("screens/chat-edits/fixture.sql");
+    let reply = runtime
+        .submit(move |services| async move {
+            sqlx::raw_sql(sqlx::AssertSqlSafe(fixture))
+                .execute(services.db.pool())
+                .await
+                .map_err(|error| ServiceError::Failed(error.to_string().into()))?;
+            Ok(())
+        })
+        .unwrap();
+    futures::executor::block_on(reply.receive()).unwrap();
+    open(cx, window, Route::Session(SessionId("s-sync".into())));
+    capture(cx, window, out, "note-pending-edits");
+    open(cx, window, Route::Edit("p-sync-memo".into()));
+    capture(cx, window, out, "edit-review-memo");
+    open(cx, window, Route::Edit("p-critique-summary".into()));
+    capture(cx, window, out, "edit-review-summary");
+
+    open(cx, window, Route::Empty);
+    chat(cx, window, |chat, window, cx| {
+        chat.event(ChatEvent::Open, window, cx)
+    });
+    chat(cx, window, |chat, _, cx| {
+        chat.select_group("g-edits".into(), cx)
+    });
+    capture(cx, window, out, "chat-tools");
+    chat(cx, window, |chat, _, cx| {
+        chat.toggle_activity("m-edits-2", cx)
+    });
+    // Shipping's capture clicks "Activity", which scrolls the thread to its top.
+    wheel(cx, window, (500., 300.), 5000.);
+    capture(cx, window, out, "chat-tools-activity");
+    chat(cx, window, |chat, window, cx| {
+        chat.new_chat(cx);
+        chat.event(ChatEvent::Close, window, cx)
+    });
+
+    // A live edit: the review tab opens and the chat card waits with Decline / Apply.
+    cx.update(|cx| {
+        use desktop_gpui::meeting::{ai, ai_view::AiViewServices, context, tools};
+        let approvals = tools::Approvals::default();
+        let services = AiViewServices {
+            ai: Arc::new(
+                ai::AiServices::new(
+                    runtime.clone(),
+                    Arc::new(|_| {
+                        Box::pin(async {
+                            Ok(Arc::new(EditingModel) as Arc<dyn ai::ProviderAdapter>)
+                        })
+                    }),
+                    tools::executor(runtime.clone(), approvals.clone(), None),
+                    Arc::new(|_| false),
+                )
+                .unwrap(),
+            ),
+            context: context::resolver(runtime.clone()),
+            approvals,
+        };
+        cx.set_global(services);
+    });
+    open(cx, window, Route::Session(SessionId("s-critique".into())));
+    chat(cx, window, |chat, window, cx| {
+        chat.event(ChatEvent::Open, window, cx)
+    });
+    write(cx, window, "Make the summary shorter");
+    type_text(cx, window, &["enter"]);
+    capture(cx, window, out, "chat-edit-pending");
+    cx.update(|cx| {
+        let workspace = window
+            .update(cx, |root, _, _| root.workspace().downgrade())
+            .unwrap();
+        desktop_gpui::workspace::edit_review::decide(
+            runtime.clone(),
+            workspace,
+            "call-live-summary".into(),
+            true,
+            cx,
+        )
+        .detach();
+    });
+    settle(cx);
+    capture(cx, window, out, "note-edit-applied");
+    // Returning to the note closed chat, as in shipping; reopened, the card shows the result.
+    chat(cx, window, |chat, window, cx| {
+        chat.event(ChatEvent::Open, window, cx)
+    });
+    capture(cx, window, out, "chat-edit-applied");
+    chat(cx, window, |chat, window, cx| {
+        chat.event(ChatEvent::Close, window, cx)
+    });
+}
 /// The month grid's cell for `day`, top-left in window pixels (Sunday-first, as captured).
 fn calendar_cell(day: chrono::NaiveDate) -> Option<(f32, f32)> {
     use chrono::Datelike;

@@ -54,6 +54,21 @@ pub const ICONS: &[(&str, &[u8])] = &[
     ("SquareIcon", include_bytes!("icons/SquareIcon.svg")),
     ("TrashIcon", include_bytes!("icons/TrashIcon.svg")),
     ("XIcon", include_bytes!("icons/XIcon.svg")),
+    (
+        "ArrowLeft02Icon",
+        include_bytes!("icons/ArrowLeft02Icon.svg"),
+    ),
+    (
+        "ArrowRight02Icon",
+        include_bytes!("icons/ArrowRight02Icon.svg"),
+    ),
+    (
+        "CancelCircleIcon",
+        include_bytes!("icons/CancelCircleIcon.svg"),
+    ),
+    ("PencilIcon", include_bytes!("icons/PencilIcon.svg")),
+    ("Search01Icon", include_bytes!("icons/Search01Icon.svg")),
+    ("Wrench01Icon", include_bytes!("icons/Wrench01Icon.svg")),
 ];
 
 pub fn load(path: &str) -> Option<&'static [u8]> {

@@ -140,7 +140,7 @@ impl ProviderAdapter for HttpProvider {
                 Protocol::OpenAi => json!(tools.iter().map(|tool| json!({"type": "function", "function": tool})).collect::<Vec<_>>()),
                 Protocol::Responses => json!(tools.iter().map(|tool| json!({"type":"function", "name":tool["name"], "description":tool["description"], "parameters":tool["parameters"], "strict":false})).collect::<Vec<_>>()),
                 Protocol::Anthropic => json!(tools.iter().map(|tool| json!({"name": tool["name"], "description": tool["description"], "input_schema": tool["parameters"]})).collect::<Vec<_>>()),
-                Protocol::Google => json!([{"functionDeclarations": tools}]),
+                Protocol::Google => json!([{"functionDeclarations": tools.iter().map(google_schema).collect::<Vec<_>>()}]),
             };
         }
         if self.connection.provider == "claude" && subscription.is_some() {
@@ -626,19 +626,211 @@ fn google_messages(messages: &[Message]) -> Vec<Value> {
     result
 }
 
+/// Gemini accepts an OpenAPI subset: no `additionalProperties` or `default`, and `enum`
+/// instead of `const`, as the AI SDK's Google provider converts them.
+fn google_schema(value: &Value) -> Value {
+    match value {
+        Value::Object(object) => Value::Object(
+            object
+                .iter()
+                .filter(|(key, _)| !matches!(key.as_str(), "additionalProperties" | "default"))
+                .map(|(key, value)| match key.as_str() {
+                    "const" => ("enum".to_owned(), json!([value])),
+                    _ => (key.clone(), google_schema(value)),
+                })
+                .collect(),
+        ),
+        Value::Array(items) => Value::Array(items.iter().map(google_schema).collect()),
+        value => value.clone(),
+    }
+}
+
+/// Shipping's chat tools (`chat/tools/*.ts`) with their descriptions and input schemas.
 fn tool_definitions() -> Vec<Value> {
-    [
-        ("meeting", "Read a meeting and its notes.", vec!["session_id"]),
-        ("transcript", "Read a meeting transcript.", vec!["session_id"]),
-        ("history", "Read meeting chat history.", vec!["session_id"]),
-        ("search", "Find meetings in this library.", vec!["query"]),
-        ("edit_memo", "Propose a memo edit; requires approval.", vec!["session_id", "expected", "body"]),
-        ("edit_summary", "Propose a summary edit; requires approval.", vec!["document_id", "expected", "body"]),
-        ("correct_transcript", "Propose a word correction; requires approval.", vec!["transcript_id", "word_id", "expected", "text"]),
-    ].into_iter().map(|(name, description, required)| {
-        let properties: serde_json::Map<String, Value> = required.iter().map(|key| ((*key).into(), json!({"type": "string"}))).collect();
-        json!({"name": name, "description": description, "parameters": {"type": "object", "properties": properties, "required": required, "additionalProperties": false}})
-    }).collect()
+    let string = |description: &str| json!({"type": "string", "description": description});
+    let integer = |min: u32, max: u32, description: &str| json!({"type": "integer", "minimum": min, "maximum": max, "description": description});
+    let session = string(
+        "Session ID of the note to edit. Omit to edit the current note (the one marked as current in context). Pass another note's Session ID only when the user asks to edit that note.",
+    );
+    let bound = |description: &str| json!({"type": "number", "description": description});
+    let folder_path = json!({"type": "string", "description": "Exact destination folder path, or an empty string to remove folder assignment"});
+    let tool = |name: &str, description: &str, properties: Value, required: &[&str]| {
+        json!({"name": name, "description": description, "parameters": {
+            "type": "object", "properties": properties, "required": required, "additionalProperties": false,
+        }})
+    };
+    vec![
+        tool(
+            "list_folders",
+            "List existing meeting folders, including empty folders and parent folders. Use their exact paths for folder operations. Query matches a case-insensitive path substring; follow next_offset for more results.",
+            json!({"query": {"type": "string"}, "limit": {"type": "integer", "minimum": 1, "maximum": 200}, "offset": {"type": "integer", "minimum": 0}}),
+            &[],
+        ),
+        tool(
+            "create_folder",
+            "Create a named meeting folder, including parent folders for a nested path. List folders first and reuse an existing destination when it matches the user's request. This does not move any meetings.",
+            json!({"folder_path": {"type": "string"}}),
+            &["folder_path"],
+        ),
+        tool(
+            "move_meetings_to_folder",
+            "Move up to 200 existing meetings into an existing folder, or use an empty folder_path to unfile them. This changes folder assignment only; it does not merge meetings or move contents between meetings. Resolve meeting IDs with list_meetings or get_recurring_meeting_history and use the exact destination from list_folders or create_folder. For all/every requests, follow meeting pagination and submit each batch. Results report moved, unchanged, and failed meetings separately; never claim failures succeeded.",
+            json!({"meeting_ids": {"type": "array", "items": {"type": "string", "minLength": 1}, "minItems": 1, "maxItems": 200}, "folder_path": folder_path}),
+            &["meeting_ids", "folder_path"],
+        ),
+        tool(
+            "list_meetings",
+            "List recent Anarlog meetings with pagination metadata. Use query to narrow by title or meeting id and folder_path to scope to a folder and its subfolders, then pass next_offset as offset to continue.",
+            json!({
+                "query": string("Case-insensitive title or meeting id substring"),
+                "series_id": string("Exact recurring series id"),
+                "folder_path": string("Folder path from list_folders, such as Projects/Launch; includes meetings in its subfolders"),
+                "limit": integer(1, 200, "Maximum results; defaults to 20 and is capped at 200"),
+                "offset": {"type": "integer", "minimum": 0, "description": "Number of results to skip; defaults to 0"},
+            }),
+            &[],
+        ),
+        tool(
+            "get_meeting",
+            "Get one Anarlog meeting with its canonical note, summaries, participants, and action items. Use get_meeting_transcript separately for transcript words.",
+            json!({"meeting_id": string("Anarlog meeting id")}),
+            &["meeting_id"],
+        ),
+        tool(
+            "get_meeting_transcript",
+            "Get a bounded page of transcript words and readable text for an Anarlog meeting. Pass pagination.next_offset as offset to continue.",
+            json!({
+                "meeting_id": string("Anarlog meeting id"),
+                "offset": {"type": "integer", "minimum": 0, "description": "Word offset; defaults to 0"},
+                "limit": integer(1, 500, "Maximum words; defaults to 200 and is capped at 500"),
+            }),
+            &["meeting_id"],
+        ),
+        tool(
+            "get_recurring_meeting_history",
+            "List meetings in the same recurring series as the supplied meeting, newest first, with pagination metadata.",
+            json!({
+                "meeting_id": string("A meeting id used to resolve its recurring series"),
+                "limit": integer(1, 200, "Maximum meetings; defaults to 20 and is capped at 200"),
+                "offset": {"type": "integer", "minimum": 0, "description": "Number of meetings to skip; defaults to 0"},
+            }),
+            &["meeting_id"],
+        ),
+        tool(
+            "search_meeting_content",
+            "Search local meeting notes and transcripts for exact words or phrases. Use search_meetings first for open-ended questions about past meetings, people, decisions, or topics. This is lexical content search, not vector search.",
+            json!({
+                "query": string("Text to search for in meeting content"),
+                "meeting_ids": {"type": "array", "items": {"type": "string"}, "description": "Optional meeting ids to restrict the content search"},
+                "limit": integer(1, 10, "Maximum matching notes to return"),
+            }),
+            &["query"],
+        ),
+        tool(
+            "read_folder_material",
+            "Read a folder material such as a syllabus, PDF, or text file attached to the current folder. Use the material IDs listed in folder context.",
+            json!({
+                "materialId": string("Folder material id from the folder context list"),
+                "maxChars": integer(1_000, 30_000, "Maximum material characters to return to the model"),
+            }),
+            &["materialId"],
+        ),
+        tool(
+            "find_related_meetings",
+            "Find meetings related to the current or given meeting by shared participants, the same calendar event, or nearby dates.",
+            json!({
+                "meeting_id": string("Meeting id to find related meetings for. Defaults to the current note (the one marked as current in context)."),
+                "limit": integer(1, 10, "Maximum related meetings to return"),
+            }),
+            &[],
+        ),
+        tool(
+            "search_meetings",
+            "Search for meetings using note and transcript content plus optional date filters.\nUse this first for open-ended questions about past meetings, people, decisions, or topics when the answer may be in meeting notes and no meeting note context is attached.\nUse filters.created_at.kind=\"relative\" with recent_days for natural-language date ranges.\nUse an empty query string when the user only wants meetings by date/time filter.\nReturns relevant meetings with matching content excerpts.",
+            json!({
+                "query": string("Optional text query for finding relevant meetings. Omit this when filtering only by date/time."),
+                "filters": {"type": "object", "description": "Optional meeting filters", "additionalProperties": false, "properties": {
+                    "created_at": {"description": "Date filter for meetings. Uses event started_at for event-backed meetings, otherwise meeting created_at.", "anyOf": [
+                        {"type": "object", "description": "Absolute timestamp bounds using Unix milliseconds. Use this only when you already know the exact timestamps.", "additionalProperties": false, "required": ["kind"], "properties": {
+                            "kind": {"type": "string", "const": "absolute"},
+                            "gte": bound("Include meetings on or after this Unix timestamp in milliseconds"),
+                            "lte": bound("Include meetings on or before this Unix timestamp in milliseconds"),
+                            "gt": bound("Include meetings after this Unix timestamp in milliseconds"),
+                            "lt": bound("Include meetings before this Unix timestamp in milliseconds"),
+                            "eq": bound("Include only meetings at this exact Unix timestamp in milliseconds"),
+                        }},
+                        {"type": "object", "description": "Relative date filter. Prefer this over absolute timestamps for natural-language time ranges.", "additionalProperties": false, "required": ["kind", "recent_days"], "properties": {
+                            "kind": {"type": "string", "const": "relative"},
+                            "recent_days": integer(1, 365, "Use for requests like 'last N days'. Includes today and counts backward in local time."),
+                        }},
+                    ]},
+                }},
+                "limit": integer(0, 10, "Maximum number of meetings to return"),
+            }),
+            &[],
+        ),
+        tool(
+            "search_contacts",
+            "Search contacts and return names, emails, phone numbers, roles, and organizations.",
+            json!({"query": string("Search query for contacts"), "limit": integer(1, 20, "Maximum number of contacts to return")}),
+            &["query"],
+        ),
+        tool(
+            "search_calendar_events",
+            "Search calendar events and return schedule, location, and linked session info.",
+            json!({"query": string("Search query for calendar events"), "limit": integer(1, 20, "Maximum number of events to return")}),
+            &["query"],
+        ),
+        tool(
+            "web_search",
+            "Search the public web for current or external information.\nUse this for questions about public websites, URLs, companies, products, people, news, or facts that may not be in local notes.\nReturn source URLs in the final answer when web results are used.\nDo not use this when the user is asking only about local notes, meetings, contacts, or calendar events.",
+            json!({
+                "query": {"type": "string", "minLength": 1, "description": "Search query for public web information."},
+                "includeDomains": {"type": "array", "items": {"type": "string", "minLength": 1}, "maxItems": 5, "description": "Optional domains to search within, for example ['char.com']. Use only when the user names a specific site or domain."},
+                "excludeDomains": {"type": "array", "items": {"type": "string", "minLength": 1}, "maxItems": 5, "description": "Optional domains to exclude from the search results."},
+                "limit": integer(1, 10, "Maximum number of web results to return."),
+            }),
+            &["query"],
+        ),
+        tool(
+            "edit_memo",
+            "Propose a complete replacement for a session memo and open a diff review where the user can apply or cancel it. Use this to create or revise meeting preparation, agendas, talking points, and notes before or during a meeting. Preserve relevant existing memo content in the replacement markdown.",
+            json!({"sessionId": session, "content": string("The complete replacement memo in markdown format")}),
+            &["content"],
+        ),
+        tool(
+            "edit_summary",
+            "Propose a complete replacement for an existing session summary and open a diff review where the user can apply or cancel it. Use this for broad rewrites such as refocusing, shortening, or restructuring a summary. The content must be the full replacement markdown, not instructions or a partial patch.",
+            json!({
+                "sessionId": session,
+                "enhancedNoteId": string("The specific summary ID (enhanced note ID) to edit. Defaults to the active summary in the session tab when possible."),
+                "content": string("The complete replacement summary in markdown format"),
+            }),
+            &["content"],
+        ),
+        tool(
+            "apply_session_correction",
+            "Apply a correction to a session summary, visible session title, and/or transcript. Use this when the user corrects note content, for example 'it's not X but Y'. Prefer summary_and_transcript for factual meeting corrections unless the user explicitly asks for one target only. Read the note first if you need exact summary text.",
+            json!({
+                "sessionId": session,
+                "target": {"type": "string", "enum": ["summary", "transcript", "summary_and_transcript"], "default": "summary_and_transcript", "description": "Which session content to correct. Use summary only or transcript only when the user explicitly scopes the correction."},
+                "enhancedNoteId": string("Optional summary ID to restrict summary edits. Defaults to summaries in the target session."),
+                "oldText": {"type": "string", "minLength": 1, "description": "Exact text currently present in the note or transcript."},
+                "newText": string("Replacement text."),
+                "dictionaryTerms": {"type": "array", "items": {"type": "string", "minLength": 1}, "default": [], "description": "Uncommon names, company/product names, acronyms, or jargon from the correction to save for future transcription. Skip common names."},
+            }),
+            &["oldText", "newText"],
+        ),
+        tool(
+            "move_meeting_contents",
+            "Move a finished recording, transcript, generated summaries, notes, and action items from one meeting onto another existing meeting. Use this when the user says a recording or notes landed on the wrong meeting. Resolve both meeting IDs with list_meetings or search_meetings first and never guess IDs. The target meeting must not already have a recording or transcript.",
+            json!({
+                "sourceMeetingId": string("Meeting that currently has the recording or notes. Defaults to the current note (the one marked as current in context)."),
+                "targetMeetingId": string("Existing meeting that should receive the recording and notes."),
+            }),
+            &["targetMeetingId"],
+        ),
+    ]
 }
 
 pub fn default_base(provider: &str) -> Option<String> {
@@ -753,10 +945,11 @@ mod tests {
             role: Role::Assistant,
             parts: vec![Part::Tool {
                 call_id: "call".into(),
-                name: "meeting".into(),
+                name: "get_meeting".into(),
                 state: "output-available".into(),
-                input: json!({"session_id": "abc"}),
+                input: json!({"meeting_id": "abc"}),
                 output: json!({"title": "회의"}),
+                error: None,
             }],
         }]);
         assert_eq!(messages[0]["tool_calls"][0]["id"], "call");

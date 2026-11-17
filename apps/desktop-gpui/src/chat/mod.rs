@@ -8,6 +8,7 @@ pub mod markdown;
 pub mod search;
 pub mod state;
 pub mod store;
+mod tools_view;
 mod view;
 pub mod voice;
 
@@ -27,7 +28,7 @@ use serde_json::Value;
 
 use crate::{
     meeting::{
-        ai::{ChatSession, Message, Part, Role, StreamObserver},
+        ai::{ChatSession, Message, Part, Role, StreamObserver, ToolContext},
         ai_view::{AiViewServices, ContextPurpose},
         model::{MAX_TEXT, failure},
     },
@@ -36,19 +37,27 @@ use crate::{
 use composer::{Composer, ComposerEvent, ContextRef};
 use search::{MentionKind, SearchIndex};
 use state::{ChatEvent, ChatMode, SentHistory};
-use store::{ChatGroup, ChatMessage, Display};
+use store::{ChatGroup, ChatMessage, Display, ToolPart};
 pub use view::{overlay, reserved_width, right_panel};
 
 struct Entry {
     message: ChatMessage,
-    blocks: Vec<markdown::Block>,
+    /// Each text part's Markdown, in order; edit cards render between them.
+    blocks: Vec<Vec<markdown::Block>>,
     /// A reply stopped mid-stream stays on screen but was never saved, as in shipping.
     persisted: bool,
 }
 
 impl Entry {
     fn new(message: ChatMessage) -> Self {
-        let blocks = markdown::parse(&message.text());
+        let blocks = message
+            .parts
+            .iter()
+            .filter_map(|part| match part {
+                Display::Text(text) => Some(markdown::parse(text)),
+                _ => None,
+            })
+            .collect();
         Self {
             message,
             blocks,
@@ -116,10 +125,17 @@ pub struct ChatView {
     queue: Vec<Queued>,
     next_queued: u64,
     pending: Arc<Mutex<(String, String)>>,
+    pending_tools: Arc<Mutex<Vec<Part>>>,
     stream_text: String,
     stream_reasoning: String,
     stream_blocks: Vec<markdown::Block>,
+    /// The streaming reply's tool calls, updated as they start and finish.
+    stream_tools: Vec<ToolPart>,
+    /// Edit tools send their review here so its tab opens, like shipping's `openEditTab`.
+    reviews: futures::channel::mpsc::UnboundedSender<Arc<str>>,
     expanded: HashSet<String>,
+    /// The first visible result of each search card's carousel.
+    carousels: std::collections::HashMap<String, usize>,
     copied: Option<String>,
     pub(crate) markdown: markdown::Interaction,
     right_fraction: f32,
@@ -140,6 +156,7 @@ pub struct ChatView {
     scroll: ScrollHandle,
     load: CancellationToken,
     _poll: Option<Task<()>>,
+    _reviews: Task<()>,
     _subscription: Subscription,
 }
 
@@ -158,6 +175,19 @@ impl ChatView {
                 cx.notify();
             }
             ComposerEvent::Recall(previous) => this.recall(*previous, cx),
+        });
+        let (reviews, mut opened) = futures::channel::mpsc::unbounded::<Arc<str>>();
+        let review_workspace = workspace.clone();
+        let review_task = cx.spawn(async move |_, cx| {
+            use futures::StreamExt;
+            while let Some(id) = opened.next().await {
+                let _ = cx.update(|cx| {
+                    crate::workspace::edit_review::bump(cx);
+                    review_workspace.update(cx, |workspace, cx| {
+                        workspace.open_route(Route::Edit(id), true, cx)
+                    })
+                });
+            }
         });
         Self {
             runtime,
@@ -181,10 +211,14 @@ impl ChatView {
             queue: Vec::new(),
             next_queued: 0,
             pending: Arc::default(),
+            pending_tools: Arc::default(),
             stream_text: String::new(),
             stream_reasoning: String::new(),
             stream_blocks: Vec::new(),
+            stream_tools: Vec::new(),
+            reviews,
             expanded: HashSet::new(),
+            carousels: Default::default(),
             copied: None,
             markdown: markdown::Interaction::default(),
             right_fraction: 0.3,
@@ -200,6 +234,7 @@ impl ChatView {
             scroll: ScrollHandle::new(),
             load: CancellationToken::new(),
             _poll: None,
+            _reviews: review_task,
             _subscription: subscription,
         }
     }
@@ -340,6 +375,14 @@ impl ChatView {
             });
         })
         .detach();
+        cx.notify();
+    }
+
+    /// Opens or closes a reply's Activity disclosure.
+    pub fn toggle_activity(&mut self, id: &str, cx: &mut Context<Self>) {
+        if !self.expanded.remove(id) {
+            self.expanded.insert(id.to_owned());
+        }
         cx.notify();
     }
 
@@ -534,6 +577,7 @@ impl ChatView {
         let context = self.context.clone();
         let refs = self.chat_refs();
         let observer = self.observer();
+        let tool_context = self.tool_context(&user, cx);
         self.scroll.scroll_to_bottom();
         self.poll(run, cx);
         cx.spawn(async move |this, cx| {
@@ -555,7 +599,8 @@ impl ChatView {
                     .map_err(failure)??;
                 let mut messages = vec![system];
                 messages.extend(history);
-                let sent = session.queue_send(request, messages, previous, observer)?;
+                let sent =
+                    session.queue_send_with(request, messages, previous, observer, tool_context)?;
                 // The user row exists once the session starts streaming; its metadata keeps
                 // the mentions for later turns and reloads.
                 let reply = sent.await.map_err(failure)?;
@@ -571,6 +616,37 @@ impl ChatView {
         cx.notify();
     }
 
+    /// What shipping's tools read at call time: the attached note, its shown summary, the
+    /// message's folder mentions and Pro access.
+    fn tool_context(&self, user: &ChatMessage, cx: &gpui::App) -> ToolContext {
+        let summary = self
+            .context
+            .as_ref()
+            .filter(|session| self.route == Route::Session((*session).clone()))
+            .and_then(|_| {
+                self.workspace
+                    .read_with(cx, |workspace, cx| workspace.shown_summary(cx))
+                    .ok()
+                    .flatten()
+            });
+        let reviews = self.reviews.clone();
+        ToolContext {
+            call_id: String::new(),
+            session: self.context.as_ref().map(|session| session.0.to_string()),
+            summary: summary.map(|summary| summary.to_string()),
+            folders: user
+                .refs
+                .iter()
+                .filter(|reference| reference.kind == MentionKind::Folder)
+                .map(|reference| reference.id.clone())
+                .collect(),
+            pro: crate::product::account::is_pro(cx),
+            review: Some(Arc::new(move |id| {
+                let _ = reviews.unbounded_send(id);
+            })),
+        }
+    }
+
     fn finish(&mut self, run: u64, created: bool, result: Result<Message>, cx: &mut Context<Self>) {
         if run != self.run {
             return;
@@ -578,6 +654,7 @@ impl ChatView {
         self._poll = None;
         self.session = None;
         self.drain_pending();
+        self.drain_tools();
         match result {
             Ok(reply) => {
                 self.phase = Phase::Ready;
@@ -592,6 +669,13 @@ impl ChatView {
                 if !self.stream_reasoning.trim().is_empty() {
                     parts.push(Display::Reasoning(self.stream_reasoning.clone()));
                 }
+                parts.extend(
+                    self.stream_tools
+                        .iter()
+                        .filter(|tool| !tool.running())
+                        .cloned()
+                        .map(Display::Tool),
+                );
                 if !self.stream_text.trim().is_empty() {
                     parts.push(Display::Text(self.stream_text.clone()));
                 }
@@ -646,9 +730,14 @@ impl ChatView {
             .pending
             .lock()
             .unwrap_or_else(|poison| poison.into_inner()) = Default::default();
+        self.pending_tools
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner())
+            .clear();
         self.stream_text.clear();
         self.stream_reasoning.clear();
         self.stream_blocks.clear();
+        self.stream_tools.clear();
     }
 
     /// Moves streamed text not yet picked up by the poll into the visible reply.
@@ -664,12 +753,36 @@ impl ChatView {
     }
 
     fn observer(&self) -> StreamObserver {
-        let pending = self.pending.clone();
+        let (pending, tools) = (self.pending.clone(), self.pending_tools.clone());
         Arc::new(move |update| {
             let mut pending = pending.lock().unwrap_or_else(|poison| poison.into_inner());
             pending.0.push_str(&update.text);
             pending.1.push_str(&update.reasoning);
+            if !update.tools.is_empty() {
+                tools
+                    .lock()
+                    .unwrap_or_else(|poison| poison.into_inner())
+                    .extend(update.tools);
+            }
         })
+    }
+
+    /// Moves tool updates from the stream into the visible reply, newest state per call.
+    fn drain_tools(&mut self) -> bool {
+        let updates = std::mem::take(
+            &mut *self
+                .pending_tools
+                .lock()
+                .unwrap_or_else(|poison| poison.into_inner()),
+        );
+        let changed = !updates.is_empty();
+        for part in updates.iter().filter_map(ToolPart::from_part) {
+            match self.stream_tools.iter_mut().find(|tool| tool.id == part.id) {
+                Some(tool) => *tool = part,
+                None => self.stream_tools.push(part),
+            }
+        }
+        changed
     }
 
     fn poll(&mut self, run: u64, cx: &mut Context<Self>) {
@@ -688,7 +801,8 @@ impl ChatView {
                             .lock()
                             .unwrap_or_else(|poison| poison.into_inner()),
                     );
-                    if !text.is_empty() || !reasoning.is_empty() {
+                    let tools = this.drain_tools();
+                    if !text.is_empty() || !reasoning.is_empty() || tools {
                         let follow = view::at_bottom(&this.scroll);
                         this.stream_text.push_str(&text);
                         this.stream_reasoning.push_str(&reasoning);

@@ -285,34 +285,49 @@ async fn canonical_context_http_stream_and_tool_approval_persist() {
         .await
         .unwrap();
     assert!(matches!(&result.parts[0], Part::Text { text } if text == "fixture résumé"));
-    let base = fixture
-        .runtime
-        .open_session(fixture.session.clone(), CancellationToken::new())
-        .unwrap()
-        .receive()
-        .await
-        .unwrap()
-        .note
-        .unwrap();
+    // A chat memo edit stores its proposal, opens its review and waits for the decision.
     let tool = super::ai::MeetingTool::EditMemo {
-        session_id: fixture.session.0.to_string(),
-        expected: base.updated_at.to_string(),
-        body: "Approved résumé".into(),
+        session_id: None,
+        content: "Approved résumé".into(),
     };
-    let execute = super::tools::executor(fixture.runtime.clone(), views.approvals.clone());
-    let pending = tokio::spawn(execute(tool, CancellationToken::new()));
+    let opened = Arc::new(std::sync::Mutex::new(Vec::<Arc<str>>::new()));
+    let reviews = opened.clone();
+    let context = super::ai::ToolContext {
+        call_id: "call-memo".into(),
+        session: Some(fixture.session.0.to_string()),
+        review: Some(Arc::new(move |id| reviews.lock().unwrap().push(id))),
+        ..Default::default()
+    };
+    let execute = super::tools::executor(fixture.runtime.clone(), views.approvals.clone(), None);
+    let pending = tokio::spawn(execute(tool, context, CancellationToken::new()));
     tokio::time::timeout(std::time::Duration::from_secs(5), async {
-        loop {
-            if let Some(proposal) = views.approvals.pending() {
-                views.approvals.decide(&proposal.id, true);
-                break;
-            }
+        while !views.approvals.is_pending("call-memo") {
             tokio::task::yield_now().await;
         }
     })
     .await
     .unwrap();
-    pending.await.unwrap().unwrap();
+    assert_eq!(
+        opened.lock().unwrap().as_slice(),
+        [Arc::<str>::from("call-memo")]
+    );
+    let stored = crate::workspace::proposals::load(&fixture.runtime, "call-memo".into())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        (stored.status.as_ref(), stored.source.as_ref()),
+        ("pending", "chat")
+    );
+    // The card or tab applies first; the tool's own apply is then a no-op.
+    crate::workspace::proposals::apply(&fixture.runtime, "call-memo".into())
+        .await
+        .unwrap();
+    assert!(views.approvals.resolve("call-memo", true));
+    assert_eq!(
+        pending.await.unwrap().unwrap(),
+        json!({"status": "applied"})
+    );
     let updated = fixture
         .runtime
         .open_session(fixture.session.clone(), CancellationToken::new())
@@ -418,7 +433,7 @@ async fn first_chat_send_creates_its_group_without_creating_a_summary() {
                 let provider = provider.clone();
                 Box::pin(async move { Ok(provider) })
             }),
-            Arc::new(|_, _| Box::pin(async { Err(super::model::failure("No fixture tools")) })),
+            Arc::new(|_, _, _| Box::pin(async { Err(super::model::failure("No fixture tools")) })),
             Arc::new(|_| false),
         )
         .unwrap(),
@@ -1408,7 +1423,7 @@ async fn chat_repairs_user_row_rejects_orphans_and_preserves_failed_regeneration
                 let provider = provider.clone();
                 Box::pin(async move { Ok(provider) })
             }),
-            Arc::new(|_, _| Box::pin(async { Err(super::model::failure("No fixture tools")) })),
+            Arc::new(|_, _, _| Box::pin(async { Err(super::model::failure("No fixture tools")) })),
             Arc::new(|_| false),
         )
         .unwrap(),
@@ -1598,7 +1613,7 @@ async fn summaries_reject_notes_active_capture_and_stale_targets() {
             let provider = provider.clone();
             Box::pin(async move { Ok(provider) })
         }),
-        Arc::new(|_, _| Box::pin(async { Ok(json!({})) })),
+        Arc::new(|_, _, _| Box::pin(async { Ok(json!({})) })),
         Arc::new(move |_| recording.load(Ordering::Acquire)),
     )
     .unwrap();
@@ -1669,8 +1684,8 @@ impl ProviderAdapter for ToolProvider {
             let event = if request.tools_allowed {
                 ProviderEvent::Tool {
                     call_id: uuid::Uuid::new_v4().to_string(),
-                    name: "meeting".into(),
-                    input: json!({"session_id": request.session.0}),
+                    name: "get_meeting".into(),
+                    input: json!({"meeting_id": request.session.0}),
                 }
             } else {
                 ProviderEvent::Text("Final report".into())
@@ -1694,8 +1709,8 @@ async fn tool_loop_executes_five_typed_calls_then_a_final_report() {
             Arc::new(|_| {
                 Box::pin(async { Ok(Arc::new(ToolProvider) as Arc<dyn ProviderAdapter>) })
             }),
-            Arc::new(move |tool, _| {
-                assert!(matches!(tool, super::ai::MeetingTool::Meeting { .. }));
+            Arc::new(move |tool, _, _| {
+                assert!(matches!(tool, super::ai::MeetingTool::GetMeeting(_)));
                 observed.fetch_add(1, Ordering::AcqRel);
                 Box::pin(async { Ok(json!({"title": "Meeting fixture"})) })
             }),
@@ -1731,6 +1746,17 @@ async fn tool_loop_executes_five_typed_calls_then_a_final_report() {
             .count(),
         5
     );
+    // Stored like shipping's typed tool parts, so both apps render the saved reply.
+    let stored = fixture
+        .sql(
+            "SELECT parts_json FROM chat_messages WHERE chat_group_id = 'tools' AND role = 'assistant'",
+            vec![],
+        )
+        .await;
+    let parts: Vec<Value> =
+        serde_json::from_str(stored[0]["parts_json"].as_str().unwrap()).unwrap();
+    assert_eq!(parts[0]["type"], "tool-get_meeting");
+    assert!(parts[0].get("toolName").is_none());
     fixture.close().await;
 }
 
@@ -1747,7 +1773,7 @@ async fn cancelling_queued_chat_prevents_provider_calls_and_persistence() {
             Arc::new(|_| {
                 Box::pin(async { panic!("Cancelled queued work must never request a provider") })
             }),
-            Arc::new(|_, _| Box::pin(async { Ok(json!({})) })),
+            Arc::new(|_, _, _| Box::pin(async { Ok(json!({})) })),
             Arc::new(|_| false),
         )
         .unwrap(),

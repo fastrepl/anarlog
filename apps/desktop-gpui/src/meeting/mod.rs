@@ -4,6 +4,7 @@ pub mod automation;
 pub mod capture;
 pub mod config;
 pub mod context;
+pub mod correction;
 pub mod floating;
 pub mod foundation;
 pub mod host;
@@ -21,6 +22,7 @@ pub mod store;
 pub mod subscription;
 #[cfg(test)]
 mod tests;
+pub mod tool_search;
 pub mod tools;
 pub mod upload;
 mod views;

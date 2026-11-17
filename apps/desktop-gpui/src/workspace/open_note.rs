@@ -108,6 +108,7 @@ pub struct NoteView {
     export: Option<(Entity<ExportModal>, Subscription)>,
     /// A note view tab's right-click menu, at the pointer.
     tab_menu: Option<(Point<Pixels>, TabMenu)>,
+    pending_edits: Entity<super::edit_review::PendingEdits>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -134,6 +135,8 @@ pub enum NoteEvent {
     Open(Route),
     /// "Open floating panel" brings the live meeting's floating bar forward.
     OpenFloatingPanel,
+    /// The pending-edits banner's "Review memo" / "Review summary".
+    OpenReview(Arc<str>),
 }
 
 impl EventEmitter<NoteEvent> for NoteView {}
@@ -372,6 +375,13 @@ impl NoteView {
             window,
             |this, _, event, window, cx| this.folder_picked(event, window, cx),
         ));
+        let pending_edits = cx.new(|cx| super::edit_review::PendingEdits::new(runtime.clone(), cx));
+        subscriptions.push(cx.subscribe(
+            &pending_edits,
+            |_, _, event: &super::edit_review::OpenReview, cx| {
+                cx.emit(NoteEvent::OpenReview(event.0.clone()))
+            },
+        ));
         let templates_cancel = CancellationToken::new();
         resource_list::watch(
             &runtime,
@@ -431,6 +441,7 @@ impl NoteView {
             meeting_info: None,
             export: None,
             tab_menu: None,
+            pending_edits,
             _subscriptions: subscriptions,
         }
     }
@@ -727,6 +738,9 @@ impl NoteView {
         });
         self.message.clear();
         self.mode = LiveState::mode(cx, &session.summary.id);
+        let id = session.summary.id.0.clone();
+        self.pending_edits
+            .update(cx, |banner, cx| banner.set_session(Some(id), cx));
         self.current = Some(session);
         self.sync_batch(cx);
         self.load_audio(cx);
@@ -909,6 +923,20 @@ impl NoteView {
             || !inactive
             || self.batch.is_some();
         note_tabs(&ids, transcript)
+    }
+
+    pub fn session_id(&self) -> Option<&SessionId> {
+        self.current.as_ref().map(|session| &session.summary.id)
+    }
+
+    /// The summary the note shows, which chat edits and corrections target by default.
+    pub fn shown_summary(&self) -> Option<Arc<str>> {
+        self.current.as_ref()?;
+        let tabs = self.tabs();
+        match current_tab(self.view.as_ref(), self.mode == SessionMode::Active, &tabs) {
+            NoteTab::Summary(id) => Some(id),
+            _ => None,
+        }
     }
 
     /// Shipping's `useHasEditableSummary`: the shown view is a summary with content.
@@ -2558,6 +2586,7 @@ impl Render for NoteView {
                 }
             }))
             .when(ready, |view| view.child(self.header(window, cx)))
+            .when(ready, |view| view.child(self.pending_edits.clone()))
             .when(self.loading, |view| view.child(loading_skeleton(colors)))
             .child(
                 canvas(

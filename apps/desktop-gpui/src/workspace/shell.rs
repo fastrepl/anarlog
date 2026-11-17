@@ -92,6 +92,7 @@ pub struct WorkspaceView {
     /// Shipping asks before deleting a multi-selection.
     pub(super) confirm_delete: Option<Arc<[SessionId]>>,
     automation_client: Option<super::automation_runner::AutomationClient>,
+    pub(super) edit_review: Option<Entity<super::edit_review::EditReview>>,
     subscriptions: Vec<Subscription>,
 }
 
@@ -322,6 +323,9 @@ impl WorkspaceView {
             NoteEvent::OpenTemplates => this.navigate(Navigate::Open(Route::Templates, false), cx),
             NoteEvent::Open(route) => this.open_route(route.clone(), true, cx),
             NoteEvent::OpenFloatingPanel => cx.emit(WorkspaceAction::OpenFloatingPanel),
+            NoteEvent::OpenReview(id) => {
+                this.navigate(Navigate::Open(Route::Edit(id.clone()), true), cx)
+            }
             NoteEvent::Failed => {
                 this.pending = None;
                 this.set_status(
@@ -429,6 +433,7 @@ impl WorkspaceView {
             pin_persistence: false,
             deletions: Vec::new(),
             confirm_delete: None,
+            edit_review: None,
             automation_client: None,
             subscriptions: vec![
                 open_subscription,
@@ -575,6 +580,38 @@ impl WorkspaceView {
     /// Whether the open note shows a summary with content, for chat's rewrite suggestions.
     pub fn editable_summary_shown(&self, cx: &gpui::App) -> bool {
         self.note.read(cx).editable_summary_shown()
+    }
+
+    /// Closes every tab showing `route`, like shipping's `closeProposalReviewTab`.
+    pub fn close_route(&mut self, route: &Route, cx: &mut Context<Self>) {
+        let slots = self
+            .navigation
+            .tabs
+            .iter()
+            .filter(|tab| &tab.route == route)
+            .map(|tab| tab.slot)
+            .collect::<Vec<_>>();
+        if slots.is_empty() {
+            return;
+        }
+        for slot in slots {
+            self.navigation.close(slot);
+        }
+        if self.navigation.tabs.is_empty() {
+            self.navigation.open(Route::Empty, true, false);
+        }
+        // The tab now shown may be another note than the one last opened.
+        if let Some(Route::Session(id)) = self.navigation.current().map(|tab| tab.route.clone())
+            && self.note.read(cx).session_id() != Some(&id)
+        {
+            self.note.update(cx, |note, cx| note.open(id, cx));
+        }
+        self.sync_route(cx);
+        cx.notify();
+    }
+
+    pub fn shown_summary(&self, cx: &gpui::App) -> Option<Arc<str>> {
+        self.note.read(cx).shown_summary()
     }
 
     pub fn current_route(&self) -> Route {
@@ -820,6 +857,11 @@ impl WorkspaceView {
             )
         });
         self.route_content = None;
+        // Leaving an edit review unmounts it, as in shipping.
+        if !matches!(&route, Route::Edit(id) if self.edit_review.as_ref().is_some_and(|review| review.read(cx).id == *id))
+        {
+            self.edit_review = None;
+        }
         let calendar_route = route == Route::Calendar;
         self.calendar.update(cx, |calendar, cx| {
             if calendar_route {
