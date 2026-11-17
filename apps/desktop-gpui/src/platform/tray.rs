@@ -37,26 +37,39 @@ pub enum TrayAction {
     Agenda(Arc<str>),
 }
 
-/// Shipping's `UpdateMenuState`, shared by the tray and the app menu.
+/// The one update state: the tray and app menu render it as shipping's `UpdateMenuState`, the
+/// sidebar toast as shipping's `DesktopUpdateControl`.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub enum UpdateMenu {
     #[default]
     CheckForUpdate,
-    Downloading,
+    Available(Arc<str>),
+    /// The version and the downloaded percentage, once the content length is known.
+    Downloading(Arc<str>, Option<u8>),
     RestartToApply(Arc<str>),
+    /// The version and the failure message.
+    Failed(Arc<str>, Arc<str>),
 }
 
 impl UpdateMenu {
     pub fn label(&self) -> &'static str {
         match self {
-            Self::CheckForUpdate => "Check for Updates",
-            Self::Downloading => "Downloading...",
+            Self::CheckForUpdate | Self::Available(_) | Self::Failed(..) => "Check for Updates",
+            Self::Downloading(..) => "Downloading...",
             Self::RestartToApply(_) => "Restart to Apply Update",
         }
     }
 
     pub fn enabled(&self) -> bool {
-        !matches!(self, Self::Downloading)
+        !matches!(self, Self::Downloading(..))
+    }
+
+    /// Shipping's tray `set_update_available`: on from available until a failure.
+    fn available(&self) -> bool {
+        matches!(
+            self,
+            Self::Available(_) | Self::Downloading(..) | Self::RestartToApply(_)
+        )
     }
 }
 
@@ -154,10 +167,9 @@ impl TrayModel {
             item("anlg_tray_hide", "Hide", true),
             item("anlg_tray_quit_completely", "Quit Completely…", true),
         ]);
-        let update_available = state.update != UpdateMenu::CheckForUpdate;
         let icon = if state.recording && !state.degraded {
             TrayIcon::Recording((now_ms / RECORDING_FRAME_MS) as usize % RECORDING_FRAMES.len())
-        } else if update_available {
+        } else if state.update.available() {
             TrayIcon::UpdateAvailable
         } else if state.degraded {
             TrayIcon::Degraded
@@ -402,12 +414,22 @@ mod tests {
             TrayIcon::UpdateAvailable
         );
         let downloading = TrayState {
-            update: UpdateMenu::Downloading,
-            ..idle
+            update: UpdateMenu::Downloading("1.2.3".into(), Some(40)),
+            ..idle.clone()
         };
         assert_eq!(
             action_for(&TrayModel::new(&downloading, 0.), "anlg_tray_check_update"),
             None
+        );
+        let failed = TrayState {
+            update: UpdateMenu::Failed("1.2.3".into(), "Failed to download update.".into()),
+            ..idle
+        };
+        let model = TrayModel::new(&failed, 0.);
+        assert_eq!(model.icon, TrayIcon::Default);
+        assert_eq!(
+            action_for(&model, "anlg_tray_check_update"),
+            Some(TrayAction::CheckUpdate)
         );
     }
 

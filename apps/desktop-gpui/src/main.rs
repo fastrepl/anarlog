@@ -112,7 +112,14 @@ fn main() -> anyhow::Result<()> {
                                         .ok()
                                 })
                                 .unwrap_or(false);
-                            events.sync_menus(&mut handles, MenuState { update, fullscreen }, cx);
+                            events.sync_menus(
+                                &mut handles,
+                                MenuState {
+                                    update: (update.label(), update.enabled()),
+                                    fullscreen,
+                                },
+                                cx,
+                            );
                             events.poll(&mut handles, &tray, main, cx);
                             false
                         });

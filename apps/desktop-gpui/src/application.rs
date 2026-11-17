@@ -1,17 +1,16 @@
 mod automation;
 mod chrome;
+mod cloud_api;
+mod enterprise_capture;
 pub mod instruction;
 pub(crate) mod lifecycle;
 pub mod lock;
 mod meeting_schedule;
 mod note_windows;
-mod enterprise_capture;
-mod cloud_api;
 mod notifications;
-pub mod toasts;
-mod updates;
 mod release_notes;
 pub mod team_invitations;
+pub mod toasts;
 
 use std::{path::PathBuf, sync::Arc, time::Duration};
 
@@ -78,7 +77,6 @@ pub struct ApplicationView {
     editor_vault: PathBuf,
     writers_paused: bool,
     lifecycle: lifecycle::Lifecycle,
-    update: updates::Update,
     toasts: Entity<toasts::Toasts>,
     meeting_open: bool,
     capture_session: Option<SessionId>,
@@ -407,7 +405,6 @@ impl ApplicationView {
             editor_vault,
             writers_paused: false,
             lifecycle: lifecycle::Lifecycle::new(tray_settings),
-            update: updates::Update::None,
             toasts,
             capture_session: None,
             meeting_open: false,

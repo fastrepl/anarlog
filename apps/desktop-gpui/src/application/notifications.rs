@@ -10,9 +10,10 @@ use std::{
 use gpui::{Context, SharedString, Window};
 use serde_json::{Value, json};
 
-use super::{ApplicationView, toasts, updates::UpdateNotice};
+use super::{ApplicationView, toasts};
 use crate::{
     contracts::ProductRoute,
+    platform::tray::UpdateMenu,
     product::settings::{self, Snapshot},
 };
 
@@ -128,7 +129,9 @@ struct Inputs<'a> {
     section: Option<&'a str>,
     live: bool,
     downloads: &'a [(String, u8)],
-    update: Option<UpdateNotice>,
+    update: &'a UpdateMenu,
+    /// Restart was chosen; shipping hides the update actions while it installs.
+    installing: bool,
 }
 
 fn configured_stt(provider: &str, model: &str) -> bool {
@@ -150,13 +153,11 @@ fn configured_stt(provider: &str, model: &str) -> bool {
     }
 }
 
-fn update_notice(update: UpdateNotice) -> Notice {
-    use UpdateNotice::*;
-    match update {
-        Ready {
-            version,
-            installing,
-        } => Notice {
+/// Shipping's `createDesktopUpdateToast` over the lifecycle's update state.
+fn update_notice(update: &UpdateMenu, installing: bool) -> Option<Notice> {
+    Some(match update {
+        UpdateMenu::CheckForUpdate => return None,
+        UpdateMenu::RestartToApply(version) => Notice {
             action: (!installing).then_some(("Restart", Act::Install)),
             ..Notice::new(
                 format!("desktop-update:{version}:ready"),
@@ -164,21 +165,21 @@ fn update_notice(update: UpdateNotice) -> Notice {
                 Lifecycle::Session,
             )
         },
-        Downloading(version, progress) => Notice {
+        UpdateMenu::Downloading(version, percent) => Notice {
             loading: true,
             ..Notice::new(
                 format!("desktop-update:{version}:downloading"),
                 format!(
                     "Downloading Anarlog {version}{}",
-                    progress
-                        .map(|progress| format!(" ({}%)", (progress * 100.).round()))
+                    percent
+                        .map(|percent| format!(" ({percent}%)"))
                         .unwrap_or_default()
                 ),
                 Lifecycle::Session,
             )
         },
-        Failed(version, message) => Notice {
-            action: Some(("Retry", Act::Download)),
+        UpdateMenu::Failed(version, message) => Notice {
+            action: (!installing).then_some(("Retry", Act::Download)),
             error: true,
             ..Notice::new(
                 format!("desktop-update:{version}:failed"),
@@ -190,7 +191,7 @@ fn update_notice(update: UpdateNotice) -> Notice {
                 Lifecycle::Session,
             )
         },
-        Available(version) => Notice {
+        UpdateMenu::Available(version) => Notice {
             action: Some(("Download", Act::Download)),
             ..Notice::new(
                 format!("desktop-update:{version}:available"),
@@ -198,7 +199,7 @@ fn update_notice(update: UpdateNotice) -> Notice {
                 Lifecycle::Day,
             )
         },
-    }
+    })
 }
 
 /// `createToastRegistry`'s entries whose condition holds, in priority order.
@@ -243,8 +244,8 @@ fn registry(inputs: &Inputs) -> Vec<Notice> {
         });
     }
     // Never show update prompts mid-meeting; they resurface after.
-    if let Some(update) = inputs.update.clone().filter(|_| !inputs.live) {
-        notices.push(update_notice(update));
+    if let Some(update) = update_notice(inputs.update, inputs.installing).filter(|_| !inputs.live) {
+        notices.push(update);
     }
     if signed_out {
         notices.push(Notice {
@@ -459,9 +460,9 @@ impl ApplicationView {
             .filter(|_| cloud)
             .map(|account| account.signed_in());
         let downloads = self.notifications.downloads.clone();
-        let update = self.update_notice();
+        let update = self.update_menu();
         // Session dismissals of a failed update or a finished download do not outlive them.
-        let failed = matches!(update, Some(UpdateNotice::Failed(..)));
+        let failed = matches!(update, UpdateMenu::Failed(..));
         if self.notifications.update_failed && !failed {
             self.notifications
                 .session_dismissed
@@ -487,7 +488,8 @@ impl ApplicationView {
             section,
             live: self.meeting_live(),
             downloads: &downloads,
-            update,
+            update: &update,
+            installing: self.update_installing(),
         });
         self.notifications.current(notices, now_ms())
     }
@@ -562,8 +564,8 @@ impl ApplicationView {
             }
             Act::Transcription => self.open_product(ProductRoute::Transcription, window, cx),
             Act::Intelligence => self.open_product(ProductRoute::Intelligence, window, cx),
-            Act::Download => self.download_update(cx),
-            Act::Install => self.install_update(cx),
+            Act::Download => self.download_update(false, cx),
+            Act::Install => self.apply_update(false, cx),
         }
     }
 
@@ -620,7 +622,8 @@ mod tests {
             section: None,
             live: false,
             downloads: &[],
-            update: None,
+            update: &UpdateMenu::CheckForUpdate,
+            installing: false,
         }
     }
 
@@ -653,12 +656,12 @@ mod tests {
             ids(&registry(&signed_out)),
             ["sign-in-benefits", "missing-stt"]
         );
-        let update = Some(UpdateNotice::Available("1.2.0".into()));
+        let update = UpdateMenu::Available("1.2.0".into());
         let downloads = [("Parakeet".to_owned(), 40)];
         let busy = Inputs {
             signed_in: Some(false),
             downloads: &downloads,
-            update: update.clone(),
+            update: &update,
             ..inputs(local, byok)
         };
         assert_eq!(
@@ -684,7 +687,7 @@ mod tests {
         let mut notifications = Notifications::default();
         let now = now_ms();
         let notices = registry(&Inputs {
-            update,
+            update: &update,
             ..signed_out
         });
         assert_eq!(
@@ -717,6 +720,28 @@ mod tests {
                 dismissed: vec!["auth-promotion".into()],
                 snoozed: HashMap::from([("a".into(), 5)]),
             }
+        );
+    }
+
+    #[test]
+    fn update_toast_follows_the_lifecycle_update_state() {
+        let notice = |update: UpdateMenu, installing| update_notice(&update, installing);
+        assert_eq!(notice(UpdateMenu::CheckForUpdate, false), None);
+        let downloading = notice(UpdateMenu::Downloading("1.2.0".into(), Some(58)), false).unwrap();
+        assert_eq!(downloading.message, "Downloading Anarlog 1.2.0 (58%)");
+        assert!(downloading.loading && downloading.action.is_none());
+        let ready = notice(UpdateMenu::RestartToApply("1.2.0".into()), false).unwrap();
+        assert_eq!(ready.action, Some(("Restart", Act::Install)));
+        let installing = notice(UpdateMenu::RestartToApply("1.2.0".into()), true).unwrap();
+        assert_eq!(installing.action, None);
+        let failed = notice(UpdateMenu::Failed("1.2.0".into(), "".into()), false).unwrap();
+        assert_eq!(
+            (failed.message.as_str(), failed.action, failed.error),
+            (
+                "The update download failed",
+                Some(("Retry", Act::Download)),
+                true
+            )
         );
     }
 }

@@ -4,7 +4,10 @@
 
 use std::{
     path::{Path, PathBuf},
-    sync::Arc,
+    sync::{
+        Arc,
+        atomic::{AtomicU64, Ordering},
+    },
     time::{Duration, Instant},
 };
 
@@ -12,7 +15,10 @@ use chrono::{DateTime, FixedOffset, Local, NaiveDate, TimeZone, Utc};
 use chrono_tz::Tz;
 use desktop_runtime::{
     CancellationToken, ServiceError, SessionId,
-    updater::{InstallConditions, NativeUpdater, UpdateConfig, UpdateInstaller, VerifiedUpdate},
+    updater::{
+        InstallConditions, NativeUpdater, ResolvedRelease, UpdateConfig, UpdateInstaller,
+        VerifiedUpdate,
+    },
 };
 use gpui::{
     Animation, AnimationExt, App, AppContext, Bounds, ClipboardItem, Context, IntoElement, Render,
@@ -33,6 +39,8 @@ use crate::{
 pub const QUIT_OVERLAY_DURATION: Duration = Duration::from_millis(1500);
 const FADE: Duration = Duration::from_millis(150);
 const SCHEDULE_HORIZON_DAYS: i64 = 7;
+/// Shipping's `UPDATE_CHECK_INTERVAL_MS`.
+const UPDATE_CHECK_INTERVAL: Duration = Duration::from_secs(30 * 60);
 const UNTITLED: [&str; 4] = [
     "untitled",
     "untitled event",
@@ -382,6 +390,8 @@ pub(super) struct Lifecycle {
     update: UpdateMenu,
     checking: bool,
     installing: bool,
+    /// The release the last check found, which Download and Retry fetch.
+    release: Option<(Arc<NativeUpdater>, ResolvedRelease)>,
     ready: Option<VerifiedUpdate>,
     confirming: bool,
 }
@@ -398,6 +408,7 @@ impl Lifecycle {
             update: UpdateMenu::default(),
             checking: false,
             installing: false,
+            release: None,
             ready: None,
             confirming: false,
         }
@@ -412,6 +423,18 @@ impl ApplicationView {
 
     pub fn update_menu(&self) -> UpdateMenu {
         self.lifecycle.update.clone()
+    }
+
+    /// Restart was chosen and the install is running.
+    pub(super) fn update_installing(&self) -> bool {
+        self.lifecycle.installing
+    }
+
+    /// Capture is starting, live or finalizing.
+    pub(super) fn meeting_live(&self) -> bool {
+        self.capture_phase().is_some_and(|(phase, ..)| {
+            matches!(phase, Phase::Loading | Phase::Listening | Phase::Finalizing)
+        })
     }
 
     pub fn tray_model(&self) -> TrayModel {
@@ -719,13 +742,74 @@ impl ApplicationView {
         }));
     }
 
+    /// One feed check, from startup, the 30-minute timer or the tray. A found release becomes
+    /// `Available` unless a download, ready update or same-version failure owns the state, like
+    /// shipping's update events.
+    fn check_feed(
+        &mut self,
+        updater: Arc<NativeUpdater>,
+        cx: &mut Context<Self>,
+    ) -> Task<desktop_runtime::Result<Option<Arc<str>>>> {
+        self.lifecycle.checking = true;
+        let reply = updater.check(&self.runtime, CancellationToken::new());
+        cx.spawn(async move |this, cx| {
+            let result = async { reply?.receive().await }.await;
+            this.update(cx, |this, cx| {
+                this.lifecycle.checking = false;
+                let release = result?;
+                let found = release.as_ref().map(release_version);
+                let replace = match &this.lifecycle.update {
+                    UpdateMenu::CheckForUpdate | UpdateMenu::Available(_) => true,
+                    UpdateMenu::Failed(version, _) => {
+                        found.as_ref().is_some_and(|found| found != version)
+                    }
+                    UpdateMenu::Downloading(..) | UpdateMenu::RestartToApply(_) => false,
+                };
+                if replace {
+                    this.lifecycle.update = found
+                        .clone()
+                        .map_or(UpdateMenu::CheckForUpdate, UpdateMenu::Available);
+                    this.lifecycle.release = release.map(|release| (updater, release));
+                    cx.notify();
+                }
+                Ok(found)
+            })
+            .map_err(|_| ServiceError::Closed)?
+        })
+    }
+
+    /// Like shipping's update banner, a configured build checks at startup and every 30 minutes.
+    pub(super) fn watch_updates(&mut self, cx: &mut Context<Self>) {
+        let Ok(updater) = updater() else {
+            return;
+        };
+        cx.spawn(async move |this, cx| {
+            loop {
+                let alive = this.update(cx, |this, cx| {
+                    let busy = matches!(
+                        this.lifecycle.update,
+                        UpdateMenu::Downloading(..) | UpdateMenu::RestartToApply(_)
+                    );
+                    if !busy && !this.lifecycle.checking && !this.closing {
+                        this.check_feed(updater.clone(), cx).detach();
+                    }
+                });
+                if alive.is_err() {
+                    break;
+                }
+                cx.background_executor().timer(UPDATE_CHECK_INTERVAL).await;
+            }
+        })
+        .detach();
+    }
+
     /// Shipping's "Check for Updates" item (`tray_check_update.rs`) and its dialogs.
     pub(super) fn check_for_updates(&mut self, cx: &mut Context<Self>) {
         match self.lifecycle.update {
-            UpdateMenu::Downloading => return,
-            UpdateMenu::RestartToApply(_) => return self.apply_update(cx),
-            UpdateMenu::CheckForUpdate if self.lifecycle.checking || self.closing => return,
-            UpdateMenu::CheckForUpdate => {}
+            UpdateMenu::Downloading(..) => return,
+            UpdateMenu::RestartToApply(_) => return self.apply_update(true, cx),
+            _ if self.lifecycle.checking || self.closing => return,
+            _ => {}
         }
         let updater = match updater() {
             Ok(updater) => updater,
@@ -737,13 +821,10 @@ impl ApplicationView {
                 );
             }
         };
-        self.lifecycle.checking = true;
-        let reply = updater.check(&self.runtime, CancellationToken::new());
+        let check = self.check_feed(updater, cx);
         cx.spawn(async move |this, cx| {
-            let result = async { reply?.receive().await }.await;
-            let _ = this.update(cx, |this, _| this.lifecycle.checking = false);
-            let release = match result {
-                Ok(Some(release)) => release,
+            let version = match check.await {
+                Ok(Some(version)) => version,
                 Ok(None) => {
                     alert(
                         "Check for Updates",
@@ -763,24 +844,76 @@ impl ApplicationView {
                     return;
                 }
             };
-            let version: Arc<str> = release.version.to_string().into();
             let accepted = alert(
                 "Update Available",
                 &format!("Update v{version} is available!"),
                 Some(("Download", "Later")),
             )
             .await;
-            if !accepted {
-                return;
+            if accepted {
+                let _ = this.update(cx, |this, cx| this.download_update(true, cx));
             }
-            let Ok(reply) = this.update(cx, |this, cx| {
-                this.lifecycle.update = UpdateMenu::Downloading;
-                cx.notify();
-                updater.download(&this.runtime, release, CancellationToken::new())
-            }) else {
-                return;
+        })
+        .detach();
+    }
+
+    /// Downloads the release the last check found: the tray dialog's Download and the toast's
+    /// Download and Retry.
+    pub(super) fn download_update(&mut self, from_tray: bool, cx: &mut Context<Self>) {
+        let busy = matches!(
+            self.lifecycle.update,
+            UpdateMenu::Downloading(..) | UpdateMenu::RestartToApply(_)
+        );
+        if busy || self.lifecycle.installing || self.closing {
+            return;
+        }
+        let Some((updater, release)) = self.lifecycle.release.clone() else {
+            return;
+        };
+        let version = release_version(&release);
+        let progress = Arc::new((AtomicU64::new(0), AtomicU64::new(0)));
+        let reply = {
+            let progress = progress.clone();
+            updater.download_with_progress(
+                &self.runtime,
+                release,
+                CancellationToken::new(),
+                move |chunk, total| {
+                    progress.0.fetch_add(chunk as u64, Ordering::Relaxed);
+                    progress.1.store(total.unwrap_or(0), Ordering::Relaxed);
+                },
+            )
+        };
+        self.lifecycle.update = UpdateMenu::Downloading(version.clone(), None);
+        cx.notify();
+        cx.spawn(async move |this, cx| {
+            let download = async { reply?.receive().await };
+            futures::pin_mut!(download);
+            // Chunks arrive on the runtime; the percentage is published every 250 ms.
+            let result = loop {
+                let tick = cx.background_executor().timer(Duration::from_millis(250));
+                futures::pin_mut!(tick);
+                match futures::future::select(download.as_mut(), tick).await {
+                    futures::future::Either::Left((result, _)) => break result,
+                    futures::future::Either::Right(_) => {
+                        let percent = download_percent(
+                            progress.0.load(Ordering::Relaxed),
+                            progress.1.load(Ordering::Relaxed),
+                        );
+                        let alive = this.update(cx, |this, cx| {
+                            if let UpdateMenu::Downloading(_, shown) = &mut this.lifecycle.update
+                                && *shown != percent
+                            {
+                                *shown = percent;
+                                cx.notify();
+                            }
+                        });
+                        if alive.is_err() {
+                            return;
+                        }
+                    }
+                }
             };
-            let result = async { reply?.receive().await }.await;
             let failed = this.update(cx, |this, cx| {
                 cx.notify();
                 match result {
@@ -790,12 +923,18 @@ impl ApplicationView {
                         None
                     }
                     Err(error) => {
-                        this.lifecycle.update = UpdateMenu::CheckForUpdate;
+                        // Shipping's toast shows the download error; its tray, a dialog.
+                        let message = if from_tray {
+                            "Failed to download update.".into()
+                        } else {
+                            error.to_string().into()
+                        };
+                        this.lifecycle.update = UpdateMenu::Failed(version, message);
                         Some(error)
                     }
                 }
             });
-            if let Ok(Some(error)) = failed {
+            if from_tray && let Ok(Some(error)) = failed {
                 alert(
                     "Update Failed",
                     &format!("Failed to download update: {error}"),
@@ -807,17 +946,15 @@ impl ApplicationView {
         .detach();
     }
 
-    fn apply_update(&mut self, cx: &mut Context<Self>) {
+    /// Shipping's Restart (toast) and "Restart to Apply Update" (tray).
+    pub(super) fn apply_update(&mut self, from_tray: bool, cx: &mut Context<Self>) {
         if self.lifecycle.installing || self.closing {
             return;
         }
-        let capturing = self.capture_phase().is_some_and(|(phase, ..)| {
-            matches!(phase, Phase::Loading | Phase::Listening | Phase::Finalizing)
-        });
         let installation =
             std::env::var_os("ANARLOG_NATIVE_UPDATE_INSTALLATION").map(PathBuf::from);
         let blocked = NativeUpdater::permit_install(InstallConditions {
-            meeting_active: capturing,
+            meeting_active: self.meeting_live(),
             ..Default::default()
         })
         .err()
@@ -829,11 +966,12 @@ impl ApplicationView {
             })
         });
         if let Some(error) = blocked {
-            return notify(
-                "Update Failed",
-                format!("Failed to install update: {error}"),
-                cx,
-            );
+            let message = format!("Failed to install update: {error}");
+            return if from_tray {
+                notify("Update Failed", message, cx)
+            } else {
+                super::toasts::error(message, cx)
+            };
         }
         if self
             .product
@@ -846,7 +984,9 @@ impl ApplicationView {
             self.lifecycle.update = UpdateMenu::CheckForUpdate;
             return;
         };
+        let version = release_version(&update.release);
         self.lifecycle.installing = true;
+        cx.notify();
         let runtime = self.runtime.clone();
         cx.spawn(async move |this, cx| {
             let result: desktop_runtime::Result<()> = async {
@@ -877,6 +1017,7 @@ impl ApplicationView {
             .await;
             let failed = this.update(cx, |this, cx| {
                 this.lifecycle.installing = false;
+                cx.notify();
                 match result {
                     Ok(()) => {
                         crate::platform::windows::request_restart();
@@ -884,13 +1025,15 @@ impl ApplicationView {
                         None
                     }
                     Err(error) => {
-                        this.lifecycle.update = UpdateMenu::CheckForUpdate;
+                        // The verified bytes were consumed; Retry downloads the release again.
+                        this.lifecycle.update =
+                            UpdateMenu::Failed(version, error.to_string().into());
                         this.resume_writers(cx);
                         Some(error)
                     }
                 }
             });
-            if let Ok(Some(error)) = failed {
+            if from_tray && let Ok(Some(error)) = failed {
                 alert(
                     "Update Failed",
                     &format!("Failed to install update: {error}"),
@@ -903,6 +1046,14 @@ impl ApplicationView {
     }
 }
 
+fn release_version(release: &ResolvedRelease) -> Arc<str> {
+    release.version.to_string().into()
+}
+
+/// Shipping's `Math.round(progress * 100)`, or `None` until the content length is known.
+fn download_percent(downloaded: u64, total: u64) -> Option<u8> {
+    (total > 0).then(|| ((downloaded as f64 / total as f64).clamp(0., 1.) * 100.).round() as u8)
+}
 #[cfg(test)]
 mod tests {
     use super::*;

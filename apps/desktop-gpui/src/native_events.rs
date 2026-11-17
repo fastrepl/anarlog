@@ -63,7 +63,8 @@ pub enum NativeEvent {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MenuState {
-    pub update: UpdateMenu,
+    /// The update item's label and whether it is enabled; download progress never rebuilds menus.
+    pub update: (&'static str, bool),
     pub fullscreen: bool,
 }
 
@@ -79,8 +80,7 @@ pub fn app_menus(state: &MenuState) -> Vec<Menu> {
             "Anarlog",
             vec![
                 MenuItem::action("About Anarlog", About),
-                MenuItem::action(state.update.label(), CheckUpdate)
-                    .disabled(!state.update.enabled()),
+                MenuItem::action(state.update.0, CheckUpdate).disabled(!state.update.1),
                 MenuItem::action("Settings", Settings),
                 MenuItem::separator(),
                 MenuItem::os_submenu("Services", gpui::SystemMenuType::Services),
@@ -298,7 +298,7 @@ impl NativeEvents {
         #[cfg(target_os = "macos")]
         self.install_quit_keys(cx);
         let menus = MenuState {
-            update: UpdateMenu::default(),
+            update: (UpdateMenu::default().label(), true),
             fullscreen: false,
         };
         cx.set_menus(app_menus(&menus));
