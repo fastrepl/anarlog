@@ -68,21 +68,20 @@ Follow the writing rules in `packages/changelog/content/AGENTS.md`, including
 Use `packages/changelog/content/mobile/<version>.md` and read that directory’s
 `AGENTS.md`. Select the explicit requested marketing version or
 `apps/mobile/release-version.json`; never bump or reuse the desktop version.
-Ground beta notes in the preceding available mobile release's source SHA.
-Ground stable notes in the preceding stable mobile release's source SHA so
-changes previously tested in beta remain included. With no prior release,
-review the initial mobile user-facing behavior without inventing publication.
-The changelog workflow accepts `stream`, `channel`, and an optional `version`.
-Use its optional `source_sha` to select an exact candidate or promote an existing
-beta build without including later commits. Without it, stable preparation uses
-HEAD when only a beta record exists for the version; revising notes for an
-already published release in the same channel uses its recorded source.
+Mobile ships only to the public App Store and Google Play; there is no beta
+channel. Ground notes in the preceding stable mobile release's source SHA;
+historical beta records are not baselines. With no prior release, review the
+initial mobile user-facing behavior without inventing publication. The
+changelog workflow accepts `stream`, `channel` (`stable`), and an optional
+`version`. Use its optional `source_sha` to select an exact candidate without
+including later commits. Without it, preparation uses HEAD; revising notes for
+an already published release uses its recorded source.
 
 Prepare notes before freezing the candidate. Do not create the publication
-record during preparation. After verified store/tester availability,
+record during preparation. After verified store availability,
 [Release Docs](../release-docs/SKILL.md) owns the adjacent `<version>.json`
-record and website publication. Record only available platforms and preserve
-channel/destination labels. A submitted build is not a published release.
+record and website publication. Record only available platforms and their
+store destinations. A submitted build is not a published release.
 
 ## Contributor credit
 
