@@ -7,6 +7,7 @@ mod calendar_rules;
 pub mod calendar_sidebar;
 pub mod catalog_icons;
 pub(crate) mod contacts;
+pub mod folder_picker;
 pub mod folders;
 pub mod folders_view;
 mod icon_picker;

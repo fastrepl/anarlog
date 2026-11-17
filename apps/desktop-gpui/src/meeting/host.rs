@@ -77,6 +77,13 @@ impl MeetingHost {
         changes
     }
 
+    /// Shipping's "Open floating panel": brings the live meeting's floating bar forward.
+    pub fn show_floating(&self, cx: &mut App) {
+        if let Some((handle, _)) = &self.floating {
+            let _ = handle.update(cx, |_, window, _| window.activate_window());
+        }
+    }
+
     /// Shows the floating bar while a meeting is listening and closes it otherwise.
     pub fn sync_floating(
         &mut self,

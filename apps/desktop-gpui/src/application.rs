@@ -147,6 +147,7 @@ impl ApplicationView {
                 WorkspaceAction::NewNoteWindow => this.open_note_window(None, cx),
                 WorkspaceAction::OpenNoteWindow(id) => this.open_note_window(Some(id.clone()), cx),
                 WorkspaceAction::PinnedChanged(routes) => this.save_pins(routes.clone(), cx),
+                WorkspaceAction::OpenFloatingPanel => this.meeting_host.show_floating(cx),
             }),
             // Plan-gated surfaces read the account while rendering.
             cx.observe_global::<crate::product::account::Account>(|_, cx| cx.notify()),

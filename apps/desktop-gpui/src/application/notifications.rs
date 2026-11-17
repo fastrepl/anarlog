@@ -392,6 +392,13 @@ impl ApplicationView {
                                     workspace.set_timeline_clock(use_24_hour_time, timezone, cx);
                                     workspace.set_timeline_metadata(show_folder, show_tags, cx);
                                     workspace.set_calendar_week_start(week_start, cx);
+                                    workspace.set_floating_bar_enabled(
+                                        snapshot
+                                            .get("floating_bar_enabled")
+                                            .and_then(|setting| setting.value.as_bool())
+                                            .unwrap_or(true),
+                                        cx,
+                                    );
                                 });
                                 this.automation.update(cx, |automation, _| {
                                     automation.set_preferences(snapshot.clone())

@@ -72,6 +72,11 @@ const ICONS: &[(&str, &[u8])] = &[
     ("GoogleCalendar", include_bytes!("icons/GoogleCalendar.svg")),
     ("OutlookIcon", include_bytes!("icons/OutlookIcon.svg")),
     ("RepeatIcon", include_bytes!("icons/RepeatIcon.svg")),
+    ("PencilIcon", include_bytes!("icons/PencilIcon.svg")),
+    (
+        "ArrowTurnBackwardIcon",
+        include_bytes!("icons/ArrowTurnBackwardIcon.svg"),
+    ),
 ];
 
 const IMAGES: &[(&str, &[u8])] = &[(

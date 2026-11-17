@@ -30,7 +30,6 @@ use super::{
 use crate::{
     chat::{ChatView, state::ChatEvent},
     contracts::{LaneContext, MeetingIntent, ProductRoute, WorkspaceEvent},
-    ui::input::TextInput,
 };
 
 #[derive(Clone)]
@@ -40,6 +39,8 @@ pub enum WorkspaceAction {
     NewNoteWindow,
     OpenNoteWindow(SessionId),
     PinnedChanged(Arc<[Route]>),
+    /// The note menu's "Open floating panel".
+    OpenFloatingPanel,
 }
 
 #[derive(Clone)]
@@ -87,9 +88,6 @@ pub struct WorkspaceView {
     auto_start: Option<SessionId>,
     pub(super) route_content: Option<(Route, AnyView)>,
     pub(super) pin_persistence: bool,
-    pub(super) note_operation: Option<(Arc<[SessionId]>, bool)>,
-    pub(super) move_target: Entity<TextInput>,
-    pub(super) mutation_busy: bool,
     pub(super) deletions: Vec<super::undo_delete::Pending>,
     /// Shipping asks before deleting a multi-selection.
     pub(super) confirm_delete: Option<Arc<[SessionId]>>,
@@ -99,9 +97,6 @@ pub struct WorkspaceView {
 
 impl EventEmitter<WorkspaceEvent> for WorkspaceView {}
 impl EventEmitter<WorkspaceAction> for WorkspaceView {}
-
-struct NoteOperationChanged;
-impl EventEmitter<NoteOperationChanged> for WorkspaceView {}
 
 impl Focusable for WorkspaceView {
     fn focus_handle(&self, _: &App) -> FocusHandle {
@@ -121,6 +116,11 @@ impl WorkspaceView {
         });
     }
 
+    pub fn set_floating_bar_enabled(&mut self, enabled: bool, cx: &mut Context<Self>) {
+        self.note
+            .update(cx, |note, cx| note.set_floating_bar_enabled(enabled, cx));
+    }
+
     pub fn set_timeline_clock(
         &mut self,
         use_24_hour_time: bool,
@@ -129,6 +129,15 @@ impl WorkspaceView {
     ) {
         self.library.update(cx, |library, cx| {
             library.set_clock(use_24_hour_time, timezone, cx)
+        });
+        self.note.update(cx, |note, cx| {
+            note.set_clock(
+                super::open_note::Clock {
+                    use_24_hour_time,
+                    timezone,
+                },
+                cx,
+            )
         });
         self.calendar.update(cx, |calendar, cx| {
             calendar.set_clock(
@@ -279,22 +288,6 @@ impl WorkspaceView {
         let open_subscription = cx.subscribe(&library, |this, _, event: &OpenNote, cx| {
             this.handle_note(event, cx)
         });
-        let operation_subscription = cx.subscribe_in(
-            &cx.entity(),
-            window,
-            |this, _, _: &NoteOperationChanged, window, cx| {
-                if let Some((_, moving)) = &this.note_operation {
-                    this.return_focus = window.focused(cx);
-                    if *moving {
-                        cx.focus_view(&this.move_target, window);
-                    } else {
-                        this.focus.focus(window, cx);
-                    }
-                } else if let Some(focus) = this.return_focus.take() {
-                    focus.focus(window, cx);
-                }
-            },
-        );
         let forward_subscription = cx.subscribe(&note, |_, _, event: &WorkspaceEvent, cx| {
             cx.emit(event.clone())
         });
@@ -327,6 +320,8 @@ impl WorkspaceView {
             NoteEvent::RenameFailed => this.pending = None,
             NoteEvent::Request(request) => this.handle_note(request, cx),
             NoteEvent::OpenTemplates => this.navigate(Navigate::Open(Route::Templates, false), cx),
+            NoteEvent::Open(route) => this.open_route(route.clone(), true, cx),
+            NoteEvent::OpenFloatingPanel => cx.emit(WorkspaceAction::OpenFloatingPanel),
             NoteEvent::Failed => {
                 this.pending = None;
                 this.set_status(
@@ -432,14 +427,10 @@ impl WorkspaceView {
             auto_start: None,
             route_content: None,
             pin_persistence: false,
-            note_operation: None,
-            move_target: cx.new(|cx| TextInput::new("Folder path (empty moves to root)", cx)),
-            mutation_busy: false,
             deletions: Vec::new(),
             confirm_delete: None,
             automation_client: None,
             subscriptions: vec![
-                operation_subscription,
                 open_subscription,
                 forward_subscription,
                 note_subscription,
@@ -539,74 +530,37 @@ impl WorkspaceView {
             }
             OpenNote::Delete(ids) => self.delete_notes(ids, false, cx),
             OpenNote::DeleteSelected(ids) => self.request_delete_selected(ids.clone(), cx),
-            OpenNote::Move(ids) => {
-                if self.note_operation.is_some() {
-                    return;
-                }
-                if !self.can_navigate(cx) || ids.iter().any(|id| self.recording.contains(id)) {
-                    self.set_status(
-                        "Save edits and stop selected recordings before changing these notes."
-                            .into(),
-                        cx,
-                    );
-                    return;
-                }
-                self.note_operation = Some((ids.clone(), true));
-                self.move_target
-                    .update(cx, |input, cx| input.set_text(String::new(), cx));
-                cx.emit(NoteOperationChanged);
-                cx.notify();
-            }
+            OpenNote::Move {
+                ids,
+                folder,
+                create,
+            } => self.move_notes(ids.clone(), folder.clone(), *create, cx),
         }
     }
 
-    pub(super) fn close_note_operation(&mut self, cx: &mut Context<Self>) {
-        if !self.mutation_busy {
-            self.note_operation = None;
-            cx.emit(NoteOperationChanged);
-            cx.notify();
-        }
-    }
-
-    pub(super) fn submit_note_operation(&mut self, cx: &mut Context<Self>) {
-        if self.mutation_busy {
+    /// The folder picker's choice: files the notes at once, like shipping's `updateSession`.
+    fn move_notes(
+        &mut self,
+        ids: Arc<[SessionId]>,
+        folder: Arc<str>,
+        create: bool,
+        cx: &mut Context<Self>,
+    ) {
+        // Filing moves the note's folder on disk, which a live recording is writing into.
+        if !self.can_navigate(cx) {
             return;
         }
-        let Some((ids, moving)) = self.note_operation.clone() else {
-            return;
-        };
-        if !self.can_navigate(cx) || ids.iter().any(|id| self.recording.contains(id)) {
+        if ids.iter().any(|id| self.recording.contains(id)) {
+            self.set_status("Stop the recording before moving this note.".into(), cx);
             return;
         }
-        if !moving {
-            return;
-        }
-        let reply = super::notes::dispatch(
-            &self.runtime,
-            super::notes::NoteCommand::Move {
-                ids: ids.clone(),
-                folder: self.move_target.read(cx).buffer.text.trim().into(),
-            },
-        );
-        self.mutation_busy = true;
-        cx.notify();
+        let runtime = self.runtime.clone();
         cx.spawn(async move |this, cx| {
-            let result = match reply {
-                Ok(reply) => reply.receive().await,
-                Err(error) => Err(error),
-            };
+            let result = super::folder_picker::move_notes(&runtime, ids, folder, create).await;
             let _ = this.update(cx, |this, cx| {
-                this.mutation_busy = false;
                 match result {
-                    Ok(()) => {
-                        this.close_note_operation(cx);
-                        this.library
-                            .update(cx, |library, cx| library.clear_selection(cx));
-                        this.reload(cx);
-                    }
-                    Err(error) => {
-                        this.set_status(format!("Could not complete note operation: {error}"), cx)
-                    }
+                    Ok(()) => this.reload(cx),
+                    Err(error) => this.set_status(format!("Could not move the note: {error}"), cx),
                 }
                 cx.notify();
             });
@@ -762,9 +716,6 @@ impl WorkspaceView {
     }
 
     pub fn can_close(&mut self, cx: &mut Context<Self>) -> bool {
-        if self.note_operation.is_some() {
-            return false;
-        }
         if !self.recording.is_empty() {
             self.set_status(
                 "Stop recording and finish saving before closing the window.".into(),
@@ -776,11 +727,7 @@ impl WorkspaceView {
     }
 
     fn can_navigate(&mut self, cx: &mut Context<Self>) -> bool {
-        if self.mutation_busy
-            || self.creating
-            || self.note.read(cx).has_unsaved_title(cx)
-            || !self.dirty.is_empty()
-        {
+        if self.creating || self.note.read(cx).has_unsaved_title(cx) || !self.dirty.is_empty() {
             self.set_status(
                 "Save or restore unsaved edits before closing or changing tabs.".into(),
                 cx,
@@ -805,9 +752,6 @@ impl WorkspaceView {
     }
 
     pub(super) fn navigate(&mut self, intent: Navigate, cx: &mut Context<Self>) {
-        if self.note_operation.is_some() {
-            return;
-        }
         if self.note.read(cx).has_unsaved_title(cx) {
             self.pending = Some(intent);
             self.note.update(cx, |note, cx| note.rename(cx));
@@ -1244,20 +1188,17 @@ impl WorkspaceView {
             cx.stop_propagation();
             return;
         }
-        if self.note_operation.is_some() {
-            match event.keystroke.key.as_str() {
-                "escape" if !self.mutation_busy => {
-                    self.close_note_operation(cx);
-                }
-                "enter" => self.submit_note_operation(cx),
-                _ => return,
+        // Shipping's ⌘⌥←/→ switch the open note's views, even from its editors; plain ⌥←/→
+        // stay with text editing.
+        if modifiers.alt
+            && modifiers.secondary(cx)
+            && matches!(event.keystroke.key.as_str(), "left" | "right")
+        {
+            if matches!(self.current_route(), Route::Session(_)) {
+                let forward = event.keystroke.key == "right";
+                self.note.update(cx, |note, cx| note.step_view(forward, cx));
+                cx.stop_propagation();
             }
-            cx.stop_propagation();
-            return;
-        }
-        if modifiers.alt && matches!(event.keystroke.key.as_str(), "left" | "right") {
-            self.navigate(Navigate::History(event.keystroke.key == "right"), cx);
-            cx.stop_propagation();
             return;
         }
         if !modifiers.secondary(cx) {

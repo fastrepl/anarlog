@@ -90,19 +90,23 @@ pub fn content(
         {
             continue;
         }
-        if document["body_format"] != "prosemirror_json" {
-            return Err(failure(
-                "Document format cannot be rendered. Use canonical JSON to preserve it.",
-            ));
-        }
-        let value: Value = serde_json::from_str(
-            document["body"]
-                .as_str()
-                .ok_or_else(|| failure("Document lacks body"))?,
-        )
-        .map_err(failure)?;
-        ensure_renderable(&value)?;
-        let markdown = anlg_tiptap::tiptap_json_to_md(&value).map_err(failure)?;
+        let body = document["body"]
+            .as_str()
+            .ok_or_else(|| failure("Document lacks body"))?;
+        // Generated summaries can be stored as Markdown, which exports as written.
+        let markdown = match document["body_format"].as_str() {
+            Some("markdown") => body.trim().to_owned(),
+            Some("prosemirror_json") => {
+                let value: Value = serde_json::from_str(body).map_err(failure)?;
+                ensure_renderable(&value)?;
+                anlg_tiptap::tiptap_json_to_md(&value).map_err(failure)?
+            }
+            _ => {
+                return Err(failure(
+                    "Document format cannot be rendered. Use canonical JSON to preserve it.",
+                ));
+            }
+        };
         let output = if is_note { &mut memo } else { &mut summary };
         if !output.is_empty() {
             output.push_str("\n\n");

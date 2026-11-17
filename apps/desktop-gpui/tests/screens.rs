@@ -175,6 +175,7 @@ fn main() {
     toasts(&mut cx, window, &out);
     meeting_records(&mut cx, window, &runtime, profile.path(), &out);
     locks(&mut cx, window, &runtime, &out);
+    note_header(&mut cx, window, &out);
     for (name, route) in [
         ("note", Route::Session(SessionId("s-sync".into()))),
         (
@@ -841,6 +842,44 @@ fn note_depth(
     open(cx, window, Route::Session(SessionId("s-intro".into())));
     capture(cx, window, out, "memo-templates");
 }
+/// The note header's folder picker, Meeting info, Export modal and the summary tab's menu.
+fn note_header(
+    cx: &mut HeadlessAppContext,
+    window: WindowHandle<ApplicationView>,
+    out: &std::path::Path,
+) {
+    open(cx, window, Route::Session(SessionId("s-sync".into())));
+    click(cx, window, 260., 23.);
+    capture(cx, window, out, "folder-picker");
+    type_text(cx, window, &["n", "e", "w"]);
+    capture(cx, window, out, "folder-picker-create");
+    type_text(cx, window, &["escape"]);
+    // The more menu's Meeting info submenu: the date and participants of a note without an event.
+    click(cx, window, 888., 23.);
+    click(cx, window, 800., 66.);
+    capture(cx, window, out, "meeting-info");
+    click(cx, window, 560., 139.);
+    type_text(cx, window, &["p", "r"]);
+    capture(cx, window, out, "meeting-info-search");
+    type_text(cx, window, &["escape", "escape"]);
+    // A calendar event's details with its Join link.
+    open(cx, window, Route::Session(SessionId("s-hiring".into())));
+    click(cx, window, 888., 23.);
+    click(cx, window, 800., 66.);
+    capture(cx, window, out, "meeting-info-event");
+    type_text(cx, window, &["escape"]);
+    open(cx, window, Route::Session(SessionId("s-sync".into())));
+    click(cx, window, 888., 23.);
+    click(cx, window, 800., 180.);
+    capture(cx, window, out, "export-modal");
+    type_text(cx, window, &["escape"]);
+    // The active summary tab's right-click menu.
+    open(cx, window, Route::Session(SessionId("s-critique".into())));
+    right_click(cx, window, 270., 23.);
+    capture(cx, window, out, "summary-tab-menu");
+    click(cx, window, 700., 400.);
+}
+
 /// Account, plan and seat states, seeded through the same app-wide value the cloud service
 /// publishes after sign-in.
 fn account_states(

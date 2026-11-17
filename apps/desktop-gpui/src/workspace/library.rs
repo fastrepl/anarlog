@@ -87,7 +87,12 @@ pub enum OpenNote {
     Delete(Arc<[SessionId]>),
     /// A multi-selection's delete, which asks first.
     DeleteSelected(Arc<[SessionId]>),
-    Move(Arc<[SessionId]>),
+    /// Files notes into `folder` ("" takes them out); `create` makes the folder first.
+    Move {
+        ids: Arc<[SessionId]>,
+        folder: Arc<str>,
+        create: bool,
+    },
     /// A calendar event without a note yet; the workspace creates or finds its note.
     Event(Arc<str>),
     /// Hide a calendar event or its recurring series.

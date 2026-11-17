@@ -11,6 +11,7 @@ pub mod sounds;
 pub mod system_settings;
 pub mod tray;
 pub mod updater;
+pub mod window_level;
 pub mod windows;
 
 #[derive(Clone, Debug)]

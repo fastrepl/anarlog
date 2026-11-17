@@ -1,6 +1,10 @@
+mod export_modal;
+mod meeting_info;
 pub(super) mod meeting_records;
 mod memo;
 mod summary;
+
+pub use meeting_info::Clock;
 
 use std::{collections::HashMap, path::PathBuf, sync::Arc, time::Duration};
 
@@ -10,20 +14,20 @@ use desktop_runtime::{
 };
 use gpui::{
     Animation, AnimationExt, AnyElement, AnyView, Context, Entity, EventEmitter, FocusHandle,
-    Focusable, Hsla, MouseButton, Render, SharedString, Subscription, Task, Window, canvas, div,
-    prelude::*, px, rgb, svg,
+    Focusable, Hsla, MouseButton, MouseDownEvent, Pixels, Point, Render, SharedString,
+    Subscription, Task, Window, canvas, div, prelude::*, px, rgb, svg,
 };
 use serde_json::{Value, json};
 
 use super::{
+    folder_picker::{FolderPicker, FolderPickerEvent},
     library::{OpenNote, folder_label},
-    resource_list,
+    navigation::Route,
+    resource_list::{self, Glyph},
     templates::{self, Library},
 };
 use crate::{
-    contracts::{
-        EditorEvent, EditorInit, LaneContext, MeetingIntent, ProductRoute, WorkspaceEvent,
-    },
+    contracts::{EditorEvent, EditorInit, LaneContext, MeetingIntent, WorkspaceEvent},
     editor::{EditorPane, title::first_line_title, transcript::TranscriptView},
     meeting::{
         MeetingServices,
@@ -37,6 +41,8 @@ use crate::{
         theme::{RADIUS, Theme, theme},
     },
 };
+use export_modal::{ExportEvent, ExportModal};
+use meeting_info::{MeetingInfo, MeetingInfoEvent};
 
 /// Shipping's `red-500`, used by the record mark and the stop square.
 const RECORD_RED: u32 = 0xef4444;
@@ -79,7 +85,26 @@ pub struct NoteView {
     /// A template applied to the memo, recorded on it once saved.
     memo_template: Option<(SessionId, Arc<str>)>,
     memo_saved: Option<Subscription>,
+    folder_picker: Entity<FolderPicker>,
+    folder_open: bool,
+    folder_chip_hovered: bool,
+    clock: Clock,
+    floating_bar_enabled: bool,
+    /// The window's Always on Top state, read when the menu opens; `None` when unknown.
+    always_on_top: Option<bool>,
+    /// The open "Meeting info" submenu.
+    meeting_info: Option<(Entity<MeetingInfo>, Subscription)>,
+    export: Option<(Entity<ExportModal>, Subscription)>,
+    /// A note view tab's right-click menu, at the pointer.
+    tab_menu: Option<(Point<Pixels>, TabMenu)>,
     _subscriptions: Vec<Subscription>,
+}
+
+/// The right-click menus of the active Memos and Summary tabs.
+#[derive(Clone, Debug, PartialEq)]
+enum TabMenu {
+    Memo,
+    Summary(Arc<str>),
 }
 
 impl EventEmitter<WorkspaceEvent> for NoteView {}
@@ -94,6 +119,10 @@ pub enum NoteEvent {
     Request(OpenNote),
     /// The summary template picker's "See all templates" and "Create new template".
     OpenTemplates,
+    /// A route opened in a new tab, like a participant's contact or "See all folders".
+    Open(Route),
+    /// "Open floating panel" brings the live meeting's floating bar forward.
+    OpenFloatingPanel,
 }
 
 impl EventEmitter<NoteEvent> for NoteView {}
@@ -102,6 +131,10 @@ impl EventEmitter<NoteEvent> for NoteView {}
 #[derive(Default)]
 struct Details {
     folder: String,
+    folder_path: Arc<str>,
+    folder_icon: Option<Glyph>,
+    /// The memo document's stored body and format, for its tab's Copy.
+    memo: (String, String),
     event_ended: bool,
     has_transcript: bool,
     summaries: Vec<DocumentSnapshot>,
@@ -209,6 +242,7 @@ enum MenuAction {
     Listen,
     Export,
     OpenWindow,
+    FloatingPanel,
     AlwaysOnTop,
     Delete,
     Lock,
@@ -218,9 +252,68 @@ struct MenuItem {
     action: MenuAction,
     icon: &'static str,
     label: &'static str,
-    /// The native preview has no implementation yet; shown disabled so nothing pretends to work.
     disabled: bool,
+    /// Shows a trailing check (Always on Top).
+    checked: bool,
     separator_before: bool,
+}
+
+impl MenuItem {
+    fn new(action: MenuAction, icon: &'static str, label: &'static str) -> Self {
+        Self {
+            action,
+            icon,
+            label,
+            disabled: false,
+            checked: false,
+            separator_before: false,
+        }
+    }
+
+    fn disabled(mut self, disabled: bool) -> Self {
+        self.disabled = disabled;
+        self
+    }
+}
+
+/// Shipping's overflow menu groups, in order; an empty group adds no separator.
+fn menu_rows(groups: Vec<Vec<MenuItem>>) -> Vec<MenuItem> {
+    let mut rows = Vec::new();
+    for group in groups.into_iter().filter(|group| !group.is_empty()) {
+        let separator = !rows.is_empty();
+        for (index, mut item) in group.into_iter().enumerate() {
+            item.separator_before = separator && index == 0;
+            rows.push(item);
+        }
+    }
+    rows
+}
+
+/// Shipping's `getStoredNoteMarkdown`: stored Markdown as is, TipTap JSON converted.
+fn stored_markdown(body: &str, format: &str) -> String {
+    let trimmed = body.trim();
+    if trimmed.is_empty() {
+        return String::new();
+    }
+    if format == "markdown" || !trimmed.starts_with('{') {
+        return trimmed.to_owned();
+    }
+    serde_json::from_str::<Value>(trimmed)
+        .ok()
+        .and_then(|doc| anlg_tiptap::tiptap_json_to_md(&doc).ok())
+        .map(|markdown| markdown.trim().to_owned())
+        .unwrap_or_default()
+}
+
+/// The view `forward` (or back) from `current`, wrapping like shipping's ⌘⌥←/→.
+fn adjacent_tab(tabs: &[NoteTab], current: &NoteTab, forward: bool) -> Option<NoteTab> {
+    let index = tabs.iter().position(|tab| tab == current)?;
+    let next = if forward {
+        (index + 1) % tabs.len()
+    } else {
+        (index + tabs.len() - 1) % tabs.len()
+    };
+    tabs.get(next).cloned()
 }
 
 impl NoteView {
@@ -250,6 +343,12 @@ impl NoteView {
         if let Some(live) = LiveState::global(cx) {
             subscriptions.push(cx.observe(&live, |this, _, cx| this.live_changed(cx)));
         }
+        let folder_picker = cx.new(|cx| FolderPicker::new(runtime.clone(), cx));
+        subscriptions.push(cx.subscribe_in(
+            &folder_picker,
+            window,
+            |this, _, event, window, cx| this.folder_picked(event, window, cx),
+        ));
         let templates_cancel = CancellationToken::new();
         resource_list::watch(
             &runtime,
@@ -297,6 +396,15 @@ impl NoteView {
             templates_cancel,
             memo_template: None,
             memo_saved: None,
+            folder_picker,
+            folder_open: false,
+            folder_chip_hovered: false,
+            clock: Clock::default(),
+            floating_bar_enabled: true,
+            always_on_top: None,
+            meeting_info: None,
+            export: None,
+            tab_menu: None,
             _subscriptions: subscriptions,
         }
     }
@@ -428,6 +536,10 @@ impl NoteView {
     }
 
     fn reset_details(&mut self) {
+        self.folder_open = false;
+        self.meeting_info = None;
+        self.export = None;
+        self.tab_menu = None;
         self.details = Details::default();
         self.details_task = None;
         self.view = None;
@@ -559,6 +671,7 @@ impl NoteView {
         self.rename_error = false;
         self.reset_details();
         self.details.folder = folder_label(&session.summary.folder_path);
+        self.details.folder_path = session.summary.folder_path.clone();
         self.watch_details(session.summary.id.clone(), cx);
         let session = Arc::new(session);
         cx.emit(NoteEvent::Opened(session.clone()));
@@ -603,6 +716,13 @@ impl NoteView {
                EXISTS (SELECT 1 FROM transcripts t WHERE t.session_id = s.id AND t.deleted_at IS NULL
                  AND CASE WHEN json_valid(t.words_json) THEN json_array_length(t.words_json) ELSE 0 END > 0
                ) AS has_transcript,
+               (SELECT icon_json FROM folders f WHERE f.path = s.folder_path AND f.deleted_at IS NULL
+                 LIMIT 1) AS folder_icon,
+               (SELECT json_object('body', m.body, 'body_format', m.body_format)
+                FROM session_documents m WHERE m.session_id = s.id AND m.kind = 'note'
+                  AND m.deleted_at IS NULL
+                ORDER BY m.id = m.session_id DESC, m.created_at, m.id LIMIT 1
+               ) AS memo,
                (SELECT json_group_array(json_object(
                   'id', d.id, 'session_id', d.session_id, 'kind', d.kind, 'title', d.title,
                   'template_id', d.template_id, 'body_format', d.body_format, 'body', d.body,
@@ -681,7 +801,22 @@ impl NoteView {
             .as_str()
             .and_then(|event| serde_json::from_str::<Value>(event).ok())
             .unwrap_or_default();
+        let memo = row["memo"]
+            .as_str()
+            .and_then(|memo| serde_json::from_str::<Value>(memo).ok())
+            .unwrap_or_default();
+        let folder_path: Arc<str> = row["folder_path"].as_str().unwrap_or_default().into();
         self.details = Details {
+            folder_icon: (!folder_path.is_empty()).then(|| {
+                row["folder_icon"]
+                    .as_str()
+                    .map_or_else(Glyph::folder_default, Glyph::folder)
+            }),
+            folder_path,
+            memo: (
+                memo["body"].as_str().unwrap_or_default().to_owned(),
+                memo["body_format"].as_str().unwrap_or_default().to_owned(),
+            ),
             summary_meta,
             event_text: format!(
                 "{} {}",
@@ -811,79 +946,300 @@ impl NoteView {
         .detach();
     }
 
+    /// Shipping's `OverflowButton`, group by group. Other note actions add rows to their group.
     fn menu_items(&self) -> Vec<MenuItem> {
-        let item = |action, icon, label, disabled, separator_before| MenuItem {
-            action,
-            icon,
-            label,
-            disabled,
-            separator_before,
-        };
-        let (listen_icon, listen_label) = if self.mode != SessionMode::Inactive {
+        use MenuAction::*;
+        let live = self.mode != SessionMode::Inactive;
+        let (listen_icon, listen_label) = if live {
             ("editor/MicOff01Icon.svg", "Stop listening")
-        } else if self.details.has_transcript {
+        } else if self.details.has_transcript || self.audio.is_some() {
             ("editor/Mic01Icon.svg", "Resume listening")
         } else {
             ("editor/Mic01Icon.svg", "Start listening")
         };
-        vec![
-            item(
-                MenuAction::MeetingInfo,
-                "editor/Calendar04Icon.svg",
-                "Meeting info",
-                true,
-                false,
-            ),
-            item(
-                MenuAction::VersionHistory,
-                "editor/HistoryIcon.svg",
-                "Version history",
-                true,
-                false,
-            ),
-            item(
-                MenuAction::Listen,
-                listen_icon,
-                listen_label,
-                self.mode == SessionMode::Finalizing,
-                true,
-            ),
-            item(
-                MenuAction::Export,
+        let mut always_on_top = MenuItem::new(AlwaysOnTop, "editor/PinIcon.svg", "Always on Top")
+            .disabled(self.always_on_top.is_none());
+        always_on_top.checked = self.always_on_top == Some(true);
+        menu_rows(vec![
+            vec![
+                MenuItem::new(MeetingInfo, "editor/Calendar04Icon.svg", "Meeting info"),
+                MenuItem::new(VersionHistory, "editor/HistoryIcon.svg", "Version history")
+                    .disabled(true),
+            ],
+            vec![
+                MenuItem::new(Listen, listen_icon, listen_label)
+                    .disabled(self.mode == SessionMode::Finalizing),
+            ],
+            vec![MenuItem::new(
+                Export,
                 "editor/FileDownloadIcon.svg",
                 "Export",
-                false,
-                true,
-            ),
-            item(
-                MenuAction::OpenWindow,
-                "editor/AppWindowIcon.svg",
-                "Open in New Window",
-                false,
-                true,
-            ),
-            item(
-                MenuAction::AlwaysOnTop,
-                "editor/PinIcon.svg",
-                "Always on Top",
-                true,
-                false,
-            ),
-        ]
-        .into_iter()
-        .chain(
+            )],
+            [
+                Some(MenuItem::new(
+                    OpenWindow,
+                    "editor/AppWindowIcon.svg",
+                    "Open in New Window",
+                )),
+                // Shipping's `canOpenFloatingPanel`.
+                (self.floating_bar_enabled && self.mode == SessionMode::Active).then(|| {
+                    MenuItem::new(
+                        FloatingPanel,
+                        "chat/PictureInPictureIcon.svg",
+                        "Open floating panel",
+                    )
+                }),
+                Some(always_on_top),
+            ]
+            .into_iter()
+            .flatten()
+            .collect(),
+            // Shipping's Lock Note shares Delete's group.
             self.details
                 .lock_row
-                .map(|(icon, label, disabled)| item(MenuAction::Lock, icon, label, disabled, true)),
-        )
-        .chain([item(
-            MenuAction::Delete,
-            "editor/TrashIcon.svg",
-            "Delete",
-            false,
-            self.details.lock_row.is_none(),
-        )])
-        .collect()
+                .map(|(icon, label, disabled)| MenuItem::new(Lock, icon, label).disabled(disabled))
+                .into_iter()
+                .chain([MenuItem::new(Delete, "editor/TrashIcon.svg", "Delete")])
+                .collect(),
+        ])
+    }
+
+    pub fn set_clock(&mut self, clock: Clock, cx: &mut Context<Self>) {
+        self.clock = clock;
+        if let Some((info, _)) = &self.meeting_info {
+            info.update(cx, |info, cx| info.set_clock(clock, cx));
+        }
+    }
+
+    pub fn set_floating_bar_enabled(&mut self, enabled: bool, cx: &mut Context<Self>) {
+        if self.floating_bar_enabled != enabled {
+            self.floating_bar_enabled = enabled;
+            cx.notify();
+        }
+    }
+
+    /// Shipping's ⌘⌥←/→: the previous or next of Summary, Memos and Transcript, wrapping.
+    pub fn step_view(&mut self, forward: bool, cx: &mut Context<Self>) {
+        let tabs = self.tabs();
+        let current = current_tab(self.view.as_ref(), self.mode == SessionMode::Active, &tabs);
+        if let Some(tab) = adjacent_tab(&tabs, &current, forward) {
+            self.picker = None;
+            self.select_tab(tab, cx);
+        }
+    }
+
+    fn open_meeting_info(&mut self, cx: &mut Context<Self>) {
+        let Some(session) = self.current.as_ref().map(|s| s.summary.id.clone()) else {
+            return;
+        };
+        if self.meeting_info.is_some() {
+            return;
+        }
+        let runtime = self.runtime.clone();
+        let clock = self.clock;
+        let info = cx.new(|cx| MeetingInfo::new(runtime, session, clock, cx));
+        let subscription = cx.subscribe(&info, |this, _, event, cx| match event {
+            MeetingInfoEvent::OpenContact(human) => {
+                this.menu = false;
+                this.meeting_info = None;
+                cx.emit(NoteEvent::Open(Route::Human(human.clone())));
+                cx.notify();
+            }
+        });
+        self.meeting_info = Some((info, subscription));
+        cx.notify();
+    }
+
+    fn toggle_always_on_top(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(previous) = self.always_on_top else {
+            return;
+        };
+        let levels = crate::platform::window_level::window_level(cx);
+        match levels.set_always_on_top(window, !previous) {
+            Ok(()) => self.always_on_top = Some(!previous),
+            Err(error) => tracing::warn!(%error, "always on top failed"),
+        }
+        cx.notify();
+    }
+
+    fn open_export(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(session) = self.current.clone() else {
+            return;
+        };
+        let tabs = self.tabs();
+        let summary = match current_tab(self.view.as_ref(), self.mode == SessionMode::Active, &tabs)
+        {
+            NoteTab::Summary(id)
+                if self
+                    .details
+                    .summaries
+                    .iter()
+                    .any(|summary| summary.id.0 == id) =>
+            {
+                Some(DocumentId(id))
+            }
+            _ => None,
+        };
+        let runtime = self.runtime.clone();
+        let editors = self
+            .content
+            .clone()
+            .and_then(|content| content.downcast::<EditorPane>().ok())
+            .into_iter()
+            .chain(
+                self.summary_editor
+                    .as_ref()
+                    .map(|(_, editor, _)| editor.clone()),
+            )
+            .map(|editor| editor.downgrade())
+            .collect();
+        let modal = cx.new(|cx| {
+            ExportModal::new(
+                runtime,
+                session.summary.id.clone(),
+                session.summary.title.clone(),
+                summary,
+                editors,
+                window,
+                cx,
+            )
+        });
+        let subscription = cx.subscribe_in(&modal, window, |this, _, event, window, cx| {
+            let ExportEvent::Close = event;
+            this.export = None;
+            if let Some(focus) = this.return_focus.take() {
+                focus.focus(window, cx);
+            }
+            cx.notify();
+        });
+        self.export = Some((modal, subscription));
+        cx.notify();
+    }
+
+    fn folder_picked(
+        &mut self,
+        event: &FolderPickerEvent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.folder_open = false;
+        match event {
+            FolderPickerEvent::Choose { path, create } => {
+                if let Some(session) = &self.current {
+                    cx.emit(NoteEvent::Request(OpenNote::Move {
+                        ids: vec![session.summary.id.clone()].into(),
+                        folder: path.clone(),
+                        create: *create,
+                    }));
+                }
+            }
+            FolderPickerEvent::SeeAll => {
+                let path = self.details.folder_path.clone();
+                cx.emit(NoteEvent::Open(if path.is_empty() {
+                    Route::Folders
+                } else {
+                    Route::Folder(path)
+                }));
+            }
+            FolderPickerEvent::Dismiss => {}
+        }
+        if let Some(focus) = self.return_focus.take() {
+            focus.focus(window, cx);
+        }
+        cx.notify();
+    }
+
+    fn tab_menu_items(&self, menu: &TabMenu) -> Vec<(&'static str, bool, bool)> {
+        match menu {
+            TabMenu::Memo => {
+                let (body, format) = &self.details.memo;
+                vec![("Copy", stored_markdown(body, format).is_empty(), false)]
+            }
+            TabMenu::Summary(id) => {
+                let generating = self
+                    .current
+                    .as_ref()
+                    .and_then(|session| self.jobs.get(&session.summary.id))
+                    .is_some_and(|job| job.shows(id) && job.running());
+                let empty = self
+                    .details
+                    .summaries
+                    .iter()
+                    .find(|summary| &summary.id.0 == id)
+                    .is_none_or(|summary| {
+                        stored_markdown(&summary.body, &summary.body_format).is_empty()
+                    });
+                let primary = self.tabs().into_iter().find_map(|tab| match tab {
+                    NoteTab::Summary(id) => Some(id),
+                    _ => None,
+                });
+                let mut items = vec![("Copy", empty, false), ("Regenerate", generating, false)];
+                if primary.as_ref() != Some(id) {
+                    items.push(("Remove", generating, true));
+                }
+                items
+            }
+        }
+    }
+
+    fn choose_tab_menu(&mut self, menu: TabMenu, label: &str, cx: &mut Context<Self>) {
+        self.tab_menu = None;
+        match (menu, label) {
+            (TabMenu::Memo, "Copy") => {
+                let (body, format) = &self.details.memo;
+                cx.write_to_clipboard(gpui::ClipboardItem::new_string(stored_markdown(
+                    body, format,
+                )));
+            }
+            (TabMenu::Summary(id), "Copy") => {
+                if let Some(summary) = self.details.summaries.iter().find(|s| s.id.0 == id) {
+                    cx.write_to_clipboard(gpui::ClipboardItem::new_string(stored_markdown(
+                        &summary.body,
+                        &summary.body_format,
+                    )));
+                }
+            }
+            (TabMenu::Summary(_), "Regenerate") => self.regenerate(cx),
+            (TabMenu::Summary(id), "Remove") => self.remove_summary(id, cx),
+            _ => {}
+        }
+        cx.notify();
+    }
+
+    /// Shipping's `deleteEnhancedNote`; the removed tab hands over to the one before it.
+    fn remove_summary(&mut self, id: Arc<str>, cx: &mut Context<Self>) {
+        let tabs = self.tabs();
+        let current = current_tab(self.view.as_ref(), self.mode == SessionMode::Active, &tabs);
+        if current == NoteTab::Summary(id.clone())
+            && let Some(index) = tabs.iter().position(|tab| *tab == current)
+            && index > 0
+        {
+            self.view = Some(tabs[index - 1].clone());
+        }
+        let reply = self.runtime.submit(move |services| async move {
+            let now = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+            services
+                .executor
+                .execute(
+                    "UPDATE session_documents SET deleted_at = ?, updated_at = ? WHERE id = ?
+                     AND kind IN ('summary', 'template_output') AND deleted_at IS NULL"
+                        .into(),
+                    vec![json!(now), json!(now), json!(id)],
+                )
+                .await
+                .map_err(super::mutations::failure)?;
+            Ok(())
+        });
+        cx.spawn(async move |this, cx| {
+            if let Err(error) = async { reply?.receive().await }.await {
+                let _ = this.update(cx, |this, cx| {
+                    this.message = format!("Could not remove the summary: {error}");
+                    cx.notify();
+                });
+            }
+        })
+        .detach();
+        cx.notify();
     }
 
     fn step_menu(&mut self, forward: bool) {
@@ -906,6 +1262,7 @@ impl NoteView {
 
     fn close_menu(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.menu = false;
+        self.meeting_info = None;
         if self.menu_focus.is_focused(window)
             && let Some(focus) = self.return_focus.take()
         {
@@ -915,15 +1272,27 @@ impl NoteView {
     }
 
     fn choose_menu(&mut self, action: MenuAction, window: &mut Window, cx: &mut Context<Self>) {
+        // Meeting info opens its submenu, and Always on Top toggles in place, like shipping.
+        match action {
+            MenuAction::MeetingInfo => return self.open_meeting_info(cx),
+            MenuAction::AlwaysOnTop => return self.toggle_always_on_top(window, cx),
+            _ => {}
+        }
+        let keep_focus = action == MenuAction::Export;
+        let return_focus = keep_focus.then(|| self.return_focus.clone()).flatten();
         self.close_menu(window, cx);
+        if keep_focus {
+            self.return_focus = return_focus;
+        }
         let Some(session) = &self.current else {
             return;
         };
         let id = session.summary.id.clone();
         match action {
             MenuAction::Listen => self.toggle_recording(cx),
-            MenuAction::Export => cx.emit(WorkspaceEvent::Product(ProductRoute::Export(id))),
+            MenuAction::Export => self.open_export(window, cx),
             MenuAction::OpenWindow => cx.emit(NoteEvent::Request(OpenNote::Window(id))),
+            MenuAction::FloatingPanel => cx.emit(NoteEvent::OpenFloatingPanel),
             MenuAction::Delete => cx.emit(NoteEvent::Request(OpenNote::Delete(vec![id].into()))),
             MenuAction::Lock => super::note_lock::toggle_from_menu(id, cx),
             MenuAction::MeetingInfo | MenuAction::VersionHistory | MenuAction::AlwaysOnTop => {}
@@ -1034,47 +1403,121 @@ impl NoteView {
         }
     }
 
-    fn folder_chip(&self, colors: Theme, cx: &mut Context<Self>) -> impl IntoElement {
+    /// Shipping's `FolderPicker` trigger: the folder's icon and path, opening the picker under
+    /// it (`align` end when the chip sits on the right).
+    fn folder_chip(
+        &self,
+        align_end: bool,
+        colors: Theme,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
         let folder = self.details.folder.clone();
         let compact = self.compact_folder;
+        let open = self.folder_open;
+        let glyph = self.details.folder_icon.clone();
         div()
-            .id("note-folder")
-            .h(px(28.))
-            .flex()
+            .relative()
             .flex_shrink_0()
-            .items_center()
-            .rounded(px(RADIUS))
-            .text_color(colors.muted_foreground)
-            .hover(|view| view.bg(colors.accent).text_color(colors.foreground))
-            .cursor_pointer()
-            .map(|view| {
-                if folder.is_empty() || compact {
-                    view.w(px(28.)).justify_center()
-                } else {
-                    view.max_w(px(144.)).min_w_0().gap_1().px(px(6.))
-                }
-            })
-            .on_click(cx.listener(|this, _, _, cx| {
-                if let Some(session) = &this.current {
-                    cx.emit(NoteEvent::Request(OpenNote::Move(
-                        vec![session.summary.id.clone()].into(),
-                    )));
-                }
-            }))
-            .group("note-folder")
+            .min_w_0()
             .child(
-                icon("workspace/Folder01Icon.svg", 16., colors.muted_foreground)
-                    .group_hover("note-folder", |style| style.text_color(colors.foreground)),
+                div()
+                    .id("note-folder")
+                    .h(px(28.))
+                    .flex()
+                    .flex_shrink_0()
+                    .items_center()
+                    .rounded(px(RADIUS))
+                    .text_color(colors.muted_foreground)
+                    .hover(|view| view.bg(colors.accent).text_color(colors.foreground))
+                    .when(open, |view| {
+                        view.bg(colors.accent).text_color(colors.foreground)
+                    })
+                    .cursor_pointer()
+                    .map(|view| {
+                        if folder.is_empty() || compact {
+                            view.w(px(28.)).justify_center()
+                        } else {
+                            view.max_w(px(144.)).min_w_0().gap_1().px(px(6.))
+                        }
+                    })
+                    .on_hover(cx.listener(|this, hovering: &bool, _, _| {
+                        this.folder_chip_hovered = *hovering;
+                    }))
+                    .on_click(cx.listener(|this, _, window, cx| {
+                        if this.folder_open {
+                            this.folder_open = false;
+                        } else if this.current.is_some() {
+                            this.return_focus = window.focused(cx);
+                            this.folder_open = true;
+                            let path = this.details.folder_path.clone();
+                            this.folder_picker
+                                .update(cx, |picker, cx| picker.open(path, window, cx));
+                        }
+                        cx.notify();
+                    }))
+                    .group("note-folder")
+                    .child(match glyph {
+                        Some(glyph) => glyph.render(16.),
+                        None => icon("workspace/Folder01Icon.svg", 16., colors.muted_foreground)
+                            .group_hover("note-folder", |style| style.text_color(colors.foreground))
+                            .when(open, |icon| icon.text_color(colors.foreground))
+                            .into_any_element(),
+                    })
+                    .when(!folder.is_empty() && !compact, |view| {
+                        view.child(
+                            div()
+                                .min_w_0()
+                                .truncate()
+                                .text_xs()
+                                .line_height(px(16.))
+                                .text_color(neutral(colors, 0x525252, 0xd4d4d4))
+                                .child(folder),
+                        )
+                    }),
             )
-            .when(!folder.is_empty() && !compact, |view| {
+            .when(open, |view| {
+                let popover = resource_list::floating_menu(224., colors)
+                    .id("note-folder-picker")
+                    .pb_0()
+                    .occlude()
+                    .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                    .on_key_down(|event: &gpui::KeyDownEvent, _, cx| {
+                        if event.keystroke.key == "escape" {
+                            cx.stop_propagation();
+                        }
+                    })
+                    .on_mouse_down_out(cx.listener(|this, _, _, cx| {
+                        // The chip's own click toggles it closed.
+                        if !this.folder_chip_hovered {
+                            this.folder_open = false;
+                            cx.notify();
+                        }
+                    }))
+                    .child(self.folder_picker.clone());
                 view.child(
                     div()
-                        .min_w_0()
-                        .truncate()
-                        .text_xs()
-                        .line_height(px(16.))
-                        .text_color(neutral(colors, 0x525252, 0xd4d4d4))
-                        .child(folder),
+                        .absolute()
+                        .top(px(32.))
+                        .map(|view| {
+                            if align_end {
+                                view.right_0()
+                            } else {
+                                view.left_0()
+                            }
+                        })
+                        .child(
+                            gpui::deferred(
+                                gpui::anchored()
+                                    .anchor(if align_end {
+                                        gpui::Anchor::TopRight
+                                    } else {
+                                        gpui::Anchor::TopLeft
+                                    })
+                                    .snap_to_window()
+                                    .child(popover),
+                            )
+                            .with_priority(1),
+                        ),
                 )
             })
     }
@@ -1263,6 +1706,24 @@ impl NoteView {
                         let red = self.error_color(colors);
                         view.text_color(red)
                     })
+                    .when(
+                        active && matches!(tab, NoteTab::Summary(_) | NoteTab::Memos),
+                        |view| {
+                            let menu = match tab {
+                                NoteTab::Summary(id) => TabMenu::Summary(id.clone()),
+                                _ => TabMenu::Memo,
+                            };
+                            view.on_mouse_down(
+                                MouseButton::Right,
+                                cx.listener(move |this, event: &MouseDownEvent, _, cx| {
+                                    this.picker = None;
+                                    this.tab_menu = Some((event.position, menu.clone()));
+                                    cx.stop_propagation();
+                                    cx.notify();
+                                }),
+                            )
+                        },
+                    )
                     .on_click(cx.listener(move |this, _, window, cx| {
                         // The active summary tab opens shipping's template picker.
                         if active && summary_tab {
@@ -1468,7 +1929,7 @@ impl NoteView {
                         .min_w_0()
                         .items_center()
                         .gap_1()
-                        .child(self.folder_chip(colors, cx))
+                        .child(self.folder_chip(false, colors, cx))
                         .child(
                             div()
                                 .flex_shrink_0()
@@ -1490,7 +1951,9 @@ impl NoteView {
                     .flex()
                     .flex_shrink_0()
                     .items_center()
-                    .when(!breadcrumb, |view| view.child(self.folder_chip(colors, cx)))
+                    .when(!breadcrumb, |view| {
+                        view.child(self.folder_chip(true, colors, cx))
+                    })
                     .children(self.meeting_control(colors, cx))
                     .child(
                         div()
@@ -1510,6 +1973,10 @@ impl NoteView {
                                     this.return_focus = window.focused(cx);
                                     this.menu = true;
                                     this.menu_index = None;
+                                    this.always_on_top =
+                                        crate::platform::window_level::window_level(cx)
+                                            .always_on_top(window)
+                                            .ok();
                                     this.menu_focus.focus(window, cx);
                                     cx.notify();
                                 }
@@ -1532,6 +1999,7 @@ impl NoteView {
     fn menu(&self, colors: Theme, cx: &mut Context<Self>) -> impl IntoElement {
         let items = self.menu_items();
         let red = neutral(colors, 0xdc2626, 0xf87171);
+        let submenu = self.meeting_info.as_ref().map(|(info, _)| info.clone());
         div()
             .id("note-actions")
             .absolute()
@@ -1547,12 +2015,23 @@ impl NoteView {
             .shadow_lg()
             .track_focus(&self.menu_focus)
             .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-            .on_mouse_down_out(cx.listener(|this, _, window, cx| this.close_menu(window, cx)))
             .on_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, window, cx| {
                 match event.keystroke.key.as_str() {
                     "escape" => this.close_menu(window, cx),
                     "up" => this.step_menu(false),
                     "down" => this.step_menu(true),
+                    "right" => {
+                        let items = this.menu_items();
+                        if this
+                            .menu_index
+                            .and_then(|index| items.get(index))
+                            .map(|item| item.action)
+                            == Some(MenuAction::MeetingInfo)
+                        {
+                            this.open_meeting_info(cx);
+                        }
+                    }
+                    "left" => this.meeting_info = None,
                     "enter" => {
                         let items = this.menu_items();
                         if let Some(item) = this.menu_index.and_then(|index| items.get(index)) {
@@ -1582,7 +2061,10 @@ impl NoteView {
                                 .into_any_element()
                         });
                         let destructive = item.action == MenuAction::Delete;
-                        let highlighted = self.menu_index == Some(index);
+                        let sub_open =
+                            item.action == MenuAction::MeetingInfo && self.meeting_info.is_some();
+                        let highlighted = self.menu_index == Some(index) || sub_open;
+                        let action = item.action;
                         let row = div()
                             .id(("note-action", index))
                             .flex()
@@ -1594,6 +2076,17 @@ impl NoteView {
                             .text_sm()
                             .line_height(px(20.))
                             .when(destructive, |view| view.text_color(red))
+                            // Radix opens a submenu on hover and closes it over any other row.
+                            .on_hover(cx.listener(move |this, hovering: &bool, _, cx| {
+                                if !*hovering {
+                                    return;
+                                }
+                                if action == MenuAction::MeetingInfo {
+                                    this.open_meeting_info(cx);
+                                } else if this.meeting_info.take().is_some() {
+                                    cx.notify();
+                                }
+                            }))
                             .when_else(
                                 item.disabled,
                                 |view| view.opacity(0.5),
@@ -1614,7 +2107,7 @@ impl NoteView {
                                             })
                                         })
                                         .on_click(cx.listener(move |this, _, window, cx| {
-                                            this.choose_menu(item.action, window, cx)
+                                            this.choose_menu(action, window, cx)
                                         }))
                                 },
                             )
@@ -1635,10 +2128,110 @@ impl NoteView {
                                     colors.popover_foreground,
                                 ))
                             })
+                            .when(item.checked, |view| {
+                                view.child(icon(
+                                    "editor/CheckIcon.svg",
+                                    16.,
+                                    colors.popover_foreground,
+                                ))
+                            })
                             .into_any_element();
                         separator.into_iter().chain([row])
                     })),
             )
+            // Shipping's `w-72` submenu flips to the menu's left, level with its first row.
+            .when_some(submenu, |view, info| {
+                view.child(
+                    div()
+                        .id("meeting-info-submenu")
+                        .absolute()
+                        .top(px(9.))
+                        .right(px(217.))
+                        .w(px(288.))
+                        .occlude()
+                        .p(px(2.))
+                        .rounded(px(22.))
+                        .border_1()
+                        .border_color(colors.app_floating_border)
+                        .bg(colors.app_floating_chrome)
+                        .shadow_lg()
+                        .child(info),
+                )
+            })
+    }
+
+    /// Radix menus are modal: a press outside closes the menu and goes nowhere else.
+    fn menu_backdrop(&self, window: &Window, cx: &mut Context<Self>) -> impl IntoElement {
+        gpui::deferred(
+            gpui::anchored()
+                .position(gpui::point(px(0.), px(0.)))
+                .child(
+                    div()
+                        .id("note-actions-backdrop")
+                        .w(window.viewport_size().width)
+                        .h(window.viewport_size().height)
+                        .occlude()
+                        .on_mouse_down(
+                            MouseButton::Left,
+                            cx.listener(|this, _, window, cx| this.close_menu(window, cx)),
+                        )
+                        .on_mouse_down(
+                            MouseButton::Right,
+                            cx.listener(|this, _, window, cx| this.close_menu(window, cx)),
+                        ),
+                ),
+        )
+        .with_priority(1)
+    }
+
+    /// The Memos and Summary tabs' right-click menus (shipping shows them as native menus).
+    fn tab_menu_view(
+        &self,
+        position: Point<Pixels>,
+        menu: TabMenu,
+        colors: Theme,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        let items = self.tab_menu_items(&menu);
+        gpui::deferred(
+            gpui::anchored().position(position).snap_to_window().child(
+                resource_list::context_menu(colors)
+                    .id("note-tab-menu")
+                    .occlude()
+                    .on_mouse_down_out(cx.listener(|this, _, _, cx| {
+                        this.tab_menu = None;
+                        cx.notify();
+                    }))
+                    .children(items.into_iter().flat_map(|(label, disabled, separated)| {
+                        let menu = menu.clone();
+                        let separator = separated
+                            .then(|| div().my_1().h(px(1.)).bg(colors.border).into_any_element());
+                        let row = div()
+                            .id(SharedString::from(format!("note-tab-menu-{label}")))
+                            .h(px(30.))
+                            .px_3()
+                            .flex()
+                            .items_center()
+                            .text_sm()
+                            .rounded(px(4.))
+                            .when_else(
+                                disabled,
+                                |row| row.opacity(0.5),
+                                |row| {
+                                    row.cursor_pointer()
+                                        .hover(|style| style.bg(colors.accent))
+                                        .on_click(cx.listener(move |this, _, _, cx| {
+                                            this.choose_tab_menu(menu.clone(), label, cx)
+                                        }))
+                                },
+                            )
+                            .child(label)
+                            .into_any_element();
+                        separator.into_iter().chain([row])
+                    })),
+            ),
+        )
+        .with_priority(1)
     }
 }
 
@@ -1856,8 +2449,16 @@ impl Render for NoteView {
                 view.child(div().flex().flex_col().flex_1().min_h_0().child(content))
             })
             .when(self.menu, |view| {
-                view.child(gpui::deferred(self.menu(colors, cx)))
+                view.child(self.menu_backdrop(window, cx))
+                    .child(gpui::deferred(self.menu(colors, cx)).with_priority(2))
             })
+            .when_some(self.tab_menu.clone(), |view, (position, menu)| {
+                view.child(self.tab_menu_view(position, menu, colors, cx))
+            })
+            .when_some(
+                self.export.as_ref().map(|(modal, _)| modal.clone()),
+                |view, modal| view.child(modal),
+            )
     }
 }
 
@@ -1891,6 +2492,84 @@ mod tests {
             current_tab(Some(&NoteTab::Transcript), false, &note_tabs(&[], false)),
             NoteTab::Memos
         );
+    }
+
+    #[test]
+    fn overflow_menu_separates_only_groups_that_have_rows() {
+        let row = |action| MenuItem::new(action, "", "");
+        let rows = menu_rows(vec![
+            vec![row(MenuAction::MeetingInfo)],
+            vec![],
+            vec![row(MenuAction::Export), row(MenuAction::OpenWindow)],
+        ]);
+        assert_eq!(
+            rows.iter()
+                .map(|row| (row.action, row.separator_before))
+                .collect::<Vec<_>>(),
+            [
+                (MenuAction::MeetingInfo, false),
+                (MenuAction::Export, true),
+                (MenuAction::OpenWindow, false)
+            ]
+        );
+    }
+
+    #[test]
+    fn command_option_arrows_cycle_the_note_views() {
+        let tabs = note_tabs(&["summary".into()], true);
+        assert_eq!(
+            adjacent_tab(&tabs, &NoteTab::Transcript, true),
+            Some(NoteTab::Summary("summary".into()))
+        );
+        assert_eq!(
+            adjacent_tab(&tabs, &NoteTab::Memos, false),
+            Some(NoteTab::Summary("summary".into()))
+        );
+    }
+
+    struct FakeLevel(std::cell::Cell<bool>);
+
+    impl crate::platform::window_level::WindowLevel for FakeLevel {
+        fn always_on_top(&self, _: &Window) -> desktop_runtime::Result<bool> {
+            Ok(self.0.get())
+        }
+
+        fn set_always_on_top(&self, _: &Window, on: bool) -> desktop_runtime::Result<()> {
+            self.0.set(on);
+            Ok(())
+        }
+    }
+
+    #[gpui::test]
+    fn always_on_top_sets_the_window_level_and_stays_open(cx: &mut gpui::TestAppContext) {
+        cx.executor().allow_parking();
+        let directory = tempfile::tempdir().unwrap();
+        let (runtime, ready) = RuntimeHandle::start(desktop_runtime::Profile {
+            database: directory.path().join("library.sqlite"),
+        })
+        .unwrap();
+        futures::executor::block_on(ready.receive()).unwrap();
+        let level = std::rc::Rc::new(FakeLevel(std::cell::Cell::new(false)));
+        cx.update(|cx| cx.set_global(crate::platform::window_level::WindowLevels(level.clone())));
+        let window = cx.add_window(|window, cx| NoteView::new(runtime.clone(), window, cx));
+        window
+            .update(cx, |note, window, cx| {
+                note.menu = true;
+                note.always_on_top = crate::platform::window_level::window_level(cx)
+                    .always_on_top(window)
+                    .ok();
+                note.choose_menu(MenuAction::AlwaysOnTop, window, cx);
+                assert!(note.menu);
+                let item = note
+                    .menu_items()
+                    .into_iter()
+                    .find(|item| item.action == MenuAction::AlwaysOnTop)
+                    .unwrap();
+                assert!(item.checked && !item.disabled);
+            })
+            .unwrap();
+        assert!(level.0.get());
+        futures::executor::block_on(runtime.shutdown()).unwrap();
     }
 
     #[test]
