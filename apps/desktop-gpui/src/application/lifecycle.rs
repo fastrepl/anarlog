@@ -534,7 +534,7 @@ impl ApplicationView {
         let message = format!(
             "- App Name: Anarlog\n- App Version: {}\n- SHA:\n  {}",
             env!("CARGO_PKG_VERSION"),
-            option_env!("ANARLOG_GIT_SHA").unwrap_or("unknown")
+            env!("ANARLOG_GIT_SHA")
         );
         cx.spawn(async move |_, cx| {
             if alert("About Anarlog", &message, Some(("Copy", "Cancel"))).await {

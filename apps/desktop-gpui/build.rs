@@ -1,4 +1,9 @@
-use std::{collections::BTreeMap, env, fs, path::PathBuf};
+use std::{
+    collections::BTreeMap,
+    env, fs,
+    path::{Path, PathBuf},
+    process::Command,
+};
 
 fn main() {
     #[cfg(target_os = "macos")]
@@ -66,6 +71,41 @@ fn main() {
     )
     .expect("generated palette");
     bundle_changelog();
+    emit_git_sha();
+}
+
+/// About's SHA: `ANARLOG_GIT_SHA` when set, else the checkout's short commit, else "unknown".
+fn emit_git_sha() {
+    println!("cargo:rerun-if-env-changed=ANARLOG_GIT_SHA");
+    let git = |args: &[&str]| {
+        Command::new("git")
+            .args(args)
+            .output()
+            .ok()
+            .filter(|output| output.status.success())
+            .and_then(|output| String::from_utf8(output.stdout).ok())
+            .map(|text| text.trim().to_owned())
+            .filter(|text| !text.is_empty())
+    };
+    let sha = env::var("ANARLOG_GIT_SHA")
+        .ok()
+        .filter(|sha| !sha.trim().is_empty())
+        .or_else(|| git(&["rev-parse", "--short", "HEAD"]))
+        .unwrap_or_else(|| "unknown".into());
+    println!("cargo:rustc-env=ANARLOG_GIT_SHA={sha}");
+    // Re-run when the checkout moves. Missing paths are skipped: cargo would re-run every build.
+    let mut paths = vec![
+        git(&["rev-parse", "--git-path", "HEAD"]),
+        git(&["rev-parse", "--git-path", "packed-refs"]),
+    ];
+    if let Some(reference) = git(&["symbolic-ref", "-q", "HEAD"]) {
+        paths.push(git(&["rev-parse", "--git-path", &reference]));
+    }
+    for path in paths.into_iter().flatten() {
+        if Path::new(&path).exists() {
+            println!("cargo:rerun-if-changed={path}");
+        }
+    }
 }
 
 /// Shipping's changelog Vite plugin: the newest stable release notes ship with the app.
