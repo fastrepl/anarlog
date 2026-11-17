@@ -156,18 +156,76 @@ impl WindowIdentity {
     }
 }
 
+/// Hides only the main window like shipping's `AppWindow::Main.hide` (`orderOut:`), leaving
+/// note windows open; the next show or Dock click brings it back.
 pub fn hide_main(window: &Window, cx: &App) -> Result<()> {
-    if cx.windows().len() > 1 {
-        return Err(ServiceError::Unsupported(
-            "GPUI exposes application hide; per-window close-to-hide requires a native adapter"
-                .into(),
-        ));
-    }
     if window.is_fullscreen() {
         window.toggle_fullscreen();
     }
-    cx.hide();
-    Ok(())
+    #[cfg(target_os = "macos")]
+    {
+        // AppKit reports the resulting focus change synchronously, so order out after GPUI
+        // has released the window.
+        let native = macos::ns_window(window)?;
+        cx.foreground_executor()
+            .spawn(async move { macos::order_out(&native) })
+            .detach();
+        Ok(())
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = cx;
+        Err(ServiceError::Unsupported(
+            "This platform cannot hide a single window".into(),
+        ))
+    }
+}
+
+/// The standard Close Window item (`performClose:`): runs the window's own close handler.
+pub fn perform_close(window: &Window, cx: &App) {
+    #[cfg(target_os = "macos")]
+    if let Ok(native) = macos::ns_window(window) {
+        cx.foreground_executor()
+            .spawn(async move { macos::perform_close(&native) })
+            .detach();
+    }
+    #[cfg(not(target_os = "macos"))]
+    let _ = (window, cx);
+}
+
+#[cfg(target_os = "macos")]
+mod macos {
+    use desktop_runtime::{Result, ServiceError};
+    use objc2::{msg_send, rc::Retained, runtime::AnyObject};
+    use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+
+    pub fn ns_window(window: &gpui::Window) -> Result<Retained<AnyObject>> {
+        let unavailable = || ServiceError::Unsupported("The native window is unavailable".into());
+        let handle = HasWindowHandle::window_handle(window).map_err(|_| unavailable())?;
+        let RawWindowHandle::AppKit(handle) = handle.as_raw() else {
+            return Err(unavailable());
+        };
+        let view = handle.ns_view.as_ptr().cast::<AnyObject>();
+        // SAFETY: the view belongs to this open window; retaining keeps its NSWindow alive.
+        unsafe {
+            let native: *mut AnyObject = msg_send![view, window];
+            Retained::retain(native).ok_or_else(unavailable)
+        }
+    }
+
+    pub fn order_out(window: &AnyObject) {
+        // SAFETY: any NSWindow accepts orderOut: with a nil sender.
+        unsafe {
+            let _: () = msg_send![window, orderOut: std::ptr::null_mut::<AnyObject>()];
+        }
+    }
+
+    pub fn perform_close(window: &AnyObject) {
+        // SAFETY: any NSWindow accepts performClose: with a nil sender.
+        unsafe {
+            let _: () = msg_send![window, performClose: std::ptr::null_mut::<AnyObject>()];
+        }
+    }
 }
 
 #[cfg(test)]

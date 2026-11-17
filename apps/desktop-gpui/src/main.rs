@@ -2,8 +2,8 @@ use std::path::PathBuf;
 
 use desktop_gpui::{application::ApplicationView, workspace::assets::Assets};
 use desktop_gpui::{
-    native_events::NativeEvents,
-    platform::{tray::TrayAdapter, windows::WindowIdentity},
+    native_events::{MenuState, NativeEvents},
+    platform::windows::WindowIdentity,
     ui::theme::UiFonts,
 };
 use desktop_runtime::Profile;
@@ -75,8 +75,9 @@ fn main() -> anyhow::Result<()> {
                     ApplicationView::new(runtime.clone(), ready, profile, pointer, window, cx)
                 });
                 let root_weak = root.downgrade();
-                window.on_window_should_close(cx, move |_, cx| {
-                    let _ = root_weak.update(cx, |root, cx| root.request_quit(cx));
+                // Like shipping, closing the main window hides it; the app keeps running.
+                window.on_window_should_close(cx, move |window, cx| {
+                    let _ = root_weak.update(cx, |root, cx| root.close_main(window, cx));
                     false
                 });
                 root
@@ -85,25 +86,27 @@ fn main() -> anyhow::Result<()> {
         match result {
             Ok(main) => {
                 cx.spawn(async move |cx| {
-                    let mut previous = None;
                     loop {
                         cx.background_executor()
                             .timer(std::time::Duration::from_millis(100))
                             .await;
                         let done = cx.update(|cx| {
-                            let Ok(state) = main.update(cx, |view, _, cx| {
+                            let Ok((tray, update)) = main.update(cx, |view, _, cx| {
                                 view.native_tick(cx);
-                                view.tray_state()
+                                (view.tray_model(), view.update_menu())
                             }) else {
                                 return true;
                             };
-                            if previous.as_ref() != Some(&state)
-                                && let Some(tray) = &mut handles.tray
-                            {
-                                let _ = tray.update(&state);
-                            }
-                            previous = Some(state.clone());
-                            events.poll(&handles, &state, main, cx);
+                            let fullscreen = cx
+                                .active_window()
+                                .and_then(|window| {
+                                    window
+                                        .update(cx, |_, window, _| window.is_fullscreen())
+                                        .ok()
+                                })
+                                .unwrap_or(false);
+                            events.sync_menus(&mut handles, MenuState { update, fullscreen }, cx);
+                            events.poll(&mut handles, &tray, main, cx);
                             false
                         });
                         if done {

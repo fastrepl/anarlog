@@ -1,4 +1,5 @@
 mod chrome;
+pub(crate) mod lifecycle;
 mod notifications;
 
 use std::{path::PathBuf, sync::Arc, time::Duration};
@@ -62,11 +63,7 @@ pub struct ApplicationView {
     native: Option<NativeServices>,
     editor_vault: PathBuf,
     writers_paused: bool,
-    update_busy: bool,
-    pending_update: Option<(
-        Arc<desktop_runtime::updater::NativeUpdater>,
-        desktop_runtime::updater::ResolvedRelease,
-    )>,
+    lifecycle: lifecycle::Lifecycle,
     meeting_open: bool,
     capture_session: Option<SessionId>,
     closing: bool,
@@ -184,6 +181,7 @@ impl ApplicationView {
         .detach();
         let startup_runtime = runtime.clone();
         let editor_vault = profile.join("vault");
+        let tray_settings = profile.join("tray.json");
         let (effects, mut commands) = Effects::channel(runtime.clone());
         let flush_effects = effects.clone();
         let host = NativeHost::install(cx, move |_, _| flush_effects.flush_drafts());
@@ -306,6 +304,7 @@ impl ApplicationView {
                     }
                     this.native = Some(native);
                     this.watch_preferences(cx);
+                    this.start_lifecycle(cx);
                     this.open_onboarding_if_needed(cx);
                     if !warnings.is_empty() {
                         this.status(
@@ -340,8 +339,7 @@ impl ApplicationView {
             native: None,
             editor_vault,
             writers_paused: false,
-            update_busy: false,
-            pending_update: None,
+            lifecycle: lifecycle::Lifecycle::new(tray_settings),
             capture_session: None,
             meeting_open: false,
             closing: false,
@@ -365,33 +363,16 @@ impl ApplicationView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        use crate::{native_events::NativeEvent, platform::tray::TrayAction};
+        use crate::native_events::NativeEvent;
         match event {
-            NativeEvent::NewNote => self.open_note_window(None, cx),
-            NativeEvent::Action(action) => match action {
-                TrayAction::Open => {
-                    cx.activate(true);
-                    window.activate_window();
-                }
-                TrayAction::StartMeeting if !self.writers_paused && !self.closing => {
-                    self.workspace.update(cx, |view, cx| view.create(true, cx))
-                }
-                TrayAction::StartMeeting => {
-                    self.status("Finish pending work before starting capture.", cx)
-                }
-                TrayAction::StopMeeting => self.open_meeting(MeetingIntent::Stop, window, cx),
-                TrayAction::Settings => self.open_product(ProductRoute::Settings, window, cx),
-                TrayAction::Agenda => self
-                    .workspace
-                    .update(cx, |view, cx| view.open_native_route(Route::Calendar, cx)),
-                TrayAction::Hide => {
-                    if let Err(error) = crate::platform::windows::hide_main(window, cx) {
-                        self.status(&error.to_string(), cx);
-                    }
-                }
-                TrayAction::Quit => self.request_quit(cx),
-                TrayAction::InstallUpdate => self.check_update(cx),
-            },
+            NativeEvent::NewNote => {
+                self.show_main(window, cx);
+                self.workspace.update(cx, |view, cx| view.create(false, cx));
+            }
+            NativeEvent::About => self.show_about(cx),
+            NativeEvent::CloseMain => self.close_main(window, cx),
+            NativeEvent::Quit => self.quit_now(window, cx),
+            NativeEvent::Action(action) => self.lifecycle_action(action, window, cx),
             NativeEvent::DeepLink { raw, .. } => {
                 match desktop_runtime::deeplink::DeepLink::parse(&raw) {
                     Ok(desktop_runtime::deeplink::DeepLink::ShareAccount { share_id }) => {
@@ -558,19 +539,8 @@ impl ApplicationView {
         });
     }
 
-    pub fn tray_state(&self) -> crate::platform::tray::TrayState {
-        crate::platform::tray::TrayState {
-            recording: self.services.as_ref().is_some_and(|s| {
-                matches!(
-                    s.capture.take_update(u64::MAX).phase,
-                    Phase::Loading | Phase::Listening | Phase::Finalizing
-                )
-            }),
-            update_ready: self.pending_update.is_some() && !self.update_busy,
-        }
-    }
-
     pub fn native_tick(&mut self, cx: &mut Context<Self>) {
+        self.sync_recording_title(cx);
         let Some(services) = &self.services else {
             return;
         };
@@ -593,137 +563,6 @@ impl ApplicationView {
             }
             Phase::Failed => self.capture_session = None,
         }
-    }
-
-    fn check_update(&mut self, cx: &mut Context<Self>) {
-        use desktop_runtime::updater::{NativeUpdater, UpdateConfig, UpdateInstaller};
-        if self.update_busy || self.closing {
-            return;
-        }
-        if let Some((updater, release)) = self.pending_update.take() {
-            if self.tray_state().recording {
-                self.pending_update = Some((updater, release));
-                self.status("Finish recording before installing the update.", cx);
-                return;
-            }
-            let installation = match std::env::var_os("ANARLOG_NATIVE_UPDATE_INSTALLATION") {
-                Some(path) => PathBuf::from(path),
-                None => {
-                    self.pending_update = Some((updater, release));
-                    self.status("Set ANARLOG_NATIVE_UPDATE_INSTALLATION to the GPUI package to install its signed update.", cx);
-                    return;
-                }
-            };
-            if self
-                .product
-                .as_ref()
-                .is_some_and(|view| !view.update(cx, |view, cx| view.can_close(cx)))
-            {
-                return;
-            }
-            self.update_busy = true;
-            let runtime = self.runtime.clone();
-            self.status("Downloading and verifying native update…", cx);
-            cx.spawn(async move |this, cx| {
-                let result: desktop_runtime::Result<()> = async {
-                    let update = updater
-                        .download(&runtime, release, desktop_runtime::CancellationToken::new())?
-                        .receive()
-                        .await?;
-                    let pause = this
-                        .update(cx, |this, cx| this.pause_writers(cx))
-                        .map_err(|_| ServiceError::Closed)?;
-                    pause.await?;
-                    let installer = crate::platform::updater::NativeInstaller {
-                        kind: if cfg!(target_os = "macos") {
-                            crate::platform::updater::PackageKind::MacBundle
-                        } else if cfg!(target_os = "windows") {
-                            crate::platform::updater::PackageKind::WindowsNsis
-                        } else {
-                            crate::platform::updater::PackageKind::AppImage
-                        },
-                        staging_root: installation
-                            .parent()
-                            .ok_or_else(|| {
-                                ServiceError::Failed("Invalid installation path".into())
-                            })?
-                            .to_owned(),
-                        installation,
-                    };
-                    runtime
-                        .service(move |_| async move { installer.install(update).await })?
-                        .receive()
-                        .await
-                }
-                .await;
-                let _ = this.update(cx, |this, cx| {
-                    this.update_busy = false;
-                    match result {
-                        Ok(()) => {
-                            crate::platform::windows::request_restart();
-                            this.request_quit(cx);
-                        }
-                        Err(error) => {
-                            this.resume_writers(cx);
-                            this.status(&format!("Update was not installed: {error}"), cx);
-                        }
-                    }
-                });
-            })
-            .detach();
-            return;
-        }
-        let config = (|| -> desktop_runtime::Result<_> {
-            let endpoint = std::env::var("ANARLOG_NATIVE_UPDATE_URL").map_err(|_| {
-                ServiceError::Failed("Native distribution update feed is not configured.".into())
-            })?;
-            let key = std::env::var("ANARLOG_NATIVE_UPDATE_PUBLIC_KEY").map_err(|_| {
-                ServiceError::Failed("Native update signing public key is not configured.".into())
-            })?;
-            let target = std::env::var("ANARLOG_NATIVE_UPDATE_TARGET").map_err(|_| {
-                ServiceError::Failed("Native update target is not configured.".into())
-            })?;
-            let url = endpoint
-                .parse()
-                .map_err(|_| ServiceError::Failed("Invalid native update URL".into()))?;
-            let version = env!("CARGO_PKG_VERSION")
-                .parse()
-                .map_err(|_| ServiceError::Failed("Invalid native version".into()))?;
-            NativeUpdater::new(UpdateConfig::new(vec![url], version, target, key)).map(Arc::new)
-        })();
-        let updater = match config {
-            Ok(updater) => updater,
-            Err(error) => {
-                self.status(&error.to_string(), cx);
-                return;
-            }
-        };
-        self.update_busy = true;
-        let reply = updater.check(&self.runtime, desktop_runtime::CancellationToken::new());
-        cx.spawn(async move |this, cx| {
-            let result = match reply {
-                Ok(reply) => reply.receive().await,
-                Err(error) => Err(error),
-            };
-            let _ = this.update(cx, |this, cx| {
-                this.update_busy = false;
-                match result {
-                    Ok(Some(release)) => {
-                        this.status(
-                            &format!(
-                                "Native update {} is ready. Choose Install update to continue.",
-                                release.version
-                            ),
-                            cx,
-                        );
-                        this.pending_update = Some((updater, release));
-                    }
-                    Ok(None) => this.status("This native build is up to date.", cx),
-                    Err(error) => this.status(&error.to_string(), cx),
-                }
-            });
-        })
-        .detach();
     }
 
     fn resume_writers(&mut self, cx: &mut Context<Self>) {
@@ -1498,13 +1337,6 @@ impl Render for ApplicationView {
                     return;
                 }
                 if this.chrome_key(event, window, cx) {
-                    cx.stop_propagation();
-                    return;
-                }
-                if event.keystroke.key == "q"
-                    && (event.keystroke.modifiers.platform || event.keystroke.modifiers.control)
-                {
-                    this.request_quit(cx);
                     cx.stop_propagation();
                 }
             }))

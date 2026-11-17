@@ -3071,6 +3071,7 @@ dependencies = [
  "transcript",
  "tray-icon",
  "unicode-segmentation",
+ "unicode-width",
  "url",
  "uuid",
  "wiremock",

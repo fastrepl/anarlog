@@ -175,6 +175,7 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 tray-icon = "=0.24.2"
 unicode-segmentation = "=1.13.2"
+unicode-width = "=0.2.2"
 url = { workspace = true }
 uuid = { workspace = true, features = ["v4"] }
 zeroize = "=1.8.2"
