@@ -41,13 +41,18 @@ defaults:
 jobs:
   macos:
     runs-on: macos-26
-    timeout-minutes: 60
+    # A cold macOS build of the app and its tests takes about 55 minutes.
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false
           submodules: recursive
       - run: rustup show
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: apps/desktop-gpui
+          prefix-key: v0-gpui-macos
       - run: cargo fmt --check
       - run: cargo test --locked --workspace
       - run: cargo clippy --locked --workspace --all-targets --no-deps -- -D warnings
@@ -71,6 +76,10 @@ jobs:
             libfontconfig1-dev libfreetype6-dev libxkbcommon-dev libxkbcommon-x11-dev \
             libwayland-dev libx11-dev libxcb1-dev libgtk-3-dev libayatana-appindicator3-dev libxdo-dev
       - run: rustup show
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: apps/desktop-gpui
+          prefix-key: v0-gpui-linux
       - run: cargo test --locked --workspace
       - run: cargo clippy --locked --workspace --all-targets --no-deps -- -D warnings
       - run: cargo build --locked
