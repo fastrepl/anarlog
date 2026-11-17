@@ -77,6 +77,11 @@ pub struct TranscriptView {
     anchor: Option<String>,
     /// The rendered segment ids in order, for range selection.
     order: Vec<String>,
+    /// The selection bar's Delete is saving; the bar's actions wait for it.
+    deleting: bool,
+    /// The selection picker was open when its Change speaker button was pressed, so that
+    /// press closes it instead of reopening it.
+    picker_toggle: bool,
     _playback: Option<Task<()>>,
     _watch: Task<()>,
     _live: Option<Subscription>,
@@ -189,6 +194,8 @@ impl TranscriptView {
             selected: HashSet::new(),
             anchor: None,
             order: Vec::new(),
+            deleting: false,
+            picker_toggle: false,
             _playback: None,
             _watch: watch,
             _live: observe,
@@ -247,6 +254,7 @@ impl TranscriptView {
                 self.commit(&id, cx);
             }
             self.editors.clear();
+            self.clear_selection();
         }
         self.edit_mode = edit_mode;
         cx.notify();
@@ -931,6 +939,313 @@ fn extend(order: &[String], anchor: &str, up: bool) -> Option<HashSet<String>> {
     Some(range.iter().cloned().collect())
 }
 
+/// Shipping's `getTranscriptMergeTarget`: two or more adjacent selected segments of one stored
+/// transcript and channel merge into the first, which needs a known speaker. Returns that
+/// segment and its transcript.
+fn merge_target<'a>(
+    rows: &'a [Row],
+    selected: &HashSet<String>,
+    transcripts: &HashMap<String, Arc<str>>,
+) -> Option<(&'a Row, Arc<str>)> {
+    let indexes: Vec<usize> = (0..rows.len())
+        .filter(|index| selected.contains(&rows[*index].id))
+        .collect();
+    if indexes.len() < 2
+        || indexes.len() != selected.len()
+        || indexes.windows(2).any(|pair| pair[1] != pair[0] + 1)
+    {
+        return None;
+    }
+    let transcript = |row: &Row| {
+        row.words
+            .iter()
+            .find_map(|word| word.id.as_ref())
+            .and_then(|id| transcripts.get(id))
+            .cloned()
+    };
+    let first = &rows[indexes[0]];
+    let target = transcript(first)?;
+    if first.key.speaker_human_id.is_none() && first.key.speaker_index.is_none() {
+        return None;
+    }
+    indexes
+        .iter()
+        .map(|index| &rows[*index])
+        .all(|row| {
+            transcript(row).as_ref() == Some(&target) && row.key.channel == first.key.channel
+        })
+        .then_some((first, target))
+}
+
+/// Shipping's `MultiSelectionBar` and its handlers.
+impl TranscriptView {
+    fn clear_selection(&mut self) {
+        self.selected.clear();
+        self.anchor = None;
+        if self
+            .picker
+            .as_ref()
+            .is_some_and(|picker| picker.segment.is_none())
+        {
+            self.picker = None;
+        }
+    }
+
+    fn rows(&self, cx: &App) -> Vec<Row> {
+        let live = self.live(cx);
+        merge(
+            &self.segments,
+            live.as_ref().map(|live| &live.segments[..]).unwrap_or(&[]),
+        )
+    }
+
+    fn change_selected_speaker(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let rows = self.rows(cx);
+        let selected: Vec<&Row> = rows
+            .iter()
+            .filter(|row| self.selected.contains(&row.id))
+            .collect();
+        let targets = speakers::Target::selection(&selected, &self.word_transcripts);
+        self.open_selection_picker(targets, window, cx);
+    }
+
+    fn merge_selected(&mut self, cx: &mut Context<Self>) {
+        let rows = self.rows(cx);
+        let Some((first, transcript)) = merge_target(&rows, &self.selected, &self.word_transcripts)
+        else {
+            return;
+        };
+        let word_ids: Vec<String> = rows
+            .iter()
+            .filter(|row| self.selected.contains(&row.id))
+            .flat_map(|row| row.words.iter().filter_map(|word| word.id.clone()))
+            .filter(|id| self.word_transcripts.get(id) == Some(&transcript))
+            .collect();
+        let reply = TranscriptStore(self.runtime.clone()).merge(
+            transcript,
+            first.key.speaker_human_id.clone(),
+            first.key.speaker_index,
+            word_ids,
+        );
+        cx.spawn(async move |this, cx| {
+            let result = async { reply?.receive().await }.await;
+            let _ = this.update(cx, |this, cx| {
+                match result {
+                    Ok(()) => this.clear_selection(),
+                    Err(error) => this.error = Some(format!("Segments not merged: {error}")),
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+    }
+
+    /// Shipping's `handleDeleteSelection`: the selected words lose their text.
+    fn delete_selected(&mut self, cx: &mut Context<Self>) {
+        let rows = self.rows(cx);
+        let selected: Vec<&Row> = rows
+            .iter()
+            .filter(|row| self.selected.contains(&row.id))
+            .collect();
+        let store = TranscriptStore(self.runtime.clone());
+        let replies: Vec<_> = speakers::Target::selection(&selected, &self.word_transcripts)
+            .iter()
+            .map(|target| {
+                store.edit_segment_text(
+                    target.transcript().clone(),
+                    target.word_ids().to_vec(),
+                    String::new(),
+                )
+            })
+            .collect();
+        if replies.is_empty() {
+            return;
+        }
+        self.deleting = true;
+        cx.spawn(async move |this, cx| {
+            let mut failed = false;
+            for reply in replies {
+                failed |= async { reply?.receive().await }.await.is_err();
+            }
+            let _ = this.update(cx, |this, cx| {
+                this.deleting = false;
+                if failed {
+                    crate::application::toasts::error("Something went wrong", cx);
+                } else {
+                    this.clear_selection();
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+    }
+
+    /// Floats above the note's chat button, like shipping's session FAB selection slot.
+    fn selection_bar(
+        &self,
+        rows: &[Row],
+        stored: bool,
+        colors: Theme,
+        cx: &mut Context<Self>,
+    ) -> Option<AnyElement> {
+        let count = rows
+            .iter()
+            .filter(|row| self.selected.contains(&row.id))
+            .count();
+        if count == 0 {
+            return None;
+        }
+        let busy = self.deleting;
+        let can_merge =
+            !busy && merge_target(rows, &self.selected, &self.word_transcripts).is_some();
+        let picker = self
+            .picker
+            .as_ref()
+            .filter(|picker| picker.segment.is_none())
+            .and_then(|_| self.speaker_picker(colors, cx));
+        let icon =
+            |path: &'static str, color: Hsla| svg().path(path).size(px(14.)).text_color(color);
+        let action = |id: &'static str| {
+            div()
+                .id(id)
+                .h_7()
+                .flex_shrink_0()
+                .flex()
+                .items_center()
+                .gap(px(6.))
+                .px_2()
+                .whitespace_nowrap()
+                .font_weight(crate::ui::theme::MEDIUM)
+        };
+        let bar = div()
+            .id("transcript-selection-bar")
+            .occlude()
+            .flex()
+            .items_center()
+            .gap_2()
+            .p_1()
+            .pl_3()
+            .border_1()
+            .border_color(colors.border)
+            .bg(colors.card)
+            .shadow_lg()
+            .text_xs()
+            .line_height(px(16.))
+            .text_color(colors.foreground)
+            .child(
+                div()
+                    .whitespace_nowrap()
+                    .text_color(colors.muted_foreground)
+                    .child(format!("{count} selected")),
+            )
+            .child(
+                action("transcript-selection-speaker")
+                    .px_3()
+                    .bg(colors.primary)
+                    .text_color(colors.primary_foreground)
+                    .when_else(
+                        busy,
+                        |button| button.opacity(0.5),
+                        |button| {
+                            button
+                                .cursor_pointer()
+                                .hover(move |style| style.bg(colors.primary.opacity(0.9)))
+                                .capture_any_mouse_down(cx.listener(|this, _, _, _| {
+                                    this.picker_toggle = this
+                                        .picker
+                                        .as_ref()
+                                        .is_some_and(|picker| picker.segment.is_none());
+                                }))
+                                .on_click(cx.listener(|this, _, window, cx| {
+                                    if std::mem::take(&mut this.picker_toggle) {
+                                        this.picker = None;
+                                    } else {
+                                        this.change_selected_speaker(window, cx);
+                                    }
+                                    cx.notify();
+                                }))
+                        },
+                    )
+                    .child("Change speaker"),
+            )
+            .child(
+                action("transcript-selection-merge")
+                    .child(icon("editor/GitMergeIcon.svg", colors.foreground))
+                    .child("Merge")
+                    .when_else(
+                        can_merge,
+                        |button| {
+                            button
+                                .cursor_pointer()
+                                .hover(move |style| style.bg(colors.accent))
+                                .on_click(cx.listener(|this, _, _, cx| this.merge_selected(cx)))
+                        },
+                        |button| button.opacity(0.5),
+                    ),
+            )
+            .when(self.edit_mode && stored, |bar| {
+                bar.child(
+                    action("transcript-selection-delete")
+                        .text_color(colors.destructive)
+                        .child(icon("editor/TrashIcon.svg", colors.destructive))
+                        .child("Delete")
+                        .when_else(
+                            busy,
+                            |button| button.opacity(0.5),
+                            |button| {
+                                button
+                                    .cursor_pointer()
+                                    .hover(move |style| style.bg(colors.destructive.opacity(0.1)))
+                                    .on_click(
+                                        cx.listener(|this, _, _, cx| this.delete_selected(cx)),
+                                    )
+                            },
+                        ),
+                )
+            })
+            .child(
+                div()
+                    .id("transcript-selection-clear")
+                    .size_7()
+                    .flex_shrink_0()
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .child(icon("editor/XIcon.svg", colors.foreground))
+                    .when(!busy, |button| {
+                        button
+                            .cursor_pointer()
+                            .hover(move |style| style.bg(colors.accent))
+                            .on_click(cx.listener(|this, _, _, cx| {
+                                this.clear_selection();
+                                cx.notify();
+                            }))
+                    }),
+            );
+        Some(
+            div()
+                .absolute()
+                .left_0()
+                .right_0()
+                .bottom(px(60.))
+                .flex()
+                .justify_center()
+                .child(div().relative().child(bar).children(picker.map(|picker| {
+                    div()
+                        .absolute()
+                        .bottom_full()
+                        .left_0()
+                        .right_0()
+                        .pb_2()
+                        .flex()
+                        .justify_center()
+                        .child(gpui::deferred(picker).with_priority(1))
+                })))
+                .into_any_element(),
+        )
+    }
+}
+
 /// Shipping's transcript search (`getTranscriptWordMatches`): each match belongs to a word,
 /// whose matching text shows on `bg-yellow-500` when current and `bg-yellow-200/50` otherwise.
 impl TranscriptView {
@@ -1317,6 +1632,7 @@ impl Render for TranscriptView {
                             }),
                     )
                     .children(self.scroll_controls(colors, cx))
+                    .children(self.selection_bar(&rows, live.is_none(), colors, cx))
             }
         };
         let menu = self
@@ -1344,7 +1660,7 @@ impl TranscriptView {
         let open = self
             .picker
             .as_ref()
-            .is_some_and(|picker| picker.segment == row.id);
+            .is_some_and(|picker| picker.segment.as_deref() == Some(row.id.as_str()));
         let target = speakers::Target::new(row, &self.word_transcripts);
         div()
             .relative()
@@ -1492,8 +1808,7 @@ impl TranscriptView {
         let modified = modifiers.shift || modifiers.platform || modifiers.control;
         if !self.edit_mode && !modified {
             if !self.selected.is_empty() {
-                self.selected.clear();
-                self.anchor = None;
+                self.clear_selection();
                 cx.notify();
             }
             return;
@@ -1532,8 +1847,7 @@ impl TranscriptView {
                 cx.stop_propagation();
             }
             "escape" if self.edit_mode && !self.selected.is_empty() => {
-                self.selected.clear();
-                self.anchor = None;
+                self.clear_selection();
                 cx.stop_propagation();
                 cx.notify();
             }
@@ -1966,6 +2280,42 @@ mod tests {
             }
         );
         assert_eq!(screen(Some(&failed), None, true, true), Screen::Ready);
+    }
+
+    #[test]
+    fn only_adjacent_segments_of_one_channel_merge_into_a_first_segment_with_a_known_speaker() {
+        let row = |id: &str, channel, speaker_index| Row {
+            id: id.into(),
+            key: SegmentKey {
+                channel,
+                speaker_index,
+                speaker_human_id: None,
+            },
+            label: SharedString::default(),
+            start_ms: 0,
+            words: vec![word(Some(id), "hi", true)],
+            text: "hi".into(),
+        };
+        let rows = [
+            row("a", ChannelProfile::DirectMic, Some(0)),
+            row("b", ChannelProfile::DirectMic, Some(1)),
+            row("c", ChannelProfile::DirectMic, Some(0)),
+            row("d", ChannelProfile::RemoteParty, Some(0)),
+            row("e", ChannelProfile::RemoteParty, None),
+            row("f", ChannelProfile::RemoteParty, Some(2)),
+        ];
+        let transcripts: HashMap<String, Arc<str>> = ["a", "b", "c", "d", "e", "f"]
+            .map(|id| (id.to_owned(), Arc::from("t")))
+            .into();
+        let target = |ids: &[&str]| {
+            let selected = ids.iter().map(|id| id.to_string()).collect();
+            merge_target(&rows, &selected, &transcripts).map(|(row, _)| row.id.clone())
+        };
+        assert_eq!(target(&["a", "b", "c"]).as_deref(), Some("a"));
+        assert_eq!(target(&["a"]), None, "one segment");
+        assert_eq!(target(&["a", "c"]), None, "not adjacent");
+        assert_eq!(target(&["c", "d"]), None, "another channel");
+        assert_eq!(target(&["e", "f"]), None, "the first speaker is unknown");
     }
 
     #[test]

@@ -48,6 +48,40 @@ impl Target {
             word_ids,
         })
     }
+
+    /// Shipping's `mergeTranscriptSelections`: the selected segments' stored words, one target
+    /// per transcript, keyed by the first segment in it.
+    pub(super) fn selection(rows: &[&Row], words: &HashMap<String, Arc<str>>) -> Vec<Self> {
+        let mut targets: Vec<Self> = Vec::new();
+        for row in rows {
+            for id in row.words.iter().filter_map(|word| word.id.as_ref()) {
+                let Some(transcript) = words.get(id) else {
+                    continue;
+                };
+                match targets
+                    .iter_mut()
+                    .find(|target| &target.transcript == transcript)
+                {
+                    Some(target) => target.word_ids.push(id.clone()),
+                    None => targets.push(Self {
+                        segment: row.id.clone(),
+                        transcript: transcript.clone(),
+                        key: row.key.clone(),
+                        word_ids: vec![id.clone()],
+                    }),
+                }
+            }
+        }
+        targets
+    }
+
+    pub(super) fn transcript(&self) -> &Arc<str> {
+        &self.transcript
+    }
+
+    pub(super) fn word_ids(&self) -> &[String] {
+        &self.word_ids
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -64,8 +98,10 @@ enum Choice {
 }
 
 pub(super) struct SpeakerPicker {
-    pub(super) segment: String,
-    target: Target,
+    /// The segment whose speaker label opened the picker; `None` when the selection bar did.
+    pub(super) segment: Option<String>,
+    /// One per transcript the selection spans.
+    targets: Vec<Target>,
     search: Entity<TextInput>,
     people: Option<(Vec<Person>, Vec<Person>)>,
     selected: Option<Choice>,
@@ -142,6 +178,29 @@ impl TranscriptView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        let segment = Some(target.segment.clone());
+        self.open_speaker_picker(segment, vec![target], window, cx);
+    }
+
+    /// The selection bar's Change speaker: the chosen person speaks every selected word.
+    pub(super) fn open_selection_picker(
+        &mut self,
+        targets: Vec<Target>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if !targets.is_empty() {
+            self.open_speaker_picker(None, targets, window, cx);
+        }
+    }
+
+    fn open_speaker_picker(
+        &mut self,
+        segment: Option<String>,
+        targets: Vec<Target>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let search = cx.new(|cx| TextInput::new("Select or type to add speaker", cx).inline());
         let subscription = cx.subscribe(&search, |this, _, _, cx| {
             if let Some(picker) = &mut this.picker {
@@ -151,8 +210,8 @@ impl TranscriptView {
         });
         search.focus_handle(cx).focus(window, cx);
         self.picker = Some(SpeakerPicker {
-            segment: target.segment.clone(),
-            target,
+            segment,
+            targets,
             search,
             people: None,
             selected: None,
@@ -213,41 +272,56 @@ impl TranscriptView {
         let Some(choice) = picker.selected.clone() else {
             return;
         };
-        picker.assigning = true;
-        let target = picker.target.clone();
-        let all = picker.apply_all && target.key.speaker_index.is_some();
+        let selection = picker.segment.is_none();
+        let Some(first) = picker.targets.first().cloned() else {
+            return;
+        };
+        // Apply to all reaches the speaker's other segments; the selection bar never does.
+        let all = !selection && picker.apply_all && first.key.speaker_index.is_some();
         let (human_id, new_name) = match choice {
             Choice::Person(id) => (id, None),
             Choice::New(name) => (uuid::Uuid::new_v4().to_string(), Some(name)),
         };
-        let scope = match target.key.speaker_index {
-            Some(speaker_index) if all => SpeakerScope::All {
-                channel: channel(&target.key),
-                speaker_index,
-            },
-            _ => SpeakerScope::Segment {
-                word_ids: target.word_ids.clone(),
-            },
-        };
-        let Some(anchor) = target.word_ids.first().cloned() else {
+        let assignments: Vec<SpeakerAssignment> = picker
+            .targets
+            .iter()
+            .filter_map(|target| {
+                Some(SpeakerAssignment {
+                    transcript_id: target.transcript.clone(),
+                    anchor: target.word_ids.first()?.clone(),
+                    human_id: human_id.clone(),
+                    scope: match target.key.speaker_index {
+                        Some(speaker_index) if all => SpeakerScope::All {
+                            channel: channel(&target.key),
+                            speaker_index,
+                        },
+                        _ => SpeakerScope::Segment {
+                            word_ids: target.word_ids.clone(),
+                        },
+                    },
+                })
+            })
+            .collect();
+        if assignments.is_empty() {
             return;
-        };
-        let reply = TranscriptStore(self.runtime.clone()).assign_participant(
+        }
+        picker.assigning = true;
+        let reply = TranscriptStore(self.runtime.clone()).assign_participants(
             self.session.clone(),
-            SpeakerAssignment {
-                transcript_id: target.transcript.clone(),
-                anchor,
-                human_id,
-                scope,
-            },
-            all.then(|| target.key.speaker_human_id.clone()).flatten(),
+            assignments,
+            all.then(|| first.key.speaker_human_id.clone()).flatten(),
             new_name,
         );
         cx.spawn(async move |this, cx| {
             let result = async { reply?.receive().await }.await;
             let _ = this.update(cx, |this, cx| {
                 match result {
-                    Ok(()) => this.picker = None,
+                    Ok(()) => {
+                        this.picker = None;
+                        if selection {
+                            this.clear_selection();
+                        }
+                    }
                     Err(error) => {
                         this.error = Some(format!("Speaker not assigned: {error}"));
                         if let Some(picker) = &mut this.picker {
@@ -432,12 +506,16 @@ impl TranscriptView {
                     .into_any_element(),
             );
         }
-        let scope = picker.target.key.speaker_index.is_some();
+        let scope = picker.segment.is_some()
+            && picker
+                .targets
+                .first()
+                .is_some_and(|target| target.key.speaker_index.is_some());
         let can_confirm = picker.selected.is_some() && !picker.assigning;
         Some(
             div()
                 .id("speaker-picker")
-                .ml_2()
+                .when(picker.segment.is_some(), |view| view.ml_2())
                 .w(px(320.))
                 .occlude()
                 .p(px(2.))

@@ -50,6 +50,7 @@ const ICONS: &[(&str, &[u8])] = &[
         include_bytes!("icons/FileDownloadIcon.svg"),
     ),
     ("FileTextIcon", include_bytes!("icons/FileTextIcon.svg")),
+    ("GitMergeIcon", include_bytes!("icons/GitMergeIcon.svg")),
     ("Heading01Icon", include_bytes!("icons/Heading01Icon.svg")),
     ("Heading02Icon", include_bytes!("icons/Heading02Icon.svg")),
     ("Heading03Icon", include_bytes!("icons/Heading03Icon.svg")),

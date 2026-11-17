@@ -166,12 +166,28 @@ impl TranscriptStore {
         previous_human: Option<String>,
         new_name: Option<String>,
     ) -> Result<Reply<()>> {
+        self.assign_participants(session, vec![assignment], previous_human, new_name)
+    }
+
+    /// One person for assignments in several transcripts (the selection bar's Change speaker),
+    /// committed together; every assignment must name the same person.
+    pub fn assign_participants(
+        &self,
+        session: SessionId,
+        assignments: Vec<SpeakerAssignment>,
+        previous_human: Option<String>,
+        new_name: Option<String>,
+    ) -> Result<Reply<()>> {
         self.0.submit(move |services| async move {
+            let human_id = assignments.first().ok_or(ServiceError::Conflict)?.human_id.clone();
+            if assignments.iter().any(|assignment| assignment.human_id != human_id) {
+                return Err(ServiceError::Conflict);
+            }
             let rows = services.executor.execute(
                 "SELECT id FROM transcripts WHERE session_id = ? AND deleted_at IS NULL".into(),
                 vec![json!(session)],
             ).await.map_err(failure)?;
-            if !rows.iter().any(|row| row["id"].as_str() == Some(&assignment.transcript_id)) {
+            if !assignments.iter().all(|assignment| rows.iter().any(|row| row["id"].as_str() == Some(&assignment.transcript_id))) {
                 return Err(ServiceError::Conflict);
             }
             let mut statements = Vec::new();
@@ -179,16 +195,19 @@ impl TranscriptStore {
                 if name.trim().is_empty() || name.len() > 512 { return Err(failure("Enter a name up to 512 bytes.")); }
                 statements.push(statement(
                     "INSERT INTO humans (id, workspace_id, owner_user_id, name) SELECT ?, workspace_id, owner_user_id, ? FROM sessions WHERE id = ? AND deleted_at IS NULL AND (locked = 0 OR id IN (SELECT value FROM json_each(?)))",
-                    vec![json!(assignment.human_id), json!(name.trim()), json!(session), super::access::param()], Some(1)));
+                    vec![json!(human_id), json!(name.trim()), json!(session), super::access::param()], Some(1)));
             }
             statements.push(statement(
                 "INSERT INTO session_participants (id, workspace_id, owner_user_id, session_id, human_id, display_name) SELECT ?, s.workspace_id, s.owner_user_id, s.id, h.id, h.name FROM sessions s JOIN humans h ON h.id = ? AND h.deleted_at IS NULL WHERE s.id = ? AND s.deleted_at IS NULL AND (s.locked = 0 OR s.id IN (SELECT value FROM json_each(?))) AND NOT EXISTS (SELECT 1 FROM session_participants p WHERE p.session_id = s.id AND p.human_id = h.id AND p.deleted_at IS NULL)",
-                vec![json!(uuid::Uuid::new_v4().to_string()), json!(assignment.human_id), json!(session), super::access::param()], None));
+                vec![json!(uuid::Uuid::new_v4().to_string()), json!(human_id), json!(session), super::access::param()], None));
             for row in rows {
                 let id: Arc<str> = string(&row, "id")?.into();
                 let mut snapshot = load(&services, id.clone()).await?;
-                if id == assignment.transcript_id {
-                    apply_assignment(&mut snapshot, &assignment)?;
+                let own: Vec<&SpeakerAssignment> = assignments.iter().filter(|assignment| assignment.transcript_id == id).collect();
+                if !own.is_empty() {
+                    for assignment in own {
+                        apply_assignment(&mut snapshot, assignment)?;
+                    }
                 } else if let Some(previous) = &previous_human {
                     let rendered = anlg_transcript::render_transcript_segments(RenderTranscriptRequest {
                         transcripts: vec![snapshot.render_input()?], speaker_context: None, preview: None,
@@ -199,7 +218,7 @@ impl TranscriptStore {
                         .flat_map(|segment| segment.words.into_iter().filter_map(|word| word.id)).collect();
                     let Some(anchor) = ids.first().cloned() else { continue };
                     apply_assignment(&mut snapshot, &SpeakerAssignment {
-                        transcript_id: id, anchor, human_id: assignment.human_id.clone(),
+                        transcript_id: id, anchor, human_id: human_id.clone(),
                         scope: SpeakerScope::Segment { word_ids: ids },
                     })?;
                 } else { continue; }
@@ -210,6 +229,42 @@ impl TranscriptStore {
                 error => failure(error),
             })?;
             Ok(())
+        })
+    }
+
+    /// Shipping's `mergeTranscriptSegments`: the words join the first selected segment's
+    /// speaker, assigned to its person when it has one, otherwise renumbered to its provider
+    /// speaker index.
+    pub fn merge(
+        &self,
+        id: Arc<str>,
+        human_id: Option<String>,
+        speaker_index: Option<i32>,
+        word_ids: Vec<String>,
+    ) -> Result<Reply<()>> {
+        let transcript_id = id.clone();
+        self.mutate(id, move |snapshot| {
+            let Some(anchor) = word_ids.first().cloned() else {
+                return Ok(());
+            };
+            match (&human_id, speaker_index) {
+                (Some(human_id), _) => apply_assignment(
+                    snapshot,
+                    &SpeakerAssignment {
+                        transcript_id: transcript_id.clone(),
+                        anchor,
+                        human_id: human_id.clone(),
+                        scope: SpeakerScope::Segment {
+                            word_ids: word_ids.clone(),
+                        },
+                    },
+                ),
+                (None, Some(speaker_index)) => {
+                    unify_speaker_index(snapshot, &word_ids, speaker_index);
+                    Ok(())
+                }
+                (None, None) => Ok(()),
+            }
         })
     }
 
@@ -249,6 +304,57 @@ fn segment_text(words: &mut [Word], word_ids: &[String], text: &str) {
             words[*index].text = next;
         }
     }
+}
+
+/// Shipping's `unifyProviderSpeakerIndex`: the words' provider speaker index becomes
+/// `speaker_index`, and person assignments scoped to any of them are dropped so the index
+/// decides who spoke.
+fn unify_speaker_index(snapshot: &mut Transcript, word_ids: &[String], speaker_index: i32) {
+    let selected: std::collections::HashSet<&str> = word_ids.iter().map(String::as_str).collect();
+    let channel = |word_id: &str| {
+        snapshot
+            .words
+            .iter()
+            .find(|word| word.id == word_id)
+            .map_or(0, |word| word.channel)
+    };
+    let mut renumbered = std::collections::HashSet::new();
+    let mut hints = Vec::with_capacity(snapshot.hints.len() + word_ids.len());
+    for hint in &snapshot.hints {
+        let word_id = hint["word_id"].as_str().filter(|id| selected.contains(id));
+        let value = super::model::hint_value(hint).unwrap_or_default();
+        match (hint["type"].as_str(), word_id) {
+            (Some("provider_speaker_index"), Some(word_id)) => {
+                let channel = value["channel"]
+                    .as_i64()
+                    .map_or_else(|| channel(word_id), |channel| channel as i32);
+                let mut hint = hint.clone();
+                hint["value"] = json!({"channel": channel, "speaker_index": speaker_index})
+                    .to_string()
+                    .into();
+                renumbered.insert(word_id.to_owned());
+                hints.push(hint);
+            }
+            (Some("automatic_speaker_assignment" | "user_speaker_assignment"), _)
+                if value["scope"] == "segment"
+                    && value["word_ids"].as_array().is_some_and(|ids| {
+                        ids.iter()
+                            .any(|id| id.as_str().is_some_and(|id| selected.contains(id)))
+                    }) => {}
+            _ => hints.push(hint.clone()),
+        }
+    }
+    for word in &snapshot.words {
+        if selected.contains(word.id.as_str()) && !renumbered.contains(&word.id) {
+            hints.push(json!({
+                "id": format!("{}:provider_speaker_index", word.id),
+                "word_id": word.id,
+                "type": "provider_speaker_index",
+                "value": json!({"channel": word.channel, "speaker_index": speaker_index}).to_string(),
+            }));
+        }
+    }
+    snapshot.hints = hints;
 }
 
 fn apply_assignment(snapshot: &mut Transcript, assignment: &SpeakerAssignment) -> Result<()> {
@@ -456,5 +562,46 @@ mod tests {
         segment_text(&mut words, &ids, "Bye");
         let texts: Vec<&str> = words.iter().map(|word| word.text.as_str()).collect();
         assert_eq!(texts, ["Bye", "", "", "kept"]);
+    }
+
+    #[test]
+    fn merging_segments_renumbers_them_to_the_first_speaker_and_drops_their_assignments() {
+        let word = |id: &str, start: i64| Word {
+            id: id.into(),
+            text: id.into(),
+            start_ms: start,
+            end_ms: start + 100,
+            channel: 1,
+            extra: Default::default(),
+        };
+        let speaker = |id: &str, index: i32| json!({"id": format!("{id}:provider_speaker_index"), "word_id": id, "type": "provider_speaker_index", "value": json!({"channel": 1, "speaker_index": index}).to_string()});
+        let mut transcript = Transcript {
+            id: "t".into(),
+            started_at: 0,
+            revision: 0,
+            sequence: 0,
+            words: vec![word("a", 0), word("b", 200), word("c", 400)],
+            hints: vec![
+                speaker("a", 0),
+                speaker("b", 1),
+                json!({"id": "b:user_speaker_assignment:segment", "word_id": "b", "type": "user_speaker_assignment", "value": json!({"human_id": "h", "scope": "segment", "word_ids": ["b"]}).to_string()}),
+            ],
+        };
+        let speakers = |transcript: &Transcript| {
+            anlg_transcript::render_transcript_segments(RenderTranscriptRequest {
+                transcripts: vec![transcript.render_input().unwrap()],
+                speaker_context: None,
+                preview: None,
+                participant_human_ids: Vec::new(),
+                self_human_id: None,
+                humans: Vec::new(),
+            })
+            .into_iter()
+            .map(|segment| (segment.key.speaker_index, segment.key.speaker_human_id))
+            .collect::<Vec<_>>()
+        };
+        assert_eq!(speakers(&transcript).len(), 3);
+        unify_speaker_index(&mut transcript, &["a".into(), "b".into(), "c".into()], 0);
+        assert_eq!(speakers(&transcript), [(Some(0), None)]);
     }
 }
