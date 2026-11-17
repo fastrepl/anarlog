@@ -36,6 +36,15 @@ test("builds direct sign-in URLs for each method and build scheme", () => {
   assert.equal(staging.searchParams.get("scheme"), "anarlog-staging");
 });
 
+test("tells the sign-in page when the iOS app opens it", () => {
+  const ios = new URL(
+    buildSignInUrl("https://anarlog.so", "google", "anarlog", undefined, "ios"),
+  );
+  assert.equal(ios.searchParams.get("client"), "ios");
+  const android = new URL(buildSignInUrl("https://anarlog.so", "google"));
+  assert.equal(android.searchParams.has("client"), false);
+});
+
 test("hides Sign in with Apple on Android", () => {
   assert.equal(isAppleSignInAvailable("android"), false);
   assert.equal(isAppleSignInAvailable("ios"), true);

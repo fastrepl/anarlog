@@ -29,6 +29,7 @@ import {
   type BillingInfo,
 } from "@/auth/billing";
 import { refreshBillingEntitlement as retryBillingEntitlement } from "@/auth/billing-handoff";
+import { requiresPro } from "@/auth/companion";
 import { authStorageKey, supabase } from "@/auth/client";
 import {
   buildSignInUrl,
@@ -369,7 +370,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           JSON.stringify({ state, createdAt: Date.now() }),
         );
         const result = await WebBrowser.openAuthSessionAsync(
-          buildSignInUrl(env.appUrl, signInMethod, env.appScheme, state),
+          buildSignInUrl(
+            env.appUrl,
+            signInMethod,
+            env.appScheme,
+            state,
+            requiresPro ? "ios" : undefined,
+          ),
           `${env.appScheme}://auth/callback`,
         );
         if (result.type === "success") {

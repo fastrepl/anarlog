@@ -45,11 +45,13 @@ export function buildSignInUrl(
   method: SignInMethod,
   scheme = "anarlog",
   desktopState?: string,
+  client?: "ios",
 ): string {
   const url = new URL(`${appUrl.replace(/\/+$/, "")}/auth`);
   url.searchParams.set("flow", "desktop");
   url.searchParams.set("scheme", scheme);
   if (desktopState) url.searchParams.set("desktop_state", desktopState);
+  if (client) url.searchParams.set("client", client);
 
   if (method === "email" || method === "sso") {
     url.searchParams.set("view", method);

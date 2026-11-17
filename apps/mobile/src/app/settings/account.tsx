@@ -3,6 +3,7 @@ import { useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 
 import { accountPlanLabel, fetchWorkspacePlan } from "@/auth/account-plan";
+import { requiresPro } from "@/auth/companion";
 import { supabase } from "@/auth/client";
 import { useAuth } from "@/auth/context";
 import { useTrial } from "@/auth/use-trial";
@@ -82,7 +83,7 @@ export default function AccountSettings() {
       </FieldGroup.Section>
       {!auth.bypass && (
         <FieldGroup.Section>
-          {(!auth.billing.isPro || auth.billing.isTrialing) && (
+          {!requiresPro && (!auth.billing.isPro || auth.billing.isTrialing) && (
             <SettingsRow
               title="Explore Anarlog Pro"
               onPress={() => router.push("/settings/pro")}
@@ -90,8 +91,10 @@ export default function AccountSettings() {
           )}
           <FieldGroup.SectionFooter>
             <Text>
-              {auth.billing.isTrialing
-                ? "Your Pro trial includes cloud sync and Anarlog models. After it ends, you can keep using your notes, recording, and your own API keys."
+              {requiresPro
+                ? "Anarlog Pro includes this app, cloud sync, and Anarlog models."
+                : auth.billing.isTrialing
+                  ? "Your Pro trial includes cloud sync and Anarlog models. After it ends, you can keep using your notes, recording, and your own API keys."
                 : auth.billing.isPro
                   ? "Cloud sync and Anarlog models are included in your subscription."
                   : trial.isFetching
@@ -107,7 +110,7 @@ export default function AccountSettings() {
           )}
           <SettingsError error={!auth.billing.isPro ? trial.error : null} />
           <SettingsRow
-            title="Manage account & subscription"
+            title={requiresPro ? "Manage account" : "Manage account & subscription"}
             onPress={() => manage.mutate()}
           />
           <SettingsRow

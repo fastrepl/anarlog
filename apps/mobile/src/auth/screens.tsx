@@ -338,6 +338,89 @@ export function ProScreen({
   );
 }
 
+export function ProRequiredScreen({
+  email,
+  onRefreshBilling,
+  onSignOut,
+}: {
+  email: string;
+  onRefreshBilling: () => Promise<boolean>;
+  onSignOut: () => Promise<void>;
+}) {
+  const styles = useStyles();
+  const refresh = useMutation({ mutationFn: onRefreshBilling });
+  const signOut = useMutation({ mutationFn: onSignOut });
+  const account = useMutation({
+    mutationFn: () =>
+      WebBrowser.openBrowserAsync(
+        `${env.appUrl.replace(/\/+$/, "")}/app/account`,
+      ),
+  });
+  const busy = refresh.isPending || signOut.isPending;
+
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.body}>
+        <View style={styles.titleRow}>
+          <Text style={styles.paywallTitle}>Anarlog Pro required</Text>
+          <View style={styles.accentDot} />
+        </View>
+        <Text style={styles.copy}>
+          Anarlog for iPhone is included with Anarlog Pro. This account does
+          not have Pro.
+        </Text>
+        {refresh.data === false && (
+          <Text style={styles.trialLine}>
+            This account still does not have Pro.
+          </Text>
+        )}
+        {(refresh.error || signOut.error || account.error) && (
+          <Text style={styles.pendingCopy}>
+            Something went wrong. Please try again.
+          </Text>
+        )}
+      </View>
+
+      <Button
+        label="Check again"
+        onPress={() => {
+          if (!busy) refresh.mutate();
+        }}
+        disabled={busy}
+        loading={refresh.isPending}
+        size="large"
+        style={styles.cta}
+      />
+      <Button
+        label="Sign out"
+        variant="secondary"
+        onPress={() => {
+          if (!busy) signOut.mutate();
+        }}
+        disabled={busy}
+        loading={signOut.isPending}
+        size="large"
+        style={styles.cta}
+      />
+      <Button
+        label="Delete account"
+        variant="ghost"
+        onPress={() => {
+          if (!account.isPending) account.mutate();
+        }}
+        disabled={account.isPending}
+        style={styles.cta}
+      />
+
+      <View style={styles.footer}>
+        <Text style={styles.footerEmail} numberOfLines={1}>
+          {email}
+        </Text>
+      </View>
+    </SafeAreaView>
+  );
+}
+
 const useStyles = createStyleHook((Colors) => ({
   safeArea: {
     flex: 1,
