@@ -201,7 +201,15 @@ mod linux {
     pub(super) fn set_visible(window: &gpui::Window, visible: bool) -> Result<()> {
         let handle = HasWindowHandle::window_handle(window)
             .map_err(|error| ServiceError::Failed(error.to_string().into()))?;
-        let RawWindowHandle::Xcb(handle) = handle.as_raw() else {
+        set_handle_visible(handle.as_raw(), visible)
+    }
+
+    fn set_handle_visible(handle: RawWindowHandle, visible: bool) -> Result<()> {
+        let RawWindowHandle::Xcb(handle) = handle else {
+            // Other backends already activate through GPUI; only X11 needs remapping.
+            if visible {
+                return Ok(());
+            }
             return Err(ServiceError::Unsupported(
                 "Hiding a window to the tray is not supported by this display backend".into(),
             ));
@@ -218,6 +226,68 @@ mod linux {
         request.check().map_err(|error| failed(&error))?;
         connection.flush().map_err(|error| failed(&error))?;
         Ok(())
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn activating_a_visible_wayland_window_does_not_report_a_tray_error() {
+            let handle = RawWindowHandle::Wayland(raw_window_handle::WaylandWindowHandle::new(
+                std::ptr::NonNull::dangling(),
+            ));
+            assert!(set_handle_visible(handle, true).is_ok());
+            assert!(matches!(
+                set_handle_visible(handle, false),
+                Err(ServiceError::Unsupported(_))
+            ));
+        }
+
+        #[test]
+        #[ignore = "Requires a live X11 display; https://linear.app/fastrepl-inc/issue/ANLG-320"]
+        fn close_to_tray_unmaps_and_reopens_the_same_x11_window() {
+            use x11rb::protocol::xproto::{CreateWindowAux, MapState, WindowClass};
+
+            let (connection, screen) = x11rb::connect(None).unwrap();
+            let root = connection.setup().roots[screen].root;
+            let window = connection.generate_id().unwrap();
+            connection
+                .create_window(
+                    x11rb::COPY_DEPTH_FROM_PARENT,
+                    window,
+                    root,
+                    0,
+                    0,
+                    32,
+                    32,
+                    0,
+                    WindowClass::INPUT_OUTPUT,
+                    0,
+                    &CreateWindowAux::new().override_redirect(1),
+                )
+                .unwrap()
+                .check()
+                .unwrap();
+            let handle = RawWindowHandle::Xcb(raw_window_handle::XcbWindowHandle::new(
+                std::num::NonZeroU32::new(window).unwrap(),
+            ));
+            let state = || {
+                connection
+                    .get_window_attributes(window)
+                    .unwrap()
+                    .reply()
+                    .unwrap()
+                    .map_state
+            };
+            set_handle_visible(handle, true).unwrap();
+            assert_eq!(state(), MapState::VIEWABLE);
+            set_handle_visible(handle, false).unwrap();
+            assert_eq!(state(), MapState::UNMAPPED);
+            set_handle_visible(handle, true).unwrap();
+            assert_eq!(state(), MapState::VIEWABLE);
+            connection.destroy_window(window).unwrap().check().unwrap();
+        }
     }
 }
 
