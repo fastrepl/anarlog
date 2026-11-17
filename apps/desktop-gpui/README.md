@@ -145,6 +145,17 @@ timestamp, but cannot prove that a caller retained every unknown node. The edito
 lane must preserve unknown data and refuse unsafe transformations. CAS failures
 must retain the dirty draft and expose reload/merge recovery.
 
+## Visual direction
+
+The native app is intentionally sharper than shipping, like the web app: every corner is
+square (buttons, inputs, menus, dialogs, chips, toggles, avatars, dots and painted shapes),
+and motion is near-instant. Functional transitions, such as a toast entering or leaving,
+the chat panel's reveal and the quit overlay's fade, take 70 ms with linear easing;
+decorative reveals are gone. Continuous indicators (spinners, audio meters, the recording
+pulse and progress) keep their timing. `clippy.toml` disallows GPUI's rounding helpers and
+painted corner radii. The shipping desktop app keeps its rounded look, so parity
+comparisons judge layout, copy and behavior, not radii or easing.
+
 ## Visual parity
 
 Both apps render the same seeded library without opening a window:
@@ -296,8 +307,8 @@ workspace, and clones `LaneContext` into every other pane.
 ### Assets and theme
 
 `build.rs` derives all HSL colors from
-`packages/design-system/src/tokens.css`. The shared radius is 8px. The CSS RGBA
-keyboard-shadow tokens are not yet native shadow primitives.
+`packages/design-system/src/tokens.css`; the radius token is unused (see Visual
+direction). The CSS RGBA keyboard-shadow tokens are not yet native shadow primitives.
 `ui::theme::UiFonts` uses San Francisco and SF Mono on macOS (shipping's `system-ui`
 and `ui-monospace`), and `Segoe UI` or Linux `sans-serif` elsewhere. Use
 `ui::theme::MEDIUM` for `font-medium`: font-kit reads SF's Medium face as weight 530.
