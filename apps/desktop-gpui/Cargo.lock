@@ -472,6 +472,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "apple-todo"
+version = "0.1.0"
+dependencies = [
+ "backon",
+ "block2 0.6.2",
+ "chrono",
+ "objc2 0.6.4",
+ "objc2-core-graphics",
+ "objc2-core-location",
+ "objc2-event-kit",
+ "objc2-foundation 0.3.2",
+ "schemars 1.2.1",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tracing",
+]
+
+[[package]]
 name = "approx"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3049,6 +3068,7 @@ dependencies = [
  "anyhow",
  "api-client",
  "apple-calendar",
+ "apple-todo",
  "arboard",
  "audio",
  "audio-actual",
@@ -7825,7 +7845,10 @@ version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ca347214e24bc973fc025fd0d36ebb179ff30536ed1f80252706db19ee452009"
 dependencies = [
+ "block2 0.6.2",
+ "dispatch2",
  "objc2 0.6.4",
+ "objc2-contacts",
  "objc2-foundation 0.3.2",
 ]
 

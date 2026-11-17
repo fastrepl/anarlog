@@ -889,6 +889,10 @@ impl WorkspaceView {
         {
             self.edit_review = None;
         }
+        if let Route::Task(key) = &route {
+            let view = cx.new(|cx| super::task::TaskView::new(&self.runtime, key, cx));
+            self.route_content = Some((route.clone(), view.into()));
+        }
         let calendar_route = route == Route::Calendar;
         self.calendar.update(cx, |calendar, cx| {
             if calendar_route {
@@ -979,6 +983,9 @@ impl WorkspaceView {
                     |this, _, event: &ContactsEvent, cx| match event {
                         ContactsEvent::Back => this.leave_overlay(cx),
                         ContactsEvent::OpenNote(id) => this.open_session(id.clone(), cx),
+                        ContactsEvent::OpenSettings(page) => {
+                            this.navigate(Navigate::Open(Route::settings(page), false), cx)
+                        }
                     },
                 ));
                 self.contacts = Some(contacts.clone());

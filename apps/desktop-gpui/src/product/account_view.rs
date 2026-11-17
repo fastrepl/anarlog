@@ -486,15 +486,28 @@ impl ProductPane {
                 cx.listener(|this, _, _, cx| this.notify_plan_required(cx)),
             )),
             "referrals" => self.referrals(&account, colors, cx),
-            // The native app has no CRM integration yet; signed in, shipping shows this
-            // message when no integration is available.
-            "crm" => page("CRM")
-                .child(text_sm(colors, true).child("Connect a CRM to look up your contacts from Anarlog. Connections are managed through your Anarlog account."))
-                .child(text_sm(colors, true).child(if signed_in {
-                    "No CRM integrations are available yet."
-                } else {
-                    "Sign in to connect a CRM."
-                })),
+            "crm" => {
+                let view = self
+                    .crm
+                    .get_or_insert_with(|| cx.new(super::crm::CrmView::new))
+                    .clone();
+                div().child(view)
+            }
+            "imports" => {
+                if self.imports.is_none() {
+                    let runtime = self.context.runtime.clone();
+                    let view =
+                        cx.new(|cx| super::local::imports_view::ImportsView::new(runtime, cx));
+                    let subscription = cx.subscribe(
+                        &view,
+                        |this, _, _: &super::local::imports_view::SignInRequested, cx| {
+                            this.account_action(Surface::Account, Action::SignIn, vec![], cx)
+                        },
+                    );
+                    self.imports = Some((view, subscription));
+                }
+                div().children(self.imports.as_ref().map(|(view, _)| view.clone()))
+            }
             "insights" => {
                 let user = account
                     .user
@@ -505,8 +518,7 @@ impl ProductPane {
                 if self.insights.as_ref().is_none_or(|(id, _)| *id != user) {
                     let runtime = self.context.runtime.clone();
                     let id = user.clone();
-                    let view =
-                        cx.new(|cx| super::insights::InsightsView::new(runtime, id, cx));
+                    let view = cx.new(|cx| super::insights::InsightsView::new(runtime, id, cx));
                     self.insights = Some((user, view));
                 }
                 div().children(self.insights.as_ref().map(|(_, view)| view.clone()))

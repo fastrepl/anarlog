@@ -66,6 +66,7 @@ pub struct PreferencesView {
     pub(super) dictation_try: Entity<TextInput>,
     /// The transcript last copied from "Last dictation", for its Copied label.
     pub(super) dictation_copied: Option<SharedString>,
+    pub(super) ticket: super::ticket::Ticket,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -99,7 +100,13 @@ impl PreferencesView {
                 .multiline()
                 .rows(2, None)
         });
-        let mut subscriptions = vec![subscription, dictionary_subscription, spoken_subscription];
+        let (ticket, ticket_subscription) = super::ticket::Ticket::new(cx);
+        let mut subscriptions = vec![
+            subscription,
+            dictionary_subscription,
+            spoken_subscription,
+            ticket_subscription,
+        ];
         if let Some(status) = crate::dictation::DictationStatus::global(cx) {
             subscriptions.push(cx.observe(&status, |_, _, cx| cx.notify()));
         }
@@ -125,6 +132,7 @@ impl PreferencesView {
             shortcut_focus: cx.focus_handle(),
             dictation_try,
             dictation_copied: None,
+            ticket,
             _subscriptions: subscriptions,
         };
         this.watch(cx);
@@ -315,6 +323,9 @@ impl PreferencesView {
         }
         if section == "privacy" {
             self.lock_available = crate::platform::device_auth::available(cx);
+        }
+        if section == "todo" {
+            self.load_ticket(cx);
         }
         if matches!(section, "meetings" | "dictation") && self.section != section {
             self.load_microphones(cx);
@@ -614,6 +625,7 @@ impl Render for PreferencesView {
             "privacy" => self.privacy(window, cx),
             "dictation" => self.dictation(window, cx),
             "dictionary" => self.dictionary(window, cx),
+            "todo" => self.ticket(window, cx),
             _ => div().into_any_element(),
         };
         div()

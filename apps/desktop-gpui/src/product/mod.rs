@@ -3,8 +3,10 @@ mod account_view;
 pub mod assets;
 pub mod cloud;
 mod controls;
+pub mod crm;
 mod dictation_shortcut;
 mod insights;
+pub mod integrations;
 pub mod local;
 mod locale;
 pub(crate) mod navigation;
@@ -19,6 +21,7 @@ pub mod services;
 pub mod settings;
 pub mod sharing;
 mod surface_view;
+pub mod ticket;
 pub mod trial;
 
 use std::sync::Arc;
@@ -70,6 +73,8 @@ pub struct ProductPane {
     notice: String,
     pro_notice: Option<ProNotice>,
     insights: Option<(String, Entity<insights::InsightsView>)>,
+    imports: Option<(Entity<local::imports_view::ImportsView>, Subscription)>,
+    crm: Option<Entity<crm::CrmView>>,
     /// The signed-in account's referral summary: loading, failed, or loaded.
     referrals: Option<(Arc<str>, Option<ReferralState>)>,
     referral_copied: bool,
@@ -140,6 +145,8 @@ impl ProductPane {
             notice: String::new(),
             pro_notice: None,
             insights: None,
+            imports: None,
+            crm: None,
             referrals: None,
             referral_copied: false,
             pro_notices: 0,
@@ -211,7 +218,7 @@ impl ProductPane {
             ProductRoute::Permissions => ("permissions", Some(Surface::Permissions)),
             ProductRoute::Share(_) => ("account", Some(Surface::Sharing)),
             ProductRoute::Export(_) => ("app", Some(Surface::Exports)),
-            ProductRoute::Import => ("imports", Some(Surface::Imports)),
+            ProductRoute::Import => ("imports", None),
             ProductRoute::Models => ("transcription", Some(Surface::Models)),
             ProductRoute::Integrations => ("developers", Some(Surface::Developers)),
             ProductRoute::Calendar => ("calendar", Some(Surface::Calendar)),
@@ -348,12 +355,13 @@ impl ProductPane {
         }
         // Insights and referrals reload on each visit, as shipping's queries do.
         self.insights = None;
+        self.imports = None;
+        self.crm = None;
         self.referrals = None;
         self.referral_copied = false;
         let surface = match page.id {
             "team" => Some(Surface::Teams),
             "sync" => Some(Surface::CloudSync),
-            "imports" => Some(Surface::Imports),
             "permissions" => Some(Surface::Permissions),
             "developers" => Some(Surface::Developers),
             _ if navigation::opens_workspace(page) => {
@@ -682,6 +690,7 @@ impl ProductPane {
                     | "privacy"
                     | "dictation"
                     | "dictionary"
+                    | "todo"
             );
         if preferences && let Some(view) = self.preferences.clone() {
             return div().child(view);

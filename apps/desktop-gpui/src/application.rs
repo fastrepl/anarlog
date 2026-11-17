@@ -1088,6 +1088,9 @@ impl ApplicationView {
                         workspace.open_route(Route::Organization(id.clone().into()), false, cx)
                     })
                 }
+                EditorRequest::OpenTask(route) => this.workspace.update(cx, |workspace, cx| {
+                    workspace.open_route(route.clone(), true, cx)
+                }),
                 EditorRequest::MentionSearch { .. } => {}
             }),
         ];

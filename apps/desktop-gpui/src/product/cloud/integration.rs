@@ -257,3 +257,52 @@ impl CalendarAuth for CloudServices {
         self.calendar_flow(provider, Some(connection), cancel)
     }
 }
+
+impl crate::product::integrations::Integrations for CloudServices {
+    fn connections(
+        &self,
+    ) -> BoxFuture<'static, Result<Vec<crate::product::integrations::Connection>>> {
+        let connections = self.integration_connections();
+        Box::pin(async move {
+            Ok(connections
+                .await?
+                .iter()
+                .filter_map(crate::product::integrations::Connection::from_value)
+                .collect())
+        })
+    }
+
+    fn open(
+        &self,
+        integration: &'static str,
+        action: &'static str,
+        connection: Option<String>,
+        return_to: &'static str,
+    ) -> BoxFuture<'static, Result<()>> {
+        self.open_integration(integration.into(), action, connection, Some(return_to))
+    }
+
+    fn post(
+        &self,
+        path: String,
+        body: serde_json::Value,
+    ) -> BoxFuture<'static, Result<serde_json::Value>> {
+        let this = self.clone();
+        Box::pin(async move {
+            this.runtime
+                .clone()
+                .service(move |_| async move {
+                    let account = this
+                        .identity()
+                        .account_id
+                        .ok_or_else(|| failure("Sign in to continue"))?;
+                    let lease = this.core.auth.lease(&account, false).await?;
+                    this.core
+                        .api(&lease, Method::POST, &path, Some(&body))
+                        .await
+                })?
+                .receive()
+                .await
+        })
+    }
+}

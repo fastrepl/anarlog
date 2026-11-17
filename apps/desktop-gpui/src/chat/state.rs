@@ -55,7 +55,7 @@ impl ChatMode {
 
 /// Routes whose main surface carries the floating "Ask anything" button.
 pub fn shows_cta(route: &Route) -> bool {
-    matches!(route, Route::Empty | Route::Session(_))
+    matches!(route, Route::Empty | Route::Session(_) | Route::Task(_))
 }
 
 /// The session used as chat context: kept while visiting other routes, cleared on the

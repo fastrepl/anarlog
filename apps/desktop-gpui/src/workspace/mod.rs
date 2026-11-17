@@ -30,6 +30,7 @@ pub mod resource_list;
 mod search;
 mod shell;
 mod sidebar;
+pub mod task;
 pub mod templates;
 pub mod templates_view;
 mod timeline;

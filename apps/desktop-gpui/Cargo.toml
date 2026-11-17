@@ -205,6 +205,7 @@ block2 = { workspace = true }
 objc2 = { workspace = true }
 objc2-av-foundation = { workspace = true }
 anlg-apple-calendar = { workspace = true }
+anlg-apple-todo = { path = "../../crates/apple-todo", package = "apple-todo" }
 anlg-dictation-ui-macos = { workspace = true }
 anlg-shortcut-macos = { workspace = true }
 macos-accessibility-client = "=0.0.1"

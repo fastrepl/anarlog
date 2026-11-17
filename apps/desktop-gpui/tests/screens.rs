@@ -54,6 +54,15 @@ fn main() {
     // The runtime answers from its own threads, so the dispatcher must wait for real I/O.
     cx.allow_parking();
     cx.update(UiFonts::init);
+    // Imports detection, Reminders access and GitHub answer from fixtures, never this Mac.
+    cx.update(|cx| {
+        use desktop_gpui::{product, workspace::task};
+        cx.set_global(product::local::imports::InstalledAppsOverride(Arc::new(
+            Apps(vec![]),
+        )));
+        cx.set_global(product::ticket::RemindersOverride(Arc::new(Reminders)));
+        cx.set_global(task::GithubOverride(Arc::new(Github)));
+    });
     let window = {
         let runtime = runtime.clone();
         let profile = profile.path().to_path_buf();
@@ -240,6 +249,7 @@ fn main() {
     instruction(&mut cx, &out);
     polish(&mut cx, window, &out);
     teams_and_sync(&mut cx, window, &out);
+    imports_crm_ticket(&mut cx, window, &out);
     capture_onboarding(&mut cx, window, &out);
 }
 
@@ -837,6 +847,157 @@ fn polish(
     open(cx, window, Route::Session(SessionId("s-sync".into())));
     draw(cx);
     capture(cx, window, out, "timeline-reveal");
+}
+
+struct Apps(Vec<&'static str>);
+
+impl desktop_gpui::product::local::imports::InstalledApps for Apps {
+    fn list(
+        &self,
+    ) -> desktop_runtime::Result<Vec<desktop_gpui::product::local::imports::InstalledApp>> {
+        Ok(self
+            .0
+            .iter()
+            .map(|name| desktop_gpui::product::local::imports::InstalledApp {
+                id: (*name).into(),
+                name: (*name).into(),
+            })
+            .collect())
+    }
+}
+
+struct Reminders;
+
+impl desktop_gpui::product::ticket::Reminders for Reminders {
+    fn status(&self) -> desktop_gpui::product::ticket::Access {
+        desktop_gpui::product::ticket::Access::NotDetermined
+    }
+
+    fn request(&self) -> desktop_gpui::product::ticket::Access {
+        self.status()
+    }
+}
+
+struct Github;
+
+impl desktop_gpui::workspace::task::Github for Github {
+    fn get(
+        &self,
+        path: String,
+    ) -> futures::future::BoxFuture<'static, desktop_runtime::Result<serde_json::Value>> {
+        let value = match path.as_str() {
+            "/repos/acme/app/issues/42" => serde_json::json!({
+                "title": "Calendar sync drops recurring events", "number": 42, "state": "open",
+                "user": {"login": "maya"}, "created_at": "2026-11-02T10:00:00Z", "comments": 2,
+                "labels": [{"name": "bug", "color": "d73a4a"}, {"name": "calendar", "color": "0e8a16"}],
+                "assignees": [{"login": "jordan"}],
+                "body": "Recurring events created in **Outlook** disappear after the second sync.\n\n- Happens on every account\n- Started after 1.4.10",
+                "pull_request": null,
+            }),
+            "/repos/acme/app/issues/42/comments" => serde_json::json!([
+                {"user": {"login": "jordan"}, "created_at": "2026-11-03T08:30:00Z", "body": "I can reproduce this with a weekly series."},
+                {"user": {"login": "maya"}, "created_at": "2026-11-04T16:10:00Z", "body": "Fix is in #43."},
+            ]),
+            "/repos/acme/app/issues/43" => serde_json::json!({
+                "title": "Keep recurrence rules when syncing", "number": 43, "state": "closed",
+                "user": {"login": "maya"}, "created_at": "2026-11-04T15:00:00Z", "comments": 0,
+                "labels": [], "assignees": [], "body": null,
+                "pull_request": {"merged_at": "2026-11-05T09:00:00Z"},
+            }),
+            "/repos/acme/app/issues/43/comments" => serde_json::json!([]),
+            _ => {
+                return Box::pin(async {
+                    Err(ServiceError::Failed(
+                        "GitHub API returned 404 Not Found".into(),
+                    ))
+                });
+            }
+        };
+        Box::pin(async move { Ok(value) })
+    }
+}
+
+/// Imports with detected assistants and a connected Fathom, CRM rows, the Ticket page and a
+/// Task tab, all against fixtures.
+fn imports_crm_ticket(
+    cx: &mut HeadlessAppContext,
+    window: WindowHandle<ApplicationView>,
+    out: &std::path::Path,
+) {
+    use desktop_gpui::product::{
+        account::{self, Account, Claims, User},
+        integrations::{self, fake::FakeIntegrations},
+        local::imports,
+    };
+    let fake = Arc::new(FakeIntegrations::default());
+    *fake.connections.lock().unwrap() = vec![
+        FakeIntegrations::connection("fathom", "c-fathom", None),
+        FakeIntegrations::connection("hubspot", "c-hubspot", None),
+        FakeIntegrations::connection("salesforce", "c-salesforce", Some("reconnect_required")),
+        FakeIntegrations::connection("attio", "c-attio", None),
+    ];
+    fake.responses.lock().unwrap().extend([
+        (
+            "/fathom/import-meetings".to_owned(),
+            Ok(serde_json::json!({"files": [], "warnings": []})),
+        ),
+        (
+            "/crm/search-contacts".to_owned(),
+            Ok(serde_json::json!({"contacts": [{"name": "Maya Chen", "jobTitle": "Head of Product", "phone": "+1 555 0100", "url": "https://app.attio.com/maya"}]})),
+        ),
+    ]);
+    cx.update(|cx| {
+        cx.set_global(integrations::Installed(fake.clone()));
+        cx.set_global(imports::InstalledAppsOverride(Arc::new(Apps(vec![
+            "Granola", "Fathom", "Notion", "Krisp", "Otter", "Slack",
+        ]))));
+    });
+    open(cx, window, Route::Settings("imports".into()));
+    capture(cx, window, out, "settings-imports-detected-signed-out");
+    let pro = Account {
+        user: Some(User {
+            id: "7f1c2a9e-3b4d-4e5f-8a6b-9c0d1e2f3a4b".into(),
+            email: Some("alex@example.com".into()),
+        }),
+        claims: Some(Claims {
+            entitlements: vec!["hyprnote_pro".into()],
+            subscription_status: Some("active".into()),
+            current_period_end: Some(account::now() + 86_400),
+            ..Claims::default()
+        }),
+        workspaces: Some(vec![].into()),
+        ..Account::default()
+    };
+    cx.update(|cx| account::set(pro, cx));
+    open(cx, window, Route::Settings("app".into()));
+    open(cx, window, Route::Settings("imports".into()));
+    click(cx, window, 300., 126.);
+    capture(cx, window, out, "settings-imports-detected");
+    click(cx, window, 858., 126.);
+    capture(cx, window, out, "settings-imports-menu");
+    click(cx, window, 500., 580.);
+    open(cx, window, Route::Settings("crm".into()));
+    capture(cx, window, out, "settings-crm-connected");
+    open(cx, window, Route::Settings("todo".into()));
+    capture(cx, window, out, "settings-ticket");
+    click(cx, window, 300., 108.);
+    capture(cx, window, out, "settings-ticket-github");
+    // The settings back arrow returns to the workspace.
+    click(cx, window, 90., 23.);
+    open(
+        cx,
+        window,
+        Route::Task("github_issue:acme/app#42 github_pr:acme/app#43".into()),
+    );
+    capture(cx, window, out, "task");
+    open(cx, window, Route::Human("h-taylor".into()));
+    capture(cx, window, out, "contacts-enrich");
+    click(cx, window, 836., 24.);
+    capture(cx, window, out, "contacts-enrich-result");
+    cx.update(|cx| account::set(Account::default(), cx));
+    open(cx, window, Route::Settings("todo".into()));
+    click(cx, window, 300., 108.);
+    capture(cx, window, out, "settings-ticket-signed-out");
 }
 /// The month grid's cell for `day`, top-left in window pixels (Sunday-first, as captured).
 fn calendar_cell(day: chrono::NaiveDate) -> Option<(f32, f32)> {

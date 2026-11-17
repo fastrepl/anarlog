@@ -40,7 +40,7 @@ impl Route {
             "account" | "billing" | "stats" | "insights" | "app" | "meetings" | "appearance"
             | "sync" | "team" | "notifications" | "imports" | "developers" | "privacy"
             | "permissions" | "dictionary" | "dictation" | "transcription" | "intelligence"
-            | "todo" | "referrals" => Self::Settings(section.into()),
+            | "todo" | "referrals" | "crm" => Self::Settings(section.into()),
             _ => Self::Settings("app".into()),
         }
     }

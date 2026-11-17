@@ -169,7 +169,13 @@ pub fn overlay(
                             .on_click(move |_, window, cx| {
                                 open.update(cx, |chat, cx| chat.event(ChatEvent::Open, window, cx))
                             })
-                            .child(div().flex_1().min_w_0().truncate().child("Ask anything")),
+                            .child(div().flex_1().min_w_0().truncate().child(
+                                if matches!(route, Route::Task(_)) {
+                                    "Work on this task"
+                                } else {
+                                    "Ask anything"
+                                },
+                            )),
                     )
                     .into_any_element(),
             )

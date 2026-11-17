@@ -37,6 +37,7 @@ use crate::ui::theme::{Theme, theme};
 pub enum ContactsEvent {
     Back,
     OpenNote(SessionId),
+    OpenSettings(&'static str),
 }
 
 enum Page {
@@ -67,6 +68,7 @@ pub struct Contacts {
     menu_dismissal: Dismissal,
     /// The CRM prompt under the Enrich button.
     prompt: bool,
+    crm: crate::product::crm::Enrichment,
     scroll: ScrollHandle,
     focus: FocusHandle,
     message: SharedString,
@@ -234,6 +236,7 @@ impl Contacts {
             menu: false,
             menu_dismissal: Dismissal::default(),
             prompt: false,
+            crm: Default::default(),
             scroll: ScrollHandle::new(),
             focus: cx.focus_handle(),
             message: SharedString::default(),
@@ -260,6 +263,7 @@ impl Contacts {
             return;
         }
         self.watching = true;
+        self.load_crm(cx);
         self.watch_cancel.cancel();
         self.watch_cancel = CancellationToken::new();
         let cancel = self.watch_cancel.clone();

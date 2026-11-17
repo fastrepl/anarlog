@@ -117,9 +117,14 @@ pub struct MentionCandidate {
 
 #[derive(Clone, Debug)]
 pub enum EditorRequest {
-    MentionSearch { query: String, generation: u64 },
+    MentionSearch {
+        query: String,
+        generation: u64,
+    },
     OpenSession(String),
     OpenOrganization(String),
+    /// A GitHub issue or pull request chip: the task route for it and its siblings.
+    OpenTask(crate::workspace::navigation::Route),
 }
 
 pub struct MentionMenu {

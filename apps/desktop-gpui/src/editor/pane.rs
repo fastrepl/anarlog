@@ -2009,6 +2009,29 @@ impl EditorPane {
                     self.open_attachment(AttachmentId(id.into()), cx);
                     return;
                 }
+                if span.node.kind() == "appLink" {
+                    let resources = self.model.as_ref().map(|model| {
+                        crate::workspace::task::sibling_resources(
+                            &model.document,
+                            start,
+                            &span.node.value(),
+                        )
+                    });
+                    match resources.filter(|resources| !resources.is_empty()) {
+                        Some(resources) => cx.emit(EditorRequest::OpenTask(
+                            crate::workspace::task::route(&resources),
+                        )),
+                        None => {
+                            if let Some(url) =
+                                span.node.attr("url").and_then(serde_json::Value::as_str)
+                                && clipboard::openable_link(url)
+                            {
+                                cx.emit(EditorEvent::OpenLink(url.into()));
+                            }
+                        }
+                    }
+                    return;
+                }
                 if span.node.kind() == "mention-@"
                     && span.node.attr("type").and_then(serde_json::Value::as_str) == Some("human")
                 {

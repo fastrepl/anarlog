@@ -396,7 +396,7 @@ impl Contacts {
                 .collect::<Vec<_>>()
         };
         let notes = page.notes.clone().unwrap_or_default();
-        let enrich = (!read_only).then(|| self.enrich(colors, cx).into_any_element());
+        let enrich = (!read_only).then(|| self.enrich(&human, colors, cx).into_any_element());
         let header = self.header(
             human.display_name(),
             compact,
@@ -441,6 +441,9 @@ impl Contacts {
                                 }
                             }),
                     )
+                    .when(!read_only, |view| {
+                        view.children(self.enrich_status(&human, colors, cx))
+                    })
                     .when(!duplicates.is_empty(), |view| {
                         view.child(self.duplicates(&duplicates, colors, cx))
                     })
@@ -973,18 +976,160 @@ impl Contacts {
         }
     }
 
-    /// `EnrichContactButton` without a connected CRM: disabled, with the connect prompt on hover.
-    fn enrich(&self, colors: Theme, cx: &mut Context<Self>) -> impl IntoElement {
+    /// `useCrmEnrichment`: whether any CRM is connected; signed out, none is.
+    pub(super) fn load_crm(&mut self, cx: &mut Context<Self>) {
+        let service = crate::product::integrations::installed(cx)
+            .filter(|_| crate::product::account::current(cx).signed_in());
+        let Some(service) = service else {
+            self.crm.connected = Some(false);
+            return;
+        };
+        self.crm.connected = None;
+        let request = service.connections();
+        cx.spawn(async move |this, cx| {
+            let connected = request
+                .await
+                .is_ok_and(|connections| !crate::product::crm::connected(&connections).is_empty());
+            let _ = this.update(cx, |this, cx| {
+                this.crm.connected = Some(connected);
+                cx.notify();
+            });
+        })
+        .detach();
+    }
+
+    /// `enrichHumanFromCrm`, then the filled fields show in the page's inputs.
+    fn enrich_contact(&mut self, human: Human, cx: &mut Context<Self>) {
+        let Some(service) = crate::product::integrations::installed(cx) else {
+            return;
+        };
+        if self.crm.pending.is_some() {
+            return;
+        }
+        let person = crate::product::crm::Person {
+            id: human.id.to_string(),
+            name: human.name.to_string(),
+            email: human.email.to_string(),
+            organization_id: human.organization_id.to_string(),
+            job_title: human.job_title.to_string(),
+            phone: human.phone.to_string(),
+            linkedin: human.linkedin.to_string(),
+        };
+        let id = person.id.clone();
+        let owner = self.owner().to_string();
+        let runtime = self.runtime.clone();
+        self.crm.pending = Some(id.clone());
+        self.crm.result = None;
+        cx.spawn(async move |this, cx| {
+            let result =
+                crate::product::crm::enrich(service.as_ref(), &runtime, person, owner).await;
+            let _ = this.update(cx, |this, cx| {
+                this.crm.pending = None;
+                if let (
+                    Ok(crate::product::crm::Outcome::Matched { changes, .. }),
+                    Page::Person(page),
+                ) = (&result, &this.page)
+                    && page.id.as_ref() == id
+                {
+                    for (field, value) in [
+                        (Field::Name, &changes.name),
+                        (Field::Email, &changes.email),
+                        (Field::JobTitle, &changes.job_title),
+                        (Field::Phone, &changes.phone),
+                        (Field::LinkedIn, &changes.linkedin_username),
+                    ] {
+                        if let (Some(value), Some((_, input))) =
+                            (value, page.fields.iter().find(|(f, _)| *f == field))
+                        {
+                            input.update(cx, |input, cx| input.set_text(value.clone(), cx));
+                        }
+                    }
+                }
+                this.crm.result = Some((id, result.map_err(|error| error.to_string())));
+                cx.notify();
+            });
+        })
+        .detach();
+        cx.notify();
+    }
+
+    /// `EnrichContactStatus`: the last enrichment's outcome for this contact.
+    fn enrich_status(
+        &self,
+        human: &Human,
+        colors: Theme,
+        cx: &mut Context<Self>,
+    ) -> Option<AnyElement> {
+        let (id, result) = self.crm.result.as_ref()?;
+        if id.as_str() != human.id.as_ref() {
+            return None;
+        }
+        let link = |id: &'static str, label: &'static str| {
+            div().id(id).underline().cursor_pointer().child(label)
+        };
+        let body = match result {
+            Err(error) => text_xs(div())
+                .text_color(colors.destructive)
+                .child(error.clone())
+                .into_any_element(),
+            Ok(outcome) => {
+                let (text, settings) = crate::product::crm::outcome_text(outcome);
+                let record = match outcome {
+                    crate::product::crm::Outcome::Matched { contact, .. } => contact.url.clone(),
+                    _ => None,
+                };
+                text_xs(div())
+                    .flex()
+                    .flex_wrap()
+                    .gap_x_1()
+                    .text_color(colors.muted_foreground)
+                    .child(text)
+                    .when_some(settings, |view, label| {
+                        view.child(link("crm-open-settings", label).on_click(
+                            cx.listener(|_, _, _, cx| cx.emit(ContactsEvent::OpenSettings("crm"))),
+                        ))
+                    })
+                    .when_some(record, |view, url| {
+                        view.child(
+                            link("crm-open-record", "Open record")
+                                .on_click(move |_, _, cx| cx.open_url(&url)),
+                        )
+                    })
+                    .into_any_element()
+            }
+        };
+        Some(
+            div()
+                .px_4()
+                .py_3()
+                .border_b_1()
+                .border_color(colors.border)
+                .child(body)
+                .into_any_element(),
+        )
+    }
+
+    /// `EnrichContactButton`: disabled with a connect prompt on hover until a CRM is connected.
+    fn enrich(&self, human: &Human, colors: Theme, cx: &mut Context<Self>) -> impl IntoElement {
+        let loading = self.crm.connected.is_none();
+        let connected = self.crm.connected == Some(true);
+        let pending = self.crm.pending.as_deref() == Some(human.id.as_ref());
+        let enabled = connected && !loading && !pending;
+        let prompt = !loading && !connected;
+        let foreground = colors.foreground;
+        let human = human.clone();
         div()
             .id("enrich-contact")
             .relative()
             .flex()
-            .on_hover(cx.listener(|this, hovered: &bool, _, cx| {
-                this.prompt = *hovered;
+            .on_hover(cx.listener(move |this, hovered: &bool, _, cx| {
+                this.prompt = *hovered && prompt;
                 cx.notify();
             }))
             .child(
                 text_xs(div())
+                    .id("enrich-contact-button")
+                    .group("enrich-contact-button")
                     .h(px(28.))
                     .px_2()
                     .flex()
@@ -993,13 +1138,31 @@ impl Contacts {
                     .rounded(px(8.))
                     .font_weight(crate::ui::theme::MEDIUM)
                     .text_color(colors.muted_foreground)
-                    .opacity(0.5)
-                    .child(
+                    .when(!enabled, |button| button.opacity(0.5))
+                    .when(enabled, |button| {
+                        button
+                            .cursor_pointer()
+                            .hover(move |style| style.bg(colors.accent).text_color(foreground))
+                            .on_click(cx.listener(move |this, _, _, cx| {
+                                this.enrich_contact(human.clone(), cx)
+                            }))
+                    })
+                    .child(if pending {
+                        crate::product::local::imports_view::spinner(
+                            "enrich-spinner",
+                            16.,
+                            colors.muted_foreground,
+                        )
+                    } else {
                         svg()
                             .path("chat/SparkleIcon.svg")
                             .size(px(16.))
-                            .text_color(colors.muted_foreground),
-                    )
+                            .text_color(colors.muted_foreground)
+                            .group_hover("enrich-contact-button", |style| {
+                                style.text_color(foreground)
+                            })
+                            .into_any_element()
+                    })
                     .child("Enrich"),
             )
             .when(self.prompt, |view| {

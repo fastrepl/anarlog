@@ -46,6 +46,13 @@ impl ApplicationView {
                             .update(cx, |view, cx| view.open_route(route, false, cx))
                     })
                 }
+                EditorRequest::OpenTask(route) => {
+                    let route = route.clone();
+                    this.in_main_window(true, cx, move |this, _, cx| {
+                        this.workspace
+                            .update(cx, |view, cx| view.open_route(route, true, cx))
+                    })
+                }
                 EditorRequest::MentionSearch { .. } => {}
             }),
             cx.subscribe(view, |this, _, event: &WorkspaceEvent, cx| {
