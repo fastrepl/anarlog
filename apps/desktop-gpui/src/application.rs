@@ -2,6 +2,7 @@ mod automation;
 mod chrome;
 pub(crate) mod lifecycle;
 mod meeting_schedule;
+pub mod lock;
 mod notifications;
 pub mod toasts;
 mod updates;
@@ -155,6 +156,7 @@ impl ApplicationView {
                 },
             ),
         ];
+        subscriptions.push(lock::install(&runtime, window, cx));
         let dictation = match crate::dictation::Dictation::install(runtime.clone(), cx) {
             Ok(dictation) => {
                 subscriptions.push(cx.subscribe(&dictation, |this, _, failed, cx| {
@@ -1391,6 +1393,9 @@ impl Render for ApplicationView {
         let colors = theme(window);
         let _ = &self.subscriptions;
         self.sync_notice(window, cx);
+        if let Some(gate) = lock::gate(window, cx) {
+            return gate;
+        }
         div()
             .size_full()
             .relative()

@@ -19,13 +19,13 @@ pub fn directory(runtime: &RuntimeHandle, session: SessionId) -> Result<Reply<Pa
         let rows = services
             .executor
             .execute(
-                "SELECT id FROM sessions WHERE id=? AND deleted_at IS NULL AND locked=0".into(),
+                "SELECT id FROM sessions WHERE id=? AND deleted_at IS NULL".into(),
                 vec![json!(session)],
             )
             .await
             .map_err(failure)?;
         if rows.is_empty() {
-            return Err(failure("This note is unavailable or locked."));
+            return Err(failure("This note is unavailable."));
         }
         let fs = super::folders::filesystem(&services.executor).await?;
         tokio::task::spawn_blocking(move || {
@@ -49,7 +49,7 @@ pub fn select_template(
     template: Arc<str>,
 ) -> Result<Reply<String>> {
     runtime.submit(move |services| async move {
-        transaction(&services.executor,vec![statement(format!("UPDATE session_documents SET template_id=?1,updated_at={NOW} WHERE id=(SELECT id FROM session_documents WHERE session_id=?2 AND kind='note' AND deleted_at IS NULL ORDER BY CASE WHEN id=?2 THEN 0 ELSE 1 END,created_at,id LIMIT 1) AND EXISTS(SELECT 1 FROM templates WHERE id=?1) AND EXISTS(SELECT 1 FROM sessions WHERE id=?2 AND deleted_at IS NULL AND locked=0)"),vec![json!(template),json!(session.0)],Some(1))]).await?;
+        transaction(&services.executor,vec![statement(format!("UPDATE session_documents SET template_id=?1,updated_at={NOW} WHERE id=(SELECT id FROM session_documents WHERE session_id=?2 AND kind='note' AND deleted_at IS NULL ORDER BY CASE WHEN id=?2 THEN 0 ELSE 1 END,created_at,id LIMIT 1) AND EXISTS(SELECT 1 FROM templates WHERE id=?1) AND EXISTS(SELECT 1 FROM sessions WHERE id=?2 AND deleted_at IS NULL)"),vec![json!(template),json!(session.0)],Some(1))]).await?;
         Ok("Template selected for this note.".into())
     })
 }

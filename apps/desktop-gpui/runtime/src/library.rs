@@ -373,7 +373,7 @@ impl RuntimeHandle {
     pub fn rename_session(&self, input: RenameSession) -> Result<Reply<OpenSession>> {
         self.submit(move |services| async move {
             services.executor.execute_transaction(vec![TransactionStatement {
-                sql: "UPDATE sessions SET title = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ? AND title = ? AND updated_at = ? AND deleted_at IS NULL AND locked = 0".into(),
+                sql: "UPDATE sessions SET title = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ? AND title = ? AND updated_at = ? AND deleted_at IS NULL".into(),
                 params: vec![json!(input.title), json!(input.base.id), json!(input.base.title), json!(input.base.updated_at)],
                 expected_rows_affected: Some(1),
             }]).await.map_err(map_write_error)?;
@@ -401,13 +401,13 @@ impl RuntimeHandle {
                 // appeared meanwhile (or a document of another session with this id) is a
                 // conflict, never overwritten.
                 let row = services.executor.execute(
-                    "INSERT INTO session_documents (id, workspace_id, session_id, kind, body_format, body, created_by, updated_by) SELECT ?, workspace_id, id, 'note', 'prosemirror_json', ?, owner_user_id, owner_user_id FROM sessions WHERE id = ? AND deleted_at IS NULL AND locked = 0 AND NOT EXISTS (SELECT 1 FROM session_documents WHERE session_id = sessions.id AND kind = 'note' AND deleted_at IS NULL) ON CONFLICT(id) DO UPDATE SET kind = 'note', body_format = excluded.body_format, body = excluded.body, updated_by = excluded.updated_by, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), deleted_at = NULL WHERE session_documents.deleted_at IS NOT NULL AND session_documents.session_id = excluded.session_id RETURNING id, session_id, body_format, body, updated_at".into(),
+                    "INSERT INTO session_documents (id, workspace_id, session_id, kind, body_format, body, created_by, updated_by) SELECT ?, workspace_id, id, 'note', 'prosemirror_json', ?, owner_user_id, owner_user_id FROM sessions WHERE id = ? AND deleted_at IS NULL AND NOT EXISTS (SELECT 1 FROM session_documents WHERE session_id = sessions.id AND kind = 'note' AND deleted_at IS NULL) ON CONFLICT(id) DO UPDATE SET kind = 'note', body_format = excluded.body_format, body = excluded.body, updated_by = excluded.updated_by, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), deleted_at = NULL WHERE session_documents.deleted_at IS NOT NULL AND session_documents.session_id = excluded.session_id RETURNING id, session_id, body_format, body, updated_at".into(),
                     vec![json!(input.base.id), json!(input.body), json!(input.base.session_id)],
                 ).await.map_err(failure)?.into_iter().next().ok_or(ServiceError::Conflict)?;
                 return serde_json::from_value(row).map_err(failure);
             }
             let row = services.executor.execute(
-                "UPDATE session_documents SET body = ?, body_format = 'prosemirror_json', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ? AND session_id = ? AND body = ? AND body_format = ? AND updated_at = ? AND deleted_at IS NULL AND EXISTS (SELECT 1 FROM sessions WHERE id = session_documents.session_id AND deleted_at IS NULL AND locked = 0) RETURNING id, session_id, body_format, body, updated_at".into(),
+                "UPDATE session_documents SET body = ?, body_format = 'prosemirror_json', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ? AND session_id = ? AND body = ? AND body_format = ? AND updated_at = ? AND deleted_at IS NULL AND EXISTS (SELECT 1 FROM sessions WHERE id = session_documents.session_id AND deleted_at IS NULL) RETURNING id, session_id, body_format, body, updated_at".into(),
                 vec![json!(input.body), json!(input.base.id), json!(input.base.session_id), json!(input.base.body), json!(input.base.body_format), json!(input.base.updated_at)],
             ).await.map_err(failure)?.into_iter().next().ok_or(ServiceError::Conflict)?;
             serde_json::from_value(row).map_err(failure)

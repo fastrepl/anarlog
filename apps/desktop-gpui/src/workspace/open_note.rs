@@ -111,6 +111,7 @@ struct Details {
     /// the memo's suggested templates.
     event_text: String,
     participants: usize,
+    lock_row: Option<(&'static str, &'static str, bool)>,
 }
 
 /// The note's views, in shipping's switcher order: summaries, memos, transcript.
@@ -210,6 +211,7 @@ enum MenuAction {
     OpenWindow,
     AlwaysOnTop,
     Delete,
+    Lock,
 }
 
 struct MenuItem {
@@ -687,6 +689,7 @@ impl NoteView {
                 event["description"].as_str().unwrap_or_default()
             ),
             participants: event["participants"].as_array().map_or(0, Vec::len),
+            lock_row: self.details.lock_row,
             folder: folder_label(row["folder_path"].as_str().unwrap_or_default()),
             event_ended: row["event_json"]
                 .as_str()
@@ -866,14 +869,21 @@ impl NoteView {
                 true,
                 false,
             ),
-            item(
-                MenuAction::Delete,
-                "editor/TrashIcon.svg",
-                "Delete",
-                false,
-                true,
-            ),
         ]
+        .into_iter()
+        .chain(
+            self.details
+                .lock_row
+                .map(|(icon, label, disabled)| item(MenuAction::Lock, icon, label, disabled, true)),
+        )
+        .chain([item(
+            MenuAction::Delete,
+            "editor/TrashIcon.svg",
+            "Delete",
+            false,
+            self.details.lock_row.is_none(),
+        )])
+        .collect()
     }
 
     fn step_menu(&mut self, forward: bool) {
@@ -915,6 +925,7 @@ impl NoteView {
             MenuAction::Export => cx.emit(WorkspaceEvent::Product(ProductRoute::Export(id))),
             MenuAction::OpenWindow => cx.emit(NoteEvent::Request(OpenNote::Window(id))),
             MenuAction::Delete => cx.emit(NoteEvent::Request(OpenNote::Delete(vec![id].into()))),
+            MenuAction::Lock => super::note_lock::toggle_from_menu(id, cx),
             MenuAction::MeetingInfo | MenuAction::VersionHistory | MenuAction::AlwaysOnTop => {}
         }
     }
@@ -1720,6 +1731,12 @@ impl Drop for NoteView {
 
 impl Render for NoteView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let summary = self.current.as_ref().map(|session| &session.summary);
+        if let Some(gate) = super::note_lock::gate(summary, window, cx) {
+            return gate;
+        }
+        self.details.lock_row =
+            summary.and_then(|summary| super::note_lock::menu_row(&summary.id, cx));
         let colors = theme(window);
         let compact_folder = self.compact_folder;
         let entity = cx.entity().downgrade();

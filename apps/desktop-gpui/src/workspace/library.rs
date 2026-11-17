@@ -49,6 +49,8 @@ struct NoteMenu {
     bulk: bool,
     /// An event row's tracking id and series, for its delete menu.
     event: Option<(Arc<str>, Arc<str>)>,
+    /// The note's Lock / Unlock Note label, when device authentication is available.
+    lock: Option<&'static str>,
 }
 
 impl NoteMenu {
@@ -67,8 +69,11 @@ impl NoteMenu {
                     "Show in folder"
                 }
                 .into(),
-                "Delete Note".into(),
             ]
+            .into_iter()
+            .chain(self.lock.map(String::from))
+            .chain(["Delete Note".into()])
+            .collect()
         }
     }
 }
@@ -351,7 +356,10 @@ impl LibraryView {
             match (menu.bulk, index) {
                 (false, 0) => cx.emit(OpenNote::Window(menu.ids[0].clone())),
                 (false, 1) => cx.emit(OpenNote::Reveal(menu.ids[0].clone())),
-                (false, 2) => cx.emit(OpenNote::Delete(menu.ids)),
+                (false, 2) if menu.lock.is_some() => {
+                    super::note_lock::toggle_from_menu(menu.ids[0].clone(), cx)
+                }
+                (false, 2 | 3) => cx.emit(OpenNote::Delete(menu.ids)),
                 (true, 0) => cx.emit(OpenNote::DeleteSelected(menu.ids)),
                 _ => {}
             }
@@ -606,6 +614,11 @@ impl LibraryView {
             .as_ref()
             .is_some_and(|id| self.selection.ids.contains(id) || self.active.as_ref() == Some(id));
         let spinner = event_opening || !selected && !live && mode == SessionMode::Finalizing;
+        // Shipping's row puts the lock before the spinner, inside the item's padding.
+        let lock_glyph = session
+            .as_ref()
+            .and_then(|id| super::note_lock::glyph(id, colors.muted_foreground, cx));
+        let lock_right = if live { 40. } else { 12. } + if spinner { 22. } else { 0. };
         let extra_rows = usize::from(!folder.is_empty()) + usize::from(!tags.is_empty());
         // Shipping's stylesheet never generates the item's `bg-destructive/8`, `bg-destructive/20`
         // and `text-destructive-foreground/65` classes, so upcoming items have no tint or gauge
@@ -627,6 +640,7 @@ impl LibraryView {
             .py_2()
             .when(upcoming.is_some(), |view| view.pl_4())
             .when(live, |view| view.pr_10())
+            .when(lock_glyph.is_some(), |view| view.pr(px(lock_right + 22.)))
             .rounded(px(8.))
             .cursor_pointer()
             .overflow_hidden()
@@ -658,6 +672,9 @@ impl LibraryView {
                             },
                             bulk,
                             event: None,
+                            lock: super::note_lock::menu_row(&session, cx)
+                                .filter(|_| !bulk)
+                                .map(|(_, label, _)| label),
                         });
                         this.menu_index = 0;
                         cx.stop_propagation();
@@ -675,6 +692,7 @@ impl LibraryView {
                             ids: Arc::from([]),
                             bulk: false,
                             event: Some(event_ids.clone()),
+                            lock: None,
                         });
                         this.menu_index = 0;
                         cx.stop_propagation();
@@ -707,7 +725,17 @@ impl LibraryView {
                         if event.click_count() == 2 {
                             cx.emit(OpenNote::Window(id));
                         } else if event.click_count() == 1 {
-                            cx.emit(OpenNote::Current(id));
+                            match super::note_lock::reveal_first(&id, cx) {
+                                Some(revealed) => cx
+                                    .spawn(async move |this, cx| {
+                                        if revealed.await {
+                                            let _ = this
+                                                .update(cx, |_, cx| cx.emit(OpenNote::Current(id)));
+                                        }
+                                    })
+                                    .detach(),
+                                None => cx.emit(OpenNote::Current(id)),
+                            }
                         }
                     }
                     cx.notify();
@@ -776,6 +804,18 @@ impl LibraryView {
             .relative()
             .group("sidebar-live-item")
             .child(content)
+            .when_some(lock_glyph, |view, glyph| {
+                view.child(
+                    div()
+                        .absolute()
+                        .top_0()
+                        .bottom_0()
+                        .right(px(lock_right))
+                        .flex()
+                        .items_center()
+                        .child(glyph),
+                )
+            })
             .when(spinner, |view| {
                 view.child(
                     div()

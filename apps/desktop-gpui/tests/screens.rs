@@ -174,6 +174,7 @@ fn main() {
     note_depth(&mut cx, window, &out);
     toasts(&mut cx, window, &out);
     meeting_records(&mut cx, window, &runtime, profile.path(), &out);
+    locks(&mut cx, window, &runtime, &out);
     for (name, route) in [
         ("note", Route::Session(SessionId("s-sync".into()))),
         (
@@ -430,6 +431,68 @@ fn meeting_records(
         WHERE id = '6b3f7a52-1c4e-4f0a-9d2b-7e5c8a1f3d40'",
     );
     open(cx, window, Route::Session(SessionId("s-sync".into())));
+}
+
+/// Device authentication that declines, so lock screens stay up.
+struct DecliningAuth;
+
+impl desktop_gpui::platform::device_auth::DeviceAuth for DecliningAuth {
+    fn available(&self) -> bool {
+        true
+    }
+
+    fn authenticate(&self, _: &str) -> futures::channel::oneshot::Receiver<bool> {
+        let (sender, receiver) = futures::channel::oneshot::channel();
+        let _ = sender.send(false);
+        receiver
+    }
+}
+
+/// A locked note in the timeline, its menus and lock screen, then the app lock screen.
+fn locks(
+    cx: &mut HeadlessAppContext,
+    window: WindowHandle<ApplicationView>,
+    runtime: &RuntimeHandle,
+    out: &std::path::Path,
+) {
+    use desktop_gpui::{application::lock, platform::device_auth};
+    cx.update(|cx| {
+        cx.set_global(device_auth::Installed(Arc::new(DecliningAuth)));
+        lock::refresh_availability(cx);
+    });
+    sql(
+        runtime,
+        "UPDATE sessions SET locked = 1 WHERE id = 's-standup'",
+    );
+    open(cx, window, Route::Session(SessionId("s-sync".into())));
+    capture(cx, window, out, "lock-timeline");
+    click(cx, window, 888., 23.);
+    capture(cx, window, out, "lock-note-menu");
+    type_text(cx, window, &["escape"]);
+    right_click(cx, window, 100., 270.);
+    capture(cx, window, out, "lock-context-menu");
+    type_text(cx, window, &["escape"]);
+    open(cx, window, Route::Session(SessionId("s-standup".into())));
+    capture(cx, window, out, "lock-note");
+    sql(
+        runtime,
+        "INSERT INTO app_settings (id, value_json) VALUES ('lock_app', 'true') ON CONFLICT(id) DO UPDATE SET value_json = 'true'",
+    );
+    settle(cx);
+    capture(cx, window, out, "lock-app");
+    sql(
+        runtime,
+        "UPDATE app_settings SET value_json = 'false' WHERE id = 'lock_app'",
+    );
+    sql(
+        runtime,
+        "UPDATE sessions SET locked = 0 WHERE id = 's-standup'",
+    );
+    cx.update(|cx| {
+        cx.remove_global::<device_auth::Installed>();
+        lock::refresh_availability(cx);
+    });
+    settle(cx);
 }
 /// The month grid's cell for `day`, top-left in window pixels (Sunday-first, as captured).
 fn calendar_cell(day: chrono::NaiveDate) -> Option<(f32, f32)> {

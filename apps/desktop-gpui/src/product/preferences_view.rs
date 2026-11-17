@@ -360,7 +360,7 @@ impl PreferencesView {
     /// `SettingsPrivacy`: changing the app lock needs device authentication first.
     pub(super) fn toggle_lock(&mut self, next: bool, cx: &mut Context<Self>) {
         use crate::platform::device_auth;
-        self.lock_available = device_auth::available(cx);
+        self.lock_available = crate::application::lock::refresh_availability(cx);
         if !self.lock_available || self.authenticating {
             cx.notify();
             return;
@@ -373,6 +373,10 @@ impl PreferencesView {
                 this.authenticating = false;
                 if authenticated {
                     this.set("lock_app", Value::Bool(next), cx);
+                    // Shipping locks as soon as the lock is turned on.
+                    if next {
+                        crate::application::lock::lock_app(cx);
+                    }
                 }
                 cx.notify();
             });

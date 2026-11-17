@@ -14,6 +14,7 @@ mod layout;
 mod library;
 pub mod mutations;
 pub mod navigation;
+mod note_lock;
 pub mod notes;
 mod open_note;
 #[cfg(test)]

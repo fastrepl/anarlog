@@ -215,7 +215,7 @@ pub(super) async fn move_notes(
         return Err(failure("Choose an existing folder"));
     }
     let fs = filesystem(executor).await?;
-    let rows = executor.execute("SELECT id,folder_path,updated_at FROM sessions WHERE id IN(SELECT value FROM json_each(?)) AND deleted_at IS NULL AND locked=0".into(),vec![json!(ids).to_string().into()]).await.map_err(failure)?;
+    let rows = executor.execute("SELECT id,folder_path,updated_at FROM sessions WHERE id IN(SELECT value FROM json_each(?)) AND deleted_at IS NULL".into(),vec![json!(ids).to_string().into()]).await.map_err(failure)?;
     if rows.len() != ids.len() {
         return Err(ServiceError::Conflict);
     }
@@ -238,7 +238,7 @@ pub(super) async fn move_notes(
                 return Err(failure(error));
             }
         }
-        statements.push(statement(format!("UPDATE sessions SET folder_path=?,updated_at={NOW} WHERE id=? AND folder_path=? AND updated_at=? AND deleted_at IS NULL AND locked=0"),vec![json!(path),json!(id),json!(old),row["updated_at"].clone()],Some(1)));
+        statements.push(statement(format!("UPDATE sessions SET folder_path=?,updated_at={NOW} WHERE id=? AND folder_path=? AND updated_at=? AND deleted_at IS NULL"),vec![json!(path),json!(id),json!(old),row["updated_at"].clone()],Some(1)));
     }
     if let Err(error) = transaction(executor, statements).await {
         for (id, old) in moved.iter().rev() {

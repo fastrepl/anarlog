@@ -455,6 +455,19 @@ impl WorkspaceView {
     }
 
     fn handle_note(&mut self, event: &OpenNote, cx: &mut Context<Self>) {
+        let Some(authenticated) = super::note_lock::guard(event, cx) else {
+            return self.handle_unlocked_note(event, cx);
+        };
+        let event = event.clone();
+        cx.spawn(async move |this, cx| {
+            if authenticated.await {
+                let _ = this.update(cx, |this, cx| this.handle_unlocked_note(&event, cx));
+            }
+        })
+        .detach();
+    }
+
+    fn handle_unlocked_note(&mut self, event: &OpenNote, cx: &mut Context<Self>) {
         match event {
             OpenNote::Current(id) => self.open_session(id.clone(), cx),
             OpenNote::Calendar => self.navigate(Navigate::Open(Route::Calendar, true), cx),

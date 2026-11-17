@@ -247,7 +247,7 @@ fn timeline_events_skip_ignored_declined_and_noted_events() {
 }
 
 #[test]
-fn note_folder_resolution_follows_moved_notes_and_rejects_locked_or_deleted_notes() {
+fn note_folder_resolution_follows_moved_and_locked_notes_and_rejects_deleted_notes() {
     block_on(async {
         let (directory, runtime) = start().await;
         let session = runtime
@@ -278,12 +278,13 @@ fn note_folder_resolution_follows_moved_notes_and_rejects_locked_or_deleted_note
             vec![json!(session)],
         )
         .await;
+        // Locked notes authenticate in the UI before they are shown in Finder, like shipping.
         assert!(
             notes::directory(&runtime, session.clone())
                 .unwrap()
                 .receive()
                 .await
-                .is_err()
+                .is_ok()
         );
         execute(
             &runtime,
