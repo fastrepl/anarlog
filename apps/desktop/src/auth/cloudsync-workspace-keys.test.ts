@@ -138,10 +138,8 @@ test("mints and publishes the first shared workspace key", async () => {
   );
 });
 
-test("waits when the caller cannot provision or a member identity is missing", async () => {
-  const fetchMock = vi.fn(() =>
-    Promise.resolve(Response.json(recipients(null))),
-  );
+test("waits for a grant when the caller cannot provision", async () => {
+  const fetchMock = vi.fn(() => Promise.resolve(Response.json(recipients())));
   vi.stubGlobal("fetch", fetchMock);
 
   await expect(
@@ -153,17 +151,6 @@ test("waits when the caller cannot provision or a member identity is missing", a
     ),
   ).resolves.toBe("waiting");
   expect(fetchMock).not.toHaveBeenCalled();
-
-  await expect(
-    provisionMissingWorkspaceKeys(
-      credentials(),
-      "access-token",
-      OWNER_ID,
-      new AbortController().signal,
-    ),
-  ).resolves.toBe("waiting");
-  expect(fetchMock).toHaveBeenCalledTimes(1);
-  expect(sealWorkspaceE2eeKeyForRecipients).not.toHaveBeenCalled();
 });
 
 test("does nothing when every shared workspace has an active grant", async () => {
@@ -234,8 +221,43 @@ test.each(["owner", "admin"])(
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(sealWorkspaceE2eeKeyForRecipients).not.toHaveBeenCalled();
+  },
+);
 
-    value.workspaceKeyGrants[0]!.isActive = false;
+test.each(["owner", "admin"])(
+  "mints a new key for ready members when the %s's key is retired and a teammate has no identity",
+  async (role) => {
+    const value = credentials(role);
+    value.workspaceKeyGrants = [
+      {
+        workspaceId: WORKSPACE_ID,
+        keyId: "AAAAAAAAAAAAAAAAAAAAAA",
+        ephemeralPublicKey: "A".repeat(43),
+        nonce: "B".repeat(32),
+        ciphertext: "C".repeat(64),
+        isActive: false,
+      },
+    ];
+    const sealed = {
+      keyId: "BBBBBBBBBBBBBBBBBBBBBB",
+      grants: [
+        {
+          userId: OWNER_ID,
+          ephemeralPublicKey: "D".repeat(43),
+          nonce: "E".repeat(32),
+          ciphertext: "F".repeat(64),
+        },
+      ],
+    };
+    vi.mocked(sealWorkspaceE2eeKeyForRecipients).mockResolvedValue(sealed);
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json(recipients(null)))
+      .mockResolvedValueOnce(
+        Response.json({ keyId: sealed.keyId, grantedMemberCount: 1 }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
     await expect(
       provisionMissingWorkspaceKeys(
         value,
@@ -243,8 +265,15 @@ test.each(["owner", "admin"])(
         OWNER_ID,
         new AbortController().signal,
       ),
-    ).resolves.toBe("waiting");
-    expect(sealWorkspaceE2eeKeyForRecipients).not.toHaveBeenCalled();
+    ).resolves.toBe("provisioned");
+
+    expect(sealWorkspaceE2eeKeyForRecipients).toHaveBeenCalledWith(
+      OWNER_ID,
+      WORKSPACE_ID,
+      [{ userId: OWNER_ID, publicKey: "A".repeat(43) }],
+      true,
+      null,
+    );
   },
 );
 
