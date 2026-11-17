@@ -268,8 +268,10 @@ fn note_folder_resolution_follows_moved_and_locked_notes_and_rejects_deleted_not
                 .unwrap()
                 .receive()
                 .await
+                .unwrap()
+                .canonicalize()
                 .unwrap(),
-            // The resolver canonicalizes, and macOS temp directories live behind /var -> /private/var.
+            // Compare the same file despite macOS symlinks or Windows extended-length paths.
             path.canonicalize().unwrap()
         );
         execute(
@@ -422,6 +424,8 @@ fn provider_fixture(
                     Err(error) => panic!("{error}"),
                 }
             };
+            // Windows accepts inherit the listener's nonblocking mode.
+            stream.set_nonblocking(false).unwrap();
             stream
                 .set_read_timeout(Some(Duration::from_secs(5)))
                 .unwrap();

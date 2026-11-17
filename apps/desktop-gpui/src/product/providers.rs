@@ -1052,13 +1052,10 @@ mod tests {
     #[test]
     fn stale_provider_choice_rolls_back_the_whole_transaction() {
         futures::executor::block_on(async {
-            let directory = std::path::PathBuf::from(std::env::var_os("HOME").unwrap())
-                .join(".cache/anarlog-provider-tests")
-                .join(uuid::Uuid::new_v4().to_string());
-            std::fs::create_dir_all(&directory).unwrap();
+            let directory = tempfile::tempdir().unwrap();
             let (runtime, ready) =
                 desktop_runtime::RuntimeHandle::start(desktop_runtime::Profile {
-                    database: directory.join("library.sqlite"),
+                    database: directory.path().join("library.sqlite"),
                 })
                 .unwrap();
             ready.receive().await.unwrap();
@@ -1109,7 +1106,7 @@ mod tests {
             assert_eq!(rows[0]["value_json"], json!("old").to_string());
             assert_eq!(rows[1]["value_json"], json!("custom").to_string());
             runtime.shutdown().await.unwrap();
-            std::fs::remove_dir_all(directory).unwrap();
+            directory.close().unwrap();
         });
     }
 
