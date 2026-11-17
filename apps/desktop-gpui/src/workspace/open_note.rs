@@ -48,7 +48,7 @@ use crate::{
     product::sharing::{self, SharePopover, SharePopoverEvent},
     ui::{
         input::{InputEvent, TextInput},
-        theme::{RADIUS, Theme, theme},
+        theme::{Theme, theme},
     },
 };
 use export_modal::{ExportEvent, ExportModal};
@@ -1698,7 +1698,6 @@ impl NoteView {
                     .flex()
                     .flex_shrink_0()
                     .items_center()
-                    .rounded(px(RADIUS))
                     .text_color(colors.muted_foreground)
                     .hover(|view| view.bg(colors.accent).text_color(colors.foreground))
                     .when(open, |view| {
@@ -1819,7 +1818,6 @@ impl NoteView {
             .p(px(2.))
             .gap(px(2.))
             .items_center()
-            .rounded_full()
             .bg(colors.foreground.opacity(0.1))
             .children(tabs.iter().enumerate().map(|(index, tab)| {
                 let active = tab == current;
@@ -1931,7 +1929,6 @@ impl NoteView {
                     .flex_shrink_0()
                     .items_center()
                     .justify_center()
-                    .rounded_full()
                     .cursor_pointer()
                     .when_else(
                         active,
@@ -2103,7 +2100,6 @@ impl NoteView {
             div().flex_shrink_0().px_1().pt_1().pb_2().child(
                 div()
                     .overflow_hidden()
-                    .rounded(px(22.))
                     .border_1()
                     .border_color(colors.border.opacity(0.7))
                     .bg(colors.card.opacity(0.8))
@@ -2131,7 +2127,6 @@ impl NoteView {
             .flex_shrink_0()
             .items_center()
             .gap(px(6.))
-            .rounded(px(RADIUS))
             .border_1()
             .border_color(colors.border)
             .when(recording, |view| view.bg(colors.card))
@@ -2257,7 +2252,6 @@ impl NoteView {
                             .flex()
                             .items_center()
                             .justify_center()
-                            .rounded(px(RADIUS))
                             .text_color(colors.muted_foreground)
                             .hover(|view| view.bg(colors.accent).text_color(colors.foreground))
                             .cursor_pointer()
@@ -2304,7 +2298,6 @@ impl NoteView {
             .w(px(224.))
             .occlude()
             .p(px(2.))
-            .rounded(px(22.))
             .border_1()
             .border_color(colors.app_floating_border)
             .bg(colors.app_floating_chrome)
@@ -2342,7 +2335,6 @@ impl NoteView {
             .child(
                 div()
                     .p(px(6.))
-                    .rounded(px(20.))
                     .border_1()
                     .border_color(colors.app_floating_border)
                     .bg(colors.app_floating_panel)
@@ -2368,7 +2360,6 @@ impl NoteView {
                             .gap_2()
                             .px_2()
                             .py(px(6.))
-                            .rounded(px(14.))
                             .text_sm()
                             .line_height(px(20.))
                             .when(destructive, |view| view.text_color(red))
@@ -2446,7 +2437,6 @@ impl NoteView {
                         .w(px(288.))
                         .occlude()
                         .p(px(2.))
-                        .rounded(px(22.))
                         .border_1()
                         .border_color(colors.app_floating_border)
                         .bg(colors.app_floating_chrome)
@@ -2509,7 +2499,6 @@ impl NoteView {
                             .flex()
                             .items_center()
                             .text_sm()
-                            .rounded(px(4.))
                             .when_else(
                                 disabled,
                                 |row| row.opacity(0.5),
@@ -2551,11 +2540,10 @@ fn record_mark() -> impl IntoElement {
                 halo.size(px(size))
                     .top(px(6. - size / 2.))
                     .left(px(6. - size / 2.))
-                    .rounded(px(size * 0.3))
                     .opacity(1. - progress)
             },
         ))
-        .child(div().size(px(8.)).rounded(px(2.4)).bg(red))
+        .child(div().size(px(8.)).bg(red))
 }
 
 /// GPUI svgs do not inherit text color, so every icon names its own.
@@ -2588,25 +2576,17 @@ fn loading_skeleton(colors: Theme) -> impl IntoElement {
         .gap_3()
         .px_4()
         .py_5()
-        .child(
-            div()
-                .h_5()
-                .w(gpui::relative(0.6))
-                .rounded_md()
-                .bg(colors.muted),
-        )
+        .child(div().h_5().w(gpui::relative(0.6)).bg(colors.muted))
         .child(
             div()
                 .h_4()
                 .w(gpui::relative(0.8))
-                .rounded_md()
                 .bg(colors.muted.opacity(0.8)),
         )
         .child(
             div()
                 .h_4()
                 .w(gpui::relative(2. / 3.))
-                .rounded_md()
                 .bg(colors.muted.opacity(0.7)),
         )
 }

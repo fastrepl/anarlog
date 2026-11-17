@@ -42,7 +42,6 @@ impl Render for Dragged {
         text_sm(div())
             .px_3()
             .py_2()
-            .rounded(px(8.))
             .bg(colors.accent)
             .font_weight(crate::ui::theme::MEDIUM)
             .child(self.label.clone())
@@ -204,7 +203,6 @@ impl ContactsList {
             .items_center()
             .gap_2()
             .overflow_hidden()
-            .rounded(px(8.))
             .cursor_pointer()
             .map(|row| {
                 if active {
@@ -259,7 +257,6 @@ impl ContactsList {
                     .group(SharedString::from(format!("pin-{id}")))
                     .flex_shrink_0()
                     .p_1()
-                    .rounded(px(2.))
                     .when(!pinned, |pin| {
                         pin.opacity(0.)
                             .group_hover(group.clone(), |style| style.opacity(1.))
@@ -482,7 +479,6 @@ impl ContactsList {
                 .flex()
                 .items_center()
                 .gap_2()
-                .rounded(px(8.))
                 .border_1()
                 .border_color(colors.border)
                 .bg(if focused { colors.accent } else { colors.muted })
@@ -545,7 +541,6 @@ impl ContactsList {
                     .flex()
                     .items_center()
                     .gap_2()
-                    .rounded(px(8.))
                     .border_1()
                     .border_color(colors.border)
                     .bg(if focused {
@@ -595,7 +590,6 @@ impl ContactsList {
                     .id("contacts-context-menu")
                     .w(px(224.))
                     .p_1()
-                    .rounded(px(8.))
                     .bg(colors.card)
                     .border_1()
                     .border_color(colors.border)
@@ -613,7 +607,6 @@ impl ContactsList {
                             .px_3()
                             .flex()
                             .items_center()
-                            .rounded(px(4.))
                             .cursor_pointer()
                             .hover(move |style| style.bg(colors.accent))
                             .child(label)

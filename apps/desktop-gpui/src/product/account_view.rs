@@ -160,7 +160,6 @@ fn pill(
     div()
         .id(id.into())
         .flex_shrink_0()
-        .rounded_full()
         .when(chip, |view| {
             view.px_2()
                 .py(px(2.))
@@ -187,7 +186,6 @@ fn pill(
 
 fn status_chip(label: &'static str, emphasis: bool, colors: &Theme) -> Div {
     div()
-        .rounded_full()
         .px_2()
         .py(px(2.))
         .text_size(px(10.))
@@ -219,7 +217,6 @@ fn destructive_button(
         .flex_shrink_0()
         .items_center()
         .justify_center()
-        .rounded(px(8.))
         .bg(colors.destructive)
         .text_color(colors.destructive_foreground)
         .shadow_xs()
@@ -248,7 +245,6 @@ fn small_outline(
         .flex_shrink_0()
         .items_center()
         .gap_2()
-        .rounded(px(8.))
         .border_1()
         .border_color(colors.input)
         .bg(colors.background)
@@ -591,7 +587,6 @@ impl ProductPane {
                                 .px_6()
                                 .flex()
                                 .items_center()
-                                .rounded(px(20.))
                                 .border_2()
                                 .border_color(colors.primary)
                                 .bg(colors.primary)
@@ -723,7 +718,6 @@ impl ProductPane {
                         .flex()
                         .flex_col()
                         .gap_4()
-                        .rounded(px(26.))
                         .border_1()
                         .border_color(colors.border.opacity(0.45))
                         .bg(colors.card)
@@ -751,7 +745,6 @@ impl ProductPane {
                                         .flex()
                                         .items_center()
                                         .justify_center()
-                                        .rounded_full()
                                         .border_1()
                                         .border_color(colors.border.opacity(0.7))
                                         .bg(colors.background.opacity(0.5))
@@ -776,7 +769,6 @@ impl ProductPane {
                                         .flex()
                                         .items_center()
                                         .justify_center()
-                                        .rounded_full()
                                         .bg(colors.destructive)
                                         .text_color(colors.destructive_foreground)
                                         .text_xs()
@@ -924,7 +916,6 @@ impl ProductPane {
             None => div()
                 .w(px(96.))
                 .h(px(28.))
-                .rounded_full()
                 .bg(colors.muted)
                 .into_any_element(),
             Some(_) if needs_payment => pill(
@@ -1004,20 +995,13 @@ impl ProductPane {
                     .items_center()
                     .justify_between()
                     .gap_4()
-                    .rounded(px(12.))
                     .border_1()
                     .border_color(colors.border.opacity(0.6))
                     .child(
                         div()
                             .min_w_0()
                             .when(tier.is_none(), |view| {
-                                view.child(
-                                    div()
-                                        .w(px(160.))
-                                        .h(px(20.))
-                                        .rounded(px(4.))
-                                        .bg(colors.muted),
-                                )
+                                view.child(div().w(px(160.)).h(px(20.)).bg(colors.muted))
                             })
                             .when(tier.is_some(), |view| {
                                 view.child(
@@ -1110,13 +1094,11 @@ impl ProductPane {
                             .h(px(6.))
                             .w_full()
                             .overflow_hidden()
-                            .rounded_full()
                             .bg(colors.muted)
                             .child(
                                 div()
                                     .h_full()
                                     .w(gpui::relative(fraction.clamp(0., 1.)))
-                                    .rounded_full()
                                     .bg(colors.primary),
                             ),
                     )
@@ -1172,7 +1154,6 @@ impl ProductPane {
                 ))
                 .child(
                     div()
-                        .rounded(px(12.))
                         .border_1()
                         .border_color(colors.border.opacity(0.6))
                         .children(rows.into_iter().enumerate().map(|(index, row)| {
@@ -1198,7 +1179,6 @@ impl ProductPane {
                 .flex()
                 .items_center()
                 .gap(px(2.))
-                .rounded_full()
                 .bg(colors.muted)
                 .children(options.into_iter().map(|(yearly, label)| {
                     let selected = self.account_ui.yearly == yearly;
@@ -1210,7 +1190,6 @@ impl ProductPane {
                         })
                         .px(px(10.))
                         .py_1()
-                        .rounded_full()
                         .text_xs()
                         .line_height(px(16.))
                         .font_weight(crate::ui::theme::MEDIUM)
@@ -1463,7 +1442,6 @@ impl ProductPane {
                             .flex()
                             .items_center()
                             .justify_center()
-                            .rounded(px(8.))
                             .bg(colors.muted)
                             .child(controls::icon(
                                 "product/CloudOffIcon.svg",
@@ -1604,7 +1582,6 @@ impl ProductPane {
             div()
                 .flex_1()
                 .p_4()
-                .rounded(px(12.))
                 .border_1()
                 .border_color(colors.border)
                 .child(
@@ -1634,7 +1611,6 @@ impl ProductPane {
                     .flex()
                     .flex_col()
                     .gap_3()
-                    .rounded(px(12.))
                     .border_1()
                     .border_color(colors.border)
                     .bg(colors.muted.opacity(0.3))
@@ -1674,7 +1650,6 @@ impl ProductPane {
                         .flex_wrap()
                         .items_center()
                         .gap_3()
-                        .rounded(px(12.))
                         .border_1()
                         .border_color(colors.border)
                         .child(div().flex_1().min_w_0().text_sm().child(link.clone()))
@@ -1737,7 +1712,6 @@ impl ProductPane {
                             .flex()
                             .items_center()
                             .gap_2()
-                            .rounded_full()
                             .text_xs()
                             .font_weight(crate::ui::theme::MEDIUM)
                             .cursor_pointer()
@@ -1758,7 +1732,6 @@ impl ProductPane {
                 )
             } else {
                 div()
-                    .rounded(px(12.))
                     .border_1()
                     .border_color(colors.border)
                     .children(data.invites.iter().enumerate().map(|(index, invite)| {
@@ -1892,7 +1865,6 @@ fn sync_preview(colors: &Theme) -> Div {
                 .child(
                     div()
                         .overflow_hidden()
-                        .rounded(px(12.))
                         .border_1()
                         .border_color(colors.border.opacity(0.6))
                         .child(

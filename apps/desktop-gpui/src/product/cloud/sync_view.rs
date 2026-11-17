@@ -883,7 +883,6 @@ impl SyncView {
             .unwrap_or_default();
         div()
             .overflow_hidden()
-            .rounded(px(12.))
             .border_1()
             .border_color(border)
             .child(
@@ -1060,7 +1059,6 @@ impl SyncView {
                     view.child(
                         div()
                             .flex_shrink_0()
-                            .rounded(px(8.))
                             .px_2()
                             .py(px(2.))
                             .bg(colors.secondary)
@@ -1081,7 +1079,6 @@ impl SyncView {
                             .flex()
                             .items_center()
                             .justify_center()
-                            .rounded(px(8.))
                             .cursor_pointer()
                             .hover(|style| style.bg(colors.accent))
                             .child(controls::icon(
@@ -1284,7 +1281,6 @@ impl SyncView {
             .child(
                 div()
                     .overflow_hidden()
-                    .rounded(px(12.))
                     .border_1()
                     .border_color(border)
                     .children(rows.into_iter().enumerate().map(|(index, row)| {
@@ -1398,7 +1394,6 @@ impl SyncView {
             button(id, label, variant, true, icon, enabled, colors)
                 .h(px(32.))
                 .px_4()
-                .rounded_full()
                 .w_full()
         };
         let body = if let Some(key) = &setup.key {
@@ -1417,7 +1412,6 @@ impl SyncView {
                 .child(
                     div()
                         .max_h(px(112.))
-                        .rounded(px(12.))
                         .bg(colors.muted)
                         .p_3()
                         .font_family(monospace_font(cx))
@@ -1519,7 +1513,6 @@ impl SyncView {
                             .px_3()
                             .flex()
                             .items_center()
-                            .rounded_full()
                             .text_size(px(11.))
                             .text_color(colors.muted_foreground)
                             .cursor_pointer()
@@ -1584,7 +1577,6 @@ impl SyncView {
                 .id("e2ee-setup")
                 .w(px(320.))
                 .overflow_hidden()
-                .rounded(px(26.))
                 .border_1()
                 .border_color(colors.border.opacity(0.45))
                 .bg(colors.card.opacity(0.95))
@@ -1611,7 +1603,6 @@ impl SyncView {
                                 .flex()
                                 .items_center()
                                 .justify_center()
-                                .rounded_full()
                                 .bg(colors.accent)
                                 .child(controls::icon("product/Key01Icon.svg", 16., colors.foreground)),
                         )
@@ -1690,7 +1681,6 @@ fn health(state: &SyncState, colors: &Theme) -> Option<Div> {
     let amber = amber();
     Some(
         div()
-            .rounded(px(16.))
             .border_1()
             .border_color(amber.opacity(0.4))
             .bg(amber.opacity(0.05))
@@ -1707,7 +1697,6 @@ fn health(state: &SyncState, colors: &Theme) -> Option<Div> {
                             .flex()
                             .items_center()
                             .justify_center()
-                            .rounded_full()
                             .bg(amber.opacity(0.1))
                             .child(controls::icon("product/TriangleAlertIcon.svg", 16., amber)),
                     )
@@ -1755,7 +1744,6 @@ fn plain_dialog(
             .flex()
             .flex_col()
             .gap_4()
-            .rounded(px(12.))
             .border_1()
             .border_color(colors.border)
             .bg(colors.background)

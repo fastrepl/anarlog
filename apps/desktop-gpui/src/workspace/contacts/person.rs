@@ -560,7 +560,6 @@ impl Contacts {
                             .items_center()
                             .w_auto()
                             .flex_none()
-                            .rounded(px(8.))
                             .font_weight(crate::ui::theme::MEDIUM)
                             .text_color(colors.muted_foreground)
                             .cursor_pointer()
@@ -616,7 +615,6 @@ impl Contacts {
             .py_1()
             .flex()
             .items_center()
-            .rounded(px(8.))
             .cursor_pointer()
             .hover(move |style| style.bg(colors.accent))
             .on_click(cx.listener(|this, event, window, cx| {
@@ -717,7 +715,6 @@ impl Contacts {
             .flex()
             .flex_col()
             .overflow_hidden()
-            .rounded(px(2.))
             .border_1()
             .border_color(colors.border)
             .children(matches.iter().enumerate().map(|(index, (id, name))| {
@@ -734,7 +731,6 @@ impl Contacts {
                             .flex()
                             .items_center()
                             .justify_center()
-                            .rounded(px(8.))
                             .bg(colors.muted)
                             .child(
                                 svg()
@@ -766,7 +762,6 @@ impl Contacts {
                                 .flex()
                                 .items_center()
                                 .justify_center()
-                                .rounded(px(8.))
                                 .bg(colors.accent)
                                 .child(text_xs(div()).child("+")),
                         )
@@ -823,7 +818,6 @@ impl Contacts {
                                         .flex()
                                         .items_center()
                                         .gap_2()
-                                        .rounded(px(2.))
                                         .border_1()
                                         .border_color(colors.border)
                                         .bg(colors.muted)
@@ -912,7 +906,6 @@ impl Contacts {
                     .flex()
                     .items_center()
                     .justify_between()
-                    .rounded(px(6.))
                     .border_1()
                     .border_color(colors.border)
                     .bg(colors.muted)
@@ -948,7 +941,6 @@ impl Contacts {
                             .px_2()
                             .flex()
                             .items_center()
-                            .rounded(px(8.))
                             .font_weight(crate::ui::theme::MEDIUM)
                             .bg(colors.primary)
                             .text_color(colors.primary_foreground)
@@ -1135,7 +1127,6 @@ impl Contacts {
                     .flex()
                     .items_center()
                     .gap_2()
-                    .rounded(px(8.))
                     .font_weight(crate::ui::theme::MEDIUM)
                     .text_color(colors.muted_foreground)
                     .when(!enabled, |button| button.opacity(0.5))
@@ -1174,7 +1165,6 @@ impl Contacts {
                         .w(px(288.))
                         .px_3()
                         .py(px(10.))
-                        .rounded(px(6.))
                         .border_1()
                         .border_color(colors.border)
                         .bg(colors.popover)
@@ -1340,7 +1330,6 @@ impl Contacts {
                             .flex()
                             .items_center()
                             .gap_3()
-                            .rounded(px(6.))
                             .cursor_pointer()
                             .hover(move |style| style.bg(colors.accent))
                             .on_click(cx.listener(move |_, _, _, cx| {
@@ -1352,7 +1341,6 @@ impl Contacts {
                                 div()
                                     .size(px(6.))
                                     .flex_shrink_0()
-                                    .rounded(px(3.))
                                     .bg(colors.muted_foreground),
                             )
                             .child(
@@ -1394,7 +1382,6 @@ impl Contacts {
             .flex()
             .items_center()
             .gap_2()
-            .rounded(px(8.))
             .border_1()
             .border_color(colors.border)
             .bg(if focused {
@@ -1489,7 +1476,6 @@ fn summary(facts: &[SharedString], colors: Theme) -> impl IntoElement {
         .child(
             div()
                 .p_4()
-                .rounded(px(8.))
                 .border_1()
                 .border_color(colors.border)
                 .bg(colors.muted)
@@ -1518,12 +1504,7 @@ fn summary(facts: &[SharedString], colors: Theme) -> impl IntoElement {
                                         .pl(px(3.5))
                                         .flex()
                                         .items_center()
-                                        .child(
-                                            div()
-                                                .size(px(5.))
-                                                .rounded(px(2.5))
-                                                .bg(colors.foreground),
-                                        ),
+                                        .child(div().size(px(5.)).bg(colors.foreground)),
                                 )
                                 .child(div().flex_1().min_w_0().child(fact.clone()))
                         })))

@@ -4,7 +4,7 @@ use super::{
     navigation::Route,
     shell::{Navigate, WorkspaceAction, WorkspaceView},
 };
-use crate::ui::theme::{RADIUS, monospace_font, system_font, theme};
+use crate::ui::theme::{monospace_font, system_font, theme};
 
 impl WorkspaceView {
     fn empty_action(
@@ -45,7 +45,6 @@ impl WorkspaceView {
             .gap_8()
             .px_4()
             .py_2()
-            .rounded(px(RADIUS))
             .text_sm()
             .line_height(px(20.))
             .text_color(colors.foreground)
@@ -63,7 +62,6 @@ impl WorkspaceView {
                     .flex()
                     .items_center()
                     .justify_center()
-                    .rounded(px(4.))
                     .border_1()
                     .border_color(colors.border)
                     .bg(colors.muted)
@@ -236,16 +234,9 @@ impl Render for WorkspaceView {
             )
             .overflow_hidden()
             .bg(colors.card)
-            .map(|surface| {
-                if self.sidebar.expanded {
-                    // Shipping's "left" surface chrome: left border only, both left corners round.
-                    surface
-                        .border_l_1()
-                        .border_color(colors.border)
-                        .rounded_l(px(12.))
-                } else {
-                    surface.rounded_t(px(12.))
-                }
+            // Shipping's "left" surface chrome: left border only.
+            .when(self.sidebar.expanded, |surface| {
+                surface.border_l_1().border_color(colors.border)
             })
             .child(
                 div()

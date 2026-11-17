@@ -15,8 +15,6 @@ const RASTER: usize = 64;
 const BAYER: [f64; 16] = [
     0., 8., 2., 10., 12., 4., 14., 6., 3., 11., 1., 9., 15., 7., 13., 5.,
 ];
-/// `controlSquircle`: `DesignRadius.lg`.
-const RADIUS: f32 = 8.;
 
 type Rgb = [f64; 3];
 
@@ -232,7 +230,6 @@ pub fn facehash(name: &str, size: f32) -> gpui::Div {
         .size(px(size))
         .flex_shrink_0()
         .relative()
-        .rounded(px(RADIUS))
         .shadow(vec![gpui::BoxShadow {
             color: rgba(0x00000014).into(),
             offset: gpui::point(px(0.), px(1.)),
@@ -245,7 +242,6 @@ pub fn facehash(name: &str, size: f32) -> gpui::Div {
                 .absolute()
                 .inset_0()
                 .size_full()
-                .rounded(px(RADIUS))
                 .object_fit(ObjectFit::Cover),
         )
         .when(!initials.is_empty(), |view| {
@@ -267,7 +263,6 @@ pub fn facehash(name: &str, size: f32) -> gpui::Div {
             div()
                 .absolute()
                 .inset_0()
-                .rounded(px(RADIUS))
                 .border_1()
                 .border_color(rgba(0x0000001a)),
         )
@@ -283,7 +278,6 @@ pub fn contact_image(data_url: &str, fallback: &str, size: f32) -> gpui::Div {
         .size(px(size))
         .flex_shrink_0()
         .relative()
-        .rounded(px(RADIUS))
         .shadow(vec![gpui::BoxShadow {
             color: rgba(0x0000000d).into(),
             offset: gpui::point(px(0.), px(1.)),
@@ -296,14 +290,12 @@ pub fn contact_image(data_url: &str, fallback: &str, size: f32) -> gpui::Div {
                 .absolute()
                 .inset_0()
                 .size_full()
-                .rounded(px(RADIUS))
                 .object_fit(ObjectFit::Cover),
         )
         .child(
             div()
                 .absolute()
                 .inset_0()
-                .rounded(px(RADIUS))
                 .border_1()
                 .border_color(rgba(0x0000001a)),
         )
@@ -333,7 +325,6 @@ pub fn organization(
         .flex()
         .items_center()
         .justify_center()
-        .rounded(px(RADIUS))
         .bg(background)
         .child(
             svg()

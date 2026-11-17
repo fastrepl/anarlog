@@ -53,7 +53,6 @@ pub fn button(
         .items_center()
         .justify_center()
         .gap_2()
-        .rounded(px(8.))
         .text_xs()
         .line_height(px(16.))
         .font_weight(MEDIUM)
@@ -761,10 +760,9 @@ fn diff_view(name: &str, lines: &[DiffLine], ends_with_newline: bool, cx: &App) 
                         .flex()
                         .items_center()
                         .justify_center()
-                        .rounded(px(4.5))
                         .border(px(1.5))
                         .border_color(rgb(0x009fff))
-                        .child(div().size(px(6.)).rounded_full().bg(rgb(0x009fff))),
+                        .child(div().size(px(6.)).bg(rgb(0x009fff))),
                 )
                 .child(
                     div()
@@ -881,7 +879,6 @@ impl Render for PendingEdits {
                 .items_center()
                 .justify_between()
                 .gap_3()
-                .rounded(px(22.))
                 .border_1()
                 .border_color(colors.border.opacity(0.7))
                 .bg(colors.card.opacity(0.8))

@@ -456,7 +456,6 @@ pub fn screen(
                         .flex()
                         .items_center()
                         .justify_center()
-                        .rounded(px(8.))
                         .bg(colors.muted)
                         .child(
                             svg()
@@ -490,7 +489,6 @@ pub fn screen(
                         .flex()
                         .items_center()
                         .justify_center()
-                        .rounded(px(8.))
                         .bg(colors.primary)
                         .text_color(colors.primary_foreground)
                         .shadow_xs()

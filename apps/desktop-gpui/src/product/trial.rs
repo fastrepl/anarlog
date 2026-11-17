@@ -232,7 +232,6 @@ fn button(
         .flex()
         .items_center()
         .justify_center()
-        .rounded_full()
         .text_xs()
         .font_weight(crate::ui::theme::MEDIUM)
         .cursor_pointer()
@@ -262,7 +261,6 @@ fn button(
 fn icon(started: bool) -> impl IntoElement {
     div()
         .size(px(56.))
-        .rounded(px(12.))
         .overflow_hidden()
         .shadow(vec![gpui::BoxShadow {
             color: if started {
@@ -430,7 +428,6 @@ impl Render for TrialDialogs {
                                 .flex()
                                 .flex_col()
                                 .gap_4()
-                                .rounded(px(26.))
                                 .border_1()
                                 .border_color(colors.border.opacity(0.45))
                                 .bg(colors.card)

@@ -116,7 +116,6 @@ pub fn switch(
         .flex_shrink_0()
         .flex()
         .items_center()
-        .rounded_full()
         .border_2()
         .border_color(if checked {
             colors.primary
@@ -129,17 +128,11 @@ pub fn switch(
             colors.muted
         })
         .when(checked, |view| view.pl(px(20.)))
-        .child(
-            div()
-                .size(px(20.))
-                .rounded_full()
-                .shadow_lg()
-                .bg(if checked {
-                    colors.primary_foreground
-                } else {
-                    colors.background
-                }),
-        )
+        .child(div().size(px(20.)).shadow_lg().bg(if checked {
+            colors.primary_foreground
+        } else {
+            colors.background
+        }))
         .when(!enabled, |view| view.opacity(0.5))
         .when(enabled, |view| view.cursor_pointer().on_click(on_click))
 }
@@ -160,7 +153,6 @@ pub fn outline_button(
         .items_center()
         .justify_center()
         .gap_2()
-        .rounded(px(8.))
         .border_1()
         .border_color(colors.input)
         .bg(colors.background)
@@ -204,7 +196,6 @@ pub fn select_trigger(
         .items_center()
         .justify_between()
         .gap_2()
-        .rounded(px(8.))
         .border_1()
         .border_color(colors.input)
         .bg(colors.card)
@@ -254,7 +245,6 @@ pub fn menu_panel(width: f32, colors: &Theme) -> Div {
         .p_1()
         .flex()
         .flex_col()
-        .rounded(px(12.))
         .border_1()
         .border_color(colors.border)
         .bg(colors.popover)
@@ -280,7 +270,6 @@ pub fn menu_item(
         .flex()
         .items_center()
         .gap_2()
-        .rounded(px(8.))
         .text_sm()
         .cursor_pointer()
         .hover(move |style| style.bg(hover))

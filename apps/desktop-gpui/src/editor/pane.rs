@@ -1229,19 +1229,12 @@ impl EditorPane {
                 .flex()
                 .items_center()
                 .justify_center()
-                .rounded(px(8.))
                 .border_1()
                 .border_color(colors.border)
                 .bg(colors.card.opacity(0.95))
                 .shadow_sm()
                 .cursor(gpui::CursorStyle::ResizeLeftRight)
-                .child(
-                    div()
-                        .h(px(32.))
-                        .w(px(4.))
-                        .rounded(px(8.))
-                        .bg(colors.muted_foreground),
-                )
+                .child(div().h(px(32.)).w(px(4.)).bg(colors.muted_foreground))
                 .on_mouse_down(
                     MouseButton::Left,
                     cx.listener(move |this, event: &gpui::MouseDownEvent, _, cx| {
@@ -1302,7 +1295,6 @@ impl EditorPane {
                     .child(
                         gpui::img(source)
                             .w_full()
-                            .rounded(px(6.))
                             .bg(colors.card)
                             .object_fit(gpui::ObjectFit::Contain),
                     )
@@ -1315,7 +1307,6 @@ impl EditorPane {
                                 .left(px(-3.))
                                 .right(px(-3.))
                                 .bottom(px(-3.))
-                                .rounded(px(9.))
                                 .border_1()
                                 .border_color(if selected {
                                     colors.foreground.opacity(0.55)
@@ -1410,7 +1401,6 @@ impl EditorPane {
                     div()
                         .id(("attachment", node.id))
                         .my_1()
-                        .rounded_lg()
                         .border_1()
                         .px_3()
                         .py(px(10.))
@@ -2194,7 +2184,6 @@ impl Render for EditorPane {
                         .max_h(px(256.))
                         .overflow_y_scroll()
                         .p_1()
-                        .rounded(px(16.))
                         .border_1()
                         .border_color(colors.border)
                         .bg(colors.popover)
@@ -2221,7 +2210,6 @@ impl Render for EditorPane {
                                     .flex()
                                     .items_center()
                                     .gap(px(6.))
-                                    .rounded(px(12.))
                                     .cursor_pointer()
                                     .when(index == menu.selected, |view| view.bg(colors.muted))
                                     .on_mouse_move(cx.listener(move |this, _, _, cx| {
@@ -2275,7 +2263,6 @@ impl Render for EditorPane {
                     .max_w(px(280.))
                     .min_w(px(160.))
                     .p_1()
-                    .rounded(px(16.))
                     .border_1()
                     .border_color(colors.border)
                     .bg(colors.popover)
@@ -2295,7 +2282,6 @@ impl Render for EditorPane {
                                 .flex()
                                 .items_center()
                                 .gap(px(6.))
-                                .rounded(px(12.))
                                 .cursor_pointer()
                                 .when(index == menu.selected, |view| view.bg(colors.muted))
                                 .hover(|view| view.bg(colors.muted))
@@ -2481,7 +2467,6 @@ impl Render for EditorPane {
                             .items_center()
                             .gap(px(2.))
                             .p_1()
-                            .rounded(px(12.))
                             .border_1()
                             .border_color(colors.border)
                             .bg(colors.popover)
@@ -2505,7 +2490,6 @@ impl Render for EditorPane {
                                         .flex()
                                         .items_center()
                                         .justify_center()
-                                        .rounded(px(6.))
                                         .cursor_pointer()
                                         .when_else(
                                             on,

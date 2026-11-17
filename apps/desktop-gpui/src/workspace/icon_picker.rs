@@ -185,7 +185,6 @@ impl IconPicker {
                     div()
                         .id("picker-clear")
                         .p_1()
-                        .rounded(px(4.))
                         .cursor_pointer()
                         .hover(|style| style.bg(colors.accent))
                         .on_click(cx.listener(move |_, _, _, cx| {
@@ -223,7 +222,6 @@ impl IconPicker {
                                     .flex()
                                     .items_center()
                                     .justify_center()
-                                    .rounded(px(8.))
                                     .bg(rgb(swatch))
                                     .cursor_pointer()
                                     .on_click(cx.listener(move |this, _, _, cx| {
@@ -239,7 +237,6 @@ impl IconPicker {
                                 div()
                                     .id("custom-color")
                                     .size(px(28.))
-                                    .rounded(px(8.))
                                     .overflow_hidden()
                                     .cursor_pointer()
                                     .when(self.hex.is_some(), |view| {
@@ -258,7 +255,7 @@ impl IconPicker {
                                 .flex()
                                 .items_center()
                                 .gap_2()
-                                .child(div().size(px(24.)).rounded(px(8.)).bg(rgb(color)))
+                                .child(div().size(px(24.)).bg(rgb(color)))
                                 .child(
                                     div()
                                         .text_xs()
@@ -294,7 +291,6 @@ impl IconPicker {
                                     .flex()
                                     .items_center()
                                     .justify_center()
-                                    .rounded(px(6.))
                                     .cursor_pointer()
                                     .when(selected, |view| view.bg(colors.accent))
                                     .hover(|style| style.bg(colors.accent))
@@ -386,7 +382,6 @@ impl IconPicker {
                                                 .flex()
                                                 .items_center()
                                                 .justify_center()
-                                                .rounded(px(6.))
                                                 .text_lg()
                                                 .cursor_pointer()
                                                 .hover(|style| style.bg(colors.accent))
@@ -465,7 +460,6 @@ impl Render for IconPicker {
         div()
             .w(px(420.))
             .p(px(2.))
-            .rounded(px(22.))
             .border_1()
             .border_color(colors.app_floating_border)
             .bg(colors.app_floating_chrome)
@@ -473,7 +467,6 @@ impl Render for IconPicker {
             .child(
                 div()
                     .overflow_hidden()
-                    .rounded(px(20.))
                     .border_1()
                     .border_color(colors.app_floating_border)
                     .bg(colors.app_floating_panel)

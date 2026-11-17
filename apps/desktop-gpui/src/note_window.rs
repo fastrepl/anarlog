@@ -271,7 +271,7 @@ impl Render for NoteWindow {
                 }
             }))
             .child(
-                // Shipping's `MainPanel`: a bordered card, rounded on macOS.
+                // Shipping's `MainPanel`: a bordered card.
                 div()
                     .relative()
                     .flex_1()
@@ -283,7 +283,6 @@ impl Render for NoteWindow {
                     .bg(colors.card)
                     .border_1()
                     .border_color(colors.border)
-                    .when(cfg!(target_os = "macos"), |card| card.rounded(px(12.)))
                     .child(div().flex_1().min_h_0().child(self.note.clone()))
                     .when(!self.status.is_empty(), |card| {
                         card.child(

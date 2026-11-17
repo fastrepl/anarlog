@@ -557,7 +557,6 @@ fn render_block(block: &Block, style: &Style, id: &str) -> AnyElement {
             let code = code.trim_end().to_owned();
             let extension = language.clone().unwrap_or_else(|| "txt".into());
             frame(colors)
-                .rounded(px(12.))
                 .gap_2()
                 .child(
                     div()
@@ -578,7 +577,6 @@ fn render_block(block: &Block, style: &Style, id: &str) -> AnyElement {
                             .gap_2()
                             .px(px(6.))
                             .py_1()
-                            .rounded(px(6.))
                             .border_1()
                             .border_color(colors.border)
                             .child(download_button(
@@ -593,7 +591,6 @@ fn render_block(block: &Block, style: &Style, id: &str) -> AnyElement {
                 .child(
                     div()
                         .p_4()
-                        .rounded(px(6.))
                         .border_1()
                         .border_color(colors.border)
                         .bg(colors.background)
@@ -629,7 +626,6 @@ fn render_block(block: &Block, style: &Style, id: &str) -> AnyElement {
             .child(
                 table(header, rows, style, id)
                     .overflow_hidden()
-                    .rounded(px(6.))
                     .border_1()
                     .border_color(colors.border)
                     .bg(colors.background),
@@ -804,7 +800,6 @@ fn menu(items: Vec<gpui::Stateful<gpui::Div>>, style: &Style) -> impl IntoElemen
                 .occlude()
                 .min_w(px(120.))
                 .overflow_hidden()
-                .rounded(px(6.))
                 .border_1()
                 .border_color(colors.border)
                 .bg(colors.background)
@@ -843,7 +838,6 @@ fn frame(colors: &Theme) -> gpui::Div {
         .flex()
         .flex_col()
         .p_2()
-        .rounded(px(8.))
         .border_1()
         .border_color(colors.border)
 }

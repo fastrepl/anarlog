@@ -195,7 +195,6 @@ impl Render for QuitOverlayView {
         let closing = self.closing;
         div()
             .size_full()
-            .rounded(px(12.))
             .bg(hsla(0., 0., 0.12, 0.88))
             .flex()
             .items_center()

@@ -40,7 +40,7 @@ use crate::{
     },
     ui::{
         input::{InputEvent, TextInput},
-        theme::{RADIUS, Theme, theme},
+        theme::{Theme, theme},
     },
     workspace::resource_list,
 };
@@ -815,7 +815,6 @@ fn button(
         .flex()
         .items_center()
         .gap_2()
-        .rounded(px(RADIUS))
         .text_xs()
         .font_weight(crate::ui::theme::MEDIUM)
         .cursor_pointer()
@@ -1581,14 +1580,12 @@ impl Render for TranscriptView {
                                     .id(("segment", index))
                                     .relative()
                                     .px_2()
-                                    .rounded(px(8.))
                                     .when(editing, |view| view.cursor_pointer())
                                     .when(selected, |view| {
                                         view.bg(colors.primary.opacity(0.1)).child(
                                             div()
                                                 .absolute()
                                                 .inset_0()
-                                                .rounded(px(8.))
                                                 .border_1()
                                                 .border_color(colors.primary.opacity(0.3)),
                                         )
@@ -1679,7 +1676,6 @@ impl TranscriptView {
                         .flex()
                         .items_center()
                         .justify_center()
-                        .rounded_full()
                         .border_1()
                         .map(|circle| {
                             if selected {
@@ -1949,7 +1945,6 @@ impl TranscriptView {
                             .flex()
                             .items_center()
                             .text_sm()
-                            .rounded(px(4.))
                             .text_color(colors.foreground)
                             .when_else(
                                 disabled,
@@ -2042,7 +2037,6 @@ impl TranscriptView {
                         .flex()
                         .flex_col()
                         .overflow_hidden()
-                        .rounded(px(RADIUS))
                         .border_1()
                         .border_color(gpui::transparent_black())
                         .hover(move |style| {

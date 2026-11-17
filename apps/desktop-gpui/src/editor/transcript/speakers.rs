@@ -18,10 +18,7 @@ use crate::{
         model::failure,
         store::{SpeakerAssignment, SpeakerScope, TranscriptStore},
     },
-    ui::{
-        input::TextInput,
-        theme::{RADIUS, Theme},
-    },
+    ui::{input::TextInput, theme::Theme},
     workspace::facehash,
 };
 
@@ -444,7 +441,6 @@ impl TranscriptView {
                     .flex()
                     .items_center()
                     .justify_center()
-                    .rounded(px(RADIUS))
                     .border_1()
                     .border_color(colors.border)
                     .bg(colors.muted)
@@ -519,7 +515,6 @@ impl TranscriptView {
                 .w(px(320.))
                 .occlude()
                 .p(px(2.))
-                .rounded(px(22.))
                 .border_1()
                 .border_color(colors.app_floating_border)
                 .bg(colors.app_floating_chrome)
@@ -548,7 +543,6 @@ impl TranscriptView {
                                 .flex()
                                 .flex_col()
                                 .overflow_hidden()
-                                .rounded(px(20.))
                                 .border_1()
                                 .border_color(colors.app_floating_border)
                                 .bg(colors.app_floating_panel)
@@ -620,7 +614,6 @@ impl TranscriptView {
                                                     .flex()
                                                     .items_center()
                                                     .justify_center()
-                                                    .rounded(px(4.))
                                                     .border_1()
                                                     .border_color(if checked {
                                                         colors.primary
@@ -655,7 +648,6 @@ impl TranscriptView {
                                         .px_3()
                                         .flex()
                                         .items_center()
-                                        .rounded(px(RADIUS))
                                         .bg(colors.primary)
                                         .text_color(colors.primary_foreground)
                                         .text_xs()

@@ -277,7 +277,6 @@ impl ExportModal {
                     .flex()
                     .items_center()
                     .justify_center()
-                    .rounded_full()
                     .border_1()
                     .border_color(if checked {
                         colors.primary
@@ -286,7 +285,7 @@ impl ExportModal {
                     })
                     .bg(colors.background)
                     .when(checked, |control| {
-                        control.child(div().size(px(7.)).rounded_full().bg(colors.primary))
+                        control.child(div().size(px(7.)).bg(colors.primary))
                     }),
             )
             .child(label)
@@ -319,7 +318,6 @@ impl ExportModal {
                     .flex()
                     .items_center()
                     .justify_center()
-                    .rounded(px(3.))
                     .map(|control| {
                         if checked {
                             control.bg(colors.primary).child(
@@ -365,7 +363,6 @@ impl Render for ExportModal {
             .flex_col()
             .gap_4()
             .p_5()
-            .rounded(px(12.))
             .border_1()
             .border_color(colors.border.opacity(0.8))
             .bg(colors.background)
@@ -474,7 +471,6 @@ impl Render for ExportModal {
                     .flex()
                     .items_center()
                     .justify_center()
-                    .rounded(px(8.))
                     .border_2()
                     .border_color(colors.primary)
                     .bg(colors.primary)

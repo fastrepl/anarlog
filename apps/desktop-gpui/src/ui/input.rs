@@ -12,7 +12,7 @@ use gpui::{
 use super::{
     caret::Caret,
     text::TextBuffer,
-    theme::{RADIUS, is_dark, theme},
+    theme::{is_dark, theme},
 };
 
 #[derive(Clone, Debug)]
@@ -504,7 +504,6 @@ impl Render for TextInput {
                     } else {
                         colors.input
                     })
-                    .rounded(px(RADIUS))
                     .bg(colors.card)
             })
             .track_focus(&self.focus)

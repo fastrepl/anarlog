@@ -270,7 +270,6 @@ fn gate(description: &'static str, action: AnyElement, colors: Theme) -> Div {
         .items_center()
         .justify_between()
         .gap_3()
-        .rounded(px(16.))
         .bg(colors.accent.opacity(0.45))
         .child(
             div()
@@ -384,7 +383,6 @@ impl ResourceShareDialog {
                 .px_3()
                 .flex()
                 .items_center()
-                .rounded(px(12.))
                 .border_1()
                 .border_color(colors.input)
                 .bg(colors.card.opacity(0.6))
@@ -501,7 +499,6 @@ impl ResourceShareDialog {
                                 button("resource-share-invite", true, typed && paid && !inviting, colors)
                                     .h(px(36.))
                                     .px_4()
-                                    .rounded(px(12.))
                                     .text_sm()
                                     .line_height(px(20.))
                                     .when(typed && paid && !inviting, |b| {
@@ -618,7 +615,6 @@ impl ResourceShareDialog {
             .flex()
             .flex_col()
             .gap_2()
-            .rounded(px(16.))
             .border_1()
             .border_color(colors.border)
             .bg(colors.accent.opacity(0.45))
@@ -691,7 +687,6 @@ impl ResourceShareDialog {
                         .px_2()
                         .flex()
                         .items_center()
-                        .rounded(px(8.))
                         .text_xs()
                         .font_weight(crate::ui::theme::MEDIUM)
                         .when_else(
@@ -735,7 +730,6 @@ impl ResourceShareDialog {
                         .flex()
                         .items_center()
                         .gap_2()
-                        .rounded(px(8.))
                         .text_xs()
                         .font_weight(crate::ui::theme::MEDIUM)
                         .text_color(red)

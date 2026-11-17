@@ -238,7 +238,6 @@ impl PreferencesView {
             .flex_wrap()
             .items_center()
             .gap(px(6.))
-            .rounded(px(16.))
             .border_1()
             .border_color(colors.border)
             .bg(colors.card)
@@ -263,7 +262,6 @@ impl PreferencesView {
                     .flex()
                     .items_center()
                     .gap_1()
-                    .rounded(px(8.))
                     .bg(colors.muted)
                     .text_xs()
                     .child(locale::language_name(code))
@@ -320,7 +318,6 @@ impl PreferencesView {
                     .overflow_y_scroll()
                     .flex()
                     .flex_col()
-                    .rounded(px(16.))
                     .border_1()
                     .border_color(colors.border)
                     .bg(colors.card)
@@ -470,7 +467,6 @@ impl PreferencesView {
                             .flex()
                             .items_center()
                             .gap_2()
-                            .rounded(px(8.))
                             .cursor_pointer()
                             .hover(move |style| style.bg(hover))
                             .on_click(move |_, _, cx| {
@@ -595,7 +591,6 @@ impl PreferencesView {
                                     .flex_1()
                                     .min_w_0()
                                     .overflow_hidden()
-                                    .rounded(px(16.))
                                     .border_1()
                                     .border_color(if selected {
                                         colors.foreground.opacity(0.5)
@@ -645,7 +640,6 @@ impl PreferencesView {
                                                         .flex()
                                                         .items_center()
                                                         .justify_center()
-                                                        .rounded(px(6.))
                                                         .bg(colors.foreground)
                                                         .child(controls::icon(
                                                             "product/CheckIcon.svg",
@@ -778,7 +772,6 @@ impl PreferencesView {
                                 .relative()
                                 .p(px(2.))
                                 .pb(px(10.))
-                                .rounded(px(22.))
                                 .cursor_pointer()
                                 .when(selected, |view| {
                                     view.child(
@@ -788,7 +781,6 @@ impl PreferencesView {
                                             .left(px(11.))
                                             .w(px(56.))
                                             .h(px(16.))
-                                            .rounded_full()
                                             .shadow(vec![gpui::BoxShadow {
                                                 color: sky(0x38bdf8, 0x7dd3fc, 0.6),
                                                 offset: gpui::point(px(0.), px(0.)),
@@ -804,7 +796,6 @@ impl PreferencesView {
                                             .left(px(23.))
                                             .w(px(32.))
                                             .h(px(6.))
-                                            .rounded_full()
                                             .shadow(vec![gpui::BoxShadow {
                                                 color: sky(0x7dd3fc, 0xbae6fd, 0.9),
                                                 offset: gpui::point(px(0.), px(0.)),
@@ -823,7 +814,6 @@ impl PreferencesView {
                                         .items_center()
                                         .justify_center()
                                         .overflow_hidden()
-                                        .rounded(px(18.))
                                         .child(
                                             gpui::img(SharedString::from(preview))
                                                 .flex_shrink_0()
@@ -844,7 +834,6 @@ impl PreferencesView {
                                             .flex()
                                             .items_center()
                                             .justify_center()
-                                            .rounded_full()
                                             .border_1()
                                             .border_color(colors.border)
                                             .bg(colors.background)
@@ -1190,7 +1179,6 @@ impl PreferencesView {
                     .gap_1()
                     .px_2()
                     .py(px(2.))
-                    .rounded(px(8.))
                     .border_1()
                     .border_color(gpui::transparent_black())
                     .bg(if default { colors.accent } else { colors.muted })
@@ -1229,7 +1217,6 @@ impl PreferencesView {
             .flex_wrap()
             .items_center()
             .gap_2()
-            .rounded(px(16.))
             .border_1()
             .border_color(colors.border)
             .cursor_text()
@@ -1257,7 +1244,6 @@ impl PreferencesView {
             let empty = apps.is_empty();
             div()
                 .p(px(2.))
-                .rounded(px(22.))
                 .border_1()
                 .border_color(colors.app_floating_border)
                 .bg(colors.app_floating_chrome)
@@ -1266,7 +1252,6 @@ impl PreferencesView {
                 .occlude()
                 .child(
                     div()
-                        .rounded(px(20.))
                         .border_1()
                         .border_color(colors.app_floating_border)
                         .bg(colors.app_floating_panel)
@@ -1318,7 +1303,6 @@ impl PreferencesView {
                                             .flex()
                                             .items_center()
                                             .gap_2()
-                                            .rounded(px(14.))
                                             .text_sm()
                                             .cursor_pointer()
                                             .hover(move |style| style.bg(hover))
@@ -1704,7 +1688,6 @@ impl PreferencesView {
             div()
                 .px(px(6.))
                 .py(px(2.))
-                .rounded(px(4.))
                 .border_1()
                 .border_color(colors.border)
                 .bg(colors.muted)
@@ -1759,7 +1742,6 @@ impl PreferencesView {
                                             .flex()
                                             .items_center()
                                             .gap_1()
-                                            .rounded(px(8.))
                                             .border_1()
                                             .border_color(colors.input)
                                             .bg(colors.background)
@@ -1804,7 +1786,6 @@ impl PreferencesView {
                                                 .px_2()
                                                 .flex()
                                                 .items_center()
-                                                .rounded(px(8.))
                                                 .border_1()
                                                 .border_color(colors.input)
                                                 .bg(colors.background)
@@ -1876,7 +1857,6 @@ impl PreferencesView {
                                     .min_h(px(64.))
                                     .px_3()
                                     .py_2()
-                                    .rounded(px(6.))
                                     .border_1()
                                     .border_color(colors.input)
                                     .shadow_xs()
@@ -1912,7 +1892,6 @@ impl PreferencesView {
         let cancel = status.clone();
         div()
             .p_4()
-            .rounded(px(8.))
             .border_1()
             .border_color(colors.border)
             .text_sm()
@@ -1974,7 +1953,6 @@ impl PreferencesView {
                 .child(
                     div()
                         .p_4()
-                        .rounded(px(8.))
                         .border_1()
                         .border_color(colors.border)
                         .text_sm()
@@ -2024,7 +2002,6 @@ impl PreferencesView {
                             .flex()
                             .items_center()
                             .gap_2()
-                            .rounded(px(8.))
                             .border_1()
                             .border_color(colors.border)
                             .bg(colors.card)
@@ -2045,7 +2022,6 @@ impl PreferencesView {
                                     .flex()
                                     .items_center()
                                     .gap_1()
-                                    .rounded(px(8.))
                                     .bg(colors.foreground)
                                     .text_color(colors.background)
                                     .text_sm()
@@ -2068,7 +2044,6 @@ impl PreferencesView {
                                 .flex_col()
                                 .items_center()
                                 .justify_center()
-                                .rounded(px(16.))
                                 .border_1()
                                 .border_color(colors.border)
                                 .bg(colors.card)
@@ -2089,7 +2064,6 @@ impl PreferencesView {
                         view.child(
                             div()
                                 .overflow_hidden()
-                                .rounded(px(16.))
                                 .border_1()
                                 .border_color(colors.border)
                                 .bg(colors.card)
@@ -2342,7 +2316,7 @@ fn clip_below_diagonal(polygon: &[(f32, f32)], width: f32, height: f32) -> Vec<(
 
 fn preview_canvas(bg: Hsla, sidebar: Hsla, heading: Hsla, line: Hsla) -> Div {
     let bar = |width: gpui::DefiniteLength, height: f32, color: Hsla| {
-        div().w(width).h(px(height)).rounded(px(8.)).bg(color)
+        div().w(width).h(px(height)).bg(color)
     };
     div()
         .absolute()
@@ -2356,16 +2330,16 @@ fn preview_canvas(bg: Hsla, sidebar: Hsla, heading: Hsla, line: Hsla) -> Div {
                 .mb_3()
                 .flex()
                 .gap_1()
-                .child(div().size(px(6.)).rounded_full().bg(gpui::rgb(0xf87171)))
-                .child(div().size(px(6.)).rounded_full().bg(gpui::rgb(0xfbbf24)))
-                .child(div().size(px(6.)).rounded_full().bg(gpui::rgb(0x4ade80))),
+                .child(div().size(px(6.)).bg(gpui::rgb(0xf87171)))
+                .child(div().size(px(6.)).bg(gpui::rgb(0xfbbf24)))
+                .child(div().size(px(6.)).bg(gpui::rgb(0x4ade80))),
         )
         .child(
             div()
                 .flex_1()
                 .flex()
                 .gap_3()
-                .child(div().w(gpui::relative(0.25)).rounded(px(6.)).bg(sidebar))
+                .child(div().w(gpui::relative(0.25)).bg(sidebar))
                 .child(
                     div()
                         .flex_1()

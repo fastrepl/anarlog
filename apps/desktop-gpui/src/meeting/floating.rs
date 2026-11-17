@@ -19,9 +19,6 @@ use crate::ui::theme::theme;
 
 pub const INSET: f32 = 4.;
 pub const COMPACT_HEIGHT: f32 = 38.;
-pub(crate) const CONTROL_RADIUS: f32 = 10.;
-pub(crate) const COMPACT_RADIUS: f32 = 14.;
-pub(crate) const EXPANDED_RADIUS: f32 = 21.;
 pub(crate) const STOP_WIDTH: f32 = 62.;
 const SOLO_STOP_WIDTH: f32 = 68.;
 pub(crate) const ICON_SIZE: f32 = 30.;
@@ -351,7 +348,6 @@ impl FloatingBar {
                                 .gap(px(6.))
                                 .px(px(12.))
                                 .py(px(7.))
-                                .rounded(px(CONTROL_RADIUS))
                                 .bg(palette.chip)
                                 .border(px(0.5))
                                 .border_color(palette.chip_stroke)
@@ -467,7 +463,6 @@ fn bubble_row(bubble: &Bubble, label: bool, palette: &Palette) -> impl IntoEleme
                 .w_full()
                 .px(px(11.))
                 .py(px(8.))
-                .rounded(px(11.))
                 .bg(if bubble.is_self {
                     palette.bubble_self
                 } else {
@@ -502,19 +497,16 @@ pub(crate) fn hover_handle(color: Hsla) -> impl IntoElement {
             while y <= HANDLE_HEIGHT {
                 let mut x = DOT / 2.;
                 while px(x) <= bounds.size.width {
-                    window.paint_quad(
-                        fill(
-                            gpui::Bounds::new(
-                                point(
-                                    bounds.left() + px(x - DOT / 2.),
-                                    bounds.top() + px(y - DOT / 2.),
-                                ),
-                                size(px(DOT), px(DOT)),
+                    window.paint_quad(fill(
+                        gpui::Bounds::new(
+                            point(
+                                bounds.left() + px(x - DOT / 2.),
+                                bounds.top() + px(y - DOT / 2.),
                             ),
-                            color,
-                        )
-                        .corner_radii(px(DOT / 2.)),
-                    );
+                            size(px(DOT), px(DOT)),
+                        ),
+                        color,
+                    ));
                     x += 5.;
                 }
                 y += 7.;
@@ -544,11 +536,6 @@ impl Render for FloatingBar {
         let width = container.width - px(INSET * 2.);
         let body = container.height - px(INSET * 2. + HANDLE_RESERVED);
         let handle = self.hovered && !expanded;
-        let radius = if expanded {
-            EXPANDED_RADIUS
-        } else {
-            COMPACT_RADIUS
-        };
         let error = live.warning.is_some();
         let accent: Hsla = rgb(if error { ERROR_ACCENT } else { ACCENT }).into();
         let notice = live.warning.clone().or_else(|| live.paused.clone());
@@ -564,7 +551,6 @@ impl Render for FloatingBar {
             .flex()
             .items_center()
             .justify_center()
-            .rounded(px(CONTROL_RADIUS))
             .bg(if self.stop_hovered {
                 Hsla::from(rgb(ACCENT)).opacity(0.18)
             } else {
@@ -585,7 +571,7 @@ impl Render for FloatingBar {
                             .items_center()
                             .gap(px(6.))
                             .text_color(rgb(ACCENT))
-                            .child(div().size(px(9.)).rounded(px(1.5)).bg(rgb(ACCENT)))
+                            .child(div().size(px(9.)).bg(rgb(ACCENT)))
                             .child(
                                 div()
                                     .text_size(px(12.))
@@ -600,8 +586,8 @@ impl Render for FloatingBar {
                             .flex_col()
                             .items_center()
                             .gap(px(1.5))
-                            .child(div().w(px(3.2)).h(px(8.)).rounded(px(1.6)).bg(accent))
-                            .child(div().size(px(3.2)).rounded(px(1.6)).bg(accent)),
+                            .child(div().w(px(3.2)).h(px(8.)).bg(accent))
+                            .child(div().size(px(3.2)).bg(accent)),
                     )
                 } else {
                     stop.child(dancing_bars("floating-bars", live.amplitude, accent))
@@ -624,7 +610,6 @@ impl Render for FloatingBar {
                         .flex()
                         .items_center()
                         .justify_center()
-                        .rounded(px(CONTROL_RADIUS))
                         .cursor_pointer()
                         .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                         .hover(|style| style.bg(palette.control))
@@ -659,7 +644,6 @@ impl Render for FloatingBar {
                     .bottom(px(INSET))
                     .w(width)
                     .h(bar_height)
-                    .rounded(px(radius))
                     .overflow_hidden()
                     .bg(if handle {
                         palette.envelope
@@ -675,7 +659,6 @@ impl Render for FloatingBar {
                             .left(px(1.))
                             .right(px(1.))
                             .bottom(px(1.))
-                            .rounded(px(radius - 1.))
                             .border(px(0.5))
                             .border_color(palette.inner),
                     )

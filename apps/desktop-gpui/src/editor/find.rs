@@ -416,7 +416,6 @@ impl FindBar {
         div()
             .id(id)
             .p(px(2.))
-            .rounded(px(4.))
             .flex_shrink_0()
             .when(active, |view| view.bg(colors.accent))
             .when(!disabled, |view| {
@@ -452,7 +451,6 @@ impl Render for FindBar {
                 .items_center()
                 .gap(px(6.))
                 .px_2()
-                .rounded(px(8.))
                 .bg(colors.muted)
                 .text_xs()
         };

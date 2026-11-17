@@ -191,7 +191,6 @@ impl Contacts {
                                                 .id(SharedString::from(format!("member-{}", human.id)))
                                                 .min_w_0()
                                                 .p_4()
-                                                .rounded(px(8.))
                                                 .border_1()
                                                 .border_color(colors.border)
                                                 .bg(colors.card)
@@ -253,7 +252,6 @@ impl Contacts {
                                                                             .flex()
                                                                             .items_center()
                                                                             .justify_center()
-                                                                            .rounded(px(8.))
                                                                             .cursor_pointer()
                                                                             .hover(move |style| style.bg(colors.accent))
                                                                             .child(
@@ -276,7 +274,6 @@ impl Contacts {
                                                                             .flex()
                                                                             .items_center()
                                                                             .justify_center()
-                                                                            .rounded(px(8.))
                                                                             .cursor_pointer()
                                                                             .hover(move |style| style.bg(colors.accent))
                                                                             .on_click(move |_, _, cx| {

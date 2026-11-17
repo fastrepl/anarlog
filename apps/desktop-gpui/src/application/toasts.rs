@@ -358,18 +358,15 @@ fn tone_icon(tone: Tone, colors: &crate::ui::theme::Theme) -> (&'static str, Hsl
     }
 }
 
-/// A bar along the card's rounded bottom edge. GPUI clips to rectangles, so it is the bottom
-/// border of a box with the card's inner radius, which follows the curve like shipping's clip.
-fn bottom_bar(fraction: f32, color: Hsla) -> gpui::Div {
+/// A bar along the card's bottom edge.
+fn bottom_bar(fraction: f32, height: f32, color: Hsla) -> gpui::Div {
     div()
         .absolute()
         .left_0()
         .bottom_0()
-        .h(px(14.))
+        .h(px(height))
         .w(relative(fraction))
-        .rounded_bl(px(13.))
-        .when(fraction >= 0.999, |bar| bar.rounded_br(px(13.)))
-        .border_color(color)
+        .bg(color)
 }
 
 fn button(
@@ -387,7 +384,6 @@ fn button(
         .flex()
         .items_center()
         .justify_center()
-        .rounded(px(6.))
         .text_xs()
         .line_height(px(16.))
         .font_weight(MEDIUM)
@@ -518,7 +514,6 @@ impl Toasts {
                 .items_center()
                 .justify_between()
                 .gap(px(12.))
-                .rounded_b(px(13.))
                 .border_t_1()
                 .border_color(colors.border.opacity(0.6))
                 .bg(colors.muted.opacity(0.5))
@@ -552,7 +547,7 @@ impl Toasts {
                         .font_weight(MEDIUM)
                         .child(if paused { "Resume" } else { "Pause" }),
                 )
-                .child(bottom_bar(progress, bar).border_b_2())
+                .child(bottom_bar(progress, 2., bar))
         });
         let scale = (1. - depth as f32 * STACK_SCALE_STEP).max(0.88);
         let width = (window.viewport_size().width - px(32.)).min(px(WIDTH));
@@ -560,7 +555,6 @@ impl Toasts {
             .id(SharedString::from(format!("toast-{id}")))
             .relative()
             .w(if behind { width * scale } else { width })
-            .rounded(px(14.))
             .border_1()
             .border_color(colors.border.opacity(0.7))
             .bg(colors.popover)
@@ -624,8 +618,8 @@ impl Toasts {
             })
             .children(footer)
             .when_some(gauge, |card, progress| {
-                card.child(bottom_bar(1., colors.muted).border_b_4())
-                    .child(bottom_bar(progress, colors.primary).border_b_4())
+                card.child(bottom_bar(1., 4., colors.muted))
+                    .child(bottom_bar(progress, 4., colors.primary))
             });
         let leaving = item.leaving.map(|left| now.saturating_duration_since(left));
         let distance = f32::from(window.viewport_size().width) + 256.;

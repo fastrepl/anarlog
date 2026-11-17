@@ -389,7 +389,6 @@ impl TaskView {
             .flex()
             .items_center()
             .gap_1()
-            .rounded(px(8.))
             .px(px(10.))
             .py(px(2.))
             .text_xs()
@@ -468,7 +467,6 @@ impl TaskView {
                             .id(SharedString::from(format!("task-open-{index}")))
                             .flex_none()
                             .p(px(6.))
-                            .rounded(px(6.))
                             .cursor_pointer()
                             .hover(move |style| style.bg(accent))
                             .on_click(move |_: &ClickEvent, _, cx| cx.open_url(&url))
@@ -518,7 +516,6 @@ impl TaskView {
                         ),
                     };
                     div()
-                        .rounded(px(8.))
                         .px(px(10.))
                         .py(px(2.))
                         .border_1()
@@ -585,7 +582,6 @@ impl TaskView {
                     .child(div().flex().flex_col().gap_4().children(
                         comments.iter().enumerate().map(|(position, comment)| {
                             div()
-                                .rounded(px(8.))
                                 .border_1()
                                 .border_color(colors.border)
                                 .bg(colors.muted.opacity(0.5))
@@ -672,7 +668,6 @@ impl Render for TaskView {
                     div()
                         .id(SharedString::from(format!("task-nav-{index}")))
                         .w_full()
-                        .rounded(px(6.))
                         .px_2()
                         .py(px(6.))
                         .text_xs()

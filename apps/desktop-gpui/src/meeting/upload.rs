@@ -1313,7 +1313,6 @@ fn drop_overlay(colors: Theme) -> impl IntoElement {
         .items_center()
         .justify_center()
         .overflow_hidden()
-        .rounded_lg()
         .border_1()
         .border_dashed()
         .border_color(colors.border.opacity(0.7))
@@ -1332,16 +1331,13 @@ fn drop_overlay(colors: Theme) -> impl IntoElement {
                     while y < height {
                         let mut x = offset(width) + step / 2.;
                         while x < width {
-                            window.paint_quad(
-                                fill(
-                                    Bounds::new(
-                                        bounds.origin + point(px(x - 1.), px(y - 1.)),
-                                        size(px(2.), px(2.)),
-                                    ),
-                                    rgba(0x71717a57),
-                                )
-                                .corner_radii(px(1.)),
-                            );
+                            window.paint_quad(fill(
+                                Bounds::new(
+                                    bounds.origin + point(px(x - 1.), px(y - 1.)),
+                                    size(px(2.), px(2.)),
+                                ),
+                                rgba(0x71717a57),
+                            ));
                             x += step;
                         }
                         y += step;
@@ -1357,7 +1353,6 @@ fn drop_overlay(colors: Theme) -> impl IntoElement {
                 .flex()
                 .items_center()
                 .gap_3()
-                .rounded(px(6.))
                 .border_1()
                 .border_color(colors.border.opacity(0.7))
                 .bg(colors.card.opacity(0.95))

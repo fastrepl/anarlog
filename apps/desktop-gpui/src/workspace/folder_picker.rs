@@ -319,7 +319,6 @@ impl FolderPicker {
             .gap_2()
             .px_2()
             .py(px(6.))
-            .rounded(px(14.))
             .text_sm()
             .line_height(px(20.))
             .text_color(colors.foreground)
@@ -354,7 +353,6 @@ impl Render for FolderPicker {
             .capture_key_down(cx.listener(Self::key))
             .child(
                 div()
-                    .rounded(px(20.))
                     .border_1()
                     .border_color(colors.app_floating_border)
                     .bg(colors.app_floating_panel)

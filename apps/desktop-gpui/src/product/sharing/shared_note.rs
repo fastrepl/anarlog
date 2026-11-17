@@ -346,7 +346,6 @@ fn skeleton(colors: Theme) -> Div {
         div()
             .h(px(height))
             .w(gpui::relative(width))
-            .rounded(px(6.))
             .bg(colors.muted.opacity(opacity))
     };
     div()
@@ -429,7 +428,6 @@ fn attachment_list(attachments: &[SharedString], colors: Theme) -> impl IntoElem
                         .flex()
                         .items_center()
                         .gap_3()
-                        .rounded(px(12.))
                         .border_1()
                         .border_color(colors.border.opacity(0.6))
                         .text_color(colors.muted_foreground)
@@ -472,7 +470,7 @@ struct Marks {
 #[derive(Clone, Debug, PartialEq)]
 enum Marker {
     None,
-    /// Filled squircle, hollow squircle, small square, cycling with bullet depth.
+    /// Filled square, hollow square, small square, cycling with bullet depth.
     Bullet(usize),
     Ordered(String),
     Task(bool),
@@ -779,7 +777,6 @@ fn render_block(block: &Block, colors: Theme, window: &Window, cx: &gpui::App) -
                 .py(px(14.))
                 .px(px(10.5))
                 .bg(colors.muted)
-                .rounded(px(6.))
         } else {
             row.py(px(font_size * 0.125)).pl(px(block.indent))
         }
@@ -803,11 +800,6 @@ fn render_block(block: &Block, colors: Theme, window: &Window, cx: &gpui::App) -
                     .left(px(marker_left + font_size * 0.5 - size / 2.))
                     .top(px(font_size * 0.875 - size / 2.))
                     .size(px(size))
-                    .rounded(px(if *variant == 2 {
-                        font_size * 0.06
-                    } else {
-                        size * 0.3
-                    }))
                     .when_else(
                         *variant == 1,
                         |view| view.border(px(1.5)).border_color(marker_color),
@@ -831,7 +823,6 @@ fn render_block(block: &Block, colors: Theme, window: &Window, cx: &gpui::App) -
                 .left(px(marker_left))
                 .top(px(font_size * 0.375))
                 .size(px(font_size))
-                .rounded(px(font_size * 0.22))
                 .border(px(1.5))
                 .when_else(
                     *done,

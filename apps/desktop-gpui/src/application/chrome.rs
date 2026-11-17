@@ -258,7 +258,6 @@ impl ApplicationView {
                     .flex()
                     .items_center()
                     .justify_center()
-                    .rounded_full()
                     .cursor_pointer()
                     .hover(|style| style.bg(colors.accent).text_color(colors.foreground))
                     .on_mouse_down(MouseButton::Left, |_, window, _| window.prevent_default())
@@ -282,7 +281,6 @@ impl ApplicationView {
                         .flex()
                         .items_center()
                         .justify_center()
-                        .rounded(px(6.))
                         .cursor_pointer()
                         .when(self.chrome.menu == Some(index), |view| {
                             view.bg(colors.accent).text_color(colors.foreground)
@@ -383,7 +381,6 @@ impl ApplicationView {
                             .id("application-menu-popup")
                             .w(px(224.))
                             .p_1()
-                            .rounded(px(8.))
                             .border_1()
                             .border_color(colors.border)
                             .bg(colors.card)
@@ -429,7 +426,6 @@ impl ApplicationView {
                                     .flex()
                                     .items_center()
                                     .justify_between()
-                                    .rounded(px(4.))
                                     .cursor_pointer()
                                     .when(index == self.chrome.item, |view| view.bg(colors.accent))
                                     .on_hover(cx.listener(move |this, hovered, _, cx| {

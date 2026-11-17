@@ -1235,8 +1235,7 @@ pub(super) enum Variant {
     OutlineDestructive,
 }
 
-/// `Button` (`rounded-full`, which the app's CSS draws at 8px): `sm` is `h-7 px-2 text-xs`,
-/// the default `h-9 px-4 text-sm`.
+/// `Button`: `sm` is `h-7 px-2 text-xs`, the default `h-9 px-4 text-sm`.
 pub(super) fn button(
     id: impl Into<gpui::ElementId>,
     label: impl Into<SharedString>,
@@ -1274,7 +1273,6 @@ pub(super) fn button(
         .items_center()
         .justify_center()
         .gap_2()
-        .rounded(px(8.))
         .font_weight(MEDIUM)
         .text_color(foreground)
         .when(small, |view| view.h(px(28.)).px_2().text_xs())
@@ -1311,7 +1309,6 @@ pub(super) fn field(input: &Entity<TextInput>, colors: &Theme) -> Div {
         .px_3()
         .flex()
         .items_center()
-        .rounded(px(8.))
         .border_1()
         .border_color(colors.input)
         .bg(colors.card)
@@ -1390,13 +1387,11 @@ pub(super) fn confirm_dialog(
                     .gap_2()
                     .child(
                         list::dialog_button("dialog-cancel", "Cancel", false, *colors)
-                            .rounded_full()
                             .when(pending, |view| view.opacity(0.5))
                             .when(!pending, |view| view.on_click(on_cancel)),
                     )
                     .child(
                         list::dialog_button("dialog-confirm", confirm, destructive, *colors)
-                            .rounded_full()
                             .when(pending, |view| view.opacity(0.5))
                             .when(!pending, |view| view.on_click(on_confirm)),
                     ),
@@ -1405,10 +1400,9 @@ pub(super) fn confirm_dialog(
     )
 }
 
-fn logo_mark(logo: Option<&str>, size: f32, radius: f32, colors: &Theme) -> Div {
+fn logo_mark(logo: Option<&str>, size: f32, colors: &Theme) -> Div {
     if let Some(logo) = logo {
-        return crate::workspace::contacts::avatar::contact_image(logo, "", size)
-            .rounded(px(radius));
+        return crate::workspace::contacts::avatar::contact_image(logo, "", size);
     }
     div()
         .size(px(size))
@@ -1416,7 +1410,6 @@ fn logo_mark(logo: Option<&str>, size: f32, radius: f32, colors: &Theme) -> Div 
         .flex()
         .items_center()
         .justify_center()
-        .rounded(px(radius))
         .bg(colors.primary.opacity(0.1))
         .child(controls::icon(
             "product/Building03Icon.svg",
@@ -1445,7 +1438,6 @@ fn menu_item(
         .flex()
         .items_center()
         .gap_2()
-        .rounded(px(4.))
         .text_sm()
         .text_color(color)
         .cursor_pointer()
@@ -1461,7 +1453,7 @@ fn skeleton(colors: &Theme) -> Div {
         .flex()
         .flex_col()
         .gap_2()
-        .children((0..3).map(|_| div().h(px(44.)).rounded(px(8.)).bg(colors.muted)))
+        .children((0..3).map(|_| div().h(px(44.)).bg(colors.muted)))
 }
 
 // ---- Rendering ----------------------------------------------------------------------------
@@ -1486,7 +1478,7 @@ impl TeamsView {
                         .flex()
                         .items_center()
                         .gap_3()
-                        .child(logo_mark(invitation.logo.as_deref(), 32., 8., colors))
+                        .child(logo_mark(invitation.logo.as_deref(), 32., colors))
                         .child(
                             div()
                                 .min_w_0()
@@ -1583,7 +1575,6 @@ impl TeamsView {
                     .flex()
                     .items_center()
                     .gap_2()
-                    .rounded(px(8.))
                     .py(px(6.))
                     .pr_3()
                     .pl(px(6.))
@@ -1599,7 +1590,7 @@ impl TeamsView {
                         view.text_color(colors.muted_foreground)
                             .hover(move |style| style.bg(muted.opacity(0.6)))
                     })
-                    .child(logo_mark(workspace.logo.as_deref(), 20., 6., colors))
+                    .child(logo_mark(workspace.logo.as_deref(), 20., colors))
                     .child(workspace.name.to_string())
                     .on_click(cx.listener(move |this, _, _, cx| {
                         if this.has_unsaved() {
@@ -1618,7 +1609,6 @@ impl TeamsView {
                     .flex()
                     .items_center()
                     .justify_center()
-                    .rounded(px(8.))
                     .cursor_pointer()
                     .when(self.creating, |view| view.bg(colors.muted))
                     .when(!self.creating, |view| {
@@ -1757,14 +1747,13 @@ impl TeamsView {
                 .flex()
                 .flex_col()
                 .gap_3()
-                .rounded(px(8.))
                 .border_1()
                 .border_color(colors.border)
                 .p_4()
                 .child(
                     div()
                         .child(if pending {
-                            div().h(px(20.)).w(px(80.)).rounded(px(4.)).bg(colors.muted)
+                            div().h(px(20.)).w(px(80.)).bg(colors.muted)
                         } else {
                             div()
                                 .text_sm()
@@ -1877,7 +1866,7 @@ impl TeamsView {
             .panel
             .as_ref()
             .and_then(|panel| panel.workspace.logo.clone());
-        let mark = logo_mark(logo.as_deref(), 40., 12., colors);
+        let mark = logo_mark(logo.as_deref(), 40., colors);
         if !manage {
             return div().flex_shrink_0().child(mark);
         }
@@ -1889,7 +1878,6 @@ impl TeamsView {
                     .id("workspace-logo")
                     .group("workspace-logo")
                     .relative()
-                    .rounded(px(12.))
                     .cursor_pointer()
                     .child(mark)
                     .child(
@@ -1899,7 +1887,6 @@ impl TeamsView {
                             .flex()
                             .items_center()
                             .justify_center()
-                            .rounded(px(12.))
                             .bg(gpui::black().opacity(0.4))
                             .when(!pending, |view| {
                                 view.opacity(0.)
@@ -1930,7 +1917,6 @@ impl TeamsView {
                         .flex()
                         .items_center()
                         .justify_center()
-                        .rounded_full()
                         .border_1()
                         .border_color(colors.border)
                         .bg(colors.background)
@@ -2041,7 +2027,6 @@ impl TeamsView {
                 .flex_wrap()
                 .items_center()
                 .gap_3()
-                .rounded(px(8.))
                 .border_1()
                 .border_color(colors.border)
                 .p_3()
@@ -2368,7 +2353,6 @@ impl TeamsView {
         let count = rows.len();
         div()
             .overflow_hidden()
-            .rounded(px(8.))
             .border_1()
             .border_color(border)
             .children(rows.into_iter().enumerate().map(|(index, row)| {
@@ -2496,7 +2480,6 @@ impl TeamsView {
             .flex()
             .items_center()
             .justify_center()
-            .rounded(px(8.))
             .child(controls::icon(
                 "product/MoreHorizontalIcon.svg",
                 16.,
@@ -2710,7 +2693,6 @@ impl TeamsView {
                         .flex()
                         .items_center()
                         .overflow_hidden()
-                        .rounded(px(12.))
                         .border_1()
                         .border_color(colors.input)
                         .bg(colors.card)

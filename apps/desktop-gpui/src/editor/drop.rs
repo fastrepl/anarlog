@@ -37,7 +37,6 @@ impl Render for SessionDrag {
             .max_w(px(240.))
             .px_3()
             .py_2()
-            .rounded(px(8.))
             .bg(colors.accent)
             .text_sm()
             .text_color(colors.foreground)

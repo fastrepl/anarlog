@@ -62,7 +62,6 @@ impl Render for SegmentRow {
                     div()
                         .id(index)
                         .cursor_pointer()
-                        .rounded_sm()
                         .hover(|style| style.bg(colors.accent))
                         .when(!word.is_final, |view| {
                             view.text_color(colors.muted_foreground)

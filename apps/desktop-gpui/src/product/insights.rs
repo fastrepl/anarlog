@@ -405,46 +405,39 @@ impl InsightsView {
     }
 
     fn range_filter(&self, colors: &Theme, cx: &mut Context<Self>) -> impl IntoElement {
-        div()
-            .flex()
-            .gap_1()
-            .p_1()
-            .rounded(px(8.))
-            .bg(colors.muted)
-            .children(
-                [
-                    (Range::All, "All time"),
-                    (Range::Days30, "30 days"),
-                    (Range::Days7, "7 days"),
-                ]
-                .into_iter()
-                .map(|(range, label)| {
-                    let selected = range == self.range;
-                    div()
-                        .id(label)
-                        .px_3()
-                        .py(px(6.))
-                        .rounded(px(6.))
-                        .text_xs()
-                        .line_height(px(16.))
-                        .font_weight(crate::ui::theme::MEDIUM)
-                        .cursor_pointer()
-                        .when(selected, |view| {
-                            view.bg(colors.background)
-                                .text_color(colors.foreground)
-                                .shadow_xs()
-                        })
-                        .when(!selected, |view| {
-                            view.text_color(colors.muted_foreground)
-                                .hover(|style| style.text_color(colors.foreground))
-                        })
-                        .on_click(cx.listener(move |this, _, _, cx| {
-                            this.range = range;
-                            cx.notify();
-                        }))
-                        .child(label)
-                }),
-            )
+        div().flex().gap_1().p_1().bg(colors.muted).children(
+            [
+                (Range::All, "All time"),
+                (Range::Days30, "30 days"),
+                (Range::Days7, "7 days"),
+            ]
+            .into_iter()
+            .map(|(range, label)| {
+                let selected = range == self.range;
+                div()
+                    .id(label)
+                    .px_3()
+                    .py(px(6.))
+                    .text_xs()
+                    .line_height(px(16.))
+                    .font_weight(crate::ui::theme::MEDIUM)
+                    .cursor_pointer()
+                    .when(selected, |view| {
+                        view.bg(colors.background)
+                            .text_color(colors.foreground)
+                            .shadow_xs()
+                    })
+                    .when(!selected, |view| {
+                        view.text_color(colors.muted_foreground)
+                            .hover(|style| style.text_color(colors.foreground))
+                    })
+                    .on_click(cx.listener(move |this, _, _, cx| {
+                        this.range = range;
+                        cx.notify();
+                    }))
+                    .child(label)
+            }),
+        )
     }
 }
 
@@ -457,10 +450,7 @@ fn heading(text: impl Into<SharedString>) -> gpui::Div {
 }
 
 fn panel(colors: &Theme) -> gpui::Div {
-    div()
-        .rounded(px(20.))
-        .border_1()
-        .border_color(colors.border)
+    div().border_1().border_color(colors.border)
 }
 
 fn patterns(stats: &Stats, colors: &Theme) -> gpui::Div {
@@ -596,12 +586,10 @@ fn patterns(stats: &Stats, colors: &Theme) -> gpui::Div {
                                         .min_w_0()
                                         .h(px(20.))
                                         .overflow_hidden()
-                                        .rounded(px(4.))
                                         .bg(colors.muted)
                                         .child(
                                             div()
                                                 .h_full()
-                                                .rounded(px(4.))
                                                 .w(relative(*count as f32 / peak.max(1) as f32))
                                                 .bg(colors.foreground.opacity(if strong { 0.7 } else { 0.2 })),
                                         ),
@@ -708,11 +696,7 @@ fn heatmap(stats: &Stats, monday: bool, colors: &Theme) -> gpui::Div {
                                 .flex_col()
                                 .gap(px(3.))
                                 .children(week.iter().map(|(_, count)| {
-                                    div()
-                                        .w_full()
-                                        .h(px(10.))
-                                        .rounded(px(2.))
-                                        .bg(shades[(*count).min(4)])
+                                    div().w_full().h(px(10.)).bg(shades[(*count).min(4)])
                                 }))
                         })),
                 ),
@@ -761,7 +745,6 @@ impl InsightsView {
                 .flex_col()
                 .items_center()
                 .gap_3()
-                .rounded(px(16.))
                 .border_1()
                 .border_color(colors.border)
                 .bg(colors.background)
@@ -844,7 +827,6 @@ impl InsightsView {
                                 .px_2()
                                 .flex()
                                 .items_center()
-                                .rounded(px(6.))
                                 .font_weight(crate::ui::theme::MEDIUM)
                                 .text_color(colors.foreground)
                                 .cursor_pointer()
@@ -894,12 +876,10 @@ impl InsightsView {
                         .h_2()
                         .w_full()
                         .overflow_hidden()
-                        .rounded(px(8.))
                         .bg(colors.muted)
                         .child(
                             div()
                                 .h_full()
-                                .rounded(px(8.))
                                 .w(relative(value as f32 / badge.target.max(1) as f32))
                                 .bg(colors.foreground.opacity(0.8)),
                         ),
@@ -941,7 +921,6 @@ impl InsightsView {
                                     .flex()
                                     .flex_col()
                                     .gap_4()
-                                    .rounded(px(16.))
                                     .border_1()
                                     .border_color(colors.border)
                                     .bg(colors.background)
@@ -1106,7 +1085,7 @@ impl Render for InsightsView {
                                 .gap(px(6.))
                                 .child("Less")
                                 .children([0., 0.2, 0.4, 0.6, 0.8].into_iter().map(|alpha| {
-                                    div().size(px(10.)).rounded(px(2.)).bg(if alpha == 0. {
+                                    div().size(px(10.)).bg(if alpha == 0. {
                                         colors.muted
                                     } else {
                                         colors.foreground.opacity(alpha)

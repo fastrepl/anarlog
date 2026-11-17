@@ -331,7 +331,6 @@ impl Render for SharedLibrary {
                     .flex()
                     .items_center()
                     .gap_2()
-                    .rounded(px(8.))
                     .cursor_pointer()
                     .hover(|s| s.bg(colors.accent.opacity(0.5)))
                     .on_click(cx.listener(move |this, _, _, cx| {

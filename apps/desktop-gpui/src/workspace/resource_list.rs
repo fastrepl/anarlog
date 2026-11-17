@@ -243,7 +243,6 @@ pub fn ghost_icon_button(
         .flex()
         .items_center()
         .justify_center()
-        .rounded(px(8.))
         .cursor_pointer()
         .hover(|style| style.bg(colors.accent))
         .child(
@@ -252,7 +251,7 @@ pub fn ghost_icon_button(
         )
 }
 
-/// The sidebar search field: a 32px pill with a magnifier, the input and a clear button.
+/// The sidebar search field: a 32px field with a magnifier, the input and a clear button.
 pub fn search_field(
     input: &gpui::Entity<TextInput>,
     focused: bool,
@@ -269,7 +268,6 @@ pub fn search_field(
             .items_center()
             .gap_2()
             .px_3()
-            .rounded(px(8.))
             .border_1()
             .border_color(colors.border)
             .bg(if focused {
@@ -310,7 +308,6 @@ pub fn list_row(
         .w_full()
         .px_3()
         .py_2()
-        .rounded(px(8.))
         .text_sm()
         .line_height(px(20.))
         .cursor_pointer()
@@ -347,7 +344,6 @@ pub fn floating_menu(width: f32, colors: Theme) -> gpui::Div {
     div()
         .w(px(width))
         .p(px(2.))
-        .rounded(px(22.))
         .border_1()
         .border_color(colors.app_floating_border)
         .bg(colors.app_floating_chrome)
@@ -357,7 +353,6 @@ pub fn floating_menu(width: f32, colors: Theme) -> gpui::Div {
 pub fn floating_menu_body(colors: Theme) -> gpui::Div {
     div()
         .p(px(6.))
-        .rounded(px(20.))
         .border_1()
         .border_color(colors.app_floating_border)
         .bg(colors.app_floating_panel)
@@ -386,7 +381,6 @@ pub fn menu_item(
         .px_2()
         .flex()
         .items_center()
-        .rounded(px(14.))
         .text_sm()
         .line_height(px(20.))
         .when(destructive, |item| item.text_color(red))
@@ -403,7 +397,6 @@ pub fn context_menu(colors: Theme) -> gpui::Div {
     div()
         .w(px(224.))
         .p_1()
-        .rounded(px(8.))
         .bg(colors.card)
         .border_1()
         .border_color(colors.border)
@@ -422,7 +415,6 @@ pub fn context_item(
         .flex()
         .items_center()
         .text_sm()
-        .rounded(px(4.))
         .cursor_pointer()
         .hover(|style| style.bg(colors.accent))
         .child(label)
@@ -510,7 +502,6 @@ pub fn glass_dialog(colors: Theme) -> Stateful<gpui::Div> {
         .flex()
         .flex_col()
         .gap_4()
-        .rounded(px(26.))
         .border_1()
         .border_color(colors.border.opacity(0.45))
         .bg(colors.card.opacity(0.6))
@@ -538,7 +529,6 @@ pub fn dialog_button(
         .flex()
         .items_center()
         .justify_center()
-        .rounded(px(8.))
         .text_xs()
         .line_height(px(16.))
         .font_weight(crate::ui::theme::MEDIUM)
@@ -574,7 +564,6 @@ pub fn share_button(id: &'static str, colors: Theme) -> Stateful<gpui::Div> {
         .flex()
         .items_center()
         .gap(px(6.))
-        .rounded(px(8.))
         .text_xs()
         .line_height(px(16.))
         .font_weight(crate::ui::theme::MEDIUM)
@@ -623,7 +612,6 @@ impl WarningToast {
                 .flex()
                 .items_center()
                 .justify_center()
-                .rounded(px(6.))
                 .text_xs()
                 .line_height(px(16.))
                 .font_weight(crate::ui::theme::MEDIUM)
@@ -653,7 +641,6 @@ impl WarningToast {
                 .right(px(16.))
                 .w(px(320.))
                 .overflow_hidden()
-                .rounded(px(14.))
                 .border_1()
                 .border_color(colors.border.opacity(0.7))
                 .bg(colors.popover)

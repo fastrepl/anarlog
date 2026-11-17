@@ -605,7 +605,7 @@ pub fn render_row(
                 .py(px(14.))
                 .px(px(10.5))
                 .bg(colors.muted)
-                .rounded(px(6.)),
+                ,
             // A 1px rule; the transparent glyph only keeps the atom selectable.
             "horizontalRule" => div.py(px(2.)).pl(px(inset + indent)).pr(px(inset)).child(
                 gpui::div()
@@ -660,7 +660,6 @@ pub fn render_row(
                         .flex()
                         .items_center()
                         .justify_center()
-                        .rounded(px(font_size * 0.22))
                         .border(px(1.5))
                         .cursor_pointer()
                         .when_else(
@@ -695,7 +694,7 @@ pub fn render_row(
                         }),
                 )
             } else if marker == "•" {
-                // Shipping cycles squircle -> hollow squircle -> small square by bullet depth.
+                // Shipping's squircle -> hollow squircle -> small square by bullet depth, drawn square.
                 let variant = row.style.bullets.saturating_sub(1) % 3;
                 let size = font_size * if variant == 2 { 0.42 } else { 0.5 };
                 div.child(
@@ -704,11 +703,6 @@ pub fn render_row(
                         .left(px(marker_left + font_size * 0.5 - size / 2.))
                         .top(px(font_size * 0.875 - size / 2.))
                         .size(px(size))
-                        .rounded(px(if variant == 2 {
-                            font_size * 0.06
-                        } else {
-                            size * 0.3
-                        }))
                         .when_else(
                             variant == 1,
                             |view| view.border(px(1.5)).border_color(marker_color),
@@ -826,7 +820,7 @@ fn paint_found(layout: &VisibleLayout, matches: &[Range<usize>], window: &mut Wi
             break;
         }
         for rect in line_rects(layout, range.start.max(row_start), range.end.min(row_end)) {
-            window.paint_quad(fill(rect, color).corner_radii(px(2.)));
+            window.paint_quad(fill(rect, color));
         }
     }
 }

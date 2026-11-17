@@ -450,7 +450,6 @@ pub(crate) fn provider_icon(name: &str, logo: Option<&'static str>, colors: &The
                     .flex()
                     .items_center()
                     .justify_center()
-                    .rounded(px(8.))
                     .bg(colors.muted)
                     .text_color(colors.muted_foreground)
                     .text_xs()
@@ -475,7 +474,6 @@ pub(crate) fn connect_group(
         .h(px(28.))
         .flex_none()
         .flex()
-        .rounded(px(8.))
         .overflow_hidden()
         .map(|group| {
             if primary {
@@ -580,7 +578,6 @@ pub(crate) fn menu_entry(
         .gap_2()
         .px_2()
         .py(px(6.))
-        .rounded(px(8.))
         .text_sm()
         .line_height(px(20.))
         .when(!enabled, |item| item.opacity(0.5))
@@ -646,7 +643,6 @@ impl ImportsView {
                 .items_center()
                 .justify_center()
                 .gap_2()
-                .rounded(px(8.))
                 .border_1()
                 .border_color(colors.input)
                 .bg(colors.background)
@@ -1009,7 +1005,6 @@ impl Render for ImportsView {
                     .flex()
                     .items_center()
                     .gap_2()
-                    .rounded(px(8.))
                     .text_xs()
                     .font_weight(MEDIUM)
                     .cursor_pointer()
@@ -1059,7 +1054,6 @@ impl Render for ImportsView {
             .when(settled, |view| {
                 view.child(
                     div()
-                        .rounded(px(16.))
                         .border_1()
                         .border_color(colors.border)
                         .bg(colors.card)

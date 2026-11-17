@@ -21,7 +21,7 @@ use super::{NoteEvent, NoteView, icon, is_dark};
 use crate::{
     chat::state::distance_to_now,
     editor::EditorPane,
-    ui::theme::{MEDIUM, RADIUS, Theme},
+    ui::theme::{MEDIUM, Theme},
 };
 
 /// Note documents use id == session_id, so both conflict kinds key off the session id.
@@ -361,7 +361,6 @@ impl NoteView {
                         .gap_3()
                         .px_3()
                         .py_2()
-                        .rounded(px(22.))
                         .border_1()
                         .border_color(amber.opacity(0.35))
                         .bg(amber.opacity(0.1))
@@ -538,7 +537,6 @@ impl NoteView {
             .gap_4()
             .overflow_hidden()
             .p_6()
-            .rounded(px(RADIUS))
             .border_1()
             .border_color(colors.border)
             .bg(colors.background)
@@ -587,7 +585,6 @@ impl NoteView {
                     .absolute()
                     .top_4()
                     .right_4()
-                    .rounded(px(2.))
                     .opacity(0.7)
                     .hover(|style| style.opacity(1.))
                     .cursor_pointer()
@@ -635,7 +632,6 @@ fn button(
         .flex_shrink_0()
         .items_center()
         .justify_center()
-        .rounded(px(RADIUS))
         .text_xs()
         .line_height(px(16.))
         .font_weight(MEDIUM)

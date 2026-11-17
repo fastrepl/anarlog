@@ -15,7 +15,7 @@ use super::playback::{Command, Playback, RATES, Snapshot, State};
 use super::upload::Uploads;
 use crate::{
     product::account,
-    ui::theme::{RADIUS, Theme, monospace_font, theme},
+    ui::theme::{Theme, monospace_font, theme},
     workspace::resource_list,
 };
 
@@ -160,7 +160,6 @@ impl PlayerView {
                                     .flex()
                                     .items_center()
                                     .text_sm()
-                                    .rounded(px(4.))
                                     .text_color(colors.foreground)
                                     .when_else(
                                         disabled,
@@ -290,9 +289,7 @@ impl Render for PlayerView {
                             size(px(BAR_WIDTH), px(height)),
                         );
                         let color = if left < cursor { *played } else { *wave };
-                        window.paint_quad(
-                            fill(bar_bounds, rgb(color)).corner_radii(px(2_f32.min(height / 2.))),
-                        );
+                        window.paint_quad(fill(bar_bounds, rgb(color)));
                     }
                 }
                 if duration > 0. {
@@ -318,7 +315,6 @@ impl Render for PlayerView {
                 .flex_shrink_0()
                 .items_center()
                 .justify_center()
-                .rounded(px(RADIUS))
                 .border_1()
                 .border_color(colors.border)
                 .bg(colors.card)
@@ -370,7 +366,6 @@ impl Render for PlayerView {
                     .flex_shrink_0()
                     .items_center()
                     .justify_center()
-                    .rounded(px(RADIUS - 2.))
                     .border_1()
                     .border_color(colors.border)
                     .bg(colors.card)
@@ -420,7 +415,6 @@ impl Render for PlayerView {
                         .right(px(12.))
                         .bottom(px(36.))
                         .py_1()
-                        .rounded_lg()
                         .border_1()
                         .border_color(colors.border)
                         .bg(colors.card)

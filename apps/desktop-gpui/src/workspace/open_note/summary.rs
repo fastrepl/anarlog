@@ -19,7 +19,7 @@ use crate::{
     },
     ui::{
         input::{InputEvent, TextInput},
-        theme::{RADIUS, Theme},
+        theme::Theme,
     },
     workspace::{
         resource_list::Glyph,
@@ -355,7 +355,7 @@ fn pulse(element: impl IntoElement + 'static, id: &'static str) -> impl IntoElem
     )
 }
 
-/// A shadcn `Button` (`rounded-full` is 8px in shipping's CSS).
+/// A shadcn `Button`.
 fn button(
     id: &'static str,
     label: &'static str,
@@ -370,7 +370,6 @@ fn button(
         .items_center()
         .justify_center()
         .gap_2()
-        .rounded(px(RADIUS))
         .font_weight(crate::ui::theme::MEDIUM)
         .cursor_pointer()
         .map(|button| {
@@ -849,7 +848,6 @@ impl NoteView {
                                 .mt(px(5.))
                                 .size_2()
                                 .flex_shrink_0()
-                                .rounded_bl(px(2.))
                                 .border_b_1()
                                 .border_l_1()
                                 .border_color(colors.muted_foreground.opacity(0.6)),
@@ -905,7 +903,6 @@ impl NoteView {
                                         .left(px(depth as f32 * 24. - 16.))
                                         .top(px(size * 0.125 + 10.))
                                         .size(px(6.))
-                                        .rounded_full()
                                         .bg(colors.foreground.opacity(0.65)),
                                 )
                             })
@@ -940,7 +937,6 @@ impl NoteView {
                 .flex()
                 .items_center()
                 .gap(px(6.))
-                .rounded(px(6.))
                 .cursor_pointer()
                 .hover(move |style| style.bg(colors.accent))
                 .on_click(cx.listener(move |this, _, _, cx| this.choose_template(id.clone(), cx)))
@@ -967,7 +963,6 @@ impl NoteView {
                             .flex()
                             .items_center()
                             .gap_1()
-                            .rounded(px(6.))
                             .px(px(6.))
                             .py(px(2.))
                             .text_size(px(11.))
@@ -1029,7 +1024,6 @@ impl NoteView {
                     .flex()
                     .items_center()
                     .gap(px(6.))
-                    .rounded(px(6.))
                     .cursor_pointer()
                     .hover(move |style| style.bg(colors.accent))
                     .on_click(cx.listener(|this, _, _, cx| {
@@ -1071,7 +1065,6 @@ impl NoteView {
                 .occlude()
                 .p(px(2.))
                 .pb_0()
-                .rounded(px(22.))
                 .border_1()
                 .border_color(colors.app_floating_border)
                 .bg(colors.app_floating_chrome)
@@ -1094,7 +1087,6 @@ impl NoteView {
                         .flex()
                         .flex_col()
                         .overflow_hidden()
-                        .rounded(px(20.))
                         .border_1()
                         .border_color(colors.app_floating_border)
                         .bg(colors.app_floating_panel)
@@ -1123,7 +1115,6 @@ impl NoteView {
                                             div()
                                                 .id("summary-template-clear")
                                                 .p(px(2.))
-                                                .rounded(px(2.))
                                                 .cursor_pointer()
                                                 .hover(move |style| style.bg(colors.accent))
                                                 .on_click(cx.listener(|this, _, _, cx| {

@@ -799,7 +799,6 @@ impl Render for CrmView {
                 }
                 view.child(
                     div()
-                        .rounded(px(16.))
                         .border_1()
                         .border_color(colors.border)
                         .bg(colors.card)

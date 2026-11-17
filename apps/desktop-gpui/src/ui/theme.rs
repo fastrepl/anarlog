@@ -4,8 +4,6 @@ use gpui::{
 
 include!(concat!(env!("OUT_DIR"), "/tokens.rs"));
 
-pub const RADIUS: f32 = 8.0;
-
 /// Tailwind's `font-medium`. font-kit reads San Francisco's Medium face as weight 530, so a
 /// 500 request would fall back to Regular there.
 pub const MEDIUM: FontWeight = FontWeight(if cfg!(target_os = "macos") {

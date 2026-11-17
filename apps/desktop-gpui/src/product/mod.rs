@@ -521,7 +521,6 @@ impl ProductPane {
                     .flex()
                     .items_center()
                     .justify_center()
-                    .rounded(px(8.))
                     .cursor_pointer()
                     .hover(|style| style.bg(colors.accent))
                     .on_click(cx.listener(|this, _, _, cx| {
@@ -544,7 +543,6 @@ impl ProductPane {
                 .flex()
                 .items_center()
                 .gap_2()
-                .rounded(px(8.))
                 .border_1()
                 .border_color(colors.border)
                 .bg(if focused {
@@ -630,7 +628,6 @@ impl ProductPane {
                             .flex()
                             .items_center()
                             .gap_2()
-                            .rounded(px(8.))
                             .text_sm()
                             .line_height(px(20.))
                             .cursor_pointer()
@@ -789,7 +786,6 @@ impl Render for ProductPane {
                     .bg(if dark { colors.accent } else { colors.card })
                     .border_l_1()
                     .border_color(colors.border)
-                    .rounded_l(px(12.))
                     .child(
                         div()
                             .id("product-content")

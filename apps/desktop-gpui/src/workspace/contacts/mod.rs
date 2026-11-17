@@ -97,7 +97,7 @@ pub(super) fn text_sm<E: Styled>(view: E) -> E {
     view.text_size(px(14.)).line_height(px(20.))
 }
 
-/// Shipping's ghost `Button size="icon"`: 28px, rounded, muted until hovered.
+/// Shipping's ghost `Button size="icon"`: 28px, muted until hovered.
 pub(super) fn icon_button(
     id: impl Into<SharedString>,
     icon: &'static str,
@@ -128,7 +128,6 @@ pub(super) fn menu_trigger(
         .flex()
         .items_center()
         .justify_center()
-        .rounded(px(8.))
         .cursor_pointer()
         .map(|button| {
             if open {
@@ -198,7 +197,6 @@ pub(super) fn radio_item(
         .pr_2()
         .flex()
         .items_center()
-        .rounded(px(14.))
         .text_color(colors.popover_foreground)
         .cursor_pointer()
         .hover(move |style| style.bg(colors.accent))
@@ -211,12 +209,7 @@ pub(super) fn radio_item(
                     .flex()
                     .items_center()
                     .justify_center()
-                    .child(
-                        div()
-                            .size(px(8.))
-                            .rounded(px(4.))
-                            .bg(colors.popover_foreground),
-                    ),
+                    .child(div().size(px(8.)).bg(colors.popover_foreground)),
             )
         })
         .child(label);
@@ -617,7 +610,6 @@ impl Contacts {
                 .flex()
                 .items_center()
                 .gap_2()
-                .rounded(px(14.))
                 .text_sm()
                 .line_height(px(20.))
                 .text_color(color)
@@ -717,7 +709,6 @@ impl Contacts {
                     .flex()
                     .items_center()
                     .justify_center()
-                    .rounded(px(8.))
                     .bg(gpui::rgba(0x00000066))
                     .opacity(0.)
                     .group_hover("change-photo", |style| style.opacity(1.))

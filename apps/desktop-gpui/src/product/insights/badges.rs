@@ -325,7 +325,6 @@ pub fn emblem(id: &'static str, collected: bool, large: bool, colors: &Theme) ->
                     .flex()
                     .items_center()
                     .justify_center()
-                    .rounded_full()
                     .border_1()
                     .border_color(colors.border)
                     .bg(colors.background)

@@ -133,7 +133,6 @@ fn section(colors: Theme, title: &'static str) -> gpui::Div {
         .mb_6()
         .w_full()
         .max_w(px(768.))
-        .rounded(px(12.))
         .border_1()
         .border_color(colors.border.opacity(0.7))
         .bg(colors.muted.opacity(0.3))
@@ -268,7 +267,6 @@ impl Render for MeetingRecords {
                                 .w_full()
                                 .aspect_ratio(ratio)
                                 .overflow_hidden()
-                                .rounded(px(6.))
                                 .bg(colors.muted)
                                 .children(self.sources.get(&record.attachment_id).map(|path| {
                                     gpui::img(path.as_ref().clone())

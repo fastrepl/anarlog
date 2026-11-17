@@ -243,7 +243,6 @@ pub fn context_menu(
                 .id(id)
                 .w(px(224.))
                 .p_1()
-                .rounded(px(8.))
                 .bg(colors.card)
                 .border_1()
                 .border_color(colors.border)
@@ -265,7 +264,6 @@ pub fn context_menu(
                                 .flex()
                                 .items_center()
                                 .text_sm()
-                                .rounded(px(4.))
                                 .map(|row| {
                                     if item.disabled {
                                         row.opacity(0.5)
@@ -665,9 +663,7 @@ impl CalendarSidebar {
 
     fn provider_icon(provider: Provider) -> gpui::Div {
         let image = match provider {
-            Provider::Apple => img("workspace/AppleCalendar.png")
-                .size(px(20.))
-                .rounded(px(4.)),
+            Provider::Apple => img("workspace/AppleCalendar.png").size(px(20.)),
             Provider::Google => img("workspace/GoogleCalendar.svg").w(px(15.)).h(px(16.)),
             Provider::Outlook => img("workspace/OutlookIcon.svg").w(px(16.)).h(px(15.)),
         };
@@ -685,7 +681,6 @@ impl CalendarSidebar {
             .id(id)
             .p_1()
             .flex_shrink_0()
-            .rounded(px(8.))
             .cursor_pointer()
             .hover(move |style| style.bg(colors.accent))
     }
@@ -731,7 +726,6 @@ impl CalendarSidebar {
                     .flex()
                     .items_center()
                     .gap_1()
-                    .rounded(px(8.))
                     .cursor_pointer()
                     .hover(move |style| style.bg(colors.accent))
                     .on_click(cx.listener(move |this, _, _, cx| this.click_provider(provider, cx)))
@@ -984,7 +978,7 @@ impl CalendarSidebar {
                     .text_xs()
                     .line_height(px(16.))
                     .text_color(rgb(AMBER_700))
-                    .child(div().size(px(10.)).rounded(px(8.)).bg(rgb(AMBER_500)))
+                    .child(div().size(px(10.)).bg(rgb(AMBER_500)))
                     .child(format!(
                         "Reconnect required for {} Calendar",
                         provider.name()
@@ -1099,7 +1093,6 @@ impl CalendarSidebar {
                                         provider.id()
                                     )))
                                     .p_1()
-                                    .rounded(px(4.))
                                     .cursor_pointer()
                                     .hover(move |style| style.bg(colors.accent))
                                     .child(
@@ -1183,7 +1176,6 @@ impl CalendarSidebar {
                 header
                     .mx(px(-8.))
                     .px_2()
-                    .rounded(px(8.))
                     .hover(move |style| style.bg(colors.accent))
                     .on_mouse_down(
                         MouseButton::Right,
@@ -1242,7 +1234,6 @@ impl CalendarSidebar {
                     .flex()
                     .items_center()
                     .justify_center()
-                    .rounded(px(4.))
                     .border_1()
                     .border_color(color)
                     .when(enabled, |check| {
@@ -1310,7 +1301,6 @@ impl CalendarSidebar {
                         .child(
                             dialog_button("dialog-cancel", "Cancel", false, colors)
                                 .flex_1()
-                                .rounded(px(8.))
                                 .on_click(cx.listener(|this, _, _, cx| {
                                     this.permission_dialog = false;
                                     cx.notify();
@@ -1319,7 +1309,6 @@ impl CalendarSidebar {
                         .child(
                             dialog_button("dialog-open-settings", "Open Settings", false, colors)
                                 .flex_1()
-                                .rounded(px(8.))
                                 .on_click(cx.listener(|this, _, _, cx| {
                                     this.permission_dialog = false;
                                     if let Some(services) = this.services(cx)
@@ -1420,7 +1409,6 @@ impl Render for CalendarSidebar {
                             .flex()
                             .items_center()
                             .justify_center()
-                            .rounded(px(8.))
                             .cursor_pointer()
                             .hover(move |style| style.bg(colors.accent))
                             .on_click(

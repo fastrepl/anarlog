@@ -10,9 +10,8 @@ use gpui::{
 use super::controller::Phase;
 use crate::meeting::{
     floating::{
-        ACCENT, COMPACT_HEIGHT, COMPACT_RADIUS, CONTROL_RADIUS, EXPANDED_PADDING, EXPANDED_RADIUS,
-        HANDLE_RESERVED, ICON_SIZE, INSET, STOP_WIDTH, container_size, controls_width,
-        hover_handle, icon, palette_with,
+        ACCENT, COMPACT_HEIGHT, EXPANDED_PADDING, HANDLE_RESERVED, ICON_SIZE, INSET, STOP_WIDTH,
+        container_size, controls_width, hover_handle, icon, palette_with,
     },
     widgets::{dancing_bars, spinner},
 };
@@ -180,7 +179,6 @@ impl DictationBar {
                                 .gap(px(6.))
                                 .px(px(12.))
                                 .py(px(7.))
-                                .rounded(px(CONTROL_RADIUS))
                                 .bg(chip.0)
                                 .border(px(0.5))
                                 .border_color(chip.1)
@@ -212,11 +210,6 @@ impl Render for DictationBar {
         let width = container.width - px(INSET * 2.);
         let body = container.height - px(INSET * 2. + HANDLE_RESERVED);
         let handle = self.hovered && !expanded;
-        let radius = if expanded {
-            EXPANDED_RADIUS
-        } else {
-            COMPACT_RADIUS
-        };
         let accent: Hsla = rgb(ACCENT).into();
         let transcribing = self.panel.phase == Phase::Transcribing;
         let amplitude = if self.panel.phase == Phase::Recording {
@@ -231,7 +224,6 @@ impl Render for DictationBar {
             .flex()
             .items_center()
             .justify_center()
-            .rounded(px(CONTROL_RADIUS))
             .bg(if self.stop_hovered {
                 accent.opacity(0.18)
             } else {
@@ -256,7 +248,7 @@ impl Render for DictationBar {
                             .items_center()
                             .gap(px(6.))
                             .text_color(accent)
-                            .child(div().size(px(9.)).rounded(px(1.5)).bg(accent))
+                            .child(div().size(px(9.)).bg(accent))
                             .child(
                                 div()
                                     .text_size(px(12.))
@@ -284,7 +276,6 @@ impl Render for DictationBar {
                     .flex()
                     .items_center()
                     .justify_center()
-                    .rounded(px(CONTROL_RADIUS))
                     .cursor_pointer()
                     .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                     .hover(|style| style.bg(palette.control))
@@ -316,7 +307,6 @@ impl Render for DictationBar {
                     .bottom(px(INSET))
                     .w(width)
                     .h(bar_height)
-                    .rounded(px(radius))
                     .overflow_hidden()
                     .bg(if handle {
                         palette.envelope
@@ -332,7 +322,6 @@ impl Render for DictationBar {
                             .left(px(1.))
                             .right(px(1.))
                             .bottom(px(1.))
-                            .rounded(px(radius - 1.))
                             .border(px(0.5))
                             .border_color(palette.inner),
                     )

@@ -279,7 +279,6 @@ impl PreferencesView {
                 "Apple Reminders",
                 img("product/brands/apple-reminders.png")
                     .size(px(20.))
-                    .rounded(px(4.))
                     .into_any_element(),
                 self.apple_reminders(&colors, cx).into_any_element(),
             ));
@@ -306,7 +305,6 @@ impl PreferencesView {
                                 .flex()
                                 .items_center()
                                 .gap_1()
-                                .rounded(px(8.))
                                 .cursor_pointer()
                                 .hover(move |style| style.bg(accent))
                                 .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
@@ -497,7 +495,6 @@ impl PreferencesView {
                         .mt_1()
                         .w(px(288.))
                         .p_1()
-                        .rounded(px(8.))
                         .border_1()
                         .border_color(colors.border)
                         .bg(colors.popover)
@@ -550,7 +547,6 @@ impl PreferencesView {
                     .px_3()
                     .flex()
                     .items_center()
-                    .rounded(px(8.))
                     .border_1()
                     .border_color(colors.input)
                     .shadow_xs()
@@ -610,7 +606,6 @@ impl PreferencesView {
                     .flex()
                     .items_center()
                     .justify_center()
-                    .rounded(px(8.))
                     .bg(colors.primary)
                     .when(self.ticket.requesting, |button| button.opacity(0.5))
                     .when(!self.ticket.requesting, |button| {

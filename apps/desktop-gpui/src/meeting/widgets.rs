@@ -103,7 +103,7 @@ pub fn dancing_sticks(
         return frame
             .flex()
             .items_center()
-            .child(div().w(px(width)).h(px(1.)).rounded(px(0.5)).bg(color))
+            .child(div().w(px(width)).h(px(1.)).bg(color))
             .into_any_element();
     }
     let count = (((width + gap) / (stick_width + gap)).floor() as usize).max(1);
@@ -120,19 +120,16 @@ pub fn dancing_sticks(
                     for (index, stick) in sticks.iter().enumerate() {
                         let phase = ((time - stick.delay) / stick.duration).rem_euclid(1.);
                         let length = height * scale * stick.max_scale * stick_scale(phase);
-                        window.paint_quad(
-                            fill(
-                                gpui::Bounds::new(
-                                    point(
-                                        left + px(index as f32 * (stick_width + gap)),
-                                        middle - px(length / 2.),
-                                    ),
-                                    size(px(stick_width), px(length)),
+                        window.paint_quad(fill(
+                            gpui::Bounds::new(
+                                point(
+                                    left + px(index as f32 * (stick_width + gap)),
+                                    middle - px(length / 2.),
                                 ),
-                                color,
-                            )
-                            .corner_radii(px((stick_width / 2.).min(length / 2.))),
-                        );
+                                size(px(stick_width), px(length)),
+                            ),
+                            color,
+                        ));
                     }
                 },
             )
@@ -169,7 +166,7 @@ fn spin_opacity(phase: f32) -> f32 {
         .unwrap_or(1.)
 }
 
-/// Shipping's iOS-style `Spinner`: twelve rounded segments fading in turn once a second.
+/// Shipping's iOS-style `Spinner`: twelve segments fading in turn once a second.
 pub fn spinner(id: impl Into<ElementId>, diameter: f32, color: Hsla) -> impl IntoElement {
     clock(
         id,
@@ -231,19 +228,16 @@ pub fn dancing_bars(id: impl Into<ElementId>, amplitude: f32, color: Hsla) -> im
                             let drive = 0.4 + normalized * 0.9;
                             let height =
                                 (20. * drive * envelope * (0.4 + wave * 0.6)).clamp(4., 20.) as f32;
-                            window.paint_quad(
-                                fill(
-                                    gpui::Bounds::new(
-                                        point(
-                                            left + px(index as f32 * 5.),
-                                            bounds.center().y - px(height / 2.),
-                                        ),
-                                        size(px(3.), px(height)),
+                            window.paint_quad(fill(
+                                gpui::Bounds::new(
+                                    point(
+                                        left + px(index as f32 * 5.),
+                                        bounds.center().y - px(height / 2.),
                                     ),
-                                    color,
-                                )
-                                .corner_radii(px(1.5)),
-                            );
+                                    size(px(3.), px(height)),
+                                ),
+                                color,
+                            ));
                         }
                     },
                 )

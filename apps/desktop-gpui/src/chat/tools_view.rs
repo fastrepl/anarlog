@@ -165,7 +165,6 @@ impl ChatView {
                 .my_2()
                 .px_2()
                 .py_1()
-                .rounded(px(6.))
                 .border_1()
                 .border_color(colors.border)
                 .child(
@@ -451,7 +450,6 @@ impl ChatView {
                         .flex()
                         .items_center()
                         .justify_center()
-                        .rounded(px(8.))
                         .border_1()
                         .border_color(colors.input)
                         .bg(colors.muted)
@@ -487,7 +485,6 @@ impl ChatView {
                                                 "chat-search-result-{session}"
                                             )))
                                             .h_full()
-                                            .rounded(px(8.))
                                             .border_1()
                                             .border_color(colors.border)
                                             .bg(colors.muted)
@@ -628,7 +625,6 @@ impl ChatView {
         div()
             .my(px(10.))
             .overflow_hidden()
-            .rounded(px(12.))
             .border_1()
             .border_color(if failed {
                 rgb(0xfecaca).into()
@@ -679,7 +675,6 @@ impl ChatView {
                         .py(px(10.))
                         .child(
                             div()
-                                .rounded(px(8.))
                                 .border_1()
                                 .border_color(colors.border.opacity(0.8))
                                 .bg(colors.card)
@@ -717,7 +712,6 @@ impl ChatView {
                                     .flex()
                                     .flex_col()
                                     .gap_1()
-                                    .rounded(px(6.))
                                     .border_1()
                                     .border_color(colors.border)
                                     .bg(colors.muted)

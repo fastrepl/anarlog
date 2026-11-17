@@ -150,7 +150,6 @@ impl NoteView {
                 .flex()
                 .items_center()
                 .gap_2()
-                .rounded(px(6.))
                 .text_color(colors.muted_foreground)
                 .cursor_pointer()
                 .hover(move |style| style.bg(colors.accent).text_color(colors.foreground))

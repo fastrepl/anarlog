@@ -1069,7 +1069,6 @@ fn primary_button(
         .items_center()
         .justify_center()
         .gap_2()
-        .rounded(px(8.))
         .bg(colors.primary)
         .text_color(colors.primary_foreground)
         .text_xs()
@@ -1099,7 +1098,6 @@ fn secondary_button(
         .items_center()
         .justify_center()
         .gap_2()
-        .rounded(px(8.))
         .bg(colors.secondary)
         .text_color(colors.secondary_foreground)
         .text_xs()
@@ -1123,12 +1121,11 @@ fn separator(colors: Theme) -> gpui::Div {
     div().h(px(1.)).flex_shrink_0().bg(colors.accent)
 }
 
-/// The shipping app's "app" popover: a chrome ring around a rounded panel.
+/// The shipping app's "app" popover: a chrome ring around a panel.
 fn floating(width: f32, colors: Theme, content: impl IntoElement) -> gpui::Div {
     div()
         .w(px(width))
         .p(px(2.))
-        .rounded(px(22.))
         .border_1()
         .border_color(colors.app_floating_border)
         .bg(colors.app_floating_chrome)
@@ -1136,7 +1133,6 @@ fn floating(width: f32, colors: Theme, content: impl IntoElement) -> gpui::Div {
         .shadow_lg()
         .child(
             div()
-                .rounded(px(20.))
                 .border_1()
                 .border_color(colors.app_floating_border)
                 .bg(colors.app_floating_panel)
@@ -1173,7 +1169,6 @@ impl CalendarView {
             .flex_shrink_0()
             .text_xs()
             .line_height(px(CHIP_HEIGHT))
-            .rounded(px(4.))
             .cursor_pointer()
             .hover(|style| style.opacity(0.8))
             .on_click(cx.listener(move |this, _, window, cx| {
@@ -1216,8 +1211,7 @@ impl CalendarView {
             let marker = div()
                 .w(px(if item.note { 4. } else { 2.5 }))
                 .flex_shrink_0()
-                .self_stretch()
-                .rounded(px(8.));
+                .self_stretch();
             chip.flex()
                 .items_center()
                 .gap_1()
@@ -1390,7 +1384,6 @@ impl CalendarView {
                                     .flex()
                                     .flex_shrink_0()
                                     .items_center()
-                                    .rounded(px(8.))
                                     .bg(colors.primary)
                                     .text_color(colors.primary_foreground)
                                     .text_xs()
@@ -1458,7 +1451,6 @@ impl CalendarView {
             .flex()
             .items_center()
             .gap_2()
-            .rounded(px(8.))
             .bg(colors.secondary)
             .text_color(colors.secondary_foreground)
             .text_xs()
@@ -1765,7 +1757,6 @@ impl CalendarView {
                         .flex()
                         .items_center()
                         .justify_center()
-                        .rounded(px(8.))
                         .text_sm()
                         .font_weight(crate::ui::theme::MEDIUM)
                         .text_color(if today {
@@ -1881,7 +1872,6 @@ impl CalendarView {
                                 .flex()
                                 .items_center()
                                 .justify_center()
-                                .rounded(px(8.))
                                 .cursor_pointer()
                                 .hover(move |style| style.bg(colors.accent))
                                 .child(icon("workspace/RefreshIcon.svg", 14., colors.foreground))
@@ -1896,7 +1886,6 @@ impl CalendarView {
                     .flex()
                     .items_center()
                     .overflow_hidden()
-                    .rounded(px(8.))
                     .border_1()
                     .border_color(colors.border)
                     .bg(colors.card)

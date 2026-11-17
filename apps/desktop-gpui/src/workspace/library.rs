@@ -16,7 +16,7 @@ use crate::meeting::{
     live::{LiveState, SessionMode},
     widgets::{dancing_sticks, spinner as spinner_icon},
 };
-use crate::ui::theme::{RADIUS, Theme, monospace_font, theme};
+use crate::ui::theme::{Theme, monospace_font, theme};
 
 const HEADING_HEIGHT: f32 = 28.;
 const RED_500: u32 = 0xfb2c36;
@@ -566,7 +566,6 @@ impl LibraryView {
                         .when_some(label, |view, label| {
                             view.child(
                                 div()
-                                    .rounded_full()
                                     .border_1()
                                     .border_color(rgb(RED_500))
                                     .bg(rgb(RED_500))
@@ -702,7 +701,6 @@ impl LibraryView {
             .when(upcoming.is_some(), |view| view.pl_4())
             .when(live, |view| view.pr_10())
             .when(lock_glyph.is_some(), |view| view.pr(px(lock_right + 22.)))
-            .rounded(px(8.))
             .cursor_pointer()
             .overflow_hidden()
             .when(!selected && !live, |view| {
@@ -917,7 +915,6 @@ impl LibraryView {
                                 .flex()
                                 .items_center()
                                 .justify_center()
-                                .rounded(px(RADIUS - 4.))
                                 .text_color(white.opacity(0.8))
                                 .hover(|style| style.bg(white.opacity(0.15)).text_color(white))
                                 .cursor_pointer()
@@ -959,7 +956,6 @@ impl LibraryView {
                         .bottom_2()
                         .left(px(6.))
                         .w(px(2.))
-                        .rounded_full()
                         .overflow_hidden()
                         .child(
                             div()
@@ -968,7 +964,6 @@ impl LibraryView {
                                 .left_0()
                                 .w_full()
                                 .h(gpui::relative(upcoming.progress))
-                                .rounded_full()
                                 .bg(colors.destructive),
                         ),
                 )
@@ -1146,7 +1141,6 @@ fn chip(id: &'static str, colors: Theme) -> gpui::Stateful<gpui::Div> {
         .items_center()
         .gap_1()
         .px(px(10.))
-        .rounded(px(RADIUS))
         .border_1()
         .border_color(colors.border)
         .bg(colors.card)
@@ -1276,7 +1270,6 @@ impl Render for LibraryView {
                                 .id("note-context-menu")
                                 .w(px(224.))
                                 .p_1()
-                                .rounded(px(8.))
                                 .bg(colors.card)
                                 .border_1()
                                 .border_color(colors.border)
@@ -1298,7 +1291,6 @@ impl Render for LibraryView {
                                             .flex()
                                             .items_center()
                                             .text_sm()
-                                            .rounded(px(4.))
                                             .cursor_pointer()
                                             .when(index == self.menu_index, |view| {
                                                 view.bg(colors.accent)

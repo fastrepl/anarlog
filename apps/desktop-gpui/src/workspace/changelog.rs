@@ -381,7 +381,6 @@ fn block(item: &Block, id: &str, palette: &Palette) -> AnyElement {
             .into_any_element(),
         Block::Code { code, .. } => div()
             .p_3()
-            .rounded(px(8.))
             .border_1()
             .border_color(palette.colors.border)
             .font_family(palette.mono.clone())
@@ -471,7 +470,6 @@ fn banner(
         .px_5()
         .pt_4()
         .pb_4()
-        .rounded(px(12.))
         .border_1()
         .border_color(border)
         .bg(background)
@@ -576,7 +574,6 @@ impl Render for ChangelogView {
                                 .flex()
                                 .items_center()
                                 .justify_center()
-                                .rounded(px(6.))
                                 .cursor_pointer()
                                 .text_color(colors.muted_foreground)
                                 .hover(|style| style.bg(colors.accent))

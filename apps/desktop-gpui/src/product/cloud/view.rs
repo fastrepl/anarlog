@@ -388,7 +388,6 @@ impl Render for CloudView {
                             let operation = operation.clone();
                             div()
                                 .id(SharedString::from(operation.id.clone()))
-                                .rounded(px(12.))
                                 .border_1()
                                 .border_color(colors.border)
                                 .px_3()
@@ -480,7 +479,6 @@ impl Render for CloudView {
                     .map(|(kind, label, action)| {
                         div()
                             .id(kind)
-                            .rounded(px(12.))
                             .border_1()
                             .border_color(colors.border)
                             .px_3()
@@ -511,15 +509,14 @@ impl Render for CloudView {
                 .child(snapshot("remote-snapshot", format!("Published: {}", review.remote_title), review.remote_preview)))
                 .child(div().text_xs().child("Both original documents remain intact. Publishing local changes replaces the reviewed web revision; newer edits produce another conflict."))
                 .child(div().flex().gap_3()
-                    .child(div().id("keep-remote").px_3().py_2().border_1().border_color(colors.border).rounded(px(12.)).child("Keep web copy; retain local draft")
+                    .child(div().id("keep-remote").px_3().py_2().border_1().border_color(colors.border).child("Keep web copy; retain local draft")
                         .when(!busy, |view| view.cursor_pointer().on_click(cx.listener(|this, _, _, cx| this.resolve(ConflictDecision::KeepRemote, cx)))))
-                    .child(div().id("publish-local").px_3().py_2().bg(colors.accent).rounded(px(12.)).child("Replace reviewed web copy with local draft")
+                    .child(div().id("publish-local").px_3().py_2().bg(colors.accent).child("Replace reviewed web copy with local draft")
                         .when(!busy, |view| view.cursor_pointer().on_click(cx.listener(|this, _, _, cx| this.resolve(ConflictDecision::PublishLocal, cx))))));
         }
         if let Some(operation) = &self.dialog {
             let mut dialog = div()
                 .p_4()
-                .rounded(px(16.))
                 .border_1()
                 .border_color(colors.border)
                 .flex()
@@ -551,7 +548,6 @@ impl Render for CloudView {
                                         .id(SharedString::from(format!("{}-{choice}", field.id)))
                                         .px_3()
                                         .py_1()
-                                        .rounded(px(12.))
                                         .border_1()
                                         .border_color(colors.border)
                                         .when(input.read(cx).buffer.text == choice, |view| {
@@ -605,7 +601,6 @@ impl Render for CloudView {
                                 .id("submit-cloud-dialog")
                                 .px_3()
                                 .py_2()
-                                .rounded(px(12.))
                                 .bg(colors.accent)
                                 .child(if busy { "Working…" } else { "Confirm" })
                                 .when(!busy, |view| {

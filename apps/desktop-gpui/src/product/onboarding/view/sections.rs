@@ -56,7 +56,7 @@ fn spinner(id: impl Into<ElementId>, size: f32, color: Hsla) -> impl IntoElement
     )
 }
 
-/// `OnboardingButton` (`shared.tsx`) before its variant: `rounded-full` is 8px in shipping's CSS.
+/// `OnboardingButton` (`shared.tsx`) before its variant.
 fn button(id: impl Into<ElementId>) -> Stateful<Div> {
     div()
         .id(id)
@@ -66,7 +66,6 @@ fn button(id: impl Into<ElementId>) -> Stateful<Div> {
         .gap_2()
         .px_6()
         .py(px(10.))
-        .rounded(px(8.))
         .text_size(px(14.))
         .line_height(px(20.))
         .font_weight(crate::ui::theme::MEDIUM)
@@ -95,7 +94,6 @@ fn secondary_button(id: impl Into<ElementId>, colors: &Theme) -> Stateful<Div> {
         .flex_none()
         .px_6()
         .py_2()
-        .rounded(px(8.))
         .border_1()
         .border_color(colors.border.opacity(0.6))
         .bg(card.opacity(0.55))
@@ -168,7 +166,6 @@ fn offer_card(
         .py_4()
         .pr_6()
         .pl_5()
-        .rounded(px(20.))
         .border_1()
         .border_color(Hsla::from(rgb(AMBER_900)).opacity(0.1))
         // `bg-white/75` over the page, made opaque: GPUI paints box shadows under translucent
@@ -391,7 +388,6 @@ impl OnboardingView {
                 .gap_3()
                 .px_3()
                 .py(px(10.))
-                .rounded(px(12.))
                 .border_1()
                 .map(|block| {
                     if authorized {
@@ -416,7 +412,6 @@ impl OnboardingView {
                         .flex()
                         .items_center()
                         .justify_center()
-                        .rounded(px(6.))
                         .when(!authorized, |icon| {
                             icon.bg(colors.primary_foreground.opacity(0.1))
                         })
@@ -698,11 +693,7 @@ impl OnboardingView {
                                     .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
                                         this.connect_apple(cx)
                                     }))
-                                    .child(
-                                        img("workspace/AppleCalendar.png")
-                                            .size(px(24.))
-                                            .rounded(px(4.)),
-                                    )
+                                    .child(img("workspace/AppleCalendar.png").size(px(24.)))
                                     .child("Connect calendar"),
                             ),
                         )
@@ -813,7 +804,6 @@ impl OnboardingView {
             .h(px(28.))
             .flex_none()
             .flex()
-            .rounded(px(8.))
             .overflow_hidden()
             .bg(group_bg)
             .when(!signed_in, |group| {
@@ -928,7 +918,6 @@ impl OnboardingView {
                         .gap_2()
                         .px_2()
                         .py(px(6.))
-                        .rounded(px(8.))
                         .text_size(px(14.))
                         .line_height(px(20.))
                         .cursor_pointer()
@@ -947,7 +936,6 @@ impl OnboardingView {
             .gap_4()
             .child(
                 div()
-                    .rounded(px(16.))
                     .border_1()
                     .border_color(colors.border)
                     .bg(colors.card)
@@ -1046,7 +1034,6 @@ impl OnboardingView {
                 .flex()
                 .items_center()
                 .justify_center()
-                .rounded(px(6.))
                 .cursor_pointer()
                 .on_click(move |_, _, cx: &mut App| cx.open_url(url))
                 .child(icon(path, size, colors.muted_foreground))
@@ -1291,7 +1278,6 @@ impl Render for OnboardingView {
                         div()
                             .id("onboarding-mute")
                             .p(px(6.))
-                            .rounded(px(8.))
                             .cursor_pointer()
                             .hover(|style| style.bg(colors.accent))
                             .on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.set_muted(cx)))

@@ -695,7 +695,6 @@ impl FoldersView {
                                     .flex()
                                     .items_center()
                                     .justify_center()
-                                    .rounded(px(6.))
                                     .cursor_pointer()
                                     .hover(|style| style.bg(colors.accent))
                                     .on_click(cx.listener(|this, _, _, cx| this.open_picker(cx)))
@@ -821,7 +820,6 @@ impl FoldersView {
                                             .px_3()
                                             .py(px(10.))
                                             .line_height(px(20.))
-                                            .rounded(px(6.))
                                             .border_1()
                                             .border_color(if instructions_focused {
                                                 colors.ring
@@ -865,7 +863,6 @@ impl FoldersView {
                 .items_center()
                 .justify_center()
                 .gap(px(6.))
-                .rounded(px(8.))
                 .border_1()
                 .border_color(colors.border)
         };
@@ -922,7 +919,6 @@ impl FoldersView {
                                     .flex()
                                     .items_center()
                                     .justify_center()
-                                    .rounded(px(8.))
                                     .cursor_pointer()
                                     .hover(|style| style.bg(colors.accent))
                                     .on_click(cx.listener(move |this, _, _, cx| {
@@ -952,7 +948,6 @@ impl FoldersView {
                             .px_3()
                             .flex()
                             .items_center()
-                            .rounded(px(6.))
                             .border_1()
                             .border_color(if input.focus_handle(cx).is_focused(window) {
                                 colors.ring

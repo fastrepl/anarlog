@@ -2,7 +2,7 @@ use std::{collections::BTreeMap, sync::Arc, time::Duration};
 
 use desktop_runtime::ServiceError;
 use gpui::{
-    Context, Entity, EventEmitter, Render, SharedString, Subscription, Window, div, prelude::*, px,
+    Context, Entity, EventEmitter, Render, SharedString, Subscription, Window, div, prelude::*,
 };
 
 use crate::{
@@ -323,7 +323,6 @@ impl Render for ServiceView {
                 div()
                     .id(SharedString::from(row.id.clone()))
                     .p_3()
-                    .rounded(px(8.))
                     .border_1()
                     .border_color(colors.border)
                     .child(div().child(row.title.to_string()))
@@ -354,7 +353,6 @@ impl Render for ServiceView {
                         .id(SharedString::from(operation.id.clone()))
                         .px_3()
                         .py_2()
-                        .rounded(px(8.))
                         .bg(colors.accent)
                         .child(label)
                         .when_some(reason.clone(), |view, reason| {
@@ -405,7 +403,6 @@ impl Render for ServiceView {
                     .p_4()
                     .border_1()
                     .border_color(colors.destructive)
-                    .rounded(px(8.))
                     .child(
                         operation
                             .confirmation

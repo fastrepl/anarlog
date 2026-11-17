@@ -10,7 +10,7 @@ use super::{
     shell::WorkspaceView,
     timeline::{Grouping, Ordering, View},
 };
-use crate::ui::theme::{RADIUS, Theme, theme};
+use crate::ui::theme::{Theme, theme};
 
 /// The macOS traffic lights overlay the sidebar; keep the shipping app's gutter.
 pub(super) const CHROME_GUTTER: f32 = if cfg!(target_os = "macos") { 76. } else { 8. };
@@ -119,7 +119,6 @@ fn chrome_button(
         .flex()
         .items_center()
         .justify_center()
-        .rounded(px(RADIUS))
         .cursor_pointer()
         .hover(|style| style.bg(colors.accent))
         .child(
@@ -143,7 +142,6 @@ fn menu_item(
         .flex()
         .items_center()
         .gap_2()
-        .rounded(px(14.))
         .text_sm()
         .line_height(px(20.))
         .text_color(colors.popover_foreground)
@@ -157,7 +155,6 @@ pub(super) fn floating_panel(width: f32, colors: Theme) -> gpui::Div {
     div()
         .w(px(width))
         .p(px(2.))
-        .rounded(px(22.))
         .border_1()
         .border_color(colors.app_floating_border)
         .bg(colors.app_floating_chrome)
@@ -167,7 +164,6 @@ pub(super) fn floating_panel(width: f32, colors: Theme) -> gpui::Div {
 pub(super) fn floating_panel_body(colors: Theme) -> gpui::Div {
     div()
         .p(px(6.))
-        .rounded(px(20.))
         .border_1()
         .border_color(colors.app_floating_border)
         .bg(colors.app_floating_panel)
@@ -411,12 +407,11 @@ impl WorkspaceView {
                             .top(px(2.))
                             .right(px(2.))
                             .size(px(10.))
-                            .rounded_full()
                             .bg(colors.background)
                             .flex()
                             .items_center()
                             .justify_center()
-                            .child(div().size(px(6.)).rounded_full().bg(gpui::rgb(0xfb2c36))),
+                            .child(div().size(px(6.)).bg(gpui::rgb(0xfb2c36))),
                     )
                 }),
             )
