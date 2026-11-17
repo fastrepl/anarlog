@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
+import { DatabaseSync } from "node:sqlite";
 import { beforeEach, test } from "node:test";
 
 const root = new URL("../", import.meta.url);
@@ -31,7 +32,7 @@ const mocks = {
     getSession: async () => ({ data: { session: f.session } }),
     onAuthStateChange: listener => { f.listeners.add(listener); return { data: { subscription: { unsubscribe: () => f.listeners.delete(listener) } } }; }
   } };`,
-  "@/db": `export async function execute() { return []; } export async function executeTransaction(statements) { globalThis.liveAccessFixture.transactions.push(statements); return statements.map(() => 1); }`,
+  "@/db": `export async function execute() { return []; } export async function executeTransaction(statements) { const f = globalThis.liveAccessFixture; f.transactions.push(statements); return statements.map(({sql, params}) => f.db ? f.db.prepare(sql).run(...params).changes : 1); }`,
   "@/settings/providers": `export async function readProviderConfig() { globalThis.liveAccessFixture.providerRead?.(); return globalThis.liveAccessFixture.provider ?? { provider: 'anarlog', model: 'cloud' }; } export async function readProviderKey() { return globalThis.liveAccessFixture.apiKey; }`,
   "@/settings/preferences": `export async function readPreferences() { return { ai_language: "en", spoken_languages: ["ko"], personalization_dictionary_terms: ["Anarlog"] }; }`,
   "@/settings/preferences-model": `export const applyTranscriptionPreferences = url => url;`,
@@ -75,6 +76,7 @@ function emitAuth(next) {
 const settle = () => new Promise(setImmediate);
 
 beforeEach(() => {
+  fixture.db = null;
   fixture.session = null;
   fixture.listeners.clear();
   fixture.sockets = [];
@@ -375,4 +377,51 @@ test("an account change during settings reads cannot start a connection with the
   assert.equal(fixture.native.length, 0);
   assert.equal(await live.stop(), false);
   assert.equal(fixture.listeners.size, 0);
+});
+
+test("resumed live transcription retains earlier words and aligns new words with the appended audio", async (t) => {
+  const db = new DatabaseSync(":memory:");
+  t.after(() => {
+    fixture.db = null;
+    db.close();
+  });
+  for (const migration of [
+    "20260710223922_canonical_data_model.sql",
+    "20260815100000_transcript_content_revision.sql",
+    "20260815100100_transcript_live_deltas.sql",
+  ]) {
+    db.exec(
+      readFileSync(
+        new URL(
+          `../../../../crates/db-app/migrations/${migration}`,
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    );
+  }
+  db.exec(`INSERT INTO sessions (id) VALUES ('note-a');
+    INSERT INTO transcripts (id, session_id, words_json, started_at_ms) VALUES ('earlier', 'note-a', '[{"text":"Original"}]', 1000);`);
+  fixture.db = db;
+  providerSession();
+  const live = new SessionLiveTranscription("note-a", 16000, 1, () => {}, {
+    startedAtMs: 6000,
+    resuming: true,
+  });
+  await settle();
+  fixture.native[0].listener.onMessage(transcript("Continued"));
+  assert.equal(await live.stop(), true);
+  const rows = db
+    .prepare(
+      "SELECT id, words_json, started_at_ms, ended_at_ms FROM transcripts WHERE deleted_at IS NULL ORDER BY started_at_ms",
+    )
+    .all();
+  assert.equal(rows.length, 2);
+  assert.equal(JSON.parse(rows[0].words_json)[0].text, "Original");
+  assert.equal(JSON.parse(rows[1].words_json)[0].text, "Continued");
+  assert.equal(rows[1].started_at_ms, 6000);
+  assert.equal(
+    rows[1].ended_at_ms,
+    6000 + JSON.parse(rows[1].words_json)[0].end_ms,
+  );
 });

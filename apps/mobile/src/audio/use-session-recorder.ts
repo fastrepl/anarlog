@@ -6,7 +6,7 @@ import {
   type AudioStreamBuffer,
 } from "expo-audio";
 import { useCallback, useRef, useState } from "react";
-import { AppState, PermissionsAndroid, Platform } from "react-native";
+import { Alert, AppState, PermissionsAndroid, Platform } from "react-native";
 
 import {
   beginMobileCapture,
@@ -14,12 +14,17 @@ import {
 } from "@/audio/capture-lifecycle";
 import { pcmAmplitude } from "@/audio/pcm-wav";
 import {
+  prepareSessionRecording,
+  RecordingResumeError,
+} from "@/audio/prepare-session-recording";
+import {
   isRecordingStartCancelled,
   type RecorderPhase,
 } from "@/audio/recorder-status";
-import { SessionWavWriter } from "@/audio/session-wav-writer";
+import type { SessionWavWriter } from "@/audio/session-wav-writer";
 import {
   catalogSessionAudio,
+  clearPendingCapture,
   recordSessionCaptureStart,
 } from "@/data/audio-catalog";
 import {
@@ -83,6 +88,7 @@ export function useSessionRecorder(
   const completionTrackedRef = useRef(false);
   const reportedFailureRef = useRef<string | null>(null);
   const durationRef = useRef(0);
+  const captureStartedAtRef = useRef(0);
   const captureRegisteredRef = useRef(false);
   const stopRef = useRef<() => Promise<StopResult>>(async () => "noop");
 
@@ -157,9 +163,15 @@ export function useSessionRecorder(
           setLiveStatus(status);
           setLiveTranscript(text);
         },
+        {
+          startedAtMs: captureStartedAtRef.current + writer.previousDurationMs,
+          resuming: writer.previousDurationMs > 0,
+        },
       );
       liveRef.current?.sendAudio(buffer.data);
-      durationRef.current = Math.round(writer.durationMs);
+      durationRef.current = Math.round(
+        writer.durationMs - writer.previousDurationMs,
+      );
       if (activeRef.current) {
         setAmplitude(pcmAmplitude(buffer.data));
         setDurationMs(durationRef.current);
@@ -245,9 +257,18 @@ export function useSessionRecorder(
         interruptionMode: "doNotMix",
       });
       if (!isCurrent()) return;
-      writerRef.current = new SessionWavWriter(sessionId);
-      await recordSessionCaptureStart(sessionId);
-      if (!isCurrent()) return;
+      const prepared = await prepareSessionRecording(sessionId);
+      writerRef.current = prepared.writer;
+      captureStartedAtRef.current = prepared.startedAtMs;
+      await recordSessionCaptureStart(sessionId, {
+        filename: prepared.writer.file.name,
+        startedAtMs: prepared.startedAtMs,
+        previousSizeBytes: prepared.writer.previousSizeBytes,
+      });
+      if (!isCurrent()) {
+        phaseRef.current = "recording";
+        return;
+      }
       await stream.start();
       if (!isCurrent()) {
         phaseRef.current = "recording";
@@ -273,6 +294,8 @@ export function useSessionRecorder(
       } catch {}
       try {
         writerRef.current?.closeAndDiscardEmpty();
+        if (writerRef.current && !writerRef.current.file.exists)
+          await clearPendingCapture(sessionId);
       } catch (cleanupError) {
         captureOperationalError(cleanupError, {
           operation: "recording_start_cleanup",
@@ -287,6 +310,12 @@ export function useSessionRecorder(
         });
       });
       unregisterCapture();
+      if (error instanceof RecordingResumeError) {
+        if (activeRef.current)
+          Alert.alert("Couldn’t resume recording", error.message);
+        setPhase("saved");
+        return;
+      }
       if (isRecordingStartCancelled(error)) {
         setPhase("idle");
         return;
@@ -310,12 +339,13 @@ export function useSessionRecorder(
     const currentOperation = startRef.current;
     if (currentOperation) return currentOperation;
     if (
-      !["idle", "unavailable", "interrupted", "error"].includes(
+      !["idle", "saved", "unavailable", "interrupted", "error"].includes(
         phaseRef.current,
       )
     ) {
       return Promise.resolve();
     }
+    if (stopOperationRef.current || writerRef.current) return Promise.resolve();
     const operation = performStart();
     startRef.current = operation;
     const clearOperation = () => {
@@ -387,10 +417,20 @@ export function useSessionRecorder(
       const writer = writerRef.current;
       if (!writer) throw new Error("Recording file is unavailable");
       const live = liveRef.current;
+      if (writer.durationMs === writer.previousDurationMs) {
+        await live?.stop();
+        writer.closeAndDiscardEmpty();
+        await clearPendingCapture(sessionId);
+        writerRef.current = null;
+        liveRef.current = null;
+        unregisterCapture();
+        setPhase("saved");
+        return "saved";
+      }
       writer.finalize();
       await catalogSessionAudio(sessionId, {
         source: "recording",
-        filename: "audio.wav",
+        filename: writer.file.name,
         contentType: "audio/wav",
       });
       const liveComplete = await (live?.stop() ?? Promise.resolve(false));
@@ -406,10 +446,7 @@ export function useSessionRecorder(
               operation: "transcription_live_mark_complete",
               tags: { mode: "live" },
             });
-            void transcribeSession(sessionId);
           });
-      } else {
-        void transcribeSession(sessionId);
       }
       if (!completionTrackedRef.current) {
         completionTrackedRef.current = true;
@@ -425,6 +462,8 @@ export function useSessionRecorder(
       writerRef.current = null;
       liveRef.current = null;
       unregisterCapture();
+      if (transcriptionMode === "batch_fallback")
+        void transcribeSession(sessionId);
       setFailure(null);
       setPhase("saved");
       return "saved";
