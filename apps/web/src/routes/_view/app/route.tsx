@@ -4,6 +4,7 @@ import { fetchUser } from "@/functions/auth";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import { setErrorReportingUser } from "@/lib/error-reporting";
 import { isDesktopIntegrationHandoff } from "@/lib/integration-handoff";
+import { signInRedirectSearch } from "@/lib/sign-in-redirect";
 
 export const Route = createFileRoute("/_view/app")({
   head: () => ({
@@ -24,16 +25,12 @@ export const Route = createFileRoute("/_view/app")({
 
     const user = await fetchUser();
     if (!user) {
-      const searchStr =
-        Object.keys(location.search).length > 0
-          ? `?${new URLSearchParams(location.search as Record<string, string>).toString()}`
-          : "";
       throw redirect({
         to: "/auth/",
-        search: {
-          flow: "web",
-          redirect: location.pathname + searchStr,
-        },
+        search: signInRedirectSearch(
+          location.pathname,
+          location.search as Record<string, unknown>,
+        ),
       });
     }
     return { user };
