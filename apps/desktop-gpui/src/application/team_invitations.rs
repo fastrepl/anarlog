@@ -3,14 +3,17 @@
 
 use std::{collections::HashSet, sync::Arc, time::Duration};
 
-use gpui::Context;
+use gpui::{App, Context, WeakEntity};
 
-use super::ApplicationView;
-use crate::product::{
-    account,
-    cloud::{
-        calls,
-        teams::client::{self, MyInvitation},
+use super::{ApplicationView, toasts};
+use crate::{
+    meeting::automation::{MeetingAutomation, Request},
+    product::{
+        account,
+        cloud::{
+            calls,
+            teams::client::{self, MyInvitation},
+        },
     },
 };
 
@@ -37,22 +40,24 @@ pub(super) fn watch(cx: &mut Context<ApplicationView>) {
                             .iter()
                             .map(|invitation| invitation.invitation_id.clone())
                             .collect::<HashSet<_>>();
-                        for gone in announced.difference(&current) {
-                            dismiss(gone);
-                        }
-                        for invitation in &invitations {
-                            if !announced.contains(&invitation.invitation_id) {
-                                announce(invitation);
+                        cx.update(|cx| {
+                            for gone in announced.difference(&current) {
+                                dismiss(gone, cx);
                             }
-                        }
+                            for invitation in &invitations {
+                                if !announced.contains(&invitation.invitation_id) {
+                                    announce(invitation, &this, cx);
+                                }
+                            }
+                        });
                         announced = current;
                     }
                 }
-                None => {
+                None => cx.update(|cx| {
                     for gone in announced.drain() {
-                        dismiss(&gone);
+                        dismiss(&gone, cx);
                     }
-                }
+                }),
             }
             cx.background_executor().timer(POLL).await;
             if this.upgrade().is_none() {
@@ -65,21 +70,36 @@ pub(super) fn watch(cx: &mut Context<ApplicationView>) {
 
 /// The invitation's toast, which never times out and whose View opens Teams settings, and the
 /// OS notification shipping posts when the app window is inactive.
-fn announce(invitation: &MyInvitation) {
-    let id = toast_id(&invitation.invitation_id);
-    let title = format!("You've been invited to join {}", invitation.workspace_name);
-    let description = invitation
-        .invited_by_email
-        .as_ref()
-        .map(|email| format!("Invited by {email}"));
-    // INTEGRATION toasts::show(..): id `id`, `title`, `description`, duration Infinity, action
-    // "View" → open Settings at "team" and dismiss `id`.
-    // INTEGRATION MeetingAutomation::team_invitation(..): key `id`, `title`, `description` or "",
-    // 15 s timeout, action "View"; skipped when notifications are disabled or the window is active.
-    let _ = (id, title, description);
+fn announce(invitation: &MyInvitation, view: &WeakEntity<ApplicationView>, cx: &mut App) {
+    let mut toast = toasts::Toast::info(format!(
+        "You've been invited to join {}",
+        invitation.workspace_name
+    ))
+    .id(toast_id(&invitation.invitation_id))
+    .sticky();
+    if let Some(email) = &invitation.invited_by_email {
+        toast = toast.description(format!("Invited by {email}"));
+    }
+    let view = view.clone();
+    toasts::show(
+        toast.action("View", move |window, cx| {
+            let _ = view.update(cx, |this, cx| {
+                this.automation_request(&Request::OpenSettings("team"), window, cx)
+            });
+        }),
+        cx,
+    );
+    if let Some(automation) = MeetingAutomation::global(cx) {
+        automation.update(cx, |automation, _| {
+            automation.team_invitation(
+                &invitation.invitation_id,
+                &invitation.workspace_name,
+                invitation.invited_by_email.as_deref(),
+            )
+        });
+    }
 }
 
-fn dismiss(invitation: &str) {
-    // INTEGRATION toasts::dismiss(&toast_id(invitation)).
-    let _ = toast_id(invitation);
+fn dismiss(invitation: &str, cx: &mut App) {
+    toasts::dismiss(&toast_id(invitation), cx);
 }
