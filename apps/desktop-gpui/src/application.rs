@@ -165,6 +165,9 @@ impl ApplicationView {
                     this.automation_request(request, window, cx)
                 },
             ),
+            cx.subscribe(&automation, |this, _, observed, cx| {
+                this.meeting_observed(observed, cx)
+            }),
         ];
         subscriptions.push(lock::install(&runtime, window, cx));
         let dictation = match crate::dictation::Dictation::install(runtime.clone(), cx) {

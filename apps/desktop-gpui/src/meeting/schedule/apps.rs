@@ -18,20 +18,7 @@ pub use anlg_detect::{
     MeetingChatSendResult as ChatSend, MeetingPlatform, MeetingSurface,
 };
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct MicApp {
-    pub id: String,
-    pub name: String,
-}
-
-impl MicApp {
-    pub fn new(id: impl Into<String>, name: impl Into<String>) -> Self {
-        Self {
-            id: id.into(),
-            name: name.into(),
-        }
-    }
-}
+pub use crate::meeting::automation::apps::MicApp;
 
 /// One `captureMeetingScreenShare` sample: a JPEG only for a new, settled frame.
 #[derive(Clone, Debug, Default)]

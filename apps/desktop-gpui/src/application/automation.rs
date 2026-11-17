@@ -3,7 +3,7 @@ use gpui::{Context, Window};
 use super::ApplicationView;
 use crate::{
     contracts::{MeetingIntent, ProductRoute},
-    meeting::automation::Request,
+    meeting::automation::{Observed, Request},
     workspace::navigation::Route,
 };
 
@@ -46,6 +46,18 @@ impl ApplicationView {
                 }
             }
             Request::Stop => self.open_meeting(MeetingIntent::Stop, window, cx),
+        }
+    }
+
+    /// Detection's microphone and notification events drive scheduling's auto-stop.
+    pub(super) fn meeting_observed(&mut self, observed: &Observed, cx: &mut Context<Self>) {
+        match observed {
+            Observed::MicDetected { apps, .. } => self.meeting_mic_started(apps, cx),
+            Observed::MicStopped(apps) => self.meeting_mic_stopped(apps, cx),
+            Observed::Notification { key, action, .. } => {
+                self.schedule_notification_action(key, *action, cx);
+            }
+            Observed::Sleep(_) => {}
         }
     }
 }

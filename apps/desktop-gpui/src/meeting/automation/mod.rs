@@ -818,12 +818,33 @@ fn meeting_link(
     })
 }
 
-/// The installed OS integrations.
+/// The installed OS integrations; scheduling posts its notices through them too.
 pub struct NativePlatform;
 
 impl NativePlatform {
     pub fn install(cx: &mut App) {
         cx.set_global(Installed(Arc::new(Self)));
+        cx.set_global(crate::meeting::schedule::InstalledNotices(Arc::new(
+            AutomationNotices,
+        )));
+    }
+}
+
+/// Scheduling's `Notices` over this module: its trigger apps and notifications, whose buttons
+/// come back as [`Observed::Notification`].
+struct AutomationNotices;
+
+impl crate::meeting::schedule::Notices for AutomationNotices {
+    fn trigger_apps(&self, cx: &App) -> Vec<String> {
+        MeetingAutomation::global(cx)
+            .map(|automation| automation.read(cx).trigger_apps().to_vec())
+            .unwrap_or_default()
+    }
+
+    fn show(&self, notification: Notification, cx: &mut App) -> Result<bool> {
+        MeetingAutomation::global(cx)
+            .ok_or_else(|| ServiceError::Unsupported("Notifications are not installed".into()))?
+            .update(cx, |automation, _| automation.show(notification))
     }
 }
 

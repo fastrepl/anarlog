@@ -6,7 +6,7 @@ use std::{collections::HashSet, path::Path, sync::OnceLock};
 use anlg_notification_interface::NotificationIcon;
 use regex::Regex;
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct MicApp {
     pub id: String,
     pub name: String,
