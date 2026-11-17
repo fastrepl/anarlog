@@ -50,9 +50,11 @@ fn main() -> anyhow::Result<()> {
     let (runtime, ready) = desktop_gpui::runtime_bridge::start(Profile {
         database: profile.join("library.sqlite"),
     })?;
-    let application = gpui_platform::application().with_assets(Assets);
+    let zoom = desktop_gpui::zoom::Zoom::load(profile.join("zoom.json"));
+    let application = zoom.application().with_assets(Assets);
     let events = NativeEvents::install(&application);
     application.run(move |cx| {
+        cx.set_global(zoom);
         UiFonts::init(cx);
         use desktop_gpui::platform::system_settings::{Installed, NativeSettings};
         match NativeSettings::current() {

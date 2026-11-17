@@ -586,6 +586,7 @@ impl FoldersView {
                 [ghost_icon_button("folders-new", "PlusIcon", colors)
                     .on_click(cx.listener(|this, _, window, cx| this.open_create(window, cx)))
                     .into_any_element()],
+                cx,
             ))
             .child(list::search_field(
                 &self.search,

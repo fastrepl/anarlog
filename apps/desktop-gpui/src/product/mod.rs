@@ -507,9 +507,8 @@ impl ProductPane {
         let header = div()
             .h(px(48.))
             .flex_shrink_0()
-            .pt(px(9.))
-            // The macOS traffic lights overlay the sidebar; keep the shipping app's gutter.
-            .pl(px(if cfg!(target_os = "macos") { 76. } else { 8. }))
+            .pt(crate::zoom::window_controls_top(cx))
+            .pl(crate::zoom::window_controls_gutter(cx))
             .pr_1()
             .flex()
             .items_start()

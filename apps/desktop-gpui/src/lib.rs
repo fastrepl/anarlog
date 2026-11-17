@@ -12,3 +12,4 @@ pub mod product;
 pub mod runtime_bridge;
 pub mod ui;
 pub mod workspace;
+pub mod zoom;

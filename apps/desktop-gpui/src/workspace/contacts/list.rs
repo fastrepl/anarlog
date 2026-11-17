@@ -19,7 +19,7 @@ use crate::{
         input::{InputEvent, TextInput},
         theme::{Theme, theme},
     },
-    workspace::sidebar::{CHROME_GUTTER, floating_panel, floating_panel_body},
+    workspace::sidebar::{floating_panel, floating_panel_body},
 };
 
 #[derive(Clone)]
@@ -374,8 +374,8 @@ impl ContactsList {
             .flex()
             .items_start()
             .pr_1()
-            .pl(px(CHROME_GUTTER))
-            .pt(px(9.))
+            .pl(crate::zoom::window_controls_gutter(cx))
+            .pt(crate::zoom::window_controls_top(cx))
             .child(
                 div()
                     .flex_1()

@@ -184,27 +184,35 @@ impl Render for WorkspaceView {
             _ => None,
         };
         let contacts = self.contacts.clone().filter(|_| route.contacts());
+        // Shipping keeps the chrome row clear of the traffic lights at any zoom.
+        let sidebar_width = self
+            .sidebar
+            .width()
+            .max(f32::from(crate::zoom::sidebar_min_width(cx)));
         let sidebar = if route == Route::Calendar {
             div()
-                .w(px(self.sidebar.width()))
+                .w(px(sidebar_width))
                 .h_full()
                 .flex_shrink_0()
                 .child(self.calendar_sidebar.clone())
         } else if let Some(nav) = resource_nav {
             // Shipping's custom sidebars end in a 4px gutter (`pr-1`); the row gap supplies it.
             div()
-                .w(px(self.sidebar.width() - 4.))
+                .w(px(sidebar_width - 4.))
                 .h_full()
                 .flex_shrink_0()
                 .child(nav)
         } else if let Some(contacts) = &contacts {
             let list = contacts.read(cx).list();
-            let width = self.sidebar.width();
-            list.update(cx, |list, cx| list.set_width(width, cx));
-            div().w(px(width)).h_full().flex_shrink_0().child(list)
+            list.update(cx, |list, cx| list.set_width(sidebar_width, cx));
+            div()
+                .w(px(sidebar_width))
+                .h_full()
+                .flex_shrink_0()
+                .child(list)
         } else {
             div()
-                .w(px(self.sidebar.width()))
+                .w(px(sidebar_width))
                 .h_full()
                 .flex_shrink_0()
                 .flex()
@@ -347,7 +355,7 @@ impl Render for WorkspaceView {
                         div()
                             .id("sidebar-resizer")
                             .absolute()
-                            .left(px(self.sidebar.width() + 4.))
+                            .left(px(sidebar_width + 4.))
                             .w(px(4.))
                             .h_full()
                             .cursor_col_resize()

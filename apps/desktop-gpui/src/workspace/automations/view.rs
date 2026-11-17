@@ -847,6 +847,7 @@ impl AutomationsView {
                         .on_click(cx.listener(|this, _, _, cx| this.create(cx)))
                         .into_any_element(),
                 ],
+                cx,
             ))
             .child(list::search_field(
                 &self.search,

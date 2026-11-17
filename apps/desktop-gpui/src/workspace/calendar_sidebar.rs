@@ -1398,9 +1398,8 @@ impl Render for CalendarSidebar {
                     .flex()
                     .items_start()
                     .pr_1()
-                    // The macOS traffic lights overlay the sidebar; keep the shipping app's gutter.
-                    .pl(px(if cfg!(target_os = "macos") { 76. } else { 8. }))
-                    .pt(px(9.))
+                    .pl(crate::zoom::window_controls_gutter(cx))
+                    .pt(crate::zoom::window_controls_top(cx))
                     .child(
                         div()
                             .id("calendar-back")

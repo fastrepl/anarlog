@@ -1405,7 +1405,10 @@ impl Render for Composer {
                         let focus = entity.read(cx).focus.clone();
                         window.handle_input(
                             &focus,
-                            ElementInputHandler::new(bounds, entity.clone()),
+                            crate::zoom::ZoomedInput(ElementInputHandler::new(
+                                bounds,
+                                entity.clone(),
+                            )),
                             cx,
                         );
                         reveal.update(cx, |this, _| this.reveal_caret(window));

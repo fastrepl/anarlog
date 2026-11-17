@@ -2659,7 +2659,11 @@ impl Render for EditorPane {
                     move |_, _, _| (),
                     move |bounds, (), window, cx| {
                         let focus = handler.read(cx).focus.clone();
-                        window.handle_input(&focus, ElementInputHandler::new(bounds, handler), cx);
+                        window.handle_input(
+                            &focus,
+                            crate::zoom::ZoomedInput(ElementInputHandler::new(bounds, handler)),
+                            cx,
+                        );
                     },
                 )
                 .absolute()

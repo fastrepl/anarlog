@@ -99,7 +99,7 @@ impl MeetingHost {
             .cloned();
         match (&self.floating, live.filter(|_| enabled), services) {
             (None, Some(live), Some(services)) => {
-                let size = container_size(false, shows_expand(&live));
+                let size = crate::zoom::window_size(container_size(false, shows_expand(&live)), cx);
                 let bounds = match cx.primary_display() {
                     // Bottom center of the visible screen, 8px above its edge.
                     Some(display) => {

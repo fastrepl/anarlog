@@ -79,6 +79,16 @@ move ahead. The repository workspace and its lockfile are unchanged.
   capture/playback, recovery, persisted pins, menus/tray/shortcuts/deep links,
   update barriers and the close/drain flow. `application/lifecycle.rs` holds the one
   update state that the tray, the app menu and the sidebar update toast all render.
+- `zoom.rs` is shipping's UI zoom (⌘+ / ⌘− / ⌘0 and the View menu, 50–300%, one
+  factor for every window, saved as `zoom.json` in the profile). Views keep literal
+  sizes: `zoom/platform.rs` wraps the GPUI platform so each window reports a
+  `1 / factor` content size at `factor` times the display scale and receives
+  pointer positions divided by the factor. Text is rasterized at the zoomed scale,
+  hit-testing and IME geometry (`ZoomedInput`) stay aligned, and AccessKit sees real
+  points through the root transform. Screen geometry and the traffic lights stay in
+  real points, so their gutters divide by the factor as shipping's do. Windows has
+  no adapter yet and stays at 100%. Headless screens set the same window geometry
+  directly (`ANLG_SCREENS_ONLY=zoom`).
 - `ui/` provides source-derived light/dark HSL tokens, the system font policy,
   embedded existing logo and Hugeicons, focus restoration, and a bounded native
   text input with UTF-16/IME entry points and clipboard operations. Single-line

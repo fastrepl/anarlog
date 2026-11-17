@@ -193,6 +193,23 @@ pub fn perform_close(window: &Window, cx: &App) {
     let _ = (window, cx);
 }
 
+/// Changes a window's minimum content size after it opened, as shipping's zoom does
+/// (`setMinSize`); GPUI only sets it when the window opens.
+pub fn set_min_size(window: &Window, minimum: gpui::Size<Pixels>) -> Result<()> {
+    #[cfg(target_os = "macos")]
+    {
+        appkit::set_content_min_size(&*macos::ns_window(window)?, minimum);
+        Ok(())
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (window, minimum);
+        Err(ServiceError::Unsupported(
+            "This platform cannot change a window's minimum size".into(),
+        ))
+    }
+}
+
 #[cfg(target_os = "macos")]
 mod macos {
     use desktop_runtime::{Result, ServiceError};
@@ -381,6 +398,17 @@ mod appkit {
     const FULL_SCREEN: usize = 1 << 14;
     const NORMAL_LEVEL: isize = 0;
     const FLOATING_LEVEL: isize = 3;
+
+    pub fn set_content_min_size(window: &AnyObject, minimum: gpui::Size<gpui::Pixels>) {
+        let size = CGSize {
+            width: f32::from(minimum.width).into(),
+            height: f32::from(minimum.height).into(),
+        };
+        // SAFETY: any NSWindow accepts setContentMinSize: on the main thread, where GPUI runs.
+        unsafe {
+            let _: () = msg_send![window, setContentMinSize: size];
+        }
+    }
 
     pub struct AppKitWindow(Retained<AnyObject>);
 

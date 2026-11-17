@@ -773,6 +773,7 @@ impl TemplatesView {
                 colors,
                 cx.listener(|_, _, _, cx| cx.emit(TemplatesEvent::Back)),
                 actions,
+                cx,
             ))
             .child(list::search_field(
                 &self.search,

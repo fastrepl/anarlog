@@ -162,6 +162,8 @@ open = "=5.3.3"
 owhisper-client = { workspace = true }
 owhisper-interface = { workspace = true }
 ractor = { workspace = true }
+# The zoom adapter forwards GPUI windows' native handles.
+raw-window-handle = "0.6"
 regex = { workspace = true }
 reqwest = { workspace = true, features = ["json", "stream", "form"] }
 rfd = { version = "=0.16.0", default-features = false, features = ["xdg-portal", "wayland", "async-std"] }
@@ -209,7 +211,6 @@ anlg-apple-todo = { path = "../../crates/apple-todo", package = "apple-todo" }
 anlg-dictation-ui-macos = { workspace = true }
 anlg-shortcut-macos = { workspace = true }
 macos-accessibility-client = "=0.0.1"
-raw-window-handle = "0.6"
 anlg-notification-macos = { path = "../../crates/notification-macos", package = "notification-macos" }
 anlg-tcc = { path = "../../crates/tcc", package = "tcc" }
 swift-rs = { workspace = true }

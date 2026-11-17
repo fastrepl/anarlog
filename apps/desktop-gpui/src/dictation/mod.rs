@@ -729,7 +729,10 @@ impl Dictation {
                 let _ = handle.update(cx, |bar, _, cx| bar.set(panel, cx));
             }
             (Some(panel), None) => {
-                let options = window::options(overlay::size(panel.expanded), cx);
+                let options = window::options(
+                    crate::zoom::window_size(overlay::size(panel.expanded), cx),
+                    cx,
+                );
                 let opened = cx.open_window(options, |window, cx| {
                     window::keep_focus_elsewhere(window);
                     cx.new(|_| DictationBar::new(panel))

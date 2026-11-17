@@ -139,7 +139,7 @@ impl QuitOverlay {
             return;
         };
         let screen = display.bounds();
-        let size = size(px(360.), px(84.));
+        let size = crate::zoom::window_size(size(px(360.), px(84.)), cx);
         let origin = point(
             screen.center().x - size.width / 2.,
             screen.center().y - size.height / 2. - screen.size.height * 0.15,

@@ -494,7 +494,11 @@ impl Render for ChangelogView {
             dark: crate::ui::theme::is_dark(window),
             mono: monospace_font(cx),
         };
-        let gutter = if cfg!(target_os = "macos") { 76. } else { 0. };
+        let gutter = if cfg!(target_os = "macos") {
+            f32::from(crate::zoom::window_controls_gutter(cx))
+        } else {
+            0.
+        };
         let notice = |text: &'static str| {
             div()
                 .text_color(colors.muted_foreground)

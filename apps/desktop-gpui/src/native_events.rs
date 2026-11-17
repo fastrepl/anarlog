@@ -14,6 +14,7 @@ use crate::{
         shortcuts::{NativeShortcuts, Shortcut, ShortcutAdapter},
         tray::{NativeTray, TrayAction, TrayAdapter, TrayModel, UpdateMenu},
     },
+    zoom,
 };
 
 gpui::actions!(
@@ -34,6 +35,9 @@ gpui::actions!(
         Copy,
         Paste,
         SelectAll,
+        ActualSize,
+        ZoomIn,
+        ZoomOut,
         ToggleFullScreen,
         Minimize,
         Zoom,
@@ -113,14 +117,20 @@ pub fn app_menus(state: &MenuState) -> Vec<Menu> {
         ),
         menu(
             "View",
-            vec![MenuItem::action(
-                if state.fullscreen {
-                    "Exit Full Screen"
-                } else {
-                    "Enter Full Screen"
-                },
-                ToggleFullScreen,
-            )],
+            vec![
+                MenuItem::action("Actual Size", ActualSize),
+                MenuItem::action("Zoom In", ZoomIn),
+                MenuItem::action("Zoom Out", ZoomOut),
+                MenuItem::separator(),
+                MenuItem::action(
+                    if state.fullscreen {
+                        "Exit Full Screen"
+                    } else {
+                        "Enter Full Screen"
+                    },
+                    ToggleFullScreen,
+                ),
+            ],
         ),
         menu(
             "Window",
@@ -157,6 +167,23 @@ fn menu_bindings() -> Vec<KeyBinding> {
         KeyBinding::new("cmd-a", SelectAll, only),
         KeyBinding::new("ctrl-cmd-f", ToggleFullScreen, only),
         KeyBinding::new("cmd-m", Minimize, only),
+    ]
+}
+
+/// Shipping's zoom keys work in every window and also take Control. Unlike the menu-only keys,
+/// GPUI matches these itself; the menu shows the first binding of each action.
+fn zoom_bindings() -> Vec<KeyBinding> {
+    vec![
+        KeyBinding::new("cmd-+", ZoomIn, None),
+        KeyBinding::new("cmd-=", ZoomIn, None),
+        KeyBinding::new("ctrl-+", ZoomIn, None),
+        KeyBinding::new("ctrl-=", ZoomIn, None),
+        KeyBinding::new("cmd--", ZoomOut, None),
+        KeyBinding::new("cmd-_", ZoomOut, None),
+        KeyBinding::new("ctrl--", ZoomOut, None),
+        KeyBinding::new("ctrl-_", ZoomOut, None),
+        KeyBinding::new("cmd-0", ActualSize, None),
+        KeyBinding::new("ctrl-0", ActualSize, None),
     ]
 }
 
@@ -333,6 +360,9 @@ impl NativeEvents {
                 crate::platform::windows::perform_close(window, cx)
             })
         });
+        cx.on_action(|_: &ActualSize, cx| zoom::apply(zoom::Step::Reset, cx));
+        cx.on_action(|_: &ZoomIn, cx| zoom::apply(zoom::Step::In, cx));
+        cx.on_action(|_: &ZoomOut, cx| zoom::apply(zoom::Step::Out, cx));
         cx.on_action(|_: &ToggleFullScreen, cx| {
             on_active_window(cx, |window, _| window.toggle_fullscreen())
         });
@@ -347,6 +377,7 @@ impl NativeEvents {
         cx.on_action(|_: &ReportBug, cx| cx.open_url(FEEDBACK_URL));
         cx.on_action(|_: &SuggestFeature, cx| cx.open_url(FEEDBACK_URL));
         cx.bind_keys(menu_bindings());
+        cx.bind_keys(zoom_bindings());
     }
 
     /// Shipping's ⌘Q interceptor (`crates/intercept`): the first press shows "Press ⌘Q again

@@ -20,9 +20,6 @@ use crate::ui::{
     theme::{Theme, is_dark},
 };
 
-/// The macOS traffic lights overlay the sidebar; keep the shipping app's gutter.
-const CHROME_GUTTER: f32 = if cfg!(target_os = "macos") { 76. } else { 8. };
-
 /// Follows a live query until `cancel`, handing each snapshot (or error) to `apply`.
 pub fn watch<T: 'static>(
     runtime: &RuntimeHandle,
@@ -201,6 +198,7 @@ pub fn sidebar_header(
     colors: Theme,
     on_back: impl Fn(&gpui::ClickEvent, &mut Window, &mut gpui::App) + 'static,
     actions: impl IntoIterator<Item = AnyElement>,
+    cx: &gpui::App,
 ) -> gpui::Div {
     div()
         .h(px(48.))
@@ -208,8 +206,8 @@ pub fn sidebar_header(
         .flex()
         .items_start()
         .pr_1()
-        .pl(px(CHROME_GUTTER))
-        .pt(px(9.))
+        .pl(crate::zoom::window_controls_gutter(cx))
+        .pt(crate::zoom::window_controls_top(cx))
         .child(
             div()
                 .flex_1()

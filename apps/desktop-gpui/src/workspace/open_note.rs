@@ -2200,12 +2200,12 @@ impl NoteView {
             .h(px(48.))
             .flex_shrink_0()
             .pb(px(2.))
-            // A standalone window's header starts after the macOS traffic lights (76px).
-            .pl(px(if self.standalone && cfg!(target_os = "macos") {
-                80.
+            // A standalone window's header starts after the macOS traffic lights.
+            .pl(if self.standalone && cfg!(target_os = "macos") {
+                crate::zoom::window_controls_gutter(cx) + px(4.)
             } else {
-                12.
-            }))
+                px(12.)
+            })
             .pr(px(8.))
             .items_center()
             .gap(px(2.))

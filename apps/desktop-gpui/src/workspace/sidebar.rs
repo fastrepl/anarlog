@@ -12,8 +12,6 @@ use super::{
 };
 use crate::ui::theme::{Theme, theme};
 
-/// The macOS traffic lights overlay the sidebar; keep the shipping app's gutter.
-pub(super) const CHROME_GUTTER: f32 = if cfg!(target_os = "macos") { 76. } else { 8. };
 const MENU_WIDTH: f32 = 224.;
 const SUBMENU_WIDTH: f32 = 176.;
 const MENU_ITEM_HEIGHT: f32 = 32.;
@@ -179,8 +177,8 @@ impl WorkspaceView {
         div()
             .min_h(px(36.))
             .flex_shrink_0()
-            .pt(px(9.))
-            .pl(px(CHROME_GUTTER))
+            .pt(crate::zoom::window_controls_top(cx))
+            .pl(crate::zoom::window_controls_gutter(cx))
             .pr_1()
             .flex()
             .items_start()
@@ -389,8 +387,8 @@ impl WorkspaceView {
             .top_0()
             .left_1()
             .h(px(48.))
-            .pt(px(9.))
-            .pl(px(CHROME_GUTTER))
+            .pt(crate::zoom::window_controls_top(cx))
+            .pl(crate::zoom::window_controls_gutter(cx))
             .child(
                 chrome_button(
                     "show-sidebar",

@@ -681,7 +681,10 @@ impl Render for TextInput {
                                 }
                                 window.handle_input(
                                     &this.focus,
-                                    ElementInputHandler::new(bounds, cx.entity()),
+                                    crate::zoom::ZoomedInput(ElementInputHandler::new(
+                                        bounds,
+                                        cx.entity(),
+                                    )),
                                     cx,
                                 );
                                 this.layout = Some((Bounds::new(origin, bounds.size), line));
@@ -962,7 +965,7 @@ impl TextInput {
         });
         window.handle_input(
             &self.focus,
-            ElementInputHandler::new(bounds, cx.entity()),
+            crate::zoom::ZoomedInput(ElementInputHandler::new(bounds, cx.entity())),
             cx,
         );
     }

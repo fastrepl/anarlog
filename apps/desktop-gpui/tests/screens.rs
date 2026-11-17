@@ -23,6 +23,7 @@ use desktop_gpui::{
     },
     ui::theme::UiFonts,
     workspace::{assets::Assets, navigation::Route},
+    zoom::{self, Zoom},
 };
 use desktop_runtime::{CancellationToken, Profile, RuntimeHandle, ServiceError, SessionId};
 use gpui::{
@@ -56,6 +57,7 @@ fn main() {
     // The runtime answers from its own threads, so the dispatcher must wait for real I/O.
     cx.allow_parking();
     cx.update(UiFonts::init);
+    cx.update(|cx| cx.set_global(Zoom::load(profile.path().join("zoom.json"))));
     // Imports detection, Reminders access and GitHub answer from fixtures, never this Mac;
     // the upload file picker answers as cancelled and its Finder reveal does nothing.
     cx.update(|cx| {
@@ -101,6 +103,10 @@ fn main() {
     }
     if std::env::var("ANLG_SCREENS_ONLY").as_deref() == Ok("ai-features") {
         ai_features(&mut cx, window, &runtime, profile.path(), &out);
+        return;
+    }
+    if std::env::var("ANLG_SCREENS_ONLY").as_deref() == Ok("zoom") {
+        zoom(&mut cx, window, &out);
         return;
     }
 
@@ -262,7 +268,135 @@ fn main() {
     imports_crm_ticket(&mut cx, window, &out);
     app_links_and_transcript_selection(&mut cx, window, &out);
     ai_features(&mut cx, window, &runtime, profile.path(), &out);
+    zoom(&mut cx, window, &out);
     capture_onboarding(&mut cx, window, &out);
+}
+
+/// UI zoom. Headless windows skip the platform adapter that zooms real windows
+/// (`desktop_gpui::zoom`), so `zoom_window` gives a window the geometry the adapter reports:
+/// 1/factor of its real size at factor times the 2x scale. Captures keep the real size's 2x
+/// pixels.
+fn zoom(cx: &mut HeadlessAppContext, window: WindowHandle<ApplicationView>, out: &std::path::Path) {
+    use desktop_gpui::dictation::{
+        controller::Phase,
+        overlay::{self, DictationBar, Panel},
+    };
+    let main: AnyWindowHandle = window.into();
+    let real = size(px(WINDOW.0), px(WINDOW.1));
+    for (factor, route, name) in [
+        (
+            0.5,
+            Route::Session(SessionId("s-sync".into())),
+            "zoom-50-note",
+        ),
+        (
+            1.5,
+            Route::Session(SessionId("s-sync".into())),
+            "zoom-150-note",
+        ),
+        (
+            2.,
+            Route::Session(SessionId("s-sync".into())),
+            "zoom-200-note",
+        ),
+        (
+            3.,
+            Route::Session(SessionId("s-sync".into())),
+            "zoom-300-note",
+        ),
+        (1.5, Route::Calendar, "zoom-150-calendar"),
+        (1.5, Route::Settings("app".into()), "zoom-150-settings"),
+    ] {
+        open(cx, window, route);
+        zoom_window(cx, main, real, factor);
+        shoot(cx, main, out, name);
+    }
+    zoom_window(cx, main, real, 1.);
+
+    let before = cx.update(|cx| cx.windows());
+    let id = SessionId("s-sync".into());
+    cx.update(|cx| {
+        window
+            .update(cx, |root, _, cx| {
+                root.workspace().update(cx, |_, cx| {
+                    cx.emit(desktop_gpui::workspace::WorkspaceAction::OpenNoteWindow(id))
+                })
+            })
+            .unwrap()
+    });
+    settle(cx);
+    let note = cx
+        .update(|cx| cx.windows())
+        .into_iter()
+        .find(|candidate| !before.contains(candidate))
+        .expect("the note opens in a new window");
+    let real = cx
+        .update_window(note, |_, window, _| window.bounds().size)
+        .unwrap();
+    zoom_window(cx, note, real, 1.5);
+    shoot(cx, note, out, "zoom-150-note-window");
+    cx.update_window(note, |_, window, _| window.remove_window())
+        .unwrap();
+
+    // Content-sized windows open at their zoomed size (`zoom::window_size`).
+    let panel = Panel {
+        owner: "system-dictation:screens".into(),
+        phase: Phase::Recording,
+        amplitude: 0.45,
+        microphone: "Default microphone".into(),
+        preview_enabled: true,
+        text: "Let's move the launch review to Thursday so design can join, and".into(),
+        partial: "send the agenda to".into(),
+        expanded: true,
+        ..Panel::default()
+    };
+    let size = cx.update(|cx| zoom::window_size(overlay::size(panel.expanded), cx));
+    let bar = cx
+        .open_window(size, move |_, cx| cx.new(|_| DictationBar::new(panel)))
+        .unwrap();
+    zoom_window(cx, bar.into(), size, 1.5);
+    shoot(cx, bar.into(), out, "zoom-150-dictation");
+    cx.update_window(bar.into(), |_, window, _| window.remove_window())
+        .unwrap();
+
+    let mut live = LiveMeeting::new(SessionId("s-standup".into()), SessionMode::Active);
+    live.amplitude = 0.35;
+    set_live(cx, Some(live));
+    let state = cx.update(|cx| LiveState::global(cx).unwrap());
+    let shows = cx.update(|cx| state.read(cx).current().is_some_and(shows_expand));
+    let size = cx.update(|cx| zoom::window_size(container_size(false, shows), cx));
+    let bar = cx
+        .open_window(size, move |_, cx| cx.new(|cx| FloatingBar::new(state, cx)))
+        .unwrap();
+    zoom_window(cx, bar.into(), size, 1.5);
+    shoot(cx, bar.into(), out, "zoom-150-floating");
+    cx.update_window(bar.into(), |_, window, _| window.remove_window())
+        .unwrap();
+    set_live(cx, None);
+    cx.update(|cx| zoom::set(1., cx));
+    settle(cx);
+}
+
+/// The first headless frame is unzoomed, and content-sized bars resize themselves to it, so the
+/// real size is passed in rather than read back.
+fn zoom_window(
+    cx: &mut HeadlessAppContext,
+    window: AnyWindowHandle,
+    real: gpui::Size<gpui::Pixels>,
+    factor: f32,
+) {
+    cx.update(|cx| zoom::set(factor, cx));
+    // Flushes what that frame and `zoom::set` deferred before the geometry changes.
+    cx.update_window(window, |_, _, _| {}).unwrap();
+    cx.update_window(window, |_, window, cx| {
+        window.resize(real.map(|length| length / factor));
+        window.bounds_changed(cx);
+        window.set_scale_factor(2. * factor);
+        // The capture target keeps the real size; GPUI keeps the zoomed viewport.
+        window.resize(real);
+    })
+    .unwrap();
+    settle(cx);
 }
 
 /// App-link chips in a memo (`170-app-links.sql`), revealed at the end of the timeline, and the
