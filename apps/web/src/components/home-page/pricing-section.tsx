@@ -53,7 +53,7 @@ function PricingCard({ plan }: { plan: MarketingPlanData }) {
   return (
     <article
       className={cn([
-        "surface border-color-subtle flex min-h-[32rem] flex-col rounded-3xl border p-6 shadow-sm transition-all duration-200 [corner-shape:squircle]",
+        "surface border-color-subtle flex min-h-[32rem] flex-col rounded-3xl border p-6 shadow-sm transition-all duration-75 [corner-shape:squircle]",
         plan.popular
           ? "border-color-bright ring-fg/10 shadow-lg ring-1"
           : "hover:border-color-brand hover:shadow-md",

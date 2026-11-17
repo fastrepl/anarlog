@@ -99,12 +99,10 @@ Six typefaces are loaded; the first three carry distinct roles. The rest are spe
 
 **Prefer `shadow-ring` over CSS `border`** when an element already has box-shadow — avoids double-border stacking issues.
 
-Border radius conventions:
+Shape and motion:
 
-- `rounded-xs` — tight UI elements (small badges, dropdown panels)
-- `rounded-md` — cards, inputs, dropdowns
-- `rounded-lg` — modals, large cards, hero containers
-- `rounded-full` — pill buttons, avatars, tags
+- Corners are square everywhere: buttons, inputs, cards, modals, tags and avatars. A base rule in `src/styles.css` forces `border-radius: 0`, so don't add `rounded-*` classes.
+- Motion is near-instant. Transitions default to 70ms; use `duration-75` when a duration is needed, and no decorative easing or slow reveals. Continuous illustration loops (marquees, audio bars, spinners) keep their timing.
 
 ---
 
@@ -176,12 +174,12 @@ All patterns use 24px spacing (23px gap + 1px line) and reference border color t
 
 ### Primary CTA button
 
-Warm stone gradient, pill shape, scales on hover. Used in header, hero, and CTA sections.
+Warm stone gradient, square corners, scales on hover. Used in header, hero, and CTA sections.
 
 ```tsx
 <button
   className={cn([
-    "flex h-8 items-center rounded-full px-4 text-sm text-white",
+    "flex h-8 items-center px-4 text-sm text-white",
     "bg-linear-to-t from-stone-600 to-stone-500",
     "shadow-md hover:scale-[102%] hover:shadow-lg active:scale-[98%]",
     "transition-all",
@@ -198,7 +196,7 @@ Heights vary by context: `h-8` in header/sidebar, `h-9` in standalone, `h-12` in
 Outline style, no fill. Used for secondary actions.
 
 ```tsx
-<button className="flex h-9 items-center rounded-lg border border-neutral-200 bg-white px-4 text-sm text-neutral-700 transition-colors hover:bg-neutral-50">
+<button className="flex h-9 items-center border border-neutral-200 bg-white px-4 text-sm text-neutral-700 transition-colors hover:bg-neutral-50">
   Get started
 </button>;
 ```
@@ -235,21 +233,21 @@ All-caps mono, wide tracking, muted.
 No heavy shadow. Border ring or hairline border, surface background.
 
 ```tsx
-<div className="border-border bg-surface rounded-md border p-4">…</div>;
+<div className="border-border bg-surface border p-4">…</div>;
 ```
 
 Or with `shadow-ring`:
 
 ```tsx
-<div className="border-around bg-surface rounded-md p-4">…</div>;
+<div className="border-around bg-surface p-4">…</div>;
 ```
 
 ### Hero container
 
-The homepage hero uses a bright-bordered rounded container at full viewport height:
+The homepage hero uses a bright-bordered container at full viewport height:
 
 ```tsx
-<div className="border-brand-bright min-h-[80vh] rounded-lg border">…</div>;
+<div className="border-brand-bright min-h-[80vh] border">…</div>;
 ```
 
 ---

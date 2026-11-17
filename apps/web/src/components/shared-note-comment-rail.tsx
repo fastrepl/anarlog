@@ -132,7 +132,7 @@ export function SharedNoteCommentRail({
       {composer ? (
         <div
           ref={measureRef(DRAFT_COMMENT_ID)}
-          className="absolute inset-x-0 transition-[top] duration-200"
+          className="absolute inset-x-0 transition-[top] duration-75"
           style={{ top: topById.get(DRAFT_COMMENT_ID) ?? composer.top }}
         >
           {composerNode}
@@ -144,7 +144,7 @@ export function SharedNoteCommentRail({
           <div
             key={thread.id}
             ref={measureRef(thread.id)}
-            className="absolute inset-x-0 transition-[top] duration-200"
+            className="absolute inset-x-0 transition-[top] duration-75"
             style={{ top: topById.get(thread.id) ?? 0 }}
           >
             <SharedNoteCommentCard

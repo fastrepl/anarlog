@@ -51,14 +51,18 @@ Note: there is no `--color-brand` token. CTAs use `from-stone-600 to-stone-500`.
 Primary CTA uses Tailwind's stone gradient (not a custom token):
 
 ```tsx
-"bg-linear-to-t from-stone-600 to-stone-500 rounded-full text-white";
+"bg-linear-to-t from-stone-600 to-stone-500 text-white";
 ```
 
 Secondary / ghost uses surface + border:
 
 ```tsx
-"border border-neutral-200 bg-white rounded-lg text-neutral-700";
+"border border-neutral-200 bg-white text-neutral-700";
 ```
+
+### Shape and motion
+
+Corners are square everywhere; a base rule in `src/styles.css` forces `border-radius: 0`, so don't add `rounded-*` classes. Transitions default to 70ms; use `duration-75` when a duration is needed, with no decorative easing or slow reveals. See `BRAND.md`.
 
 ## Component structure
 

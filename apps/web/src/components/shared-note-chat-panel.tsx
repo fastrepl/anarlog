@@ -169,7 +169,7 @@ export function SharedNoteChatPanel({
             aria-hidden="true"
             className={cn([
               "pointer-events-none absolute bottom-0 left-1/2 inline-flex h-2 w-[180px] -translate-x-1/2 items-center overflow-hidden rounded-full border border-transparent",
-              "origin-bottom bg-[linear-gradient(180deg,#faf8f6_0%,#e3e1df_100%)] px-0 text-sm shadow-[0_0_0_1px_rgba(0,0,0,0.1),0_4px_12px_rgba(0,0,0,0.16),0_4px_16px_rgba(0,0,0,0.1),inset_0_-1px_0_rgba(0,0,0,0.25),inset_0_1px_0_rgba(255,255,255,0.4)] transition-[width,height,padding,background-color,border-color,box-shadow] duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]",
+              "origin-bottom bg-[linear-gradient(180deg,#faf8f6_0%,#e3e1df_100%)] px-0 text-sm shadow-[0_0_0_1px_rgba(0,0,0,0.1),0_4px_12px_rgba(0,0,0,0.16),0_4px_16px_rgba(0,0,0,0.1),inset_0_-1px_0_rgba(0,0,0,0.25),inset_0_1px_0_rgba(255,255,255,0.4)] transition-[width,height,padding,background-color,border-color,box-shadow] duration-75",
               "group-hover/anarlog-chat-cta:border-stone-300 group-hover/anarlog-chat-cta:bg-[#f4f4f5] group-focus-visible/anarlog-chat-cta:border-stone-300 group-focus-visible/anarlog-chat-cta:bg-[#f4f4f5]",
               "group-hover/anarlog-chat-cta:h-10 group-hover/anarlog-chat-cta:w-[min(640px,calc(100vw-2rem))] group-hover/anarlog-chat-cta:px-4 group-hover/anarlog-chat-cta:shadow-[0_16px_42px_rgba(0,0,0,0.26)]",
               "group-focus-visible/anarlog-chat-cta:h-10 group-focus-visible/anarlog-chat-cta:w-[min(640px,calc(100vw-2rem))] group-focus-visible/anarlog-chat-cta:px-4 group-focus-visible/anarlog-chat-cta:shadow-[0_16px_42px_rgba(0,0,0,0.26)]",
@@ -179,7 +179,7 @@ export function SharedNoteChatPanel({
             <span
               className={cn([
                 "text-color-muted min-w-0 flex-1 truncate text-left opacity-0",
-                "transition-opacity duration-100 ease-out",
+                "transition-opacity duration-75 ease-out",
                 "group-hover/anarlog-chat-cta:opacity-100 group-focus-visible/anarlog-chat-cta:opacity-100",
               ])}
             >

@@ -319,7 +319,7 @@ function SharedNoteShell({
       <header
         className={cn([
           "sticky top-0 z-40 flex h-14 items-center justify-between gap-4 border-b border-stone-200 bg-white/95 px-4 backdrop-blur-sm sm:px-6",
-          "transition-transform duration-200 will-change-transform motion-reduce:transition-none",
+          "transition-transform duration-75 will-change-transform motion-reduce:transition-none",
           headerHidden && "-translate-y-full",
         ])}
       >

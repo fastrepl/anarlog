@@ -24,6 +24,8 @@
   --breakpoint-wide: 87.5rem;
 
   /* ── Animations ──────────────────────────────── */
+  /* Near-instant UI motion: transitions stay functional, never decorative. */
+  --default-transition-duration: 70ms;
   --animate-ios-opacity-spin: ios-opacity-spin 1s linear infinite;
   --animate-anarlog-dancing-stick: anarlog-dancing-stick 1s ease-in-out
     infinite;
@@ -67,6 +69,20 @@
   /* ── Shadows ─────────────────────────────────── */
   --shadow-ring: 0 0 0 1px var(--color-border);
   --shadow-ring-left: -1px 0 0 1px var(--color-border);
+}
+
+/* Sharp, Bloomberg-style interface: every corner is square, pills and avatars
+   included. Base-layer `!important` also wins over important utilities. */
+@layer base {
+  *,
+  ::before,
+  ::after,
+  ::backdrop,
+  ::file-selector-button,
+  ::-webkit-scrollbar-thumb,
+  ::-webkit-scrollbar-track {
+    border-radius: 0 !important;
+  }
 }
 
 @theme inline {

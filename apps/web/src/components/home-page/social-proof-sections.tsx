@@ -234,7 +234,7 @@ function TestimonialTweetCard({
         onMoveToSide();
       }}
       className={cn([
-        "border-color-subtle absolute rounded-xl border bg-white p-5 text-left transition-[transform,box-shadow,opacity] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] select-none [corner-shape:squircle] motion-reduce:transition-none sm:p-5",
+        "border-color-subtle absolute rounded-xl border bg-white p-5 text-left transition-[transform,box-shadow,opacity] duration-75 select-none [corner-shape:squircle] motion-reduce:transition-none sm:p-5",
         className,
       ])}
       style={style}
@@ -343,7 +343,7 @@ export function CredibilityLogoMarquee() {
                   height={logo.height}
                   alt=""
                   className={cn([
-                    "h-6 w-auto max-w-none object-contain opacity-65 grayscale transition-[filter,opacity] duration-200 hover:opacity-100 hover:grayscale-0",
+                    "h-6 w-auto max-w-none object-contain opacity-65 grayscale transition-[filter,opacity] duration-75 hover:opacity-100 hover:grayscale-0",
                     logo.className,
                   ])}
                   draggable={false}
