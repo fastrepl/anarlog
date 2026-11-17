@@ -121,6 +121,7 @@ function Component() {
     redirect,
     provider,
     view: initialView,
+    client,
   } = Route.useSearch();
   const { existingUser, lastSignInMethod } = Route.useRouteContext();
   const [view, setView] = useState<AuthView>(initialView ?? "main");
@@ -164,7 +165,7 @@ function Component() {
     <AuthShell title="Welcome to Anarlog" showEyebrow={false}>
       {view === "main" && (
         <>
-          <TrialOfferCard />
+          {client !== "ios" && <TrialOfferCard />}
           <div className="flex flex-col gap-3">
             {showGoogle && (
               <OAuthButton

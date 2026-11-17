@@ -8,6 +8,8 @@ export const authSearchSchema = flowSearchSchema({
   provider: z.enum(["apple", "azure", "github", "google"]).optional(),
   view: z.enum(["email", "sso"]).optional(),
   account: z.literal("switch").optional(),
+  // The iOS app sells nothing, so its sign-in page shows no trial offer.
+  client: z.literal("ios").optional(),
 });
 
 export function invalidAuthSearchResponse(

@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { fetch } from "expo/fetch";
 
 import { supabase } from "@/auth/client";
+import { requiresPro } from "@/auth/companion";
 import { useAuth } from "@/auth/context";
 import { enrollInTrial } from "@/auth/trial";
 import { env } from "@/lib/env";
@@ -11,7 +12,11 @@ export function useTrial() {
   const accountId = auth.session?.user.id;
   return useQuery({
     queryKey: ["mobile-pro-trial", accountId],
-    enabled: Boolean(accountId) && !auth.bypass && !auth.billing.isPaid,
+    enabled:
+      !requiresPro &&
+      Boolean(accountId) &&
+      !auth.bypass &&
+      !auth.billing.isPaid,
     staleTime: Infinity,
     retry: 1,
     queryFn: async ({ signal }) => {

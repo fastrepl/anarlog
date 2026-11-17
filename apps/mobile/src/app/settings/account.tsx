@@ -4,6 +4,7 @@ import * as WebBrowser from "expo-web-browser";
 
 import { accountPlanLabel, fetchWorkspacePlan } from "@/auth/account-plan";
 import { supabase } from "@/auth/client";
+import { accountPageUrl, requiresPro } from "@/auth/companion";
 import { useAuth } from "@/auth/context";
 import { useTrial } from "@/auth/use-trial";
 import { env } from "@/lib/env";
@@ -44,10 +45,7 @@ export default function AccountSettings() {
   });
   const signOut = useMutation({ mutationFn: auth.signOut });
   const manage = useMutation({
-    mutationFn: () =>
-      WebBrowser.openBrowserAsync(
-        `${env.appUrl.replace(/\/+$/, "")}/app/account`,
-      ),
+    mutationFn: () => WebBrowser.openBrowserAsync(accountPageUrl(env.appUrl)),
   });
   const connectedAccounts = useMutation({
     mutationFn: () => {
@@ -82,7 +80,7 @@ export default function AccountSettings() {
       </FieldGroup.Section>
       {!auth.bypass && (
         <FieldGroup.Section>
-          {(!auth.billing.isPro || auth.billing.isTrialing) && (
+          {!requiresPro && (!auth.billing.isPro || auth.billing.isTrialing) && (
             <SettingsRow
               title="Explore Anarlog Pro"
               onPress={() => router.push("/settings/pro")}
@@ -90,13 +88,15 @@ export default function AccountSettings() {
           )}
           <FieldGroup.SectionFooter>
             <Text>
-              {auth.billing.isTrialing
-                ? "Your Pro trial includes cloud sync and Anarlog models. After it ends, you can keep using your notes, recording, and your own API keys."
-                : auth.billing.isPro
-                  ? "Cloud sync and Anarlog models are included in your subscription."
-                  : trial.isFetching
-                    ? "Checking your free Pro trial. You can start taking notes and recording now."
-                    : "Notes and recording are free. Cloud sync and Anarlog models require an active Pro trial or subscription. You can also use your own API keys."}
+              {requiresPro
+                ? "Anarlog Pro includes this app, cloud sync, and Anarlog models."
+                : auth.billing.isTrialing
+                  ? "Your Pro trial includes cloud sync and Anarlog models. After it ends, you can keep using your notes, recording, and your own API keys."
+                  : auth.billing.isPro
+                    ? "Cloud sync and Anarlog models are included in your subscription."
+                    : trial.isFetching
+                      ? "Checking your free Pro trial. You can start taking notes and recording now."
+                      : "Notes and recording are free. Cloud sync and Anarlog models require an active Pro trial or subscription. You can also use your own API keys."}
             </Text>
           </FieldGroup.SectionFooter>
           {!auth.billing.isPro && trial.error && (
@@ -107,7 +107,9 @@ export default function AccountSettings() {
           )}
           <SettingsError error={!auth.billing.isPro ? trial.error : null} />
           <SettingsRow
-            title="Manage account & subscription"
+            title={
+              requiresPro ? "Manage account" : "Manage account & subscription"
+            }
             onPress={() => manage.mutate()}
           />
           <SettingsRow

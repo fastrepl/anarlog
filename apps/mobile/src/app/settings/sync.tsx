@@ -2,6 +2,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useSyncExternalStore } from "react";
 
+import { requiresPro } from "@/auth/companion";
 import { useAuth } from "@/auth/context";
 import { useSyncHealth } from "@/data/conflicts";
 import {
@@ -77,7 +78,7 @@ export default function SyncSettings() {
             onValueChange={(value) => optIn.mutate(value)}
           />
         )}
-        {!auth.bypass && !auth.billing.isPro && (
+        {!requiresPro && !auth.bypass && !auth.billing.isPro && (
           <SettingsRow
             title="Explore Anarlog Pro"
             onPress={() => router.push("/settings/pro")}

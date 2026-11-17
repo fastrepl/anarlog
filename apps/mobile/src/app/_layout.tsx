@@ -13,8 +13,9 @@ import {
   subscribeMobileCapture,
 } from "@/audio/capture-lifecycle";
 import { recoverInterruptedRecordings } from "@/audio/recover-recordings";
+import { requiresPro } from "@/auth/companion";
 import { AuthProvider, useAuth } from "@/auth/context";
-import { SignInScreen } from "@/auth/screens";
+import { ProRequiredScreen, SignInScreen } from "@/auth/screens";
 import { useTrial } from "@/auth/use-trial";
 import { BrandLoadingView } from "@/components/brand-loading-view";
 import { ToastHost } from "@/components/toast-host";
@@ -129,6 +130,21 @@ function Gate() {
   }
 
   const session = auth.session;
+
+  if (
+    requiresPro &&
+    !captureActive &&
+    auth.status === "signed_in" &&
+    !auth.billing.isPro
+  ) {
+    return (
+      <ProRequiredScreen
+        email={session?.user.email ?? ""}
+        onRefreshBilling={auth.refreshBilling}
+        onSignOut={auth.signOut}
+      />
+    );
+  }
 
   return (
     <>

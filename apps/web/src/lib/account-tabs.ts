@@ -99,13 +99,21 @@ export function resolveAccountTab(input: {
   return DEFAULT_ACCOUNT_TAB;
 }
 
-export function sectionsForAccountTab(tabId: AccountTabId) {
+// The iOS app sells nothing, so the account page it opens leaves out plan
+// offers and referral perks.
+const IOS_HIDDEN_SECTIONS: readonly AccountSectionId[] = ["plan", "referrals"];
+
+export function sectionsForAccountTab(tabId: AccountTabId, client?: "ios") {
   const tab = ACCOUNT_TABS.find((item) => item.id === tabId);
   if (!tab) {
     return [];
   }
 
   return tab.sectionIds
+    .filter(
+      (sectionId) =>
+        client !== "ios" || !IOS_HIDDEN_SECTIONS.includes(sectionId),
+    )
     .map((sectionId) =>
       ACCOUNT_SECTIONS.find((section) => section.id === sectionId),
     )
