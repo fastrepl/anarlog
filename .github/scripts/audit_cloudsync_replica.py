@@ -131,11 +131,12 @@ class Provider:
             raise ValueError("SQLite Cloud query returned invalid rows")
         return rows
 
-    def next_workspace(self, after: str) -> str | None:
+    def next_workspace(self, after: str, before: str | None = None) -> str | None:
         # One index seek per workspace instead of a scan over every record.
+        upper = "" if before is None else f" AND workspace_id < {sql_literal(before)}"
         rows = self.sql(
             "SELECT min(workspace_id) AS workspace_id FROM e2ee_records"
-            f" WHERE workspace_id > {sql_literal(after)}"
+            f" WHERE workspace_id > {sql_literal(after)}{upper}"
         )
         workspace = rows[0].get("workspace_id") if rows else None
         return workspace if isinstance(workspace, str) else None
@@ -308,8 +309,16 @@ def run(arguments, provider, replica, evidence: pathlib.Path) -> dict[str, int]:
     itself and leaves the full pass untouched.
     """
     empty = dict.fromkeys((*CLASSES, "workspaces", "unmapped", "uninitialized"), 0)
+    # A shard covers workspace ids after `after` and before `before`, so
+    # several processes can split one pass, each with its own directory.
+    shard = [getattr(arguments, "after", None), getattr(arguments, "before", None)]
     progress_path = evidence / "progress.json"
-    progress = {"cursor": "", "source": arguments.source, "totals": dict(empty)}
+    progress = {
+        "cursor": shard[0] or "",
+        "source": arguments.source,
+        "shard": shard,
+        "totals": dict(empty),
+    }
     if progress_path.exists():
         progress = json.loads(progress_path.read_text())
         # One directory holds one provider state: mixed evidence proves nothing.
@@ -317,6 +326,8 @@ def run(arguments, provider, replica, evidence: pathlib.Path) -> dict[str, int]:
             raise ValueError(
                 "this evidence directory belongs to a different source snapshot"
             )
+        if progress.get("shard", [None, None]) != shard:
+            raise ValueError("this evidence directory belongs to a different shard")
         if progress.get("totals", {}).keys() != empty.keys():
             # Defaulting a total this version added would report zero for work
             # an older version already finished.
@@ -352,7 +363,7 @@ def run(arguments, provider, replica, evidence: pathlib.Path) -> dict[str, int]:
         workspace = (
             next(selected, None)
             if arguments.workspace
-            else provider.next_workspace(str(progress["cursor"]))
+            else provider.next_workspace(str(progress["cursor"]), shard[1])
         )
         if workspace is None:
             break
@@ -400,6 +411,14 @@ def main() -> int:
         "--database",
         required=True,
         help="SQLite Cloud database name of the encrypted replica",
+    )
+    parser.add_argument(
+        "--after",
+        help="shard: only workspace ids sorting after this exclusive bound, such as a hex prefix",
+    )
+    parser.add_argument(
+        "--before",
+        help="shard: only workspace ids sorting before this exclusive bound; give the next shard the same value as --after",
     )
     parser.add_argument(
         "--evidence", required=True, help="existing private directory outside Git"
