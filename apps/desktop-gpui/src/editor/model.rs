@@ -809,7 +809,7 @@ impl EditorModel {
         attrs: Map<String, Value>,
     ) -> EditResult<()> {
         self.ensure_editable()?;
-        if !matches!(kind, "mention-@" | "appLink" | "hardBreak") {
+        if !matches!(kind, "mention-@" | "appLink" | "hardBreak" | "attachment") {
             return Err("Unsupported inline atom".into());
         }
         let range = self.selection.range();

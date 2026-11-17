@@ -1950,6 +1950,21 @@ fn chat_composer(
     write(cx, window, "@wee");
     capture(cx, window, out, "chat-mention-search");
     type_text(cx, window, &["cmd-a", "backspace"]);
+    // Files dropped on the composer become chips: an image thumbnail, then a file icon.
+    let files = tempfile::tempdir().unwrap();
+    let photo = files.path().join("whiteboard.png");
+    image::RgbImage::from_pixel(16, 16, image::Rgb([59, 130, 246]))
+        .save(&photo)
+        .unwrap();
+    let notes = files.path().join("Q3 planning notes and owners.pdf");
+    std::fs::write(&notes, b"%PDF-1.4").unwrap();
+    write(cx, window, "Review ");
+    // GPUI keeps hover suppressed after typing until the pointer moves, which it does on its
+    // way to the Finder window the files come from.
+    pointer(cx, window, 300., 562.);
+    file_drop(cx, window, (300., 562.), vec![photo, notes]);
+    capture(cx, window, out, "chat-attachments");
+    type_text(cx, window, &["cmd-a", "backspace"]);
     write(cx, window, "Prep for @");
     type_text(cx, window, &["enter"]);
     write(cx, window, "and @");
@@ -2186,6 +2201,27 @@ fn drag(
                 modifiers: Modifiers::default(),
                 click_count: 1,
             }),
+        ],
+    );
+}
+
+fn file_drop(
+    cx: &mut HeadlessAppContext,
+    window: WindowHandle<ApplicationView>,
+    at: (f32, f32),
+    paths: Vec<PathBuf>,
+) {
+    let position = point(px(at.0), px(at.1));
+    input(
+        cx,
+        window,
+        [
+            PlatformInput::FileDrop(gpui::FileDropEvent::Entered {
+                position,
+                paths: gpui::ExternalPaths(paths.into()),
+            }),
+            PlatformInput::FileDrop(gpui::FileDropEvent::Pending { position }),
+            PlatformInput::FileDrop(gpui::FileDropEvent::Submit { position }),
         ],
     );
 }

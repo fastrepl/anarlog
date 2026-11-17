@@ -196,6 +196,7 @@ impl Node {
                 | "mention-@"
                 | "session"
                 | "clip"
+                | "attachment"
         ) || (!self.known() && !self.had_content)
     }
 
@@ -225,6 +226,8 @@ impl Node {
                 | "mention-@"
                 | "session"
                 | "clip"
+                // The chat composer's dropped-file chip.
+                | "attachment"
         )
     }
 
@@ -330,11 +333,14 @@ impl Node {
         children.visit(&mut |child| {
             invalid |= match kind.as_str() {
                 "text" | "hardBreak" | "horizontalRule" | "image" | "fileAttachment"
-                | "mention-@" | "appLink" | "session" | "clip" => true,
+                | "mention-@" | "appLink" | "session" | "clip" | "attachment" => true,
                 "codeBlock" => child.kind() != "text" || !child.marks().is_empty(),
                 "paragraph" | "heading" => {
                     child.known()
-                        && !matches!(child.kind(), "text" | "hardBreak" | "mention-@" | "appLink")
+                        && !matches!(
+                            child.kind(),
+                            "text" | "hardBreak" | "mention-@" | "appLink" | "attachment"
+                        )
                 }
                 "bulletList" | "orderedList" => child.known() && child.kind() != "listItem",
                 "taskList" => child.known() && child.kind() != "taskItem",
@@ -342,7 +348,10 @@ impl Node {
                 "tableRow" => child.known() && !matches!(child.kind(), "tableCell" | "tableHeader"),
                 "doc" | "blockquote" | "listItem" | "taskItem" | "tableCell" | "tableHeader" => {
                     child.known()
-                        && matches!(child.kind(), "text" | "hardBreak" | "mention-@" | "appLink")
+                        && matches!(
+                            child.kind(),
+                            "text" | "hardBreak" | "mention-@" | "appLink" | "attachment"
+                        )
                 }
                 _ => false,
             };

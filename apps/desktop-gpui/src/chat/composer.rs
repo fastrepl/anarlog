@@ -81,6 +81,8 @@ pub struct Composer {
     generation: u64,
     search: CancellationToken,
     dragging: bool,
+    /// Dropped images' thumbnails, by attachment id.
+    thumbnails: std::collections::HashMap<String, Arc<gpui::Image>>,
     /// Room kept clear for the send controls drawn over the draft's right edge.
     pub padding_right: f32,
     /// Paragraph bottom margin: 4px in the right panel; the floating composer removes it.
@@ -127,6 +129,7 @@ impl Composer {
             generation: 0,
             search: CancellationToken::new(),
             dragging: false,
+            thumbnails: Default::default(),
             padding_right: 0.,
             paragraph_gap: 0.,
             max_height: 144.,
@@ -641,6 +644,159 @@ impl Composer {
         }
     }
 
+    /// Shipping's chat `fileHandlerPlugin` drop: each file becomes an attachment chip at the
+    /// caret, images (8 MB at most) carrying their data URL.
+    fn drop_files(
+        &mut self,
+        paths: Vec<std::path::PathBuf>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.focus.focus(window, cx);
+        let job = cx.background_executor().spawn(async move {
+            paths
+                .into_iter()
+                .filter_map(|path| {
+                    let name = path.file_name()?.to_string_lossy().into_owned();
+                    let mime = mime_guess::from_path(&path)
+                        .first_raw()
+                        .unwrap_or_default()
+                        .to_owned();
+                    let size = std::fs::metadata(&path).ok()?.len();
+                    let image = mime.starts_with("image/");
+                    if image && size > MAX_IMAGE_BYTES {
+                        return None;
+                    }
+                    let bytes = if image {
+                        Some(std::fs::read(&path).ok()?)
+                    } else {
+                        None
+                    };
+                    Some((name, mime, size, bytes))
+                })
+                .collect::<Vec<_>>()
+        });
+        cx.spawn(async move |this, cx| {
+            let files = job.await;
+            let _ = this.update(cx, |this, cx| {
+                for (name, mime, size, bytes) in files {
+                    this.insert_attachment(name, mime, size, bytes, cx);
+                }
+            });
+        })
+        .detach();
+    }
+
+    fn insert_attachment(
+        &mut self,
+        name: String,
+        mime: String,
+        size: u64,
+        bytes: Option<Vec<u8>>,
+        cx: &mut Context<Self>,
+    ) {
+        use base64::Engine;
+        let id = uuid::Uuid::new_v4().to_string();
+        let url = bytes.map(|bytes| {
+            let url = format!(
+                "data:{mime};base64,{}",
+                base64::engine::general_purpose::STANDARD.encode(&bytes)
+            );
+            if let Some(format) = gpui::ImageFormat::from_mime_type(&mime) {
+                self.thumbnails
+                    .insert(id.clone(), Arc::new(gpui::Image::from_bytes(format, bytes)));
+            }
+            url
+        });
+        let attrs = Map::from_iter([
+            ("id".into(), json!(id)),
+            ("name".into(), json!(name)),
+            ("mimeType".into(), json!(mime)),
+            ("url".into(), json!(url)),
+            ("size".into(), json!(size)),
+        ]);
+        self.apply(
+            |model| {
+                model.transaction(|model| {
+                    model.insert_inline_atom("attachment", attrs)?;
+                    let head = model.selection.head;
+                    model.replace(head..head, " ")
+                })
+            },
+            cx,
+        );
+    }
+
+    /// Shipping's `AttachmentChipView`: a file icon or image thumbnail, the name, and a remove
+    /// button.
+    fn attachment_chip(
+        &self,
+        node: &NodeRef,
+        position: usize,
+        colors: &crate::ui::theme::Theme,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let attr = |key| node.attr(key).and_then(Value::as_str).unwrap_or_default();
+        let thumbnail = self.thumbnails.get(attr("id")).cloned();
+        div()
+            .mt(px(-1.))
+            .flex()
+            .items_center()
+            .gap_1()
+            .px(px(6.))
+            .py(px(2.))
+            .rounded(px(6.))
+            .border_1()
+            .border_color(colors.border)
+            .bg(colors.muted)
+            .text_xs()
+            .line_height(px(16.))
+            .text_color(colors.muted_foreground)
+            .child(match thumbnail {
+                Some(image) => gpui::img(image)
+                    .size(px(16.))
+                    .flex_shrink_0()
+                    .rounded(px(4.))
+                    .object_fit(gpui::ObjectFit::Cover)
+                    .into_any_element(),
+                None => svg()
+                    .path("editor/File01Icon.svg")
+                    .size(px(12.))
+                    .flex_shrink_0()
+                    .text_color(colors.muted_foreground)
+                    .into_any_element(),
+            })
+            .child(
+                div()
+                    .max_w(px(120.))
+                    .truncate()
+                    .child(attachment_label(attr("name"))),
+            )
+            .child(
+                div()
+                    .id(("chat-attachment-remove", position))
+                    .flex_shrink_0()
+                    .p(px(2.))
+                    .rounded(px(4.))
+                    .cursor_pointer()
+                    .hover(|style| style.bg(colors.accent))
+                    .on_mouse_down(
+                        MouseButton::Left,
+                        cx.listener(move |this, _, _, cx| {
+                            this.apply(|model| model.replace(position..position + 1, ""), cx);
+                            cx.stop_propagation();
+                        }),
+                    )
+                    .child(
+                        svg()
+                            .path("editor/XIcon.svg")
+                            .size(px(10.))
+                            .text_color(colors.muted_foreground),
+                    ),
+            )
+            .into_any_element()
+    }
+
     fn mouse_down(&mut self, event: &MouseDownEvent, window: &mut Window, cx: &mut Context<Self>) {
         self.focus.focus(window, cx);
         let Some(position) = self.hit(event.position) else {
@@ -711,6 +867,10 @@ impl Composer {
                     if span.node.kind() == "mention-@" {
                         run.font.weight = crate::ui::theme::MEDIUM;
                     }
+                    // The chip is drawn over its reserved text.
+                    if span.node.kind() == "attachment" {
+                        run.color = gpui::transparent_black();
+                    }
                     run
                 })
                 .collect()
@@ -723,8 +883,14 @@ impl Composer {
         let atoms = row
             .spans
             .iter()
-            .filter(|span| span.node.kind() == "mention-@")
-            .map(|span| (span.bytes.start, mention_avatar(&span.node, &colors)))
+            .filter_map(|span| match span.node.kind() {
+                "mention-@" => Some((span.bytes.start, mention_avatar(&span.node, &colors))),
+                "attachment" => Some((
+                    span.bytes.start,
+                    self.attachment_chip(&span.node, row.start + span.position, &colors, cx),
+                )),
+                _ => None,
+            })
             .collect();
         let styled = StyledText::new(text).with_runs(runs);
         let layout = styled.layout().clone();
@@ -1036,6 +1202,16 @@ fn project(model: &EditorModel) -> Vec<Arc<Row>> {
                     text.push_str(&content.as_string());
                 } else if child.kind() == "hardBreak" {
                     text.push('\n');
+                } else if child.kind() == "attachment" {
+                    // Room for the chip drawn over it: icon, name and remove button.
+                    text.push_str("\u{2003}\u{2003}");
+                    text.push_str(&attachment_label(
+                        child
+                            .attr("name")
+                            .and_then(Value::as_str)
+                            .unwrap_or_default(),
+                    ));
+                    text.push('\u{2003}');
                 } else if child.kind() == "mention-@" {
                     text.push_str("\u{2003}\u{2009}");
                     text.push_str(&chip_label(
@@ -1074,6 +1250,20 @@ fn project(model: &EditorModel) -> Vec<Arc<Row>> {
             }))
         })
         .collect()
+}
+
+/// Shipping's chat images may be 8 MB at most.
+const MAX_IMAGE_BYTES: u64 = 8 * 1024 * 1024;
+
+/// `AttachmentChipView`'s name: cut at 24 characters, "file" when unnamed.
+fn attachment_label(name: &str) -> String {
+    if name.is_empty() {
+        "file".into()
+    } else if name.chars().count() > 24 {
+        format!("{}\u{2026}", name.chars().take(24).collect::<String>())
+    } else {
+        name.into()
+    }
 }
 
 pub fn chip_label(label: &str) -> String {
@@ -1183,6 +1373,11 @@ impl Render for Composer {
             .cursor_text()
             .on_key_down(cx.listener(Self::key))
             .on_mouse_down(MouseButton::Left, cx.listener(Self::mouse_down))
+            .on_drop(
+                cx.listener(|this, paths: &gpui::ExternalPaths, window, cx| {
+                    this.drop_files(paths.paths().to_vec(), window, cx)
+                }),
+            )
             .on_mouse_move(cx.listener(Self::mouse_move))
             .on_mouse_up(
                 MouseButton::Left,
@@ -1465,5 +1660,63 @@ mod tests {
         assert_eq!(string_hash("Maya Chen"), 1_658_687_022);
         assert_eq!(string_hash("Ana"), 65_972);
         assert_eq!(string_hash(""), 0);
+    }
+
+    #[gpui::test]
+    fn dropped_files_become_chips_that_stay_out_of_the_sent_text(cx: &mut gpui::TestAppContext) {
+        cx.executor().allow_parking();
+        let directory = tempfile::tempdir().unwrap();
+        let (runtime, ready) = RuntimeHandle::start(desktop_runtime::Profile {
+            database: directory.path().join("library.sqlite"),
+        })
+        .unwrap();
+        futures::executor::block_on(ready.receive()).unwrap();
+        cx.update(crate::ui::theme::UiFonts::init);
+        let (composer, cx) =
+            cx.add_window_view(|_, cx| Composer::new(runtime.clone(), SearchIndex::default(), cx));
+        let photo = directory.path().join("whiteboard.png");
+        let notes = directory.path().join("notes.txt");
+        std::fs::write(&photo, b"\x89PNG\r\n\x1a\n").unwrap();
+        std::fs::write(&notes, b"agenda").unwrap();
+        let position = point(px(20.), px(10.));
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        cx.simulate_event(gpui::FileDropEvent::Entered {
+            position,
+            paths: gpui::ExternalPaths(vec![photo, notes].into()),
+        });
+        cx.simulate_event(gpui::FileDropEvent::Submit { position });
+        let mut chips = Vec::new();
+        for _ in 0..200 {
+            cx.run_until_parked();
+            chips = composer.read_with(cx, |composer, _| {
+                composer.doc()["content"][0]["content"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .filter(|node| node["type"] == "attachment")
+                    .map(|node| node["attrs"].clone())
+                    .collect::<Vec<_>>()
+            });
+            if chips.len() == 2 {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        assert_eq!(chips.len(), 2);
+        assert_eq!(chips[0]["name"], "whiteboard.png");
+        assert!(
+            chips[0]["url"]
+                .as_str()
+                .is_some_and(|url| url.starts_with("data:image/png;base64,"))
+        );
+        assert_eq!(
+            (chips[1]["name"].clone(), chips[1]["url"].clone()),
+            (json!("notes.txt"), Value::Null)
+        );
+        composer.update(cx, |composer, cx| {
+            assert!(!composer.has_text());
+            composer.insert_text("Summarize these", cx);
+            assert_eq!(composer.text().trim(), "Summarize these");
+        });
     }
 }
