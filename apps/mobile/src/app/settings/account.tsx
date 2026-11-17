@@ -4,7 +4,7 @@ import * as WebBrowser from "expo-web-browser";
 
 import { accountPlanLabel, fetchWorkspacePlan } from "@/auth/account-plan";
 import { supabase } from "@/auth/client";
-import { requiresPro } from "@/auth/companion";
+import { accountPageUrl, requiresPro } from "@/auth/companion";
 import { useAuth } from "@/auth/context";
 import { useTrial } from "@/auth/use-trial";
 import { env } from "@/lib/env";
@@ -45,10 +45,7 @@ export default function AccountSettings() {
   });
   const signOut = useMutation({ mutationFn: auth.signOut });
   const manage = useMutation({
-    mutationFn: () =>
-      WebBrowser.openBrowserAsync(
-        `${env.appUrl.replace(/\/+$/, "")}/app/account`,
-      ),
+    mutationFn: () => WebBrowser.openBrowserAsync(accountPageUrl(env.appUrl)),
   });
   const connectedAccounts = useMutation({
     mutationFn: () => {

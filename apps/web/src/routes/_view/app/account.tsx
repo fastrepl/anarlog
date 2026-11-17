@@ -131,6 +131,7 @@ const validateSearch = z
     referral: z.enum(["ineligible"]),
     perk: z.enum(["applied", "claimed", "invalid"]),
     tab: z.enum(["account", "connections", "notes", "developer"]),
+    client: z.literal("ios"),
   })
   .partial();
 
@@ -259,18 +260,20 @@ function Component() {
             className="mt-10 flex min-w-0 flex-col gap-14"
           >
             <Suspense fallback={<AccountTabFallback tabId={activeTab} />}>
-              {sectionsForAccountTab(activeTab).map((section) => (
-                <AccountSection key={section.id} id={section.id}>
-                  <AccountSectionBody
-                    id={section.id}
-                    email={user?.email}
-                    expectedUserId={search.account_user_id ?? user!.id}
-                    identityLinkResult={search.identity_link}
-                    perk={search.perk}
-                    referralIneligible={search.referral === "ineligible"}
-                  />
-                </AccountSection>
-              ))}
+              {sectionsForAccountTab(activeTab, search.client).map(
+                (section) => (
+                  <AccountSection key={section.id} id={section.id}>
+                    <AccountSectionBody
+                      id={section.id}
+                      email={user?.email}
+                      expectedUserId={search.account_user_id ?? user!.id}
+                      identityLinkResult={search.identity_link}
+                      perk={search.perk}
+                      referralIneligible={search.referral === "ineligible"}
+                    />
+                  </AccountSection>
+                ),
+              )}
             </Suspense>
           </div>
         </div>

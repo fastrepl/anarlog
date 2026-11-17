@@ -12,6 +12,7 @@ import {
   buildMobileBillingReturnUrl,
   parseBillingCallbackUrl,
 } from "@/auth/billing-handoff";
+import { accountPageUrl } from "@/auth/companion";
 import { isAppleSignInAvailable, type SignInMethod } from "@/auth/sign-in";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
@@ -352,9 +353,7 @@ export function ProRequiredScreen({
   const signOut = useMutation({ mutationFn: onSignOut });
   const account = useMutation({
     mutationFn: () =>
-      WebBrowser.openBrowserAsync(
-        `${env.appUrl.replace(/\/+$/, "")}/app/account`,
-      ),
+      WebBrowser.openBrowserAsync(accountPageUrl(env.appUrl, "danger")),
   });
   const busy = refresh.isPending || signOut.isPending;
 

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { resolveAccountTab } from "./account-tabs.ts";
+import { resolveAccountTab, sectionsForAccountTab } from "./account-tabs.ts";
 
 test("prefers a section hash over the tab search param", () => {
   assert.equal(
@@ -31,4 +31,13 @@ test("an empty hash after a tab click does not override the tab param", () => {
     "connections",
   );
   assert.equal(resolveAccountTab({ tab: "developer", hash: "#" }), "developer");
+});
+
+test("the iOS app's account page shows deletion but no plan offers", () => {
+  const ids = (client?: "ios") =>
+    sectionsForAccountTab("account", client).map((section) => section.id);
+  assert.ok(ids().includes("plan"));
+  assert.ok(!ids("ios").includes("plan"));
+  assert.ok(!ids("ios").includes("referrals"));
+  assert.ok(ids("ios").includes("danger"));
 });
