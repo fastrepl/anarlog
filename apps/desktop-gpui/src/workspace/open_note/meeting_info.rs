@@ -15,6 +15,7 @@ use sqlx::SqliteConnection;
 
 use super::super::mutations::failure;
 use crate::{
+    application::toasts,
     meeting::widgets::spinner,
     ui::{
         input::{InputEvent, TextInput},
@@ -235,6 +236,8 @@ pub struct MeetingInfo {
     date: Option<(Entity<TextInput>, Subscription)>,
     date_error: Option<&'static str>,
     message: Option<String>,
+    /// The participant whose contact is being enhanced from the event.
+    enhancing: Option<Arc<str>>,
     cancel: CancellationToken,
     _watch: Option<Task<()>>,
     _input: Subscription,
@@ -276,6 +279,7 @@ impl MeetingInfo {
             date: None,
             date_error: None,
             message: None,
+            enhancing: None,
             cancel: CancellationToken::new(),
             _watch: None,
             _input: subscription,
@@ -476,6 +480,33 @@ impl MeetingInfo {
         })
         .detach();
         cx.notify();
+    }
+
+    /// Shipping's `useEventContactEnhancement` with its result toasts.
+    fn enhance(&mut self, human: Arc<str>, cx: &mut Context<Self>) {
+        if self.enhancing.is_some() {
+            return;
+        }
+        self.enhancing = Some(human.clone());
+        cx.notify();
+        let runtime = self.runtime.clone();
+        let session = self.session.clone();
+        cx.spawn(async move |this, cx| {
+            let result = super::event_contacts::enhance(&runtime, session, human.to_string()).await;
+            let _ = this.update(cx, |this, cx| {
+                this.enhancing = None;
+                let toast = match result {
+                    Ok(outcome) => outcome
+                        .toast()
+                        .id(format!("event-contact-enhancement-{human}")),
+                    Err(_) => toasts::Toast::error("Could not enhance contact")
+                        .id("event-contact-enhancement"),
+                };
+                toasts::show(toast, cx);
+                cx.notify();
+            });
+        })
+        .detach();
     }
 
     fn remove(&mut self, participant: Participant, cx: &mut Context<Self>) {
@@ -811,6 +842,10 @@ impl MeetingInfo {
         let typed = !self.input.read(cx).buffer.text.trim().is_empty();
         let selected = self.selected.min(options.len().saturating_sub(1));
         let chip_bg = colors.foreground.opacity(0.1);
+        // Shipping's `showEnhancementButtons`: the event has a title or description.
+        let enhanceable = self.event.as_ref().is_some_and(|event| {
+            !event.title.trim().is_empty() || !event.description.trim().is_empty()
+        });
         div()
             .flex()
             .flex_col()
@@ -838,6 +873,8 @@ impl MeetingInfo {
                                 |participant| {
                                     let open = participant.human.clone();
                                     let removed = participant.clone();
+                                    let enhancing =
+                                        self.enhancing.as_ref() == Some(&participant.human);
                                     div()
                                         .id(SharedString::from(format!(
                                             "participant:{}",
@@ -858,12 +895,32 @@ impl MeetingInfo {
                                         .font_weight(gpui::FontWeight::SEMIBOLD)
                                         .text_color(colors.secondary_foreground)
                                         .cursor_pointer()
+                                        .when(enhancing, |chip| {
+                                            chip.shadow(vec![gpui::BoxShadow {
+                                                color: colors.ring.opacity(0.2),
+                                                offset: gpui::point(px(0.), px(0.)),
+                                                blur_radius: px(0.),
+                                                spread_radius: px(1.),
+                                                inset: false,
+                                            }])
+                                        })
                                         .on_click(cx.listener(move |_, _, _, cx| {
                                             if !open.is_empty() {
                                                 cx.emit(MeetingInfoEvent::OpenContact(open.clone()))
                                             }
                                         }))
                                         .child(SharedString::from(participant.name.clone()))
+                                        .when(
+                                            enhanceable && !participant.human.is_empty(),
+                                            |chip| {
+                                                chip.child(self.enhance_button(
+                                                    participant,
+                                                    enhancing,
+                                                    colors,
+                                                    cx,
+                                                ))
+                                            },
+                                        )
                                         .child(
                                             div()
                                                 .id(SharedString::from(format!(
@@ -944,6 +1001,58 @@ impl MeetingInfo {
                     }),
             )
             .into_any_element()
+    }
+
+    /// Shipping's `EnhanceContactButton`: a sparkle, or a spinner while it runs.
+    fn enhance_button(
+        &self,
+        participant: &Participant,
+        enhancing: bool,
+        colors: Theme,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        let human = participant.human.clone();
+        let disabled = self.enhancing.is_some();
+        div()
+            .id(SharedString::from(format!(
+                "enhance-participant:{}",
+                participant.id
+            )))
+            .group("enhance-contact")
+            .ml(px(2.))
+            .size(px(14.))
+            .flex()
+            .items_center()
+            .justify_center()
+            .when(disabled && !enhancing, |button| button.opacity(0.5))
+            .when(!disabled, |button| {
+                button
+                    .cursor_pointer()
+                    .on_click(cx.listener(move |this, _, _, cx| {
+                        cx.stop_propagation();
+                        this.enhance(human.clone(), cx);
+                    }))
+            })
+            .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| cx.stop_propagation())
+            .child(if enhancing {
+                spinner(
+                    SharedString::from(format!("enhancing-{}", participant.id)),
+                    10.,
+                    colors.muted_foreground,
+                )
+                .into_any_element()
+            } else {
+                gpui::svg()
+                    .path("editor/SparkleIcon.svg")
+                    .size(px(10.))
+                    .text_color(colors.muted_foreground)
+                    .when(!disabled, |icon| {
+                        icon.group_hover("enhance-contact", move |style| {
+                            style.text_color(colors.foreground)
+                        })
+                    })
+                    .into_any_element()
+            })
     }
 
     fn dropdown_view(

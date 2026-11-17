@@ -5,8 +5,9 @@
 pub mod assets;
 pub(crate) mod avatar;
 mod data;
+pub(crate) mod identity;
 mod list;
-mod ops;
+pub(crate) mod ops;
 mod organization;
 mod person;
 

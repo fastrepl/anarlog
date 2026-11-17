@@ -1,4 +1,5 @@
 mod brief;
+mod event_contacts;
 mod export_modal;
 mod meeting_info;
 pub(super) mod meeting_records;

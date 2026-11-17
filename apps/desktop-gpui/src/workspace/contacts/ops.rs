@@ -78,6 +78,16 @@ pub enum Write {
         selected: String,
         duplicate: String,
     },
+    /// The calendar plugin's `apply_contact_enhancement`: (re)creates the person when asked,
+    /// fills the given fields and links the company when the person has none.
+    Enhance {
+        id: String,
+        owner: String,
+        create: bool,
+        name: Option<String>,
+        email: Option<String>,
+        company: Option<String>,
+    },
 }
 
 fn failure(error: impl std::fmt::Display) -> ServiceError {
@@ -174,6 +184,53 @@ async fn run(conn: &mut SqliteConnection, write: Write, now: &str) -> Result<()>
             selected,
             duplicate,
         } => merge(conn, &selected, &duplicate, now).await?,
+        Write::Enhance {
+            id,
+            owner,
+            create,
+            name,
+            email,
+            company,
+        } => {
+            if create {
+                db::upsert_revived_human(
+                    conn,
+                    &id,
+                    &owner,
+                    name.as_deref().unwrap_or_default(),
+                    email.as_deref().unwrap_or_default(),
+                    now,
+                )
+                .await
+                .map_err(failure)?;
+            }
+            let company = company.unwrap_or_default();
+            if !company.is_empty() {
+                db::insert_organization_by_name_if_missing(
+                    conn,
+                    &uuid::Uuid::new_v4().to_string(),
+                    &owner,
+                    &company,
+                    now,
+                )
+                .await
+                .map_err(failure)?;
+            }
+            let mut assignments: Vec<(&'static str, String)> = Vec::new();
+            assignments.extend(name.map(|name| ("name = ?", name)));
+            assignments.extend(email.map(|email| ("email = ?", email)));
+            if !company.is_empty() {
+                assignments.push((
+                    "organization_id = CASE WHEN organization_id = '' THEN COALESCE((SELECT id FROM organizations WHERE lower(name) = lower(?) AND deleted_at IS NULL ORDER BY created_at, id LIMIT 1), organization_id) ELSE organization_id END",
+                    company,
+                ));
+            }
+            if !assignments.is_empty() {
+                db::update_contact_fields(conn, "humans", &assignments, now, &id)
+                    .await
+                    .map_err(failure)?;
+            }
+        }
     }
     Ok(())
 }
