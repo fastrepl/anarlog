@@ -2,6 +2,8 @@ pub mod accessibility;
 mod attachments;
 mod clipboard;
 pub mod document;
+pub mod drop;
+pub mod find;
 mod html;
 pub mod icons;
 mod input;
@@ -19,5 +21,7 @@ mod transform;
 pub use attachments::{AttachmentPreview, AttachmentService};
 pub use pane::EditorPane;
 
+#[cfg(test)]
+mod pane_tests;
 #[cfg(test)]
 mod tests;

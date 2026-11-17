@@ -183,6 +183,7 @@ fn main() {
     locks(&mut cx, window, &runtime, &out);
     note_header(&mut cx, window, &out);
     note_windows(&mut cx, window, &out);
+    find_replace(&mut cx, window, &out);
     for (name, route) in [
         ("note", Route::Session(SessionId("s-sync".into()))),
         (
@@ -727,6 +728,24 @@ fn chat_edits(
     chat(cx, window, |chat, window, cx| {
         chat.event(ChatEvent::Close, window, cx)
     });
+}
+
+/// ⌘F over the customer memo, then ⌘H's replace row; Esc closes the bar.
+fn find_replace(
+    cx: &mut HeadlessAppContext,
+    window: WindowHandle<ApplicationView>,
+    out: &std::path::Path,
+) {
+    open(cx, window, Route::Session(SessionId("s-customer".into())));
+    click(cx, window, 850., 70.);
+    type_text(cx, window, &["cmd-f"]);
+    write(cx, window, "an");
+    capture(cx, window, out, "note-find");
+    type_text(cx, window, &["enter"]);
+    capture(cx, window, out, "note-find-next");
+    type_text(cx, window, &["cmd-h"]);
+    capture(cx, window, out, "note-find-replace");
+    type_text(cx, window, &["escape"]);
 }
 /// The month grid's cell for `day`, top-left in window pixels (Sunday-first, as captured).
 fn calendar_cell(day: chrono::NaiveDate) -> Option<(f32, f32)> {

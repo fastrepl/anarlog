@@ -40,6 +40,8 @@ pub struct TextInput {
     inline: bool,
     breadcrumb: bool,
     muted: bool,
+    /// A single-line field's text size; 14px (`text-sm`) unless set.
+    text_size: Pixels,
     /// Multi-line layout from the last paint: each source line's byte range, origin and
     /// wrapped shape.
     rows: Vec<(Range<usize>, Point<Pixels>, WrappedLine)>,
@@ -74,6 +76,7 @@ impl TextInput {
             inline: false,
             breadcrumb: false,
             muted: false,
+            text_size: px(14.),
             rows: Vec::new(),
             line_height: px(20.),
             min_rows: 1,
@@ -139,6 +142,11 @@ impl TextInput {
         self.placeholder = placeholder.into();
     }
 
+    /// A single-line field's text size, as for shipping's `text-xs` inputs.
+    pub fn text_size(mut self, size: Pixels) -> Self {
+        self.text_size = size;
+        self
+    }
     pub fn set_text(&mut self, text: String, cx: &mut Context<Self>) {
         if self.secret && !text.is_ascii() {
             self.changed(false, cx);
@@ -621,7 +629,7 @@ impl Render for TextInput {
                                 };
                                 let line = window.text_system().shape_line(
                                     text.into(),
-                                    px(14.),
+                                    this.text_size,
                                     &runs,
                                     None,
                                 );

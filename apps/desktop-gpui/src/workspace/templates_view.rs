@@ -95,7 +95,19 @@ pub struct TemplatesView {
     cancel: CancellationToken,
     focus: FocusHandle,
     auto: Option<AutoEditor>,
+    /// The section being dragged by its grip, at its current index.
+    dragged_section: Option<usize>,
     _subscriptions: Vec<Subscription>,
+}
+
+/// A section dragged by its grip; the list reorders under the pointer like shipping's
+/// `Reorder.Group`, so the drag itself draws nothing.
+struct SectionDrag;
+
+impl Render for SectionDrag {
+    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+        div()
+    }
 }
 
 /// Auto's editable summary format, rebuilt when the stored format changes (shipping keys its
@@ -136,6 +148,7 @@ impl TemplatesView {
             notices: 0,
             message: String::new(),
             auto: None,
+            dragged_section: None,
             cancel: CancellationToken::new(),
             focus: cx.focus_handle(),
             _subscriptions: vec![subscription],
@@ -1349,18 +1362,45 @@ impl TemplatesView {
                     .children(form.sections.iter().enumerate().map(|(index, inputs)| {
                         let group: SharedString = format!("template-section-{index}").into();
                         let menu_open = self.menu == Some(Menu::Section(index));
+                        let view_entity = cx.entity().downgrade();
                         div()
                             .group(group.clone())
                             .relative()
                             .bg(colors.card)
+                            .on_drag_move(cx.listener(
+                                move |this, event: &gpui::DragMoveEvent<SectionDrag>, _, cx| {
+                                    if let Some(from) = this.dragged_section
+                                        && from != index
+                                        && event.bounds.contains(&event.event.position)
+                                    {
+                                        this.change_sections(
+                                            move |sections, _| {
+                                                let moved = sections.remove(from);
+                                                sections.insert(index, moved);
+                                            },
+                                            cx,
+                                        );
+                                        this.dragged_section = Some(index);
+                                    }
+                                },
+                            ))
                             .when(editable, |view| {
                                 view.child(
                                     div()
+                                        .id(("template-section-grip", index))
                                         .absolute()
                                         .top(px(10.))
                                         .left(px(-20.))
+                                        .cursor_move()
                                         .opacity(0.)
                                         .group_hover(group.clone(), |style| style.opacity(0.3))
+                                        .hover(|style| style.opacity(0.6))
+                                        .on_drag(SectionDrag, move |_, _, _, cx| {
+                                            let _ = view_entity.update(cx, |this, _| {
+                                                this.dragged_section = Some(index)
+                                            });
+                                            cx.new(|_| SectionDrag)
+                                        })
                                         .child(icon(
                                             "GripVerticalIcon",
                                             16.,
@@ -1845,6 +1885,9 @@ impl Drop for TemplatesView {
 
 impl Render for TemplatesView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        if !cx.has_active_drag() {
+            self.dragged_section = None;
+        }
         let colors = theme(window);
         let content = match self.current() {
             Selection::Auto => self.render_auto(window, cx),

@@ -16,6 +16,7 @@ use gpui::{
 use super::{
     clipboard,
     document::{Document, EditResult},
+    find::FindOptions,
     menu::{
         BlockCommand, EditorRequest, MentionCandidate, MentionMenu, MentionResults, MentionTarget,
         SlashMenu,
@@ -74,6 +75,55 @@ pub struct EditorPane {
     attachment_loading: HashSet<String>,
     pending_attachment: Option<super::AttachmentPreview>,
     attachment_importing: bool,
+    pub(super) find: Option<Found>,
+    /// A find match to scroll to the viewport's center once laid out (shipping's
+    /// `scrollIntoView({ block: "center" })`).
+    find_center: Option<usize>,
+    /// Shipping's `dropCursor`: where a dragged note or file would land.
+    pub(super) drop_cursor: Option<usize>,
+    /// The dragged files are one audio file, which the note takes as its recording instead.
+    drop_declined: bool,
+    /// The image under the pointer and the clicked (node-selected) image, by node id.
+    hovered_image: Option<u64>,
+    pub(super) selected_image: Option<(usize, u64)>,
+    /// Each painted image's width, where a resize starts from.
+    image_widths: HashMap<u64, Pixels>,
+    pub(super) resize: Option<ImageResize>,
+}
+
+/// An image being resized from one of its handles (shipping's `handleResizeStart`).
+pub(super) struct ImageResize {
+    pub(super) id: u64,
+    pub(super) start: usize,
+    pub(super) left: bool,
+    pub(super) origin: Pixels,
+    pub(super) initial: Pixels,
+    pub(super) max: Pixels,
+    /// The drag's width in pixels; it becomes a percentage of the column on release.
+    pub(super) width: Pixels,
+}
+
+/// Shipping's `MIN_IMAGE_WIDTH`, `MAX_IMAGE_WIDTH` and `DEFAULT_IMAGE_WIDTH` (percent).
+const IMAGE_WIDTH: (f64, f64, f64) = (15., 100., 80.);
+
+/// Shipping's `clampImageWidth`.
+fn image_width(node: &super::document::NodeRef) -> f64 {
+    node.attr("editorWidth")
+        .and_then(serde_json::Value::as_f64)
+        .filter(|width| width.is_finite())
+        .map_or(IMAGE_WIDTH.2, |width| {
+            width.round().clamp(IMAGE_WIDTH.0, IMAGE_WIDTH.1)
+        })
+}
+
+/// The note's find query and its matches in the current document.
+pub(super) struct Found {
+    query: String,
+    options: FindOptions,
+    active: usize,
+    pub(super) matches: Vec<std::ops::Range<usize>>,
+    /// The document root the matches were computed for.
+    root: usize,
 }
 
 impl EditorPane {
@@ -273,6 +323,345 @@ impl EditorPane {
             attachment_loading: HashSet::new(),
             pending_attachment: None,
             attachment_importing: false,
+            find: None,
+            find_center: None,
+            drop_cursor: None,
+            drop_declined: false,
+            hovered_image: None,
+            selected_image: None,
+            image_widths: HashMap::new(),
+            resize: None,
+        }
+    }
+
+    fn drag_over(
+        &mut self,
+        position: Point<Pixels>,
+        bounds: gpui::Bounds<Pixels>,
+        declined: bool,
+        cx: &mut Context<Self>,
+    ) {
+        let cursor = (bounds.contains(&position) && !declined && !self.read_only)
+            .then(|| self.hit(position))
+            .flatten();
+        if self.drop_cursor != cursor || self.drop_declined != declined {
+            self.drop_cursor = cursor;
+            self.drop_declined = declined;
+            cx.notify();
+        }
+    }
+
+    /// Shipping's `sessionMentionDrop`: a timeline note dropped into the note becomes a
+    /// session mention followed by a space, at the drop point.
+    fn drop_session(
+        &mut self,
+        drag: &super::drop::SessionDrag,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let position = self
+            .drop_cursor
+            .take()
+            .or_else(|| self.hit(window.mouse_position()));
+        let Some(model) = &mut self.model else {
+            return;
+        };
+        let attrs = serde_json::Map::from_iter([
+            ("id".into(), serde_json::json!(drag.id.0.as_ref())),
+            ("type".into(), serde_json::json!("session")),
+            ("label".into(), serde_json::json!(drag.title.as_ref())),
+        ]);
+        let before = model.revision;
+        let result = model.transaction(|model| {
+            if let Some(position) =
+                position.filter(|position| model.document.resolve(*position).is_ok())
+            {
+                model.select(Selection::caret(position));
+            }
+            model.insert_inline_atom("mention-@", attrs)?;
+            let head = model.selection.head;
+            model.replace(head..head, " ")
+        });
+        self.edited(before, result, cx);
+        self.focus.focus(window, cx);
+    }
+
+    /// Shipping's `fileHandlerPlugin` drop: each file is catalogued as an attachment and
+    /// inserted at the drop point, images as images and the rest as file cards.
+    fn drop_files(
+        &mut self,
+        paths: &[std::path::PathBuf],
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let position = self
+            .drop_cursor
+            .take()
+            .or_else(|| self.hit(window.mouse_position()));
+        let files = super::drop::attachable(paths);
+        if files.is_empty() {
+            return;
+        }
+        let Some(service) = self.attachment_service.clone() else {
+            self.message = "Configure the active vault before importing attachments.".into();
+            cx.notify();
+            return;
+        };
+        if self.attachment_importing {
+            self.message =
+                "Wait for the current attachment import before adding another file.".into();
+            cx.notify();
+            return;
+        }
+        self.attachment_importing = true;
+        let session = self.init.session_id.clone();
+        let job = cx.background_executor().spawn(async move {
+            let mut imported = Vec::with_capacity(files.len());
+            for file in files {
+                imported.push(service.import(session.clone(), file).await);
+            }
+            imported
+        });
+        cx.spawn(async move |entity, cx| {
+            let imported = job.await;
+            let _ = entity.update(cx, |this, cx| {
+                this.attachment_importing = false;
+                let mut error = None;
+                let previews: Vec<_> = imported
+                    .into_iter()
+                    .filter_map(|result| result.map_err(|failure| error = Some(failure)).ok())
+                    .collect();
+                this.insert_attachments(previews, position, cx);
+                if let Some(error) = error {
+                    this.message = error;
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+    }
+
+    fn insert_attachments(
+        &mut self,
+        previews: Vec<super::AttachmentPreview>,
+        position: Option<usize>,
+        cx: &mut Context<Self>,
+    ) {
+        if previews.is_empty() {
+            return;
+        }
+        let Some(model) = &mut self.model else {
+            return;
+        };
+        let before = model.revision;
+        let result = model.transaction(|model| {
+            if let Some(position) =
+                position.filter(|position| model.document.resolve(*position).is_ok())
+            {
+                model.select(Selection::caret(position));
+            }
+            previews.iter().try_for_each(|preview| {
+                let (kind, attrs) = attachment_node(preview);
+                model.insert_block_atom(kind, attrs)
+            })
+        });
+        for preview in previews {
+            self.cache_attachment_preview(preview.id.clone(), Ok(preview));
+        }
+        self.edited(before, result, cx);
+    }
+
+    fn paint_drop_cursor(&self, window: &mut Window) {
+        if let Some(bounds) = self.drop_cursor.and_then(|position| {
+            self.layouts
+                .values()
+                .find_map(|layout| layout.bounds_for(position..position))
+        }) {
+            // prosemirror-dropcursor's default: a 1px black bar.
+            window.paint_quad(gpui::fill(
+                gpui::Bounds::new(bounds.origin, gpui::size(px(1.), bounds.size.height)),
+                gpui::black(),
+            ));
+        }
+    }
+
+    pub(super) fn resize_move(&mut self, x: Pixels, cx: &mut Context<Self>) {
+        if let Some(resize) = &mut self.resize {
+            let delta = (x - resize.origin) * if resize.left { -1. } else { 1. };
+            resize.width = (resize.initial + delta).max(px(120.)).min(resize.max);
+            cx.notify();
+        }
+    }
+
+    /// On release the drag's width is stored as a percentage of the column, like shipping.
+    pub(super) fn resize_commit(&mut self, cx: &mut Context<Self>) {
+        let (Some(resize), Some(model)) = (self.resize.take(), &mut self.model) else {
+            return;
+        };
+        let percent = (f64::from(f32::from(resize.width) / f32::from(resize.max)) * 100.)
+            .round()
+            .clamp(IMAGE_WIDTH.0, IMAGE_WIDTH.1);
+        let before = model.revision;
+        let result = model
+            .atom_path(resize.start, resize.id)
+            .ok_or_else(|| "Image moved; resize again".to_owned())
+            .and_then(|path| {
+                model.update_node_attrs(
+                    &path,
+                    serde_json::Map::from_iter([(
+                        "editorWidth".into(),
+                        serde_json::json!(percent),
+                    )]),
+                )
+            });
+        let index = surface::block_index(&model.document, resize.start);
+        self.edited(before, result, cx);
+        if let Some(index) = index.filter(|index| *index < self.list_count) {
+            self.list.splice(index..index + 1, 1);
+        }
+    }
+
+    /// Shipping's `setSearch`: highlights every match and scrolls to the first.
+    pub fn find(&mut self, query: &str, options: FindOptions, cx: &mut Context<Self>) {
+        self.find = (!query.trim().is_empty()).then(|| Found {
+            query: query.into(),
+            options,
+            active: 0,
+            matches: Vec::new(),
+            root: 0,
+        });
+        self.refresh_find();
+        self.reveal_found();
+        cx.notify();
+    }
+
+    /// The current match and how many there are, after any edit since the last search.
+    pub fn find_status(&mut self) -> (usize, usize) {
+        self.refresh_find();
+        self.find
+            .as_ref()
+            .map_or((0, 0), |find| (find.active, find.matches.len()))
+    }
+
+    pub fn find_step(&mut self, forward: bool, cx: &mut Context<Self>) {
+        self.refresh_find();
+        if let Some(find) = &mut self.find
+            && !find.matches.is_empty()
+        {
+            let len = find.matches.len();
+            find.active = (find.active + if forward { 1 } else { len - 1 }) % len;
+            self.reveal_found();
+            cx.notify();
+        }
+    }
+
+    /// Shipping's `replace`: the current match, or every match in one undoable edit.
+    pub fn replace_found(&mut self, replacement: &str, all: bool, cx: &mut Context<Self>) {
+        self.refresh_find();
+        let (Some(find), Some(model)) = (&self.find, &mut self.model) else {
+            return;
+        };
+        let Some(current) = find.matches.get(find.active).cloned() else {
+            return;
+        };
+        let ranges = if all {
+            find.matches.clone()
+        } else {
+            vec![current.clone()]
+        };
+        let blocks: std::collections::BTreeSet<_> = ranges
+            .iter()
+            .filter_map(|range| surface::block_index(&model.document, range.start))
+            .collect();
+        let before = model.revision;
+        let result = model.transaction(|model| {
+            ranges
+                .iter()
+                .rev()
+                .try_for_each(|range| model.replace(range.clone(), replacement))
+        });
+        self.edited(before, result, cx);
+        for index in blocks {
+            if index < self.list_count {
+                self.list.splice(index..index + 1, 1);
+            }
+        }
+        self.refresh_find();
+        let resume = current.start + replacement.encode_utf16().count();
+        if let Some(find) = &mut self.find {
+            find.active = if all {
+                0
+            } else {
+                find.matches
+                    .iter()
+                    .position(|range| range.start >= resume)
+                    .unwrap_or(0)
+            };
+        }
+        if !all {
+            self.reveal_found();
+        }
+        cx.notify();
+    }
+
+    fn refresh_find(&mut self) {
+        let (Some(find), Some(model)) = (&mut self.find, &self.model) else {
+            return;
+        };
+        let root = Arc::as_ptr(&model.document.root) as usize;
+        if find.root != root {
+            find.root = root;
+            find.matches =
+                super::find::document_matches(&model.document, &find.query, find.options);
+            find.active = find.active.min(find.matches.len().saturating_sub(1));
+        }
+    }
+
+    fn reveal_found(&mut self) {
+        let Some(position) = self
+            .find
+            .as_ref()
+            .and_then(|find| find.matches.get(find.active))
+            .map(|range| range.start)
+        else {
+            return;
+        };
+        self.find_center = Some(position);
+        if !self
+            .layouts
+            .values()
+            .any(|layout| layout.bounds_for(position..position).is_some())
+            && let Some(model) = &self.model
+            && let Some(index) = surface::block_index(&model.document, position)
+        {
+            self.list.scroll_to(ListOffset {
+                item_ix: index,
+                offset_in_item: px(0.),
+            });
+        }
+    }
+
+    fn finish_find_reveal(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let (Some(position), Some(viewport)) = (self.find_center, self.viewport) else {
+            return;
+        };
+        let Some(bounds) = self
+            .layouts
+            .values()
+            .find_map(|layout| layout.bounds_for(position..position))
+        else {
+            return;
+        };
+        self.find_center = None;
+        let distance = bounds.center().y - viewport.center().y;
+        if distance.abs() > px(1.) {
+            let entity = cx.weak_entity();
+            window.on_next_frame(move |_, cx| {
+                let _ = entity.update(cx, |this, cx| {
+                    this.list.scroll_by(distance);
+                    cx.notify();
+                });
+            });
         }
     }
 
@@ -733,16 +1122,9 @@ impl EditorPane {
         let (Some(preview), Some(model)) = (&self.pending_attachment, &mut self.model) else {
             return;
         };
-        let image = preview.mime.starts_with("image/");
-        let attrs = serde_json::json!({
-            "attachmentId": preview.id, "name": preview.name, "alt": preview.name,
-            "mimeType": preview.mime, "size": preview.size
-        })
-        .as_object()
-        .expect("attrs")
-        .clone();
+        let (kind, attrs) = attachment_node(preview);
         let before = model.revision;
-        let result = model.insert_block_atom(if image { "image" } else { "fileAttachment" }, attrs);
+        let result = model.insert_block_atom(kind, attrs);
         if result.is_ok() {
             self.pending_attachment = None;
         }
@@ -776,10 +1158,163 @@ impl EditorPane {
             .into_any_element()
     }
 
+    /// Shipping's `ResizableImageView`: `editorWidth` percent of the column (80 by default),
+    /// a ring on hover or selection, and side handles that resize between 120px and the
+    /// column's width.
+    fn render_image(
+        &mut self,
+        node: &super::document::NodeRef,
+        start: usize,
+        source: gpui::ImageSource,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> gpui::AnyElement {
+        let colors = theme(window);
+        let id = node.id;
+        let hovered = self.hovered_image == Some(id);
+        let selected = self
+            .selected_image
+            .is_some_and(|(_, selected)| selected == id);
+        let draft = self
+            .resize
+            .as_ref()
+            .filter(|resize| resize.id == id)
+            .map(|resize| resize.width);
+        let controls = !self.read_only && (hovered || selected || draft.is_some());
+        let percent = image_width(node);
+        let entity = cx.entity();
+        let handle = |left: bool, cx: &mut Context<Self>| {
+            div()
+                .id(("image-resize", id * 2 + u64::from(left)))
+                .absolute()
+                .top(gpui::relative(0.5))
+                .mt(px(-28.))
+                .when(left, |view| view.left(px(4.)))
+                .when(!left, |view| view.right(px(4.)))
+                .h(px(56.))
+                .w(px(16.))
+                .flex()
+                .items_center()
+                .justify_center()
+                .rounded(px(8.))
+                .border_1()
+                .border_color(colors.border)
+                .bg(colors.card.opacity(0.95))
+                .shadow_sm()
+                .cursor(gpui::CursorStyle::ResizeLeftRight)
+                .child(
+                    div()
+                        .h(px(32.))
+                        .w(px(4.))
+                        .rounded(px(8.))
+                        .bg(colors.muted_foreground),
+                )
+                .on_mouse_down(
+                    MouseButton::Left,
+                    cx.listener(move |this, event: &gpui::MouseDownEvent, _, cx| {
+                        let initial = this.image_widths.get(&id).copied().unwrap_or(px(120.));
+                        let max = this
+                            .viewport
+                            .map_or(initial, |viewport| viewport.size.width - px(24.))
+                            .max(px(120.));
+                        this.resize = Some(ImageResize {
+                            id,
+                            start,
+                            left,
+                            origin: event.position.x,
+                            initial,
+                            max,
+                            width: initial,
+                        });
+                        this.dragging = false;
+                        cx.stop_propagation();
+                        cx.notify();
+                    }),
+                )
+        };
+        div()
+            .w_full()
+            .px(px(12.))
+            .py_1()
+            .child(
+                div()
+                    .id(("image", id))
+                    .relative()
+                    .max_w_full()
+                    .map(|view| match draft {
+                        Some(width) => view.w(width),
+                        None => view.w(gpui::relative((percent / 100.) as f32)),
+                    })
+                    .on_hover(cx.listener(move |this, hovered: &bool, _, cx| {
+                        let next = if *hovered {
+                            Some(id)
+                        } else {
+                            this.hovered_image.filter(|current| *current != id)
+                        };
+                        if this.hovered_image != next {
+                            this.hovered_image = next;
+                            cx.notify();
+                        }
+                    }))
+                    .on_mouse_down(
+                        MouseButton::Left,
+                        cx.listener(move |this, _, window, cx| {
+                            this.selected_image = Some((start, id));
+                            this.focus.focus(window, cx);
+                            this.dragging = false;
+                            cx.stop_propagation();
+                            cx.notify();
+                        }),
+                    )
+                    .child(
+                        gpui::img(source)
+                            .w_full()
+                            .rounded(px(6.))
+                            .bg(colors.card)
+                            .object_fit(gpui::ObjectFit::Contain),
+                    )
+                    // `ring-1 ring-offset-2`: a 1px ring 2px outside the image.
+                    .when(hovered || selected, |view| {
+                        view.child(
+                            div()
+                                .absolute()
+                                .top(px(-3.))
+                                .left(px(-3.))
+                                .right(px(-3.))
+                                .bottom(px(-3.))
+                                .rounded(px(9.))
+                                .border_1()
+                                .border_color(if selected {
+                                    colors.foreground.opacity(0.55)
+                                } else {
+                                    colors.border
+                                }),
+                        )
+                    })
+                    .when(controls, |view| {
+                        view.child(handle(true, cx)).child(handle(false, cx))
+                    })
+                    .child(
+                        canvas(
+                            move |bounds, _, cx| {
+                                entity.update(cx, |this, _| {
+                                    this.image_widths.insert(id, bounds.size.width);
+                                })
+                            },
+                            |_, _, _, _| {},
+                        )
+                        .absolute()
+                        .size_full(),
+                    ),
+            )
+            .into_any_element()
+    }
+
     fn render_attachment(
         &mut self,
         node: &super::document::NodeRef,
         start: usize,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Option<gpui::AnyElement> {
         if !matches!(node.kind(), "image" | "fileAttachment") {
@@ -795,26 +1330,8 @@ impl EditorPane {
                 .and_then(serde_json::Value::as_str)
                 .filter(|src| clipboard::openable_link(src))
         {
-            return Some(
-                div()
-                    .my_1()
-                    .child(
-                        gpui::img(src.to_owned())
-                            .max_w_full()
-                            .max_h(px(360.))
-                            .when_some(
-                                node.attr("editorWidth").and_then(serde_json::Value::as_f64),
-                                |view, width| {
-                                    view.w(gpui::DefiniteLength::Fraction(
-                                        (width.clamp(10., 100.) / 100.) as f32,
-                                    ))
-                                },
-                            )
-                            .object_fit(gpui::ObjectFit::Contain),
-                    )
-                    .child(self.attachment_remove_control(start, node.id, cx))
-                    .into_any_element(),
-            );
+            let source = gpui::ImageSource::from(src.to_owned());
+            return Some(self.render_image(node, start, source, window, cx));
         }
         let id = node
             .attr("attachmentId")
@@ -849,6 +1366,10 @@ impl EditorPane {
             .detach();
         }
         match self.attachment_previews.get(&id) {
+            Some(Ok(preview)) if node.kind() == "image" && preview.mime.starts_with("image/") => {
+                let source = gpui::ImageSource::from(preview.path.as_ref().clone());
+                Some(self.render_image(node, start, source, window, cx))
+            }
             Some(Ok(preview)) => {
                 let path = preview.path.clone();
                 let image = preview.mime.starts_with("image/");
@@ -860,9 +1381,9 @@ impl EditorPane {
                         .border_1()
                         .px_3()
                         .py(px(10.))
-                        .when(node.kind() == "fileAttachment", |view| {
-                            view.flex().items_center().gap_3()
-                        })
+                        .flex()
+                        .items_center()
+                        .gap_3()
                         .cursor_pointer()
                         .on_mouse_down(
                             MouseButton::Left,
@@ -887,21 +1408,8 @@ impl EditorPane {
                         .when(image, |view| {
                             view.child(
                                 gpui::img(preview.path.as_ref().clone())
-                                    .max_h(px(if node.kind() == "image" { 360. } else { 40. }))
-                                    .max_w_full()
-                                    .when(node.kind() == "fileAttachment", |view| {
-                                        view.w(px(40.)).h(px(40.))
-                                    })
-                                    .when_some(
-                                        node.attr("editorWidth")
-                                            .and_then(serde_json::Value::as_f64)
-                                            .filter(|_| node.kind() == "image"),
-                                        |view, width| {
-                                            view.w(gpui::DefiniteLength::Fraction(
-                                                (width.clamp(10., 100.) / 100.) as f32,
-                                            ))
-                                        },
-                                    )
+                                    .w(px(40.))
+                                    .h(px(40.))
                                     .object_fit(gpui::ObjectFit::Contain),
                             )
                         })
@@ -1208,7 +1716,7 @@ impl EditorPane {
         let Some((node, start, style)) = surface::block_layout(&model.document, index) else {
             return div().into_any_element();
         };
-        if let Some(preview) = self.render_attachment(&node, start, cx) {
+        if let Some(preview) = self.render_attachment(&node, start, window, cx) {
             return preview;
         }
         let cached = self.projection.get(&node.id).cloned();
@@ -1294,6 +1802,7 @@ impl EditorPane {
                                     self.render_attachment(
                                         &span.node,
                                         start + row.start + span.position,
+                                        window,
                                         cx,
                                     )
                                 }) {
@@ -1317,7 +1826,12 @@ impl EditorPane {
                 .w_full()
                 .children(block.rows.iter().map(|row| {
                     if let Some(preview) = row.spans.first().and_then(|span| {
-                        self.render_attachment(&span.node, start + row.start + span.position, cx)
+                        self.render_attachment(
+                            &span.node,
+                            start + row.start + span.position,
+                            window,
+                            cx,
+                        )
                     }) {
                         preview
                     } else {
@@ -1537,6 +2051,11 @@ impl Focusable for EditorPane {
 
 impl Render for EditorPane {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        self.refresh_find();
+        if !cx.has_active_drag() {
+            self.drop_cursor = None;
+            self.drop_declined = false;
+        }
         self.caret.update(cx, |caret, cx| {
             caret.set_enabled(
                 !self.read_only
@@ -1764,9 +2283,36 @@ impl Render for EditorPane {
             .text_color(colors.foreground)
             .track_focus(&self.focus)
             .on_key_down(cx.listener(Self::key))
+            .on_drag_move(cx.listener(
+                |this, event: &gpui::DragMoveEvent<super::drop::SessionDrag>, _, cx| {
+                    this.drag_over(event.event.position, event.bounds, false, cx)
+                },
+            ))
+            .on_drag_move(cx.listener(
+                |this, event: &gpui::DragMoveEvent<gpui::ExternalPaths>, _, cx| {
+                    let declined = super::drop::note_audio_drop(event.drag(cx).paths());
+                    this.drag_over(event.event.position, event.bounds, declined, cx)
+                },
+            ))
+            .when(!self.read_only, |view| {
+                view.on_drop(
+                    cx.listener(|this, drag: &super::drop::SessionDrag, window, cx| {
+                        this.drop_session(drag, window, cx)
+                    }),
+                )
+            })
+            // A single audio file is left to the note, which takes it as the recording.
+            .when(!self.read_only && !self.drop_declined, |view| {
+                view.on_drop(
+                    cx.listener(|this, paths: &gpui::ExternalPaths, window, cx| {
+                        this.drop_files(paths.paths(), window, cx)
+                    }),
+                )
+            })
             .on_mouse_down(
                 MouseButton::Left,
                 cx.listener(|this, event: &gpui::MouseDownEvent, window, cx| {
+                    this.selected_image = None;
                     this.focus.focus(window, cx);
                     Caret::reset_entity(&this.caret, cx);
                     if let Some(position) = this.hit(event.position) {
@@ -2007,9 +2553,35 @@ impl Render for EditorPane {
                         canvas(
                             move |_, _, _| (),
                             move |bounds, (), window, cx| {
+                                let resize_entity = viewport_entity.clone();
                                 viewport_entity.update(cx, |this, cx| {
                                     this.viewport = Some(bounds);
                                     this.finish_reveal(window, cx);
+                                    this.finish_find_reveal(window, cx);
+                                    this.paint_drop_cursor(window);
+                                    // Shipping follows the pointer anywhere in the window
+                                    // until release.
+                                    if this.resize.is_some() {
+                                        let moved = resize_entity.clone();
+                                        window.on_mouse_event(
+                                            move |event: &gpui::MouseMoveEvent, phase, _, cx| {
+                                                if phase == gpui::DispatchPhase::Bubble {
+                                                    moved.update(cx, |this, cx| {
+                                                        this.resize_move(event.position.x, cx)
+                                                    });
+                                                }
+                                            },
+                                        );
+                                        window.on_mouse_event(
+                                            move |_: &gpui::MouseUpEvent, phase, _, cx| {
+                                                if phase == gpui::DispatchPhase::Bubble {
+                                                    resize_entity.update(cx, |this, cx| {
+                                                        this.resize_commit(cx)
+                                                    });
+                                                }
+                                            },
+                                        );
+                                    }
                                 });
                             },
                         )
@@ -2042,6 +2614,25 @@ impl Drop for EditorPane {
             cancel.cancel();
         }
     }
+}
+
+/// The node an imported attachment becomes: an image for images, otherwise a file card.
+fn attachment_node(
+    preview: &super::AttachmentPreview,
+) -> (&'static str, serde_json::Map<String, serde_json::Value>) {
+    let attrs = serde_json::json!({
+        "attachmentId": preview.id, "name": preview.name, "alt": preview.name,
+        "mimeType": preview.mime, "size": preview.size
+    })
+    .as_object()
+    .expect("attrs")
+    .clone();
+    let kind = if preview.mime.starts_with("image/") {
+        "image"
+    } else {
+        "fileAttachment"
+    };
+    (kind, attrs)
 }
 
 fn with_title(body: Arc<str>, title: Option<&str>) -> Arc<str> {

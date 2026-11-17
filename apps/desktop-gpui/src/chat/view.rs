@@ -793,8 +793,9 @@ impl ChatView {
             ),
             true => {
                 // Shipping's `hasContext`: the current note or a mention in the draft.
-                let context =
-                    self.context.is_some() || !self.composer.read(cx).context_refs().is_empty();
+                let context = self.context.is_some()
+                    || !self.dropped.is_empty()
+                    || !self.composer.read(cx).context_refs().is_empty();
                 let suggestions: Vec<(&'static str, &'static str, &'static str)> = if self
                     .live_meeting(cx)
                 {
@@ -885,7 +886,7 @@ impl ChatView {
                                 .text_color(colors.muted_foreground)
                                 .hover(|style| style.bg(colors.muted.opacity(0.55)))
                                 .on_click(cx.listener(move |this, _, _, cx| {
-                                    let refs = this.composer.read(cx).context_refs();
+                                    let refs = this.pending_refs(cx);
                                     this.submit(prompt.to_owned(), refs, cx)
                                 }))
                                 .child(
@@ -1644,6 +1645,11 @@ impl Render for ChatView {
             .when(right, |view| view.size_full())
             .when(!right, |view| view.max_h_full())
             .text_color(colors.card_foreground)
+            .on_drop(
+                cx.listener(|this, drag: &crate::editor::drop::SessionDrag, _, cx| {
+                    this.add_dropped_session(drag.id.clone(), cx)
+                }),
+            )
             .on_mouse_down(
                 MouseButton::Left,
                 cx.listener(|this, event: &gpui::MouseDownEvent, window, cx| {

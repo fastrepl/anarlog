@@ -687,6 +687,13 @@ impl LibraryView {
                     }),
                 )
             })
+            // Shipping's timeline items drag into chat (as context) and into notes (as a mention).
+            .when_some(session.clone(), |view, session| {
+                view.on_drag(
+                    crate::editor::drop::SessionDrag::new(session, &title),
+                    |drag, _, _, cx| cx.new(|_| drag.clone()),
+                )
+            })
             .when_some(event_ids, |view, event_ids| {
                 view.on_mouse_down(
                     gpui::MouseButton::Right,

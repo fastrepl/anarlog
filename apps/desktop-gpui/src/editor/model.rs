@@ -965,6 +965,22 @@ impl EditorModel {
         Ok(())
     }
 
+    /// The path of block atom `id` that starts at `position`, if it is still there.
+    pub fn atom_path(&self, position: usize, id: u64) -> Option<Vec<usize>> {
+        let mut node = self.document.root.clone();
+        let mut offset = position;
+        let mut path = Vec::new();
+        loop {
+            let (index, inner, child) = node.children.locate(offset)?;
+            path.push(index);
+            if inner == 0 && child.id == id {
+                return Some(path);
+            }
+            offset = inner.checked_sub(1)?;
+            node = child.clone();
+        }
+    }
+
     pub fn remove_block_atom(&mut self, position: usize, id: u64) -> EditResult<()> {
         self.ensure_editable()?;
         let mut node = self.document.root.clone();

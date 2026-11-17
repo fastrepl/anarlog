@@ -534,6 +534,8 @@ pub fn render_row(
         block_start,
     };
     let entity = cx.entity();
+    let find_entity = entity.clone();
+    let find_layout = visible.clone();
     let rule = row.kind == "horizontalRule";
     // Shipping's `note-title-editor > h1:first-child`: 1.5rem / 1.875rem with 1rem below.
     let font_size = if rule {
@@ -718,6 +720,21 @@ pub fn render_row(
                     .child(placeholder),
             )
         })
+        // Find matches paint before the text so they sit under it like shipping's highlights.
+        .child(
+            canvas(
+                move |_, _, _| (),
+                move |_, (), window, app| {
+                    if current && let Some(find) = &find_entity.read(app).find {
+                        paint_found(&find_layout, &find.matches, window);
+                    }
+                },
+            )
+            .absolute()
+            .size_full()
+            .top_0()
+            .left_0(),
+        )
         .child(text)
         .child(
             canvas(
@@ -750,6 +767,49 @@ pub fn render_row(
         .into_any_element()
 }
 
+/// The rectangles covering `start..end` (editor positions) on each wrapped line of `layout`.
+fn line_rects(layout: &VisibleLayout, start: usize, end: usize) -> Vec<Bounds<Pixels>> {
+    let point_at = |position: usize| {
+        layout
+            .row
+            .byte(position - layout.block_start)
+            .and_then(|byte| layout.layout.position_for_index(byte))
+    };
+    let (Some(a), Some(b)) = (point_at(start), point_at(end)) else {
+        return Vec::new();
+    };
+    let height = layout.layout.line_height();
+    let bounds = layout.layout.bounds();
+    let mut rects = Vec::new();
+    let mut y = a.y;
+    while y <= b.y {
+        let left = if y == a.y { a.x } else { bounds.left() };
+        let right = if y == b.y { b.x } else { bounds.right() };
+        rects.push(Bounds::new(
+            point(left, y),
+            size((right - left).max(px(1.)), height),
+        ));
+        y += height;
+    }
+    rects
+}
+
+/// Shipping's search match highlights for the matches on this row.
+fn paint_found(layout: &VisibleLayout, matches: &[Range<usize>], window: &mut Window) {
+    let row_start = layout.block_start + layout.row.start;
+    let row_end = layout.block_start + layout.row.position(layout.row.text.len());
+    let color = super::find::editor_match_color(crate::ui::theme::is_dark(window));
+    let first = matches.partition_point(|range| range.end <= row_start);
+    for range in &matches[first..] {
+        if range.start >= row_end {
+            break;
+        }
+        for rect in line_rects(layout, range.start.max(row_start), range.end.min(row_end)) {
+            window.paint_quad(fill(rect, color).corner_radii(px(2.)));
+        }
+    }
+}
+
 fn paint_selection(
     layout: &VisibleLayout,
     selection: Selection,
@@ -770,34 +830,14 @@ fn paint_selection(
     }
     let start = selection.start.max(row_start);
     let end = selection.end.min(row_end);
-    let Some(a) = layout
-        .row
-        .byte(start - layout.block_start)
-        .and_then(|byte| layout.layout.position_for_index(byte))
-    else {
-        return;
-    };
-    let Some(b) = layout
-        .row
-        .byte(end - layout.block_start)
-        .and_then(|byte| layout.layout.position_for_index(byte))
-    else {
-        return;
-    };
-    let height = layout.layout.line_height();
-    let bounds = layout.layout.bounds();
-    if selection.is_empty() {
-        window.paint_quad(fill(Bounds::new(a, size(px(1.), height)), caret_color));
-    } else {
-        let mut y = a.y;
-        while y <= b.y {
-            let left = if y == a.y { a.x } else { bounds.left() };
-            let right = if y == b.y { b.x } else { bounds.right() };
+    for rect in line_rects(layout, start, end) {
+        if selection.is_empty() {
             window.paint_quad(fill(
-                Bounds::new(point(left, y), size((right - left).max(px(1.)), height)),
-                selection_color.opacity(0.4),
+                Bounds::new(rect.origin, size(px(1.), rect.size.height)),
+                caret_color,
             ));
-            y += height;
+        } else {
+            window.paint_quad(fill(rect, selection_color.opacity(0.4)));
         }
     }
 }

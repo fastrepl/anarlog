@@ -34,6 +34,7 @@ use crate::{
         title::first_line_title,
         transcript::{TranscriptEvent, TranscriptView},
     },
+    editor::find::{FindBar, FindTarget},
     meeting::{
         MeetingServices,
         live::{LiveState, SessionMode},
@@ -113,6 +114,8 @@ pub struct NoteView {
     versions: versions::Versions,
     /// Shown in its own window, which has no "Open in New Window" and clears the traffic lights.
     standalone: bool,
+    /// Shipping's ⌘F / ⌘H find & replace bar over the shown tab.
+    find: Entity<FindBar>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -448,6 +451,7 @@ impl NoteView {
             pending_edits,
             versions: Default::default(),
             standalone: false,
+            find: cx.new(FindBar::new),
             _subscriptions: subscriptions,
         }
     }
@@ -727,6 +731,7 @@ impl NoteView {
     }
 
     pub fn show(&mut self, session: OpenSession, cx: &mut Context<Self>) {
+        self.find.update(cx, |find, cx| find.close(cx));
         self.content = None;
         self.menu = false;
         self.rename_pending = false;
@@ -1476,8 +1481,32 @@ impl NoteView {
     }
 
     fn select_tab(&mut self, tab: NoteTab, cx: &mut Context<Self>) {
+        if self.view.as_ref() != Some(&tab) {
+            self.find.update(cx, |find, cx| find.close(cx));
+        }
         self.view = Some(tab);
         cx.notify();
+    }
+
+    /// What the find bar searches on `tab`, and whether it may replace there.
+    fn find_target(&self, tab: &NoteTab) -> Option<(FindTarget, bool)> {
+        match tab {
+            NoteTab::Summary(id) => self
+                .summary_editor
+                .as_ref()
+                .filter(|(document, _, _)| &document.0 == id)
+                .map(|(_, editor, _)| (FindTarget::Editor(editor.downgrade()), true)),
+            NoteTab::Memos => self
+                .content
+                .clone()
+                .and_then(|content| content.downcast::<EditorPane>().ok())
+                .map(|editor| (FindTarget::Editor(editor.downgrade()), true)),
+            NoteTab::Transcript => self
+                .transcript
+                .as_ref()
+                .filter(|_| self.current.is_some())
+                .map(|view| (FindTarget::Transcript(view.downgrade()), false)),
+        }
     }
 
     fn summary_view(
@@ -2587,11 +2616,43 @@ impl Render for NoteView {
             ),
             (body, _) => body,
         };
+        let target = ready.then(|| self.find_target(&current)).flatten();
+        let searchable = target.is_some();
+        self.find.update(cx, |find, cx| {
+            let replace = target.as_ref().is_some_and(|(_, replace)| *replace);
+            find.set_target(target.map(|(target, _)| target), replace, cx)
+        });
+        let find_shown = searchable && self.find.read(cx).visible();
         div()
             .size_full()
             .relative()
             .flex()
             .flex_col()
+            .capture_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, window, cx| {
+                let modifiers = event.keystroke.modifiers;
+                let find = this.find.clone();
+                let tab = current_tab(
+                    this.view.as_ref(),
+                    this.mode == SessionMode::Active,
+                    &this.tabs(),
+                );
+                if this.current.is_none() || this.find_target(&tab).is_none() {
+                    return;
+                }
+                match event.keystroke.key.as_str() {
+                    "f" if modifiers.secondary(cx) && !modifiers.shift && !modifiers.alt => {
+                        find.update(cx, |find, cx| find.toggle(window, cx))
+                    }
+                    "h" if modifiers.secondary(cx) && !modifiers.shift && !modifiers.alt => {
+                        find.update(cx, |find, cx| find.toggle_replace(window, cx))
+                    }
+                    "escape" if find.read(cx).visible() => {
+                        find.update(cx, |find, cx| find.dismiss(window, cx))
+                    }
+                    _ => return,
+                }
+                cx.stop_propagation();
+            }))
             .on_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, window, cx| {
                 if event.keystroke.key == "escape"
                     && this.title.focus_handle(cx).is_focused(window)
@@ -2604,6 +2665,9 @@ impl Render for NoteView {
             }))
             .when(ready, |view| view.child(self.header(window, cx)))
             .when(ready, |view| view.child(self.pending_edits.clone()))
+            .when(find_shown, |view| {
+                view.child(div().px_3().pt_1().child(self.find.clone()))
+            })
             .when(self.loading, |view| view.child(loading_skeleton(colors)))
             .child(
                 canvas(

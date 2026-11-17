@@ -27,6 +27,7 @@ use gpui::{
 };
 use serde_json::{Value, json};
 
+use super::find::FindOptions;
 use crate::{
     meeting::{
         MeetingServices,
@@ -63,6 +64,10 @@ pub struct TranscriptView {
     /// Playback position in this session's audio, for the current-line highlight.
     playing_ms: Option<i64>,
     picker: Option<speakers::SpeakerPicker>,
+    /// The note's find query, its options and the current match.
+    find: Option<(String, FindOptions, usize)>,
+    /// The current match's row and word, resolved once per frame.
+    found_word: Option<(usize, usize)>,
     focus: FocusHandle,
     uploads: Entity<Uploads>,
     /// The Transcript tab's right-click menu, at its window position.
@@ -176,6 +181,8 @@ impl TranscriptView {
             hovered: None,
             playing_ms: None,
             picker: None,
+            find: None,
+            found_word: None,
             focus: cx.focus_handle(),
             uploads,
             tab_menu: None,
@@ -925,8 +932,121 @@ fn extend(order: &[String], anchor: &str, up: bool) -> Option<HashSet<String>> {
     Some(range.iter().cloned().collect())
 }
 
+/// Shipping's transcript search (`getTranscriptWordMatches`): each match belongs to a word,
+/// whose matching text shows on `bg-yellow-500` when current and `bg-yellow-200/50` otherwise.
+impl TranscriptView {
+    pub fn find(&mut self, query: &str, options: FindOptions, cx: &mut Context<Self>) {
+        let query = query.trim();
+        self.find = (!query.is_empty()).then(|| (query.to_owned(), options, 0));
+        self.reveal_found(cx);
+        cx.notify();
+    }
+
+    pub fn find_status(&self, cx: &App) -> (usize, usize) {
+        let count = self.found(cx).len();
+        let active = self.find.as_ref().map_or(0, |find| find.2);
+        (active.min(count.saturating_sub(1)), count)
+    }
+
+    pub fn find_step(&mut self, forward: bool, cx: &mut Context<Self>) {
+        let count = self.found(cx).len();
+        if let Some(find) = &mut self.find
+            && count > 0
+        {
+            find.2 = (find.2.min(count - 1) + if forward { 1 } else { count - 1 }) % count;
+            self.reveal_found(cx);
+            cx.notify();
+        }
+    }
+
+    /// Each match's row and word, in transcript order.
+    fn found(&self, cx: &App) -> Vec<(usize, usize)> {
+        let Some((query, options, _)) = &self.find else {
+            return Vec::new();
+        };
+        let live = self.live(cx);
+        let rows = merge(
+            &self.segments,
+            live.as_ref().map(|live| &live.segments[..]).unwrap_or(&[]),
+        );
+        let words: Vec<(usize, usize, &str)> = rows
+            .iter()
+            .enumerate()
+            .flat_map(|(row, segment)| {
+                segment
+                    .words
+                    .iter()
+                    .enumerate()
+                    .map(move |(word, value)| (row, word, value.text.trim()))
+            })
+            .collect();
+        let texts: Vec<&str> = words.iter().map(|(_, _, text)| *text).collect();
+        super::find::transcript_matches(&texts, query, *options)
+            .into_iter()
+            .map(|index| (words[index].0, words[index].1))
+            .collect()
+    }
+
+    fn reveal_found(&mut self, cx: &App) {
+        let active = self.find.as_ref().map_or(0, |find| find.2);
+        if let Some((row, _)) = self.found(cx).get(active) {
+            self.scroll
+                .scroll_to_item(row + usize::from(self.error.is_some()));
+        }
+    }
+
+    /// Lays the find highlights for row `index` over its other highlights.
+    fn found_highlights(
+        &self,
+        index: usize,
+        row: &Row,
+        ranges: &[Range<usize>],
+        text: &str,
+        highlights: Vec<(Range<usize>, HighlightStyle)>,
+    ) -> Vec<(Range<usize>, HighlightStyle)> {
+        let Some((query, options, _)) = &self.find else {
+            return highlights;
+        };
+        let found: Vec<_> = ranges
+            .iter()
+            .enumerate()
+            .take(row.words.len())
+            .flat_map(|(word, range)| {
+                let style = HighlightStyle {
+                    background_color: Some(super::find::transcript_match_color(
+                        self.found_word == Some((index, word)),
+                    )),
+                    ..Default::default()
+                };
+                super::find::highlight_ranges(&text[range.clone()], query, *options)
+                    .into_iter()
+                    .map(move |found| (range.start + found.start..range.start + found.end, style))
+            })
+            .collect();
+        if found.is_empty() {
+            return highlights;
+        }
+        gpui::combine_highlights(highlights, found.clone())
+            .map(|(range, mut style)| {
+                if let Some((_, found)) = found
+                    .iter()
+                    .find(|(found, _)| found.start <= range.start && range.end <= found.end)
+                {
+                    style.background_color = found.background_color;
+                }
+                (range, style)
+            })
+            .collect()
+    }
+}
 impl Render for TranscriptView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        self.found_word = self.find.as_ref().and_then(|find| {
+            let found = self.found(cx);
+            found
+                .get(find.2.min(found.len().saturating_sub(1)))
+                .copied()
+        });
         let colors = theme(window);
         let dark = colors.background.l < 0.5;
         let live = self.live(cx);
@@ -1313,6 +1433,7 @@ impl TranscriptView {
         let current = self.playing_ms.filter(|_| audio);
         let dark = colors.background.l < 0.5;
         let (text, highlights, ranges) = row_text(row, current, hovered, dark, colors.accent);
+        let highlights = self.found_highlights(index, row, &ranges, &text, highlights);
         let text = StyledText::new(text).with_highlights(highlights);
         if !audio || ranges.is_empty() {
             return text.into_any_element();

@@ -20,6 +20,17 @@ impl EditorPane {
         Caret::reset_entity(&self.caret, cx);
         let key = event.keystroke.key.as_str();
         let modifiers = event.keystroke.modifiers;
+        // A clicked image is node-selected: Backspace or Delete removes it, as in shipping.
+        if let Some((start, id)) = self.selected_image.take()
+            && matches!(key, "backspace" | "delete")
+            && let Some(model) = &mut self.model
+        {
+            let before = model.revision;
+            let result = model.remove_block_atom(start, id);
+            self.edited(before, result, cx);
+            cx.stop_propagation();
+            return;
+        }
         let document_boundary = (matches!(key, "home" | "end")
             && (modifiers.control || modifiers.platform))
             || (cfg!(target_os = "macos") && modifiers.platform && matches!(key, "up" | "down"));

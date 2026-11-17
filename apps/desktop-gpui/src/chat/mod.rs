@@ -109,6 +109,9 @@ pub struct ChatView {
     mode: ChatMode,
     route: Route,
     context: Option<SessionId>,
+    /// Notes dropped from the timeline, sent as context with the next message (shipping's
+    /// `pendingManualRefs`).
+    dropped: Vec<ContextRef>,
     group: Option<Arc<str>>,
     /// Shipping's chat `sessionId`: the group's id, or a fresh one for a new chat. Drafts and
     /// queued messages belong to it.
@@ -199,6 +202,7 @@ impl ChatView {
             mode: ChatMode::FloatingClosed,
             route: Route::Empty,
             context: None,
+            dropped: Vec::new(),
             group: None,
             draft_key: uuid::Uuid::new_v4().to_string(),
             drafts: Drafts::default(),
@@ -347,7 +351,31 @@ impl ChatView {
         });
     }
 
+    /// Shipping's `onAddContextEntity`: a note dropped on the chat joins the next message.
+    pub fn add_dropped_session(&mut self, session: SessionId, cx: &mut Context<Self>) {
+        let reference = ContextRef {
+            kind: MentionKind::Session,
+            id: session.0.to_string(),
+        };
+        if !self.dropped.contains(&reference) {
+            self.dropped.push(reference);
+            cx.notify();
+        }
+    }
+
+    /// The next message's context: dropped notes, then the draft's mentions.
+    fn pending_refs(&mut self, cx: &mut Context<Self>) -> Vec<ContextRef> {
+        let mut refs = std::mem::take(&mut self.dropped);
+        for reference in self.composer.read(cx).context_refs() {
+            if !refs.contains(&reference) {
+                refs.push(reference);
+            }
+        }
+        refs
+    }
+
     pub fn new_chat(&mut self, cx: &mut Context<Self>) {
+        self.dropped.clear();
         self.detach_run();
         self.group = None;
         self.entries.clear();
@@ -357,6 +385,7 @@ impl ChatView {
     }
 
     pub fn select_group(&mut self, group: Arc<str>, cx: &mut Context<Self>) {
+        self.dropped.clear();
         self.detach_run();
         self.history_open = false;
         self.group = Some(group.clone());
@@ -477,8 +506,8 @@ impl ChatView {
         if text.is_empty() || self.model_ready(cx) != Some(true) {
             return;
         }
-        let refs = composer.context_refs();
         let doc = composer.doc();
+        let refs = self.pending_refs(cx);
         self.sent.push(doc);
         self.composer.update(cx, |composer, cx| composer.clear(cx));
         self.submit(text, refs, cx);
@@ -1133,4 +1162,37 @@ fn system_prompt(
             parts: vec![Part::Text { text }],
         })
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use desktop_runtime::Profile;
+    use gpui::{AppContext, TestAppContext, WeakEntity};
+
+    use super::*;
+
+    #[gpui::test]
+    fn a_note_dropped_on_chat_rides_with_the_next_message_only(cx: &mut TestAppContext) {
+        cx.executor().allow_parking();
+        let directory = tempfile::tempdir().unwrap();
+        let (runtime, ready) = RuntimeHandle::start(Profile {
+            database: directory.path().join("library.sqlite"),
+        })
+        .unwrap();
+        futures::executor::block_on(ready.receive()).unwrap();
+        let chat = cx.new(|cx| ChatView::new(runtime, WeakEntity::new_invalid(), cx));
+        let session = |id: &str| ContextRef {
+            kind: MentionKind::Session,
+            id: id.into(),
+        };
+        chat.update(cx, |chat, cx| {
+            chat.add_dropped_session(SessionId("a".into()), cx);
+            chat.add_dropped_session(SessionId("a".into()), cx);
+            assert_eq!(chat.pending_refs(cx), [session("a")]);
+            assert!(chat.pending_refs(cx).is_empty());
+            chat.add_dropped_session(SessionId("b".into()), cx);
+            chat.new_chat(cx);
+            assert!(chat.pending_refs(cx).is_empty());
+        });
+    }
 }
