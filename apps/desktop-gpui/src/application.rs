@@ -630,6 +630,7 @@ impl ApplicationView {
             }
             Phase::Idle => {
                 if let Some(session) = self.capture_session.take() {
+                    lock::capture_ended(&session, cx);
                     crate::meeting::automation::capture_completed(cx);
                     self.workspace.update(cx, |workspace, cx| {
                         workspace.run_automations(
@@ -640,7 +641,11 @@ impl ApplicationView {
                     });
                 }
             }
-            Phase::Failed => self.capture_session = None,
+            Phase::Failed => {
+                if let Some(session) = self.capture_session.take() {
+                    lock::capture_ended(&session, cx);
+                }
+            }
         }
         self.schedule_capture_phase(cx);
     }

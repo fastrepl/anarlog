@@ -832,7 +832,7 @@ async fn read_due(runtime: &RuntimeHandle, event: &Arc<str>) -> Result<Option<Me
         .filter(|meeting| meeting.due(now_ms())))
 }
 
-/// The note may record automatically: still there and not locked.
+/// The note may record automatically: still there, and not locked unless revealed.
 async fn session_eligible(runtime: &RuntimeHandle, session: &SessionId) -> Result<bool> {
     let session = session.clone();
     let rows = runtime
@@ -840,9 +840,9 @@ async fn session_eligible(runtime: &RuntimeHandle, session: &SessionId) -> Resul
             services
                 .executor
                 .execute(
-                    "SELECT 1 FROM sessions WHERE id = ? AND deleted_at IS NULL AND locked = 0"
+                    "SELECT 1 FROM sessions WHERE id = ? AND deleted_at IS NULL AND (locked = 0 OR id IN (SELECT value FROM json_each(?)))"
                         .into(),
-                    vec![json!(session)],
+                    vec![json!(session), crate::meeting::access::param()],
                 )
                 .await
                 .map_err(failure)

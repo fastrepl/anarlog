@@ -358,8 +358,8 @@ async fn date_note(runtime: &RuntimeHandle, session: SessionId, source: PathBuf,
     };
     if let Ok(reply) = runtime.submit(move |services| async move {
         services.executor.execute(
-            "UPDATE sessions SET created_at = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ? AND deleted_at IS NULL AND locked = 0 AND trim(event_json) = ''".into(),
-            vec![json!(date), json!(session)],
+            "UPDATE sessions SET created_at = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ? AND deleted_at IS NULL AND (locked = 0 OR id IN (SELECT value FROM json_each(?))) AND trim(event_json) = ''".into(),
+            vec![json!(date), json!(session), super::access::param()],
         ).await.map_err(failure)?;
         Ok(())
     }) {
@@ -675,8 +675,8 @@ pub async fn import_subtitle(
             services.executor.execute_transaction(vec![statement(
                 "INSERT INTO transcripts (id, workspace_id, owner_user_id, session_id, source, provider, model, language, started_at_ms, ended_at_ms, audio_attachment_id, memo, words_json, speaker_hints_json, metadata_json, created_at, updated_at, deleted_at)
                  SELECT ?, session.workspace_id, session.owner_user_id, session.id, 'subtitle_import', '', '', '', ?, NULL, '', '', ?, '[]', '{}', ?, ?, NULL
-                 FROM sessions AS session WHERE session.id = ? AND session.deleted_at IS NULL AND session.locked = 0",
-                vec![json!(transcript), json!(now.timestamp_millis()), json!(words), json!(created_at), json!(created_at), json!(session)],
+                 FROM sessions AS session WHERE session.id = ? AND session.deleted_at IS NULL AND (session.locked = 0 OR session.id IN (SELECT value FROM json_each(?)))",
+                vec![json!(transcript), json!(now.timestamp_millis()), json!(words), json!(created_at), json!(created_at), json!(session), super::access::param()],
                 Some(1),
             )]).await.map_err(failure)?;
             Ok(count)

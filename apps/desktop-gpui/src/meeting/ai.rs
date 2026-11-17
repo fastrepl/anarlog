@@ -632,10 +632,10 @@ impl ChatSession {
             let mut rows = services.executor.execute("SELECT owner_user_id, workspace_id FROM chat_groups WHERE id = ? AND deleted_at IS NULL".into(), vec![json!(group)]).await.map_err(failure)?;
             let mut statements = Vec::new();
             if rows.is_empty() && group == session.0 {
-                rows = services.executor.execute("SELECT owner_user_id, workspace_id FROM sessions WHERE id = ? AND deleted_at IS NULL AND locked = 0".into(), vec![json!(session)]).await.map_err(failure)?;
+                rows = services.executor.execute("SELECT owner_user_id, workspace_id FROM sessions WHERE id = ? AND deleted_at IS NULL AND (locked = 0 OR id IN (SELECT value FROM json_each(?)))".into(), vec![json!(session), super::access::param()]).await.map_err(failure)?;
                 statements.push(statement(
-                    "INSERT OR IGNORE INTO chat_groups (id, owner_user_id, workspace_id, title) SELECT id, owner_user_id, workspace_id, title FROM sessions WHERE id = ? AND deleted_at IS NULL AND locked = 0",
-                    vec![json!(session)], Some(1)));
+                    "INSERT OR IGNORE INTO chat_groups (id, owner_user_id, workspace_id, title) SELECT id, owner_user_id, workspace_id, title FROM sessions WHERE id = ? AND deleted_at IS NULL AND (locked = 0 OR id IN (SELECT value FROM json_each(?)))",
+                    vec![json!(session), super::access::param()], Some(1)));
             }
             let row = rows.first().ok_or(ServiceError::Conflict)?;
             let owner = string(row, "owner_user_id")?;

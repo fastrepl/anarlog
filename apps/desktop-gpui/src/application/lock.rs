@@ -13,6 +13,7 @@ use gpui::{
 use serde_json::Value;
 
 use crate::{
+    meeting::{access, capture::Phase},
     platform::device_auth,
     product::settings,
     ui::theme::{MEDIUM, Theme, theme},
@@ -257,11 +258,44 @@ pub fn unlock_app(cx: &mut App) -> Task<bool> {
 }
 
 pub fn lock_app(cx: &mut App) {
+    let capturing = capturing(cx);
     update(cx, |lock| {
         lock.epoch += 1;
         lock.unlocked = false;
-        lock.revealed.clear();
+        for id in lock.revealed.drain() {
+            close_access(&id, capturing.as_ref());
+        }
     });
+}
+
+/// Shipping's capture keeps writing when its note locks, so that note stays open to meeting
+/// work until the capture ends.
+fn capturing(cx: &App) -> Option<SessionId> {
+    let update = cx
+        .try_global::<crate::meeting::MeetingServices>()?
+        .capture
+        .take_update(u64::MAX);
+    if matches!(
+        update.phase,
+        Phase::Loading | Phase::Listening | Phase::Finalizing
+    ) {
+        update.session
+    } else {
+        None
+    }
+}
+
+fn close_access(id: &SessionId, capturing: Option<&SessionId>) {
+    if capturing != Some(id) {
+        access::close(&id.0);
+    }
+}
+
+/// A finished capture's note closes to meeting work unless it is still revealed.
+pub fn capture_ended(id: &SessionId, cx: &App) {
+    if !read(cx, |lock| lock.revealed.contains(id)) {
+        access::close(&id.0);
+    }
 }
 
 /// `revealLockedNote`: shows a locked note until the app locks again.
@@ -273,6 +307,7 @@ pub fn reveal_note(id: SessionId, cx: &mut App) -> Task<bool> {
     authenticate_then(OPEN_APP, cx, move |lock, authenticated| {
         let revealed = authenticated && lock.epoch == epoch;
         if revealed {
+            access::open(&id.0);
             lock.revealed.insert(id);
         }
         revealed
@@ -281,13 +316,16 @@ pub fn reveal_note(id: SessionId, cx: &mut App) -> Task<bool> {
 
 /// Records a lock change before the watch reports it, so the note reacts at once.
 pub fn note_lock_changed(id: SessionId, locked: bool, cx: &mut App) {
+    let capturing = capturing(cx);
     update(cx, |lock| {
         let notes = lock.locked_notes.get_or_insert_default();
         if locked {
             notes.insert(id.clone());
             lock.revealed.remove(&id);
+            close_access(&id, capturing.as_ref());
         } else {
             notes.remove(&id);
+            access::open(&id.0);
             lock.revealed.insert(id);
         }
     });

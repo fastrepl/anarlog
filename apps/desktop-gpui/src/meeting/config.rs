@@ -352,8 +352,8 @@ impl ProviderServices {
     ) -> Result<(String, Vec<String>, Vec<String>)> {
         self.runtime.submit(move |services| async move {
             let rows = services.executor.execute(
-                "SELECT s.title, COALESCE(d.body, '') AS memo, COALESCE(d.body_format, 'prosemirror_json') AS body_format FROM sessions s LEFT JOIN session_documents d ON d.session_id = s.id AND d.kind = 'note' AND d.deleted_at IS NULL WHERE s.id = ? AND s.deleted_at IS NULL AND s.locked = 0 LIMIT 1".into(),
-                vec![json!(session)],
+                "SELECT s.title, COALESCE(d.body, '') AS memo, COALESCE(d.body_format, 'prosemirror_json') AS body_format FROM sessions s LEFT JOIN session_documents d ON d.session_id = s.id AND d.kind = 'note' AND d.deleted_at IS NULL WHERE s.id = ? AND s.deleted_at IS NULL AND (s.locked = 0 OR s.id IN (SELECT value FROM json_each(?))) LIMIT 1".into(),
+                vec![json!(session), super::access::param()],
             ).await.map_err(failure)?;
             let row = rows.first().ok_or_else(|| failure("Meeting is missing or locked."))?;
             let memo = super::context::markdown(row["memo"].as_str().unwrap_or_default(), row["body_format"].as_str().unwrap_or_default())?;

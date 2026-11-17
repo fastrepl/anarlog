@@ -973,7 +973,7 @@ async fn worker_flushes_corrections_and_runtime_shutdown_barrier() {
 }
 
 #[tokio::test]
-async fn locked_or_deleted_session_rejects_authoritative_transcript_writes() {
+async fn locked_sessions_accept_transcript_writes_only_once_revealed_and_deleted_ones_never() {
     let fixture = Fixture::new().await;
     fixture
         .sql(
@@ -998,6 +998,20 @@ async fn locked_or_deleted_session_rejects_authoritative_transcript_writes() {
             .await
             .is_empty()
     );
+    // Revealed for viewing, the locked note takes writes like shipping's.
+    super::access::open(&fixture.session.0);
+    let revealed = fixture
+        .store
+        .journal(
+            fixture.transcript.clone(),
+            "revealed".into(),
+            delta("a", "revealed", 0),
+        )
+        .unwrap()
+        .receive()
+        .await;
+    super::access::close(&fixture.session.0);
+    assert!(revealed.is_ok());
     fixture
         .sql(
             "UPDATE sessions SET locked = 0, deleted_at = 'deleted' WHERE id = ?",

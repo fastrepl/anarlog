@@ -196,7 +196,7 @@ async fn snapshot(
     request: SummaryRequest,
 ) -> Result<Snapshot> {
     runtime.submit(move |services| async move {
-        let rows = services.executor.execute("SELECT title, created_at, event_json, owner_user_id, workspace_id FROM sessions WHERE id = ? AND deleted_at IS NULL AND locked = 0".into(), vec![json!(session)]).await.map_err(failure)?;
+        let rows = services.executor.execute("SELECT title, created_at, event_json, owner_user_id, workspace_id FROM sessions WHERE id = ? AND deleted_at IS NULL AND (locked = 0 OR id IN (SELECT value FROM json_each(?)))".into(), vec![json!(session), super::access::param()]).await.map_err(failure)?;
         let row = rows.first().ok_or(ServiceError::Conflict)?;
         let title = string(row, "title")?.to_owned();
         let event: Value = serde_json::from_str(string(row, "event_json")?).unwrap_or(Value::Null);
@@ -250,8 +250,8 @@ async fn snapshot(
                 let id = uuid::Uuid::new_v4().to_string();
                 let body = json!({"type": "doc", "content": []}).to_string();
                 services.executor.execute_transaction(vec![statement(
-                    "INSERT INTO session_documents (id, session_id, workspace_id, kind, template_id, title, body_format, body) SELECT ?, id, workspace_id, ?, ?, ?, 'prosemirror_json', ? FROM sessions WHERE id = ? AND deleted_at IS NULL AND locked = 0",
-                    vec![json!(id), json!(kind), json!(template_id), json!(summary_title), json!(body), json!(session)], Some(1)),
+                    "INSERT INTO session_documents (id, session_id, workspace_id, kind, template_id, title, body_format, body) SELECT ?, id, workspace_id, ?, ?, ?, 'prosemirror_json', ? FROM sessions WHERE id = ? AND deleted_at IS NULL AND (locked = 0 OR id IN (SELECT value FROM json_each(?)))",
+                    vec![json!(id), json!(kind), json!(template_id), json!(summary_title), json!(body), json!(session), super::access::param()], Some(1)),
                 ]).await.map_err(failure)?;
                 let rows = services.executor.execute("SELECT id, session_id, body_format, body, updated_at FROM session_documents WHERE id = ?".into(), vec![json!(id)]).await.map_err(failure)?;
                 Some(document_snapshot(rows.first().ok_or(ServiceError::Conflict)?)?)

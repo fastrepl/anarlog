@@ -42,8 +42,8 @@ impl TranscriptStore {
     ) -> Result<Reply<SessionTranscript>> {
         self.0.read(cancel, move |services| async move {
             let rows = services.executor.execute(
-                "SELECT id FROM transcripts WHERE session_id = ? AND deleted_at IS NULL AND EXISTS (SELECT 1 FROM sessions WHERE id = transcripts.session_id AND deleted_at IS NULL AND locked = 0) ORDER BY started_at_ms, created_at, id".into(),
-                vec![json!(session)],
+                "SELECT id FROM transcripts WHERE session_id = ? AND deleted_at IS NULL AND EXISTS (SELECT 1 FROM sessions WHERE id = transcripts.session_id AND deleted_at IS NULL AND (locked = 0 OR id IN (SELECT value FROM json_each(?)))) ORDER BY started_at_ms, created_at, id".into(),
+                vec![json!(session), super::access::param()],
             ).await.map_err(failure)?;
             let mut transcripts = Vec::new();
             for row in rows {
@@ -178,12 +178,12 @@ impl TranscriptStore {
             if let Some(name) = new_name {
                 if name.trim().is_empty() || name.len() > 512 { return Err(failure("Enter a name up to 512 bytes.")); }
                 statements.push(statement(
-                    "INSERT INTO humans (id, workspace_id, owner_user_id, name) SELECT ?, workspace_id, owner_user_id, ? FROM sessions WHERE id = ? AND deleted_at IS NULL AND locked = 0",
-                    vec![json!(assignment.human_id), json!(name.trim()), json!(session)], Some(1)));
+                    "INSERT INTO humans (id, workspace_id, owner_user_id, name) SELECT ?, workspace_id, owner_user_id, ? FROM sessions WHERE id = ? AND deleted_at IS NULL AND (locked = 0 OR id IN (SELECT value FROM json_each(?)))",
+                    vec![json!(assignment.human_id), json!(name.trim()), json!(session), super::access::param()], Some(1)));
             }
             statements.push(statement(
-                "INSERT INTO session_participants (id, workspace_id, owner_user_id, session_id, human_id, display_name) SELECT ?, s.workspace_id, s.owner_user_id, s.id, h.id, h.name FROM sessions s JOIN humans h ON h.id = ? AND h.deleted_at IS NULL WHERE s.id = ? AND s.deleted_at IS NULL AND s.locked = 0 AND NOT EXISTS (SELECT 1 FROM session_participants p WHERE p.session_id = s.id AND p.human_id = h.id AND p.deleted_at IS NULL)",
-                vec![json!(uuid::Uuid::new_v4().to_string()), json!(assignment.human_id), json!(session)], None));
+                "INSERT INTO session_participants (id, workspace_id, owner_user_id, session_id, human_id, display_name) SELECT ?, s.workspace_id, s.owner_user_id, s.id, h.id, h.name FROM sessions s JOIN humans h ON h.id = ? AND h.deleted_at IS NULL WHERE s.id = ? AND s.deleted_at IS NULL AND (s.locked = 0 OR s.id IN (SELECT value FROM json_each(?))) AND NOT EXISTS (SELECT 1 FROM session_participants p WHERE p.session_id = s.id AND p.human_id = h.id AND p.deleted_at IS NULL)",
+                vec![json!(uuid::Uuid::new_v4().to_string()), json!(assignment.human_id), json!(session), super::access::param()], None));
             for row in rows {
                 let id: Arc<str> = string(&row, "id")?.into();
                 let mut snapshot = load(&services, id.clone()).await?;
@@ -312,8 +312,8 @@ pub(super) async fn journal(
         };
     }
     services.executor.execute_transaction(vec![
-        statement("INSERT OR IGNORE INTO transcript_live_state (transcript_id) SELECT t.id FROM transcripts t JOIN sessions s ON s.id = t.session_id WHERE t.id = ? AND t.deleted_at IS NULL AND s.deleted_at IS NULL AND s.locked = 0", vec![json!(id)], None),
-        statement("INSERT INTO transcript_live_deltas (id, transcript_id, sequence, delta_json) SELECT ?, l.transcript_id, l.next_sequence, ? FROM transcript_live_state l JOIN transcripts t ON t.id = l.transcript_id JOIN sessions s ON s.id = t.session_id WHERE l.transcript_id = ? AND t.deleted_at IS NULL AND s.deleted_at IS NULL AND s.locked = 0", vec![json!(operation), json!(encoded), json!(id)], Some(1)),
+        statement("INSERT OR IGNORE INTO transcript_live_state (transcript_id) SELECT t.id FROM transcripts t JOIN sessions s ON s.id = t.session_id WHERE t.id = ? AND t.deleted_at IS NULL AND s.deleted_at IS NULL AND (s.locked = 0 OR s.id IN (SELECT value FROM json_each(?)))", vec![json!(id), super::access::param()], None),
+        statement("INSERT INTO transcript_live_deltas (id, transcript_id, sequence, delta_json) SELECT ?, l.transcript_id, l.next_sequence, ? FROM transcript_live_state l JOIN transcripts t ON t.id = l.transcript_id JOIN sessions s ON s.id = t.session_id WHERE l.transcript_id = ? AND t.deleted_at IS NULL AND s.deleted_at IS NULL AND (s.locked = 0 OR s.id IN (SELECT value FROM json_each(?)))", vec![json!(operation), json!(encoded), json!(id), super::access::param()], Some(1)),
         statement("UPDATE transcript_live_state SET next_sequence = next_sequence + 1, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE transcript_id = ?", vec![json!(id)], Some(1)),
     ]).await.map_err(failure)?;
     Ok(())
@@ -321,8 +321,8 @@ pub(super) async fn journal(
 
 pub(super) async fn load(services: &Services, id: Arc<str>) -> Result<Transcript> {
     let rows = services.executor.execute(
-        "SELECT t.started_at_ms, t.content_revision, t.words_json, t.speaker_hints_json, COALESCE(l.next_sequence, 0) AS next_sequence FROM transcripts t LEFT JOIN transcript_live_state l ON l.transcript_id = t.id JOIN sessions s ON s.id = t.session_id WHERE t.id = ? AND t.deleted_at IS NULL AND s.deleted_at IS NULL AND s.locked = 0".into(),
-        vec![json!(id)],
+        "SELECT t.started_at_ms, t.content_revision, t.words_json, t.speaker_hints_json, COALESCE(l.next_sequence, 0) AS next_sequence FROM transcripts t LEFT JOIN transcript_live_state l ON l.transcript_id = t.id JOIN sessions s ON s.id = t.session_id WHERE t.id = ? AND t.deleted_at IS NULL AND s.deleted_at IS NULL AND (s.locked = 0 OR s.id IN (SELECT value FROM json_each(?)))".into(),
+        vec![json!(id), super::access::param()],
     ).await.map_err(failure)?;
     let row = rows.first().ok_or(ServiceError::Conflict)?;
     let words = string(row, "words_json")?;
@@ -386,13 +386,14 @@ fn save_statements(snapshot: &Transcript) -> Result<Vec<TransactionStatement>> {
     }
     Ok(vec![
         statement(
-            "UPDATE transcripts SET words_json = ?, speaker_hints_json = ?, content_revision = content_revision + 1, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ? AND content_revision = ? AND deleted_at IS NULL AND COALESCE((SELECT next_sequence FROM transcript_live_state WHERE transcript_id = transcripts.id), 0) = ? AND EXISTS (SELECT 1 FROM sessions WHERE id = transcripts.session_id AND deleted_at IS NULL AND locked = 0)",
+            "UPDATE transcripts SET words_json = ?, speaker_hints_json = ?, content_revision = content_revision + 1, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ? AND content_revision = ? AND deleted_at IS NULL AND COALESCE((SELECT next_sequence FROM transcript_live_state WHERE transcript_id = transcripts.id), 0) = ? AND EXISTS (SELECT 1 FROM sessions WHERE id = transcripts.session_id AND deleted_at IS NULL AND (locked = 0 OR id IN (SELECT value FROM json_each(?))))",
             vec![
                 json!(words),
                 json!(hints),
                 json!(snapshot.id),
                 json!(snapshot.revision),
                 json!(snapshot.sequence),
+                super::access::param(),
             ],
             Some(1),
         ),

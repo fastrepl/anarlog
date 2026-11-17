@@ -1,3 +1,4 @@
+pub mod access;
 pub mod ai;
 pub mod ai_view;
 pub mod automation;

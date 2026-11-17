@@ -845,7 +845,7 @@ async fn prepare(
     let memo = config.memo.clone();
     let retained = config.retention != Retention::Never;
     runtime.submit(move |services| async move {
-        let rows = services.executor.execute("SELECT owner_user_id, created_at FROM sessions WHERE id = ? AND deleted_at IS NULL AND locked = 0".into(), vec![json!(session)]).await.map_err(failure)?;
+        let rows = services.executor.execute("SELECT owner_user_id, created_at FROM sessions WHERE id = ? AND deleted_at IS NULL AND (locked = 0 OR id IN (SELECT value FROM json_each(?)))".into(), vec![json!(session), super::access::param()]).await.map_err(failure)?;
         let row = rows.first().ok_or(ServiceError::Conflict)?;
         let marker = json!({
             "version": 1, "chunkedAudio": true, "retainAudio": retained, "phase": "capturing",
@@ -855,8 +855,8 @@ async fn prepare(
             "memo": memo, "provider": provider, "model": model,
         });
         services.executor.execute_transaction(vec![
-            statement("INSERT INTO transcripts (id, session_id, owner_user_id, workspace_id, source, provider, model, started_at_ms, memo) SELECT ?, id, owner_user_id, workspace_id, 'live_capture', ?, ?, ?, ? FROM sessions WHERE id = ? AND deleted_at IS NULL AND locked = 0",
-                vec![json!(transcript), json!(provider), json!(model), json!(now), json!(memo), json!(session)], Some(1)),
+            statement("INSERT INTO transcripts (id, session_id, owner_user_id, workspace_id, source, provider, model, started_at_ms, memo) SELECT ?, id, owner_user_id, workspace_id, 'live_capture', ?, ?, ?, ? FROM sessions WHERE id = ? AND deleted_at IS NULL AND (locked = 0 OR id IN (SELECT value FROM json_each(?)))",
+                vec![json!(transcript), json!(provider), json!(model), json!(now), json!(memo), json!(session), super::access::param()], Some(1)),
             statement("INSERT INTO app_settings (id, value_json) VALUES (?, ?)",
                 vec![json!(format!("capture_lifecycle_pending:{}", session.0)), json!(marker.to_string())], Some(1)),
         ]).await.map_err(failure)?;
