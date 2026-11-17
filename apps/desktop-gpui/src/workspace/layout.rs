@@ -1,0 +1,443 @@
+use gpui::{Context, MouseButton, Render, SharedString, Window, canvas, div, prelude::*, px};
+
+use super::{
+    navigation::Route,
+    shell::{Navigate, WorkspaceAction, WorkspaceView},
+};
+use crate::ui::a11y::Accessible;
+use crate::ui::theme::{monospace_font, system_font, theme};
+
+impl WorkspaceView {
+    fn empty_action(
+        label: &'static str,
+        keys: &'static str,
+        action: impl Fn(&mut Self, &mut Context<Self>) + 'static,
+        window: &Window,
+        cx: &Context<Self>,
+    ) -> gpui::Stateful<gpui::Div> {
+        let colors = theme(window);
+        let modifier = if cfg!(target_os = "macos") {
+            "⌘"
+        } else {
+            "Ctrl"
+        };
+        // Shipping's `--kbd-shadow-*` tokens, light and dark.
+        let (outer, inset, outer_hover) = if crate::ui::theme::is_dark(window) {
+            (0.35, 0.08, 0.5)
+        } else {
+            (0.1, 0.8, 0.15)
+        };
+        let kbd_shadow = |offset: f32, outer: f32| {
+            vec![
+                gpui::BoxShadow::new(px(0.), px(offset), gpui::black().opacity(outer)),
+                gpui::BoxShadow {
+                    inset: true,
+                    ..gpui::BoxShadow::new(px(0.), px(1.), gpui::white().opacity(inset))
+                },
+            ]
+        };
+        let group = SharedString::from(format!("empty-action:{label}"));
+        div()
+            .id(label)
+            .a11y_button(label)
+            .aria_keyshortcuts(format!("{modifier} {keys}"))
+            .group(group.clone())
+            .flex()
+            .items_center()
+            .justify_between()
+            .gap_8()
+            .px_4()
+            .py_2()
+            .text_sm()
+            .line_height(px(20.))
+            .text_color(colors.foreground)
+            .cursor_pointer()
+            .hover(|style| style.bg(colors.accent))
+            .on_click(cx.listener(move |this, _, _, cx| action(this, cx)))
+            .child(label)
+            .child(
+                div()
+                    .id("keys")
+                    .relative()
+                    .h(px(20.))
+                    .min_w(px(20.))
+                    .px_1()
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .border_1()
+                    .border_color(colors.border)
+                    .bg(colors.muted)
+                    .text_color(colors.muted_foreground)
+                    .font_family(monospace_font(cx))
+                    .text_xs()
+                    .line_height(px(12.))
+                    .font_weight(crate::ui::theme::MEDIUM)
+                    .shadow(kbd_shadow(1., outer))
+                    // The key lifts while its row is hovered and presses in while clicked.
+                    .group_hover(group.clone(), move |style| {
+                        style.top(px(-2.)).shadow(kbd_shadow(2., outer_hover))
+                    })
+                    .group_active(group, |style| style.top(px(2.)).shadow(vec![]))
+                    .child(format!("{modifier} {keys}")),
+            )
+    }
+}
+
+impl WorkspaceView {
+    /// Shipping's `DestructiveConfirmationDialog` for deleting a multi-selection.
+    fn delete_confirmation(
+        &self,
+        count: usize,
+        window: &Window,
+        cx: &mut Context<Self>,
+    ) -> gpui::AnyElement {
+        use super::resource_list::{dialog_button, glass_dialog};
+        let colors = theme(window);
+        let title = if count == 1 {
+            "Delete 1 selected note?".to_owned()
+        } else {
+            format!("Delete {count} selected notes?")
+        };
+        glass_dialog(colors)
+            .a11y_dialog(title.clone())
+            .on_mouse_down_out(cx.listener(|this, _, _, cx| this.close_delete_confirmation(cx)))
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .items_center()
+                    .gap_2()
+                    .text_center()
+                    .text_size(px(13.))
+                    .child(
+                        div()
+                            .line_height(px(20.))
+                            .font_weight(gpui::FontWeight::SEMIBOLD)
+                            .child(title),
+                    )
+                    .child(
+                        div()
+                            .id("delete-description")
+                            .a11y_text("You can undo this action for a short time.")
+                            .w_full()
+                            .line_height(px(17.7))
+                            .child("You can undo this action for a short time."),
+                    ),
+            )
+            .child(
+                div()
+                    .grid()
+                    .grid_cols(2)
+                    .gap_2()
+                    .child(
+                        dialog_button("dialog-cancel", "Cancel", false, colors).on_click(
+                            cx.listener(|this, _, _, cx| this.close_delete_confirmation(cx)),
+                        ),
+                    )
+                    .child(
+                        dialog_button("dialog-confirm", "Delete", true, colors).on_click(
+                            cx.listener(|this, _, _, cx| this.confirm_delete_selected(cx)),
+                        ),
+                    ),
+            )
+            .into_any_element()
+    }
+}
+impl WorkspaceView {
+    fn edit_review(
+        &mut self,
+        id: std::sync::Arc<str>,
+        cx: &mut Context<Self>,
+    ) -> gpui::Entity<super::edit_review::EditReview> {
+        if let Some(review) = self
+            .edit_review
+            .as_ref()
+            .filter(|review| review.read(cx).id == id)
+        {
+            return review.clone();
+        }
+        let (runtime, workspace) = (self.runtime.clone(), cx.weak_entity());
+        let review = cx.new(|cx| super::edit_review::EditReview::new(id, runtime, workspace, cx));
+        self.edit_review = Some(review.clone());
+        review
+    }
+}
+impl Render for WorkspaceView {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let colors = theme(window);
+        let route = self
+            .navigation
+            .current()
+            .map(|tab| tab.route.clone())
+            .unwrap_or(Route::Empty);
+        let layout_route = route.clone();
+        let layout_sidebar = self.sidebar.clone();
+        let chat_width = crate::chat::reserved_width(&self.chat, window, cx);
+        let entity = cx.entity().downgrade();
+        let resource_nav = match route {
+            Route::Templates => Some(
+                self.templates
+                    .update(cx, |templates, cx| templates.render_nav(window, cx)),
+            ),
+            Route::Folders | Route::Folder(_) => Some(
+                self.folders
+                    .update(cx, |folders, cx| folders.render_nav(window, cx)),
+            ),
+            Route::Automations => Some(
+                self.automations
+                    .update(cx, |automations, cx| automations.render_nav(window, cx)),
+            ),
+            _ => None,
+        };
+        let contacts = self.contacts.clone().filter(|_| route.contacts());
+        // Shipping keeps the chrome row clear of the traffic lights at any zoom.
+        let sidebar_width = self
+            .sidebar
+            .width()
+            .max(f32::from(crate::zoom::sidebar_min_width(cx)));
+        let sidebar = if route == Route::Calendar {
+            div()
+                .w(px(sidebar_width))
+                .h_full()
+                .flex_shrink_0()
+                .child(self.calendar_sidebar.clone())
+        } else if let Some(nav) = resource_nav {
+            // Shipping's custom sidebars end in a 4px gutter (`pr-1`); the row gap supplies it.
+            div()
+                .w(px(sidebar_width - 4.))
+                .h_full()
+                .flex_shrink_0()
+                .child(nav)
+        } else if let Some(contacts) = &contacts {
+            let list = contacts.read(cx).list();
+            list.update(cx, |list, cx| list.set_width(sidebar_width, cx));
+            div()
+                .w(px(sidebar_width))
+                .h_full()
+                .flex_shrink_0()
+                .child(list)
+        } else {
+            div()
+                .w(px(sidebar_width))
+                .h_full()
+                .flex_shrink_0()
+                .flex()
+                .flex_col()
+                .gap_1()
+                .child(self.sidebar_header(window, cx))
+                .child(
+                    div()
+                        .flex_1()
+                        .min_h_0()
+                        .w_full()
+                        .child(self.library.clone()),
+                )
+        };
+        let surface = div()
+            .flex_1()
+            .min_w_0()
+            .h_full()
+            .flex()
+            .flex_col()
+            .on_mouse_down(
+                MouseButton::Left,
+                cx.listener(|this, _, _, cx| {
+                    this.library
+                        .update(cx, |library, cx| library.clear_selection(cx));
+                }),
+            )
+            .overflow_hidden()
+            .bg(colors.card)
+            // Shipping's "left" surface chrome: left border only.
+            .when(self.sidebar.expanded, |surface| {
+                surface.border_l_1().border_color(colors.border)
+            })
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .flex_1()
+                    .min_h_0()
+                    .when_some(
+                        self.route_content
+                            .as_ref()
+                            .filter(|(target, _)| target == &route)
+                            .map(|(_, view)| view.clone()),
+                        |view, content| view.child(content),
+                    )
+                    .when(self.route_content.is_none(), |view| match &route {
+                        _ if contacts.is_some() => view.child(contacts.clone().unwrap()),
+                        Route::Session(_) => {
+                            let expanded = self.sidebar.expanded;
+                            self.note
+                                .update(cx, |note, _| note.set_sidebar_expanded(expanded));
+                            view.child(self.note.clone())
+                        }
+                        Route::Calendar => view.child(self.calendar.clone()),
+                        Route::Templates => view.child(self.templates.clone()),
+                        Route::Folders | Route::Folder(_) => view.child(self.folders.clone()),
+                        Route::Automations => view.child(self.automations.clone()),
+                        // Shipping renders nothing for a daily summary tab.
+                        Route::DailySummary(_) => view,
+                        Route::Edit(id) => view.child(self.edit_review(id.clone(), cx)),
+                        Route::Changelog => view.child(self.changelog(window, cx)),
+                        Route::Empty => view.child(
+                            div()
+                                .size_full()
+                                .flex()
+                                .flex_col()
+                                .items_center()
+                                .justify_center()
+                                .child(
+                                    div()
+                                        .min_w(px(280.))
+                                        .flex()
+                                        .flex_col()
+                                        .gap_1()
+                                        .child(Self::empty_action(
+                                            "New Note",
+                                            "N",
+                                            |this, cx| this.create(false, cx),
+                                            window,
+                                            cx,
+                                        ))
+                                        .child(Self::empty_action(
+                                            "Start Recording",
+                                            "⇧ N",
+                                            |this, cx| this.create(true, cx),
+                                            window,
+                                            cx,
+                                        ))
+                                        .child(div().my_1().h(px(1.)).bg(colors.accent))
+                                        .child(Self::empty_action(
+                                            "Settings",
+                                            ",",
+                                            |this, cx| {
+                                                this.navigate(
+                                                    Navigate::Open(Route::settings("app"), false),
+                                                    cx,
+                                                )
+                                            },
+                                            window,
+                                            cx,
+                                        )),
+                                ),
+                        ),
+                        _ => view.child(div().p_6().text_sm().child(format!(
+                            "{} content has not been connected to the workspace.",
+                            route.label()
+                        ))),
+                    }),
+            )
+            .children(crate::chat::overlay(&self.chat, &route, window, cx));
+        div()
+            .id("workspace")
+            .size_full()
+            .relative()
+            .flex()
+            .when(self.sidebar.expanded, |view| view.pl(px(4.)))
+            .gap(px(4.))
+            .overflow_hidden()
+            .font_family(system_font(cx))
+            .text_color(colors.foreground)
+            .bg(colors.background)
+            .track_focus(&self.focus)
+            .capture_key_down(cx.listener(Self::shortcuts))
+            .on_key_down(cx.listener(Self::dismiss_overlay))
+            .on_mouse_move(cx.listener(|this, event: &gpui::MouseMoveEvent, _, cx| {
+                if event.pressed_button != Some(MouseButton::Left) {
+                    this.resizing = false;
+                } else if this.resizing {
+                    this.sidebar.resize(f32::from(event.position.x) - 4.);
+                    cx.notify();
+                }
+            }))
+            .on_mouse_up(
+                MouseButton::Left,
+                cx.listener(|this, _, _, _| this.resizing = false),
+            )
+            .on_mouse_up_out(
+                MouseButton::Left,
+                cx.listener(|this, _, _, _| this.resizing = false),
+            )
+            .when(self.sidebar.expanded, |view| {
+                view.child(sidebar).when(self.sidebar.can_resize(), |view| {
+                    view.child(
+                        div()
+                            .id("sidebar-resizer")
+                            .absolute()
+                            .left(px(sidebar_width + 4.))
+                            .w(px(4.))
+                            .h_full()
+                            .cursor_col_resize()
+                            .on_mouse_down(
+                                MouseButton::Left,
+                                cx.listener(|this, _, _, cx| {
+                                    this.resizing = true;
+                                    cx.stop_propagation();
+                                }),
+                            ),
+                    )
+                })
+            })
+            .child(surface)
+            .children(crate::chat::right_panel(&self.chat, window, cx))
+            .when(!self.sidebar.expanded, |view| {
+                view.child(self.collapsed_sidebar_chrome(window, cx))
+            })
+            .child(
+                canvas(
+                    move |bounds, window, cx| {
+                        // The chat right panel takes its width from the note surface.
+                        let width = f32::from(bounds.size.width) - chat_width;
+                        let mut sidebar = layout_sidebar.clone();
+                        sidebar.layout(width, &layout_route);
+                        if sidebar != layout_sidebar {
+                            window.defer(cx, move |window, cx| {
+                                let _ = entity.update(cx, |this, cx| {
+                                    let route = this
+                                        .navigation
+                                        .current()
+                                        .map(|tab| tab.route.clone())
+                                        .unwrap_or(Route::Empty);
+                                    let old_width = this.sidebar.width();
+                                    let was_expanded = this.sidebar.expanded;
+                                    if let Some(expansion) = this.sidebar.layout(width, &route) {
+                                        let mut size = window.viewport_size();
+                                        size.width += px(expansion);
+                                        window.resize(size);
+                                    }
+                                    if was_expanded != this.sidebar.expanded {
+                                        this.resizing = false;
+                                        cx.emit(WorkspaceAction::SidebarChanged);
+                                    }
+                                    if old_width != this.sidebar.width()
+                                        || was_expanded != this.sidebar.expanded
+                                    {
+                                        cx.notify();
+                                    }
+                                });
+                            });
+                        }
+                    },
+                    |_, (), _, _| {},
+                )
+                .absolute()
+                .size_full(),
+            )
+            .when_some(
+                self.confirm_delete.as_ref().map(|ids| ids.len()),
+                |view, count| {
+                    view.child(super::resource_list::modal(
+                        window,
+                        self.delete_confirmation(count, window, cx),
+                    ))
+                },
+            )
+            // Deferred so the dialog's backdrop also covers application toasts, like shipping's.
+            .when(self.picker_open, |view| {
+                view.child(gpui::deferred(self.picker.clone()))
+            })
+    }
+}

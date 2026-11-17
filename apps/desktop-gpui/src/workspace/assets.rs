@@ -1,0 +1,167 @@
+use std::borrow::Cow;
+
+use gpui::{AssetSource, SharedString};
+
+pub struct Assets;
+
+const ICONS: &[(&str, &[u8])] = &[
+    (
+        "ArrowLeft02Icon",
+        include_bytes!("icons/ArrowLeft02Icon.svg"),
+    ),
+    (
+        "ArrowRight02Icon",
+        include_bytes!("icons/ArrowRight02Icon.svg"),
+    ),
+    (
+        "SidebarLeftIcon",
+        include_bytes!("icons/SidebarLeftIcon.svg"),
+    ),
+    ("PinIcon", include_bytes!("icons/PinIcon.svg")),
+    ("UsersIcon", include_bytes!("icons/UsersIcon.svg")),
+    ("Folder01Icon", include_bytes!("icons/Folder01Icon.svg")),
+    ("Calendar03Icon", include_bytes!("icons/Calendar03Icon.svg")),
+    ("ZapIcon", include_bytes!("icons/ZapIcon.svg")),
+    ("FileTextIcon", include_bytes!("icons/FileTextIcon.svg")),
+    (
+        "ViewSidebarLeftIcon",
+        include_bytes!("icons/ViewSidebarLeftIcon.svg"),
+    ),
+    ("Calendar04Icon", include_bytes!("icons/Calendar04Icon.svg")),
+    ("FilterIcon", include_bytes!("icons/FilterIcon.svg")),
+    (
+        "FilterIconFilled",
+        include_bytes!("icons/FilterIconFilled.svg"),
+    ),
+    ("CheckIcon", include_bytes!("icons/CheckIcon.svg")),
+    (
+        "ArrowRight01Icon",
+        include_bytes!("icons/ArrowRight01Icon.svg"),
+    ),
+    ("ArrowUp02Icon", include_bytes!("icons/ArrowUp02Icon.svg")),
+    (
+        "ArrowUp02IconBold",
+        include_bytes!("icons/ArrowUp02IconBold.svg"),
+    ),
+    (
+        "ArrowDown02Icon",
+        include_bytes!("icons/ArrowDown02Icon.svg"),
+    ),
+    ("Sun01Icon", include_bytes!("icons/Sun01Icon.svg")),
+    ("SortByUp01Icon", include_bytes!("icons/SortByUp01Icon.svg")),
+    (
+        "SortDescendingIcon",
+        include_bytes!("icons/SortDescendingIcon.svg"),
+    ),
+    ("RefreshIcon", include_bytes!("icons/RefreshIcon.svg")),
+    (
+        "ArrowLeft01Icon",
+        include_bytes!("icons/ArrowLeft01Icon.svg"),
+    ),
+    ("PlusIcon", include_bytes!("icons/PlusIcon.svg")),
+    (
+        "MoreHorizontalIcon",
+        include_bytes!("icons/MoreHorizontalIcon.svg"),
+    ),
+    (
+        "CalendarOffIcon",
+        include_bytes!("icons/CalendarOffIcon.svg"),
+    ),
+    ("MapPinIcon", include_bytes!("icons/MapPinIcon.svg")),
+    ("Video01Icon", include_bytes!("icons/Video01Icon.svg")),
+    ("GoogleCalendar", include_bytes!("icons/GoogleCalendar.svg")),
+    ("OutlookIcon", include_bytes!("icons/OutlookIcon.svg")),
+    ("RepeatIcon", include_bytes!("icons/RepeatIcon.svg")),
+    ("PencilIcon", include_bytes!("icons/PencilIcon.svg")),
+    (
+        "ArrowTurnBackwardIcon",
+        include_bytes!("icons/ArrowTurnBackwardIcon.svg"),
+    ),
+];
+
+const IMAGES: &[(&str, &[u8])] = &[(
+    "AppleCalendar.png",
+    include_bytes!("icons/AppleCalendar.png"),
+)];
+
+impl AssetSource for Assets {
+    fn load(&self, path: &str) -> anyhow::Result<Option<Cow<'static, [u8]>>> {
+        if let Some(name) = path
+            .strip_prefix("workspace/")
+            .and_then(|p| p.strip_suffix(".svg"))
+            && let Some((_, bytes)) = ICONS.iter().find(|(key, _)| *key == name)
+        {
+            return Ok(Some(Cow::Borrowed(bytes)));
+        }
+        if let Some(name) = path.strip_prefix("workspace/")
+            && let Some((_, bytes)) = IMAGES.iter().find(|(key, _)| *key == name)
+        {
+            return Ok(Some(Cow::Borrowed(bytes)));
+        }
+        if let Some(bytes) = super::catalog_icons::load(path) {
+            return Ok(Some(Cow::Borrowed(bytes)));
+        }
+        if let Some(bytes) = super::contacts::assets::load(path) {
+            return Ok(Some(Cow::Borrowed(bytes)));
+        }
+        if let Some(bytes) = super::automations::assets::load(path) {
+            return Ok(Some(Cow::Borrowed(bytes)));
+        }
+        if let Some(bytes) = crate::chat::assets::load(path) {
+            return Ok(Some(Cow::Borrowed(bytes)));
+        }
+        if let Some(bytes) = crate::editor::icons::load(path) {
+            return Ok(Some(Cow::Borrowed(bytes)));
+        }
+        if let Some(bytes) = crate::meeting::icons::load(path) {
+            return Ok(Some(Cow::Borrowed(bytes)));
+        }
+        crate::ui::assets::Assets.load(path)
+    }
+
+    fn list(&self, path: &str) -> anyhow::Result<Vec<SharedString>> {
+        let mut paths = crate::ui::assets::Assets.list(path)?;
+        paths.extend(
+            ICONS
+                .iter()
+                .map(|(name, _)| format!("workspace/{name}.svg").into()),
+        );
+        paths.extend(
+            IMAGES
+                .iter()
+                .map(|(name, _)| format!("workspace/{name}").into()),
+        );
+        paths.extend(
+            crate::chat::assets::ICONS
+                .iter()
+                .map(|(name, _)| format!("chat/{name}.svg").into()),
+        );
+        paths.extend(crate::editor::icons::paths().map(Into::into));
+        paths.extend(crate::meeting::icons::paths().map(Into::into));
+        paths.extend(super::catalog_icons::paths().map(Into::into));
+        paths.extend(
+            super::contacts::assets::ICONS
+                .iter()
+                .map(|(name, _)| format!("contacts/{name}.svg").into()),
+        );
+        Ok(paths)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn embedded_source_icons_and_existing_assets_are_resolvable() {
+        for path in Assets.list("").unwrap() {
+            let bytes = Assets.load(path.as_ref()).unwrap().unwrap();
+            if path.ends_with(".png") {
+                assert!(bytes.starts_with(b"\x89PNG"));
+            } else {
+                assert!(std::str::from_utf8(&bytes).unwrap().contains("<svg"));
+            }
+        }
+        assert!(Assets.load("workspace/missing.svg").unwrap().is_none());
+    }
+}

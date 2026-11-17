@@ -1,0 +1,5 @@
+# Upstream GPUI needs a newer compiler than the repository toolchain. This matches
+# zed-industries/zed at the revision pinned in Cargo.toml; run cargo from this directory.
+[toolchain]
+channel = "1.98.1"
+components = ["rustfmt", "clippy"]

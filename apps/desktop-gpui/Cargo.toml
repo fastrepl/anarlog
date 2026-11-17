@@ -1,0 +1,224 @@
+[package]
+name = "desktop-gpui"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+# Upstream GPUI needs a newer toolchain than the repository workspace, so the native app
+# keeps its own workspace and lockfile. Shared crates are path dependencies.
+[workspace]
+members = [".", "runtime"]
+
+[workspace.dependencies]
+anlg-agent-access = { path = "../../crates/agent-access", package = "agent-access" }
+anlg-am = { path = "../../crates/am", package = "am" }
+anlg-api-client = { path = "../../crates/api-client", package = "api-client" }
+anlg-apple-calendar = { path = "../../crates/apple-calendar", package = "apple-calendar" }
+anlg-audio = { path = "../../crates/audio", package = "audio" }
+anlg-audio-actual = { path = "../../crates/audio-actual", package = "audio-actual" }
+anlg-audio-mock = { path = "../../crates/audio-mock", package = "audio-mock" }
+anlg-audio-utils = { path = "../../crates/audio-utils", package = "audio-utils" }
+anlg-calendar = { path = "../../crates/calendar", package = "calendar" }
+anlg-calendar-interface = { path = "../../crates/calendar-interface", package = "calendar-interface" }
+anlg-db-app = { path = "../../crates/db-app", package = "db-app" }
+anlg-db-core = { path = "../../crates/db-core", package = "db-core" }
+anlg-db-execute = { path = "../../crates/db-execute", package = "db-execute" }
+anlg-db-reactive = { path = "../../crates/db-reactive", package = "db-reactive" }
+anlg-db-sync = { path = "../../crates/db-sync", package = "db-sync" }
+anlg-detect = { path = "../../crates/detect", package = "detect" }
+anlg-dictation-ui-macos = { path = "../../crates/dictation-ui-macos", package = "dictation-ui-macos" }
+anlg-e2ee = { path = "../../crates/e2ee", package = "e2ee" }
+anlg-export-core = { path = "../../crates/export-core", package = "export-core" }
+anlg-fs-sync-core = { path = "../../crates/fs-sync-core", package = "fs-sync-core" }
+anlg-language = { path = "../../crates/language", package = "language" }
+anlg-listener-core = { path = "../../crates/listener-core", package = "listener-core" }
+anlg-listener2-core = { path = "../../crates/listener2-core", package = "listener2-core" }
+anlg-local-llm-core = { path = "../../crates/local-llm-core", package = "local-llm-core" }
+anlg-local-model = { path = "../../crates/local-model", package = "local-model" }
+anlg-local-stt-core = { path = "../../crates/local-stt-core", package = "local-stt-core" }
+anlg-meeting-import = { path = "../../crates/meeting-import", package = "meeting-import" }
+anlg-model-downloader = { path = "../../crates/model-downloader", package = "model-downloader" }
+anlg-notification-interface = { path = "../../crates/notification-interface", package = "notification-interface" }
+anlg-session-ingest = { path = "../../crates/session-ingest", package = "session-ingest" }
+anlg-shortcut-macos = { path = "../../crates/shortcut-macos", package = "shortcut-macos" }
+anlg-storage = { path = "../../crates/storage", package = "storage" }
+anlg-supabase-auth = { path = "../../crates/supabase-auth", package = "supabase-auth" }
+anlg-template-app = { path = "../../crates/template-app", package = "template-app" }
+anlg-tiptap = { path = "../../crates/tiptap", package = "tiptap" }
+anlg-transcribe-soniqo = { path = "../../crates/transcribe-soniqo", package = "transcribe-soniqo" }
+anlg-transcribe-speechanalyzer = { path = "../../crates/transcribe-speechanalyzer", package = "transcribe-speechanalyzer" }
+anlg-transcript = { path = "../../crates/transcript", package = "transcript" }
+anyhow = "1"
+base64 = "0.22.1"
+block2 = "0.6"
+chrono = "0.4"
+chrono-tz = "0.10"
+hound = "3.5.1"
+image = { version = "0.25.10", default-features = false, features = ["webp"] }
+keyring = "4.1.4"
+objc2 = "0.6"
+objc2-av-foundation = "0.3.2"
+owhisper-client = { path = "../../crates/owhisper-client", package = "owhisper-client" }
+owhisper-interface = { path = "../../crates/owhisper-interface", package = "owhisper-interface" }
+ractor = "0.15.10"
+regex = "1.12"
+reqwest = "0.13"
+rodio = { version = "0.22", features = ["tracing"] }
+serde = "1"
+serde_json = "1"
+serde_qs = "1"
+sha2 = "0.11"
+sqlx = { version = "=0.9.0-alpha.1", default-features = false }
+swift-rs = { git = "https://github.com/Brendonovich/swift-rs", rev = "41a1605" }
+sys-locale = "0.3.2"
+tempfile = "3"
+thiserror = "2"
+tokio = "1"
+tokio-tungstenite = "0.29"
+tokio-util = "0.7.15"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+url = "2"
+uuid = "1"
+wiremock = "0.6"
+
+[profile.dev.package."*"]
+opt-level = 1
+debug = false
+
+# swift-rs compiles Swift in release mode when a crate has no debuginfo, and Swift 6.4 release
+# builds keep its C helpers local, which fails the link. The shipping workspace builds these
+# members with debuginfo, so Swift takes the debug configuration there too.
+[profile.dev.package.notification-macos]
+debug = "line-tables-only"
+
+[profile.dev.package.transcribe-soniqo]
+debug = "line-tables-only"
+
+[profile.dev.package.transcribe-speechanalyzer]
+debug = "line-tables-only"
+
+[profile.dev.package.tcc]
+debug = "line-tables-only"
+
+[profile.dev.package.dictation-ui-macos]
+debug = "line-tables-only"
+
+[dependencies]
+anlg-agent-access = { workspace = true }
+anlg-am = { workspace = true }
+anlg-api-client = { workspace = true }
+anlg-audio = { workspace = true }
+anlg-audio-actual = { workspace = true }
+anlg-audio-utils = { workspace = true }
+anlg-calendar = { workspace = true }
+anlg-calendar-interface = { workspace = true }
+anlg-db-app = { workspace = true }
+anlg-db-execute = { workspace = true }
+anlg-db-sync = { workspace = true }
+anlg-detect = { workspace = true, features = ["list", "mic", "screen", "sleep"] }
+anlg-e2ee = { workspace = true }
+anlg-export-core = { workspace = true }
+anlg-fs-sync-core = { workspace = true }
+anlg-language = { workspace = true }
+anlg-listener-core = { workspace = true }
+anlg-listener2-core = { workspace = true }
+anlg-local-llm-core = { workspace = true }
+anlg-local-model = { workspace = true }
+anlg-local-stt-core = { workspace = true }
+anlg-meeting-import = { workspace = true }
+anlg-model-downloader = { workspace = true }
+anlg-notification-interface = { workspace = true }
+anlg-session-ingest = { workspace = true }
+anlg-storage = { workspace = true }
+anlg-supabase-auth = { workspace = true, features = ["refresh"] }
+anlg-template-app = { workspace = true }
+anlg-tiptap = { workspace = true }
+anlg-transcribe-soniqo = { workspace = true }
+anlg-transcribe-speechanalyzer = { workspace = true }
+anlg-transcript = { workspace = true }
+anyhow = { workspace = true }
+arboard = { version = "=3.6.1", features = ["wayland-data-control"] }
+base64 = { workspace = true }
+chrono = { workspace = true }
+chrono-tz = { workspace = true }
+csv = "=1.4.0"
+desktop-runtime = { path = "runtime" }
+flate2 = "=1.1.9"
+futures = "0.3"
+global-hotkey = "=0.8.0"
+# crates.io 0.2.2 predates upstream's AccessKit integration and platform split; pin the
+# official source instead. Bump every revision together with rust-toolchain.toml.
+gpui = { git = "https://github.com/zed-industries/zed", rev = "053d91cb14b5fd138f221ec02bd76efb15e7b2af" }
+# Without `font-kit` the macOS backend installs a no-op text system and draws no glyphs.
+gpui_platform = { git = "https://github.com/zed-industries/zed", rev = "053d91cb14b5fd138f221ec02bd76efb15e7b2af", features = ["font-kit"] }
+hound = { workspace = true }
+html5ever = "=0.38.0"
+image = { workspace = true, features = ["png"] }
+keyring = { workspace = true }
+markup5ever_rcdom = "=0.38.0"
+mime_guess = "=2.0.5"
+open = "=5.3.3"
+owhisper-client = { workspace = true }
+owhisper-interface = { workspace = true }
+ractor = { workspace = true }
+# The zoom adapter forwards GPUI windows' native handles.
+raw-window-handle = "0.6"
+regex = { workspace = true }
+reqwest = { workspace = true, features = ["json", "stream", "form"] }
+rfd = { version = "=0.16.0", default-features = false, features = ["xdg-portal", "wayland", "async-std"] }
+rodio = { workspace = true }
+serde = { workspace = true, features = ["derive", "rc"] }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+sqlx = { workspace = true, features = ["runtime-tokio", "sqlite", "sqlite-unbundled"] }
+sys-locale = { workspace = true }
+tar = "=0.4.46"
+tempfile = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread", "sync", "time", "macros", "process"] }
+tokio-util = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
+tray-icon = "=0.24.2"
+unicode-segmentation = "=1.13.2"
+unicode-width = "=0.2.2"
+url = { workspace = true }
+uuid = { workspace = true, features = ["v4"] }
+zeroize = "=1.8.2"
+
+[[test]]
+name = "screens"
+harness = false
+
+[dev-dependencies]
+anlg-audio-mock = { workspace = true }
+gpui = { git = "https://github.com/zed-industries/zed", rev = "053d91cb14b5fd138f221ec02bd76efb15e7b2af", features = ["test-support"] }
+gpui_platform = { git = "https://github.com/zed-industries/zed", rev = "053d91cb14b5fd138f221ec02bd76efb15e7b2af", features = ["font-kit", "test-support"] }
+# The accessibility tests' windowless platform implements GPUI's window-handle traits.
+raw-window-handle = "0.6"
+tempfile = { workspace = true }
+tokio-tungstenite = { workspace = true }
+wiremock = { workspace = true }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+gtk = "=0.18.2"
+anlg-notification-linux = { path = "../../crates/notification-linux", package = "notification-linux" }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+block2 = { workspace = true }
+objc2 = { workspace = true }
+objc2-av-foundation = { workspace = true }
+anlg-apple-calendar = { workspace = true }
+anlg-apple-todo = { path = "../../crates/apple-todo", package = "apple-todo" }
+anlg-dictation-ui-macos = { workspace = true }
+anlg-shortcut-macos = { workspace = true }
+macos-accessibility-client = "=0.0.1"
+anlg-notification-macos = { path = "../../crates/notification-macos", package = "notification-macos" }
+anlg-tcc = { path = "../../crates/tcc", package = "tcc" }
+swift-rs = { workspace = true }
+
+[target.'cfg(target_os = "macos")'.build-dependencies]
+swift-rs = { workspace = true, features = ["build"] }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+anlg-notification-windows = { path = "../../crates/notification-windows", package = "notification-windows" }
