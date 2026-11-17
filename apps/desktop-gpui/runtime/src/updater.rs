@@ -68,6 +68,17 @@ impl NativeUpdater {
         release: ResolvedRelease,
         cancel: CancellationToken,
     ) -> Result<Reply<VerifiedUpdate>> {
+        self.download_with_progress(runtime, release, cancel, |_, _| {})
+    }
+
+    /// `download`, reporting each chunk's length and the content length when known.
+    pub fn download_with_progress(
+        &self,
+        runtime: &RuntimeHandle,
+        release: ResolvedRelease,
+        cancel: CancellationToken,
+        mut progress: impl FnMut(usize, Option<u64>) + Send + 'static,
+    ) -> Result<Reply<VerifiedUpdate>> {
         let checker = self.checker.clone();
         runtime.service(move |services| async move {
             if release.download_url.scheme() != "https" {
@@ -79,7 +90,7 @@ impl NativeUpdater {
                 biased;
                 _ = cancel.cancelled() => return Err(ServiceError::Cancelled),
                 _ = services.shutdown_requested.cancelled() => return Err(ServiceError::Cancelled),
-                result = checker.download(&release, |_, _| {}) => result.map_err(failure)?,
+                result = checker.download(&release, &mut progress) => result.map_err(failure)?,
             };
             Ok(VerifiedUpdate { release, bytes })
         })

@@ -83,6 +83,63 @@ impl WorkspaceView {
     }
 }
 
+impl WorkspaceView {
+    /// Shipping's `DestructiveConfirmationDialog` for deleting a multi-selection.
+    fn delete_confirmation(
+        &self,
+        count: usize,
+        window: &Window,
+        cx: &mut Context<Self>,
+    ) -> gpui::AnyElement {
+        use super::resource_list::{dialog_button, glass_dialog};
+        let colors = theme(window);
+        glass_dialog(colors)
+            .on_mouse_down_out(cx.listener(|this, _, _, cx| this.close_delete_confirmation(cx)))
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .items_center()
+                    .gap_2()
+                    .text_center()
+                    .text_size(px(13.))
+                    .child(
+                        div()
+                            .line_height(px(20.))
+                            .font_weight(gpui::FontWeight::SEMIBOLD)
+                            .child(if count == 1 {
+                                "Delete 1 selected note?".to_owned()
+                            } else {
+                                format!("Delete {count} selected notes?")
+                            }),
+                    )
+                    .child(
+                        div()
+                            .w_full()
+                            .line_height(px(17.7))
+                            .child("You can undo this action for a short time."),
+                    ),
+            )
+            .child(
+                div()
+                    .grid()
+                    .grid_cols(2)
+                    .gap_2()
+                    .child(
+                        dialog_button("dialog-cancel", "Cancel", false, colors).on_click(
+                            cx.listener(|this, _, _, cx| this.close_delete_confirmation(cx)),
+                        ),
+                    )
+                    .child(
+                        dialog_button("dialog-confirm", "Delete", true, colors).on_click(
+                            cx.listener(|this, _, _, cx| this.confirm_delete_selected(cx)),
+                        ),
+                    ),
+            )
+            .into_any_element()
+    }
+}
+
 impl Render for WorkspaceView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let colors = theme(window);
@@ -242,17 +299,7 @@ impl Render for WorkspaceView {
                         ))),
                     }),
             )
-            .children(crate::chat::overlay(&self.chat, &route, window, cx))
-            .when(!self.message.is_empty(), |view| {
-                view.child(
-                    div()
-                        .px_3()
-                        .py_1()
-                        .text_xs()
-                        .text_color(colors.muted_foreground)
-                        .child(self.message.clone()),
-                )
-            });
+            .children(crate::chat::overlay(&self.chat, &route, window, cx));
         div()
             .id("workspace")
             .size_full()
@@ -353,6 +400,12 @@ impl Render for WorkspaceView {
                         )
                 )
             ))
+            .when_some(self.confirm_delete.as_ref().map(|ids| ids.len()), |view, count| {
+                view.child(super::resource_list::modal(
+                    window,
+                    self.delete_confirmation(count, window, cx),
+                ))
+            })
             // Deferred so the dialog's backdrop also covers application toasts, like shipping's.
             .when(self.picker_open, |view| {
                 view.child(gpui::deferred(self.picker.clone()))

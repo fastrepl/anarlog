@@ -50,7 +50,7 @@ pub(super) enum Navigate {
 }
 
 pub struct WorkspaceView {
-    runtime: RuntimeHandle,
+    pub(super) runtime: RuntimeHandle,
     pub(super) focus: FocusHandle,
     pub(super) library: Entity<LibraryView>,
     pub(super) note: Entity<NoteView>,
@@ -72,7 +72,6 @@ pub struct WorkspaceView {
     watch_cancel: CancellationToken,
     events_cancel: CancellationToken,
     events_loaded: Option<std::time::Instant>,
-    pub(super) message: String,
     creating: bool,
     ready: bool,
     pub(super) picker_open: bool,
@@ -81,9 +80,9 @@ pub struct WorkspaceView {
     pub(super) resizing: bool,
     pending: Option<Navigate>,
     pub(super) titles: HashMap<SessionId, Arc<str>>,
-    title_order: VecDeque<SessionId>,
-    dirty: HashSet<SessionId>,
-    recording: HashSet<SessionId>,
+    pub(super) title_order: VecDeque<SessionId>,
+    pub(super) dirty: HashSet<SessionId>,
+    pub(super) recording: HashSet<SessionId>,
     viewer: Option<Arc<str>>,
     auto_start: Option<SessionId>,
     pub(super) route_content: Option<(Route, AnyView)>,
@@ -91,6 +90,9 @@ pub struct WorkspaceView {
     pub(super) note_operation: Option<(Arc<[SessionId]>, bool)>,
     pub(super) move_target: Entity<TextInput>,
     pub(super) mutation_busy: bool,
+    pub(super) deletions: Vec<super::undo_delete::Pending>,
+    /// Shipping asks before deleting a multi-selection.
+    pub(super) confirm_delete: Option<Arc<[SessionId]>>,
     automation_client: Option<super::automation_runner::AutomationClient>,
     subscriptions: Vec<Subscription>,
 }
@@ -194,7 +196,7 @@ impl WorkspaceView {
             }
             .await;
             let _ = this.update(cx, |this, cx| match result {
-                Ok(message) if !message.is_empty() => this.set_status(message, cx),
+                Ok(message) if !message.is_empty() => crate::application::toasts::info(message, cx),
                 Err(error) => this.set_status(error.to_string(), cx),
                 _ => {}
             });
@@ -404,7 +406,6 @@ impl WorkspaceView {
             watch_cancel: CancellationToken::new(),
             events_cancel: CancellationToken::new(),
             events_loaded: None,
-            message: "Opening isolated local library…".into(),
             creating: false,
             ready: false,
             picker_open: false,
@@ -423,6 +424,8 @@ impl WorkspaceView {
             note_operation: None,
             move_target: cx.new(|cx| TextInput::new("Folder path (empty moves to root)", cx)),
             mutation_busy: false,
+            deletions: Vec::new(),
+            confirm_delete: None,
             automation_client: None,
             subscriptions: vec![
                 operation_subscription,
@@ -441,9 +444,9 @@ impl WorkspaceView {
         }
     }
 
+    /// Workspace errors appear as shipping's error toasts.
     pub fn set_status(&mut self, message: String, cx: &mut Context<Self>) {
-        self.message = message;
-        cx.notify();
+        crate::application::toasts::error(message, cx);
     }
 
     fn handle_note(&mut self, event: &OpenNote, cx: &mut Context<Self>) {
@@ -510,7 +513,9 @@ impl WorkspaceView {
                 })
                 .detach();
             }
-            OpenNote::Delete(ids) | OpenNote::Move(ids) => {
+            OpenNote::Delete(ids) => self.delete_notes(ids, false, cx),
+            OpenNote::DeleteSelected(ids) => self.request_delete_selected(ids.clone(), cx),
+            OpenNote::Move(ids) => {
                 if self.note_operation.is_some() {
                     return;
                 }
@@ -522,7 +527,7 @@ impl WorkspaceView {
                     );
                     return;
                 }
-                self.note_operation = Some((ids.clone(), matches!(event, OpenNote::Move(_))));
+                self.note_operation = Some((ids.clone(), true));
                 self.move_target
                     .update(cx, |input, cx| input.set_text(String::new(), cx));
                 cx.emit(NoteOperationChanged);
@@ -549,15 +554,16 @@ impl WorkspaceView {
         if !self.can_navigate(cx) || ids.iter().any(|id| self.recording.contains(id)) {
             return;
         }
-        let command = if moving {
+        if !moving {
+            return;
+        }
+        let reply = super::notes::dispatch(
+            &self.runtime,
             super::notes::NoteCommand::Move {
                 ids: ids.clone(),
                 folder: self.move_target.read(cx).buffer.text.trim().into(),
-            }
-        } else {
-            super::notes::NoteCommand::Delete(ids.clone())
-        };
-        let reply = super::notes::dispatch(&self.runtime, command);
+            },
+        );
         self.mutation_busy = true;
         cx.notify();
         cx.spawn(async move |this, cx| {
@@ -570,34 +576,6 @@ impl WorkspaceView {
                 match result {
                     Ok(()) => {
                         this.close_note_operation(cx);
-                        if !moving {
-                            let previous = this.current_route();
-                            this.navigation.remove_sessions(&ids);
-                            this.note
-                                .update(cx, |note, cx| note.remove_sessions(&ids, cx));
-                            for id in ids.iter() {
-                                this.titles.remove(id);
-                                this.title_order.retain(|cached| cached != id);
-                                this.dirty.remove(id);
-                            }
-                            cx.emit(WorkspaceEvent::SessionsDeleted(ids.clone()));
-                            if this.current_route() != previous
-                                && let Route::Session(id) = this.current_route()
-                            {
-                                this.note.update(cx, |note, cx| note.open(id, cx));
-                            }
-                            if this.pin_persistence {
-                                cx.emit(WorkspaceAction::PinnedChanged(
-                                    this.navigation
-                                        .tabs
-                                        .iter()
-                                        .filter(|tab| tab.pinned && tab.route.persistent_pin())
-                                        .map(|tab| tab.route.clone())
-                                        .collect(),
-                                ));
-                            }
-                            this.sync_route(cx);
-                        }
                         this.library
                             .update(cx, |library, cx| library.clear_selection(cx));
                         this.reload(cx);
@@ -855,7 +833,7 @@ impl WorkspaceView {
         self.sync_route(cx);
     }
 
-    fn sync_route(&mut self, cx: &mut Context<Self>) {
+    pub(super) fn sync_route(&mut self, cx: &mut Context<Self>) {
         let route = self
             .navigation
             .current()
@@ -1146,38 +1124,31 @@ impl WorkspaceView {
                 }
                 match result {
                     Ok(page) => {
-                        if this.message.is_empty()
-                            && this.page.as_ref().is_some_and(|previous| {
-                                previous.offset == page.offset
-                                    && previous.has_more == page.has_more
-                                    && previous.items.len() == page.items.len()
-                                    && previous.items.iter().zip(page.items.iter()).all(|(a, b)| {
-                                        a.id == b.id
-                                            && a.title == b.title
-                                            && a.created_at == b.created_at
-                                            && a.folder_path == b.folder_path
-                                            && a.tag_line == b.tag_line
-                                            && a.event_start == b.event_start
-                                            && a.event_end == b.event_end
-                                    })
-                            })
-                        {
+                        if this.page.as_ref().is_some_and(|previous| {
+                            previous.offset == page.offset
+                                && previous.has_more == page.has_more
+                                && previous.items.len() == page.items.len()
+                                && previous.items.iter().zip(page.items.iter()).all(|(a, b)| {
+                                    a.id == b.id
+                                        && a.title == b.title
+                                        && a.created_at == b.created_at
+                                        && a.folder_path == b.folder_path
+                                        && a.tag_line == b.tag_line
+                                        && a.event_start == b.event_start
+                                        && a.event_end == b.event_end
+                                })
+                        }) {
                             return;
                         }
-                        this.message = if page.items.is_empty() {
-                            "No matching notes.".into()
-                        } else {
-                            String::new()
-                        };
                         let page = Arc::new(page);
                         this.page = Some(page.clone());
                         this.library
                             .update(cx, |library, cx| library.set_page(page, cx));
                     }
-                    Err(error) => {
-                        this.message =
-                            format!("Library refresh failed: {error}. Previous notes retained.")
-                    }
+                    Err(error) => this.set_status(
+                        format!("Library refresh failed: {error}. Previous notes retained."),
+                        cx,
+                    ),
                 }
                 cx.notify();
             });
@@ -1239,6 +1210,13 @@ impl WorkspaceView {
     ) {
         let modifiers = event.keystroke.modifiers;
         if self.sort_menu_key(event, cx) {
+            cx.stop_propagation();
+            return;
+        }
+        if self.confirm_delete.is_some() {
+            if event.keystroke.key == "escape" {
+                self.close_delete_confirmation(cx);
+            }
             cx.stop_propagation();
             return;
         }

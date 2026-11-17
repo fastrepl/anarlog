@@ -17,7 +17,7 @@ use super::{
     navigation::Route,
     notes::{self, NoteCommand},
     picker::{NOTES_QUERY, load_recent, save_recent},
-    pins, templates,
+    pins, templates, undo_delete,
 };
 
 #[test]
@@ -672,9 +672,10 @@ fn folders_and_note_commands_move_nested_paths_and_soft_delete_related_rows() {
             ""
         );
         execute(&runtime,"INSERT INTO session_documents(id,session_id,body) VALUES ('two','two','{\"type\":\"doc\",\"content\":[]}')",vec![]).await;
-        notes::dispatch(
+        undo_delete::soft_delete(
             &runtime,
-            NoteCommand::Delete(vec![SessionId("two".into())].into()),
+            SessionId("two".into()),
+            "2026-11-17T00:00:00.000Z".into(),
         )
         .unwrap()
         .receive()
@@ -702,6 +703,60 @@ fn folders_and_note_commands_move_nested_paths_and_soft_delete_related_rows() {
             )
             .await
             .is_empty()
+        );
+        runtime.shutdown().await.unwrap();
+    });
+}
+
+#[test]
+fn undoing_a_delete_restores_only_its_tombstoned_rows_and_keeps_the_event_hidden() {
+    block_on(async {
+        let (_directory, runtime) = start().await;
+        execute(
+            &runtime,
+            "INSERT INTO sessions(id,title,event_json) VALUES ('note','Standup','{\"tracking_id\":\"evt-1\"}')",
+            vec![],
+        )
+        .await;
+        execute(&runtime, "INSERT INTO session_documents(id,session_id,body,deleted_at) VALUES ('live','note','{}',NULL),('earlier','note','{}','2020-01-01T00:00:00.000Z')", vec![]).await;
+        let id = || SessionId("note".into());
+        let tombstone: Arc<str> = "2026-11-17T00:00:00.000Z".into();
+        let delete = || undo_delete::soft_delete(&runtime, id(), tombstone.clone());
+        assert_eq!(
+            delete().unwrap().receive().await.unwrap().as_deref(),
+            Some("Standup")
+        );
+        assert_eq!(delete().unwrap().receive().await.unwrap(), None);
+        let ignored = execute(
+            &runtime,
+            "SELECT value_json FROM app_settings WHERE id='ignored_events'",
+            vec![],
+        )
+        .await;
+        assert!(ignored[0]["value_json"].as_str().unwrap().contains("evt-1"));
+        assert!(
+            undo_delete::restore(&runtime, id(), "2026-11-16T00:00:00.000Z".into())
+                .unwrap()
+                .receive()
+                .await
+                .is_err()
+        );
+        undo_delete::restore(&runtime, id(), tombstone.clone())
+            .unwrap()
+            .receive()
+            .await
+            .unwrap();
+        let rows = execute(
+            &runtime,
+            "SELECT id, deleted_at FROM session_documents ORDER BY id",
+            vec![],
+        )
+        .await;
+        assert_eq!(rows[0]["deleted_at"], "2020-01-01T00:00:00.000Z");
+        assert!(rows[1]["deleted_at"].is_null());
+        assert_eq!(
+            execute(&runtime, "SELECT deleted_at FROM sessions", vec![]).await[0]["deleted_at"],
+            Value::Null
         );
         runtime.shutdown().await.unwrap();
     });

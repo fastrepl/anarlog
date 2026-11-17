@@ -78,7 +78,10 @@ pub enum OpenNote {
     Current(SessionId),
     Window(SessionId),
     Reveal(SessionId),
+    /// Deletes at once with an Undo toast.
     Delete(Arc<[SessionId]>),
+    /// A multi-selection's delete, which asks first.
+    DeleteSelected(Arc<[SessionId]>),
     Move(Arc<[SessionId]>),
     /// A calendar event without a note yet; the workspace creates or finds its note.
     Event(Arc<str>),
@@ -348,7 +351,8 @@ impl LibraryView {
             match (menu.bulk, index) {
                 (false, 0) => cx.emit(OpenNote::Window(menu.ids[0].clone())),
                 (false, 1) => cx.emit(OpenNote::Reveal(menu.ids[0].clone())),
-                (false, 2) | (true, 0) => cx.emit(OpenNote::Delete(menu.ids)),
+                (false, 2) => cx.emit(OpenNote::Delete(menu.ids)),
+                (true, 0) => cx.emit(OpenNote::DeleteSelected(menu.ids)),
                 _ => {}
             }
         }
@@ -1091,7 +1095,7 @@ impl Render for LibraryView {
                 if event.keystroke.key == "delete" || event.keystroke.key == "backspace" {
                     let ids = this.selected_ids();
                     if !ids.is_empty() {
-                        cx.emit(OpenNote::Delete(ids));
+                        cx.emit(OpenNote::DeleteSelected(ids));
                     }
                     cx.stop_propagation();
                     return;

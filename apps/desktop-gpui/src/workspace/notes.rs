@@ -5,9 +5,9 @@ use serde_json::json;
 
 use super::mutations::{NOW, failure, statement, transaction};
 
+/// Deletion lives in `undo_delete`, which tombstones notes so they can be restored.
 #[derive(Clone)]
 pub enum NoteCommand {
-    Delete(Arc<[SessionId]>),
     Move {
         ids: Arc<[SessionId]>,
         folder: Arc<str>,
@@ -56,21 +56,11 @@ pub fn select_template(
 
 pub fn dispatch(runtime: &RuntimeHandle, command: NoteCommand) -> Result<Reply<()>> {
     runtime.submit(move |services| async move {
-        let (ids,destination) = match command {
-            NoteCommand::Delete(ids) => (ids,None),
-            NoteCommand::Move { ids,folder } => (ids,Some(folder)),
-        };
-        if ids.is_empty() || ids.len()>100 { return Err(failure("Select between 1 and 100 notes")); }
-        let values = ids.iter().map(|id| json!(id.0)).collect::<Vec<_>>();
-        if let Some(destination) = destination { return super::folders::move_notes(&services.executor,&values,&destination).await; }
-        let mut statements = Vec::new();
-        for id in ids.iter() {
-            statements.push(statement(format!("UPDATE sessions SET deleted_at={NOW},updated_at={NOW} WHERE id=? AND deleted_at IS NULL AND locked=0"),vec![json!(id.0)],Some(1)));
-            for table in ["session_documents","transcripts","session_participants","session_tags","action_items","session_attachments"] {
-                statements.push(statement(format!("UPDATE {table} SET deleted_at={NOW},updated_at={NOW} WHERE session_id=? AND deleted_at IS NULL"),vec![json!(id.0)],None));
-            }
-            statements.push(statement(format!("UPDATE entity_mentions SET deleted_at={NOW},updated_at={NOW} WHERE ((source_type='session' AND source_id=?1) OR (target_type='session' AND target_id=?1)) AND deleted_at IS NULL"),vec![json!(id.0)],None));
+        let NoteCommand::Move { ids, folder } = command;
+        if ids.is_empty() || ids.len() > 100 {
+            return Err(failure("Select between 1 and 100 notes"));
         }
-        transaction(&services.executor,statements).await
+        let values = ids.iter().map(|id| json!(id.0)).collect::<Vec<_>>();
+        super::folders::move_notes(&services.executor, &values, &folder).await
     })
 }

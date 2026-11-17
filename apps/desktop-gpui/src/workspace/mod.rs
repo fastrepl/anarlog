@@ -27,6 +27,7 @@ mod sidebar;
 pub mod templates;
 pub mod templates_view;
 mod timeline;
+mod undo_delete;
 
 pub use contacts::facehash;
 pub use shell::{WorkspaceAction, WorkspaceView};

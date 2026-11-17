@@ -172,6 +172,7 @@ fn main() {
     calendar_depth(&mut cx, window, &out);
     sharing(&mut cx, window, &out);
     note_depth(&mut cx, window, &out);
+    toasts(&mut cx, window, &out);
     for (name, route) in [
         ("note", Route::Session(SessionId("s-sync".into()))),
         (
@@ -223,6 +224,83 @@ fn main() {
     }
     account_states(&mut cx, window, &out);
     capture_onboarding(&mut cx, window, &out);
+}
+
+/// App toasts, stacked and expanded on hover; a timeline delete's Undo toast and its undo;
+/// and the multi-selection's delete confirmation.
+fn toasts(
+    cx: &mut HeadlessAppContext,
+    window: WindowHandle<ApplicationView>,
+    out: &std::path::Path,
+) {
+    use desktop_gpui::application::toasts::{self, Toast};
+    open(cx, window, Route::Empty);
+    // "Welcome to Anarlog" in the timeline: Delete Note is its menu's third item.
+    right_click(cx, window, 100., 368.);
+    type_text(cx, window, &["down", "down", "enter"]);
+    capture(cx, window, out, "toast-undo");
+    pointer(cx, window, 734., 560.);
+    capture(cx, window, out, "toast-undo-hover");
+    click(cx, window, 597., 558.);
+    capture(cx, window, out, "toast-undo-restored");
+    open(cx, window, Route::Empty);
+    modified_click(cx, window, 100., 314.);
+    modified_click(cx, window, 100., 368.);
+    type_text(cx, window, &["backspace"]);
+    capture(cx, window, out, "delete-confirm");
+    type_text(cx, window, &["escape"]);
+    // An empty spot in the note surface clears the selection.
+    click(cx, window, 700., 150.);
+    cx.update(|cx| {
+        toasts::show(Toast::success("Note copied to clipboard").id("copied"), cx);
+        toasts::show(
+            Toast::error("Could not delete this note. Please try again.").id("failed"),
+            cx,
+        );
+    });
+    pointer(cx, window, 300., 300.);
+    capture(cx, window, out, "toast-stack");
+    pointer(cx, window, 734., 560.);
+    capture(cx, window, out, "toast-stack-hover");
+    cx.update(|cx| {
+        toasts::dismiss("copied", cx);
+        toasts::dismiss("failed", cx);
+    });
+    pointer(cx, window, 300., 300.);
+}
+
+fn modified_click(
+    cx: &mut HeadlessAppContext,
+    window: WindowHandle<ApplicationView>,
+    x: f32,
+    y: f32,
+) {
+    let position = point(px(x), px(y));
+    let modifiers = Modifiers::command();
+    input(
+        cx,
+        window,
+        [
+            PlatformInput::MouseMove(MouseMoveEvent {
+                position,
+                pressed_button: None,
+                modifiers,
+            }),
+            PlatformInput::MouseDown(MouseDownEvent {
+                button: MouseButton::Left,
+                position,
+                modifiers,
+                click_count: 1,
+                first_mouse: false,
+            }),
+            PlatformInput::MouseUp(MouseUpEvent {
+                button: MouseButton::Left,
+                position,
+                modifiers,
+                click_count: 1,
+            }),
+        ],
+    );
 }
 
 /// The month grid's cell for `day`, top-left in window pixels (Sunday-first, as captured).

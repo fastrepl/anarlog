@@ -1,6 +1,8 @@
 mod chrome;
 pub(crate) mod lifecycle;
 mod notifications;
+pub mod toasts;
+mod updates;
 
 use std::{path::PathBuf, sync::Arc, time::Duration};
 
@@ -64,11 +66,12 @@ pub struct ApplicationView {
     editor_vault: PathBuf,
     writers_paused: bool,
     lifecycle: lifecycle::Lifecycle,
+    update: updates::Update,
+    toasts: Entity<toasts::Toasts>,
     meeting_open: bool,
     capture_session: Option<SessionId>,
     closing: bool,
     drained: bool,
-    status: String,
     subscriptions: Vec<Subscription>,
     editor_subscriptions: Vec<Subscription>,
     meeting_subscription: Option<Subscription>,
@@ -100,6 +103,7 @@ impl ApplicationView {
     ) -> Self {
         // Installed first: the note and transcript views read the live meeting from it.
         let meeting_host = MeetingHost::install(cx);
+        let toasts = toasts::install(cx);
         let live = meeting_host.live().clone();
         let workspace = cx.new(|cx| {
             WorkspaceView::new(
@@ -305,13 +309,14 @@ impl ApplicationView {
                     this.native = Some(native);
                     this.watch_preferences(cx);
                     this.start_lifecycle(cx);
+                    this.watch_updates(cx);
                     this.open_onboarding_if_needed(cx);
                     if !warnings.is_empty() {
-                        this.status(
-                            &format!(
+                        toasts::show(
+                            toasts::Toast::warning(format!(
                                 "Interrupted capture recovery needs attention: {}",
                                 warnings.join("; ")
-                            ),
+                            )),
                             cx,
                         );
                     }
@@ -324,7 +329,7 @@ impl ApplicationView {
             cx.new(|cx| crate::product::trial::TrialDialogs::new(runtime.clone(), cx));
         Self {
             window: window.window_handle(),
-            notifications: notifications::Notifications::new(cx),
+            notifications: notifications::Notifications::default(),
             preferences_task: None,
             runtime,
             chrome: chrome::Chrome::default(),
@@ -340,11 +345,12 @@ impl ApplicationView {
             editor_vault,
             writers_paused: false,
             lifecycle: lifecycle::Lifecycle::new(tray_settings),
+            update: updates::Update::None,
+            toasts,
             capture_session: None,
             meeting_open: false,
             closing: false,
             drained: false,
-            status: String::new(),
             subscriptions,
             editor_subscriptions: Vec::new(),
             meeting_subscription: None,
@@ -434,7 +440,7 @@ impl ApplicationView {
                                     ) {
                                         this.leave_product(Route::Calendar, cx);
                                     }
-                                    this.status("Integration refreshed.", cx);
+                                    toasts::success("Integration refreshed.", cx);
                                 }
                                 Err(error) => this.status(&error.to_string(), cx),
                             });
@@ -466,7 +472,7 @@ impl ApplicationView {
                             let _ = this.update(cx, |this, cx| match result {
                                 Ok(_) => {
                                     cloud.publish_account(cx);
-                                    this.status("Account updated.", cx)
+                                    toasts::success("Account updated.", cx)
                                 }
                                 Err(error) => this.status(&error.to_string(), cx),
                             });
@@ -541,6 +547,7 @@ impl ApplicationView {
 
     pub fn native_tick(&mut self, cx: &mut Context<Self>) {
         self.sync_recording_title(cx);
+        self.poll_downloads(cx);
         let Some(services) = &self.services else {
             return;
         };
@@ -565,7 +572,7 @@ impl ApplicationView {
         }
     }
 
-    fn resume_writers(&mut self, cx: &mut Context<Self>) {
+    pub(super) fn resume_writers(&mut self, cx: &mut Context<Self>) {
         self.writers_paused = false;
         if let Some(editor) = &self.editor {
             editor.update(cx, |editor, cx| editor.set_read_only(false, cx));
@@ -725,7 +732,7 @@ impl ApplicationView {
         .detach();
     }
 
-    fn pause_writers(
+    pub(super) fn pause_writers(
         &mut self,
         cx: &mut Context<Self>,
     ) -> BoxFuture<'static, desktop_runtime::Result<()>> {
@@ -870,9 +877,9 @@ impl ApplicationView {
         .detach();
     }
 
+    /// App errors appear as shipping's error toasts.
     fn status(&mut self, message: &str, cx: &mut Context<Self>) {
-        self.status = message.into();
-        cx.notify();
+        toasts::error(message.to_owned(), cx);
     }
 
     fn workspace_event(
@@ -897,6 +904,13 @@ impl ApplicationView {
                 {
                     self.editor_subscriptions.clear();
                     self.editor = None;
+                }
+                // Like shipping, a deleted note's standalone window closes.
+                for id in ids.iter() {
+                    self.note_subscriptions.remove(id);
+                    if let Some(window) = self.note_windows.remove(id) {
+                        let _ = window.update(cx, |_, window, _| window.remove_window());
+                    }
                 }
                 cx.notify();
             }
@@ -1270,10 +1284,16 @@ impl ApplicationView {
             .filter_map(|window| window.update(cx, |view, _, cx| view.flush(true, cx)).ok())
             .collect::<Vec<_>>();
         self.closing = true;
+        // Undo windows end at quit so deleted notes do not keep their folders.
+        self.workspace
+            .update(cx, |workspace, cx| workspace.confirm_pending_deletions(cx));
         if let Some(editor) = &self.editor {
             editor.update(cx, |editor, cx| editor.set_read_only(true, cx));
         }
-        self.status("Finishing saves and capture before quitting…", cx);
+        toasts::show(
+            toasts::Toast::loading("Finishing saves and capture before quitting…").id("quit"),
+            cx,
+        );
         let services = self.services.clone();
         cx.spawn(async move |this, cx| {
             let result: desktop_runtime::Result<()> = async {
@@ -1312,6 +1332,7 @@ impl ApplicationView {
                     Err(error) => {
                         if let Some(editor) = &this.editor { editor.update(cx, |editor, cx| editor.set_read_only(false, cx)); }
                         for window in this.note_windows.values() { let _ = window.update(cx, |view, _, cx| view.resume(cx)); }
+                        toasts::dismiss("quit", cx);
                         this.status(&format!("Quit paused: {error}"), cx);
                     }
                 }
@@ -1324,6 +1345,7 @@ impl Render for ApplicationView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let colors = theme(window);
         let _ = &self.subscriptions;
+        self.sync_notice(window, cx);
         div()
             .size_full()
             .relative()
@@ -1391,13 +1413,7 @@ impl Render for ApplicationView {
                         },
                     ),
             )
-            .when(!self.status.is_empty(), |view| {
-                view.child(div().p_2().text_sm().child(self.status.clone()))
-            })
-            .when_some(
-                self.provider_notification(window, cx),
-                |view, notification| view.child(notification),
-            )
+            .child(self.toasts.clone())
             .when_some(self.title_menu(window, cx), |view, menu| view.child(menu))
             .child(self.trial_dialogs.clone())
     }

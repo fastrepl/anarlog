@@ -98,6 +98,28 @@ impl ModelService {
             .collect()
     }
 
+    /// Models the download manager is fetching, with their percentage, for the app toast.
+    pub fn active_downloads(&self) -> Vec<(String, u8)> {
+        let mut downloads = self
+            .runtime
+            .progress
+            .lock()
+            .map(|progress| {
+                progress
+                    .iter()
+                    .filter_map(|(model, status)| match status {
+                        DownloadStatus::Downloading(percent) => {
+                            Some((model.display_name(), *percent))
+                        }
+                        _ => None,
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        downloads.sort();
+        downloads
+    }
+
     pub fn resolve(key: &str) -> Result<LocalModel> {
         Self::registry()
             .into_iter()
