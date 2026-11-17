@@ -17,6 +17,7 @@ use regex::Regex;
 use serde_json::{Value, json};
 
 use super::{NoteView, icon};
+use crate::ui::a11y::Accessible;
 use crate::{
     application::toasts,
     editor::EditorPane,
@@ -1040,6 +1041,7 @@ impl NoteView {
         Some(
             div()
                 .id("create-brief")
+                .a11y_button("Create a brief to prepare this meeting")
                 .mb_6()
                 .ml(px(-8.))
                 .h_8()

@@ -14,6 +14,7 @@ use serde_json::{Value, json};
 use sqlx::SqliteConnection;
 
 use super::super::mutations::failure;
+use crate::ui::a11y::Accessible;
 use crate::{
     application::toasts,
     meeting::widgets::spinner,
@@ -252,7 +253,11 @@ impl MeetingInfo {
         clock: Clock,
         cx: &mut Context<Self>,
     ) -> Self {
-        let input = cx.new(|cx| TextInput::new("Add participants", cx).inline());
+        let input = cx.new(|cx| {
+            TextInput::new("Add participants", cx)
+                .inline()
+                .label("Participants")
+        });
         let subscription = cx.subscribe(&input, |this, _, event, cx| match event {
             InputEvent::Changed => {
                 this.dropdown = true;
@@ -538,7 +543,7 @@ impl MeetingInfo {
             })
             .unwrap_or_default();
         let input = cx.new(|cx| {
-            let mut input = TextInput::new("", cx).inline();
+            let mut input = TextInput::new("", cx).inline().label("Date");
             input.set_text(value, cx);
             input
         });
@@ -676,6 +681,7 @@ impl MeetingInfo {
                                 .justify_end()
                                 .child(
                                     round_button("cancel-date-edit", "editor/XIcon.svg", colors)
+                                        .a11y_button("Cancel date edit")
                                         .hover(move |style| {
                                             style
                                                 .bg(rgb(if dark { 0x450a0a } else { 0xfef2f2 }))
@@ -692,6 +698,7 @@ impl MeetingInfo {
                                 )
                                 .child(
                                     round_button("save-date", "editor/CheckIcon.svg", colors)
+                                        .a11y_button("Save date")
                                         .when(self.date_error.is_some(), |button| {
                                             button.opacity(0.5)
                                         })
@@ -709,7 +716,14 @@ impl MeetingInfo {
                         ),
                 )
                 .when_some(self.date_error, |view, error| {
-                    view.child(div().text_xs().text_color(red).child(error))
+                    view.child(
+                        div()
+                            .id("date-error")
+                            .a11y_status(error, true)
+                            .text_xs()
+                            .text_color(red)
+                            .child(error),
+                    )
                 })
                 .into_any_element();
         }
@@ -724,6 +738,8 @@ impl MeetingInfo {
             .gap_3()
             .child(
                 div()
+                    .id("meeting-date")
+                    .a11y_text(date.clone())
                     .flex_1()
                     .min_w_0()
                     .text_sm()
@@ -733,6 +749,7 @@ impl MeetingInfo {
             )
             .child(
                 round_button("edit-date", "workspace/PencilIcon.svg", colors)
+                    .a11y_button("Edit date")
                     .on_click(cx.listener(|this, _, window, cx| this.edit_date(window, cx))),
             )
             .into_any_element()
@@ -801,6 +818,7 @@ impl MeetingInfo {
                         .child(
                             div()
                                 .id("join-meeting")
+                                .a11y_link("Join")
                                 .h(px(28.))
                                 .px_2()
                                 .flex()
@@ -879,6 +897,7 @@ impl MeetingInfo {
                                             "participant:{}",
                                             participant.id
                                         )))
+                                        .a11y_button(participant.name.clone())
                                         .flex()
                                         .items_center()
                                         .gap_1()
@@ -925,6 +944,7 @@ impl MeetingInfo {
                                                     "remove-participant:{}",
                                                     participant.id
                                                 )))
+                                                .a11y_button(format!("Remove {}", participant.name))
                                                 .ml(px(2.))
                                                 .size(px(12.))
                                                 .flex()
@@ -953,6 +973,7 @@ impl MeetingInfo {
                                     .map(|pending| {
                                         div()
                                             .id(("pending-participant", pending.key))
+                                            .a11y_text(format!("Adding {}", pending.name))
                                             .flex()
                                             .items_center()
                                             .gap_1()
@@ -1015,6 +1036,8 @@ impl MeetingInfo {
                 "enhance-participant:{}",
                 participant.id
             )))
+            .a11y_button(format!("Enhance contact {}", participant.name))
+            .a11y_disabled(disabled && !enhancing)
             .group("enhance-contact")
             .ml(px(2.))
             .size(px(14.))
@@ -1061,6 +1084,7 @@ impl MeetingInfo {
     ) -> impl IntoElement {
         div()
             .id("participant-dropdown")
+            .a11y_group(gpui::Role::ListBox, "Contacts")
             .mt_1()
             .w(px(CONTENT_WIDTH))
             .occlude()
@@ -1081,6 +1105,16 @@ impl MeetingInfo {
                         let active = index == selected;
                         div()
                             .id(("participant-option", index))
+                            .a11y_option(
+                                if option.id.is_empty() {
+                                    format!("Add \"{}\"", option.name)
+                                } else if option.job_title.is_empty() {
+                                    option.name.to_string()
+                                } else {
+                                    format!("{}, {}", option.name, option.job_title)
+                                },
+                                active,
+                            )
                             .w_full()
                             .px_3()
                             .py(px(6.))

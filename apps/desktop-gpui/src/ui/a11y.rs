@@ -56,6 +56,13 @@ pub trait Accessible: StatefulInteractiveElement {
             .aria_toggled(toggled(checked))
     }
 
+    /// One choice of a menu's radio group (sort order, grouping).
+    fn a11y_menu_radio(self, label: impl Into<SharedString>, checked: bool) -> Self {
+        self.role(Role::MenuItemRadio)
+            .aria_label(label)
+            .aria_toggled(toggled(checked))
+    }
+
     /// A row of a navigable list (timeline, contacts, templates, settings): a button
     /// that reports whether it is the open one.
     fn a11y_row(self, label: impl Into<SharedString>, selected: bool) -> Self {
@@ -102,6 +109,19 @@ pub trait Accessible: StatefulInteractiveElement {
         self.role(if assertive { Role::Alert } else { Role::Status })
             .aria_label(text)
             .a11y_synthetic_children(move |builder| builder.parent_node().set_live(live))
+    }
+
+    /// The screen reader's press for a control that acts on mouse down: GPUI only wires
+    /// `on_click` to AccessKit's click action.
+    fn a11y_press<T: 'static>(
+        self,
+        cx: &gpui::Context<T>,
+        press: impl Fn(&mut T, &mut gpui::Window, &mut gpui::Context<T>) + 'static,
+    ) -> Self {
+        let entity = cx.weak_entity();
+        self.on_a11y_action(accesskit::Action::Click, move |_, window, cx| {
+            let _ = entity.update(cx, |this, cx| press(this, window, cx));
+        })
     }
 
     /// GPUI's element API has no disabled state, so it is set on the element's own node.

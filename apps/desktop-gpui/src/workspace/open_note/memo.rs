@@ -9,6 +9,7 @@ use regex::Regex;
 use serde_json::json;
 
 use super::{NoteEvent, NoteView, icon};
+use crate::ui::a11y::Accessible;
 use crate::{
     editor::EditorPane,
     meeting::model::failure,
@@ -143,6 +144,7 @@ impl NoteView {
         let item = |id: SharedString, glyph: AnyElement, title: SharedString| {
             div()
                 .id(id)
+                .a11y_button(title.clone())
                 .ml(px(-8.))
                 .h_8()
                 .max_w_full()
@@ -172,6 +174,8 @@ impl NoteView {
                        cx: &mut Context<Self>| {
             (!templates.is_empty()).then(|| {
                 div()
+                    .id(label_text)
+                    .a11y_group(gpui::Role::Group, label_text)
                     .flex()
                     .flex_col()
                     .items_start()

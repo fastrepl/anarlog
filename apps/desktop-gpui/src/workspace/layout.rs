@@ -4,6 +4,7 @@ use super::{
     navigation::Route,
     shell::{Navigate, WorkspaceAction, WorkspaceView},
 };
+use crate::ui::a11y::Accessible;
 use crate::ui::theme::{monospace_font, system_font, theme};
 
 impl WorkspaceView {
@@ -38,6 +39,8 @@ impl WorkspaceView {
         let group = SharedString::from(format!("empty-action:{label}"));
         div()
             .id(label)
+            .a11y_button(label)
+            .aria_keyshortcuts(format!("{modifier} {keys}"))
             .group(group.clone())
             .flex()
             .items_center()
@@ -91,7 +94,13 @@ impl WorkspaceView {
     ) -> gpui::AnyElement {
         use super::resource_list::{dialog_button, glass_dialog};
         let colors = theme(window);
+        let title = if count == 1 {
+            "Delete 1 selected note?".to_owned()
+        } else {
+            format!("Delete {count} selected notes?")
+        };
         glass_dialog(colors)
+            .a11y_dialog(title.clone())
             .on_mouse_down_out(cx.listener(|this, _, _, cx| this.close_delete_confirmation(cx)))
             .child(
                 div()
@@ -105,14 +114,12 @@ impl WorkspaceView {
                         div()
                             .line_height(px(20.))
                             .font_weight(gpui::FontWeight::SEMIBOLD)
-                            .child(if count == 1 {
-                                "Delete 1 selected note?".to_owned()
-                            } else {
-                                format!("Delete {count} selected notes?")
-                            }),
+                            .child(title),
                     )
                     .child(
                         div()
+                            .id("delete-description")
+                            .a11y_text("You can undo this action for a short time.")
                             .w_full()
                             .line_height(px(17.7))
                             .child("You can undo this action for a short time."),

@@ -29,6 +29,7 @@ use super::{
     resource_list::{self, Glyph},
     templates::{self, Library, Template},
 };
+use crate::ui::a11y::Accessible;
 use crate::{
     application::toasts,
     contracts::{EditorEvent, EditorInit, LaneContext, MeetingIntent, WorkspaceEvent},
@@ -349,7 +350,12 @@ fn adjacent_tab(tabs: &[NoteTab], current: &NoteTab, forward: bool) -> Option<No
 
 impl NoteView {
     pub fn new(runtime: RuntimeHandle, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let title = cx.new(|cx| TextInput::new("Untitled", cx).inline().breadcrumb());
+        let title = cx.new(|cx| {
+            TextInput::new("Untitled", cx)
+                .inline()
+                .breadcrumb()
+                .label("Session title")
+        });
         let input = cx.subscribe_in(&title, window, |this, _, event, window, cx| {
             match event {
                 InputEvent::Submitted => {
@@ -1695,6 +1701,14 @@ impl NoteView {
             .child(
                 div()
                     .id("note-folder")
+                    // Shipping's folder trigger is a combobox named by the folder path.
+                    .role(gpui::Role::ComboBox)
+                    .aria_label(if self.details.folder_path.is_empty() {
+                        "Select folder".to_owned()
+                    } else {
+                        format!("Folder: {}", self.details.folder_path)
+                    })
+                    .aria_expanded(open)
                     .h(px(28.))
                     .flex()
                     .flex_shrink_0()
@@ -1750,6 +1764,7 @@ impl NoteView {
             .when(open, |view| {
                 let popover = resource_list::floating_menu(224., colors)
                     .id("note-folder-picker")
+                    .a11y_dialog("Select folder")
                     .pb_0()
                     .occlude()
                     .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
@@ -1813,6 +1828,8 @@ impl NoteView {
             .unwrap_or_default();
         let mode = self.mode;
         div()
+            .id("note-views")
+            .a11y_group(gpui::Role::TabList, "Session note views")
             .flex()
             .flex_shrink_0()
             .h(px(28.))
@@ -1924,6 +1941,10 @@ impl NoteView {
                 };
                 div()
                     .id(("note-tab", index))
+                    .a11y_tab(label.clone(), active)
+                    .when(active && summary_tab, |view| {
+                        view.aria_expanded(self.picker.is_some())
+                    })
                     .h(px(24.))
                     .px_2()
                     .flex()
@@ -2137,6 +2158,13 @@ impl NoteView {
             .font_weight(crate::ui::theme::MEDIUM)
             .text_color(colors.foreground)
             .cursor_pointer()
+            .a11y_button(if share {
+                "Share"
+            } else if recording {
+                "Stop"
+            } else {
+                "Record"
+            })
             .on_click(cx.listener(move |this, _, window, cx| {
                 if share {
                     this.toggle_share(window, cx);
@@ -2249,6 +2277,8 @@ impl NoteView {
                     .child(
                         div()
                             .id("note-more")
+                            .a11y_button("More")
+                            .aria_expanded(self.menu)
                             .size(px(28.))
                             .flex()
                             .items_center()
@@ -2293,6 +2323,7 @@ impl NoteView {
         let submenu = self.meeting_info.as_ref().map(|(info, _)| info.clone());
         div()
             .id("note-actions")
+            .a11y_group(gpui::Role::Menu, "More")
             .absolute()
             .top(px(39.))
             .right(px(8.))
@@ -2356,6 +2387,20 @@ impl NoteView {
                         let action = item.action;
                         let row = div()
                             .id(("note-action", index))
+                            .map(|row| {
+                                if item.action == MenuAction::AlwaysOnTop {
+                                    row.a11y_menu_check(item.label, item.checked)
+                                } else {
+                                    row.a11y_menu_item(item.label)
+                                }
+                            })
+                            .a11y_disabled(item.disabled)
+                            .when(item.action == MenuAction::MeetingInfo, |row| {
+                                row.aria_expanded(sub_open)
+                            })
+                            .when(self.menu_index == Some(index), |row| {
+                                row.aria_active_descendant()
+                            })
                             .flex()
                             .items_center()
                             .gap_2()
@@ -2432,6 +2477,7 @@ impl NoteView {
                 view.child(
                     div()
                         .id("meeting-info-submenu")
+                        .a11y_group(gpui::Role::Group, "Meeting info")
                         .absolute()
                         .top(px(9.))
                         .right(px(217.))
@@ -2484,6 +2530,7 @@ impl NoteView {
             gpui::anchored().position(position).snap_to_window().child(
                 resource_list::context_menu(colors)
                     .id("note-tab-menu")
+                    .role(gpui::Role::Menu)
                     .occlude()
                     .on_mouse_down_out(cx.listener(|this, _, _, cx| {
                         this.tab_menu = None;
@@ -2495,6 +2542,8 @@ impl NoteView {
                             .then(|| div().my_1().h(px(1.)).bg(colors.border).into_any_element());
                         let row = div()
                             .id(SharedString::from(format!("note-tab-menu-{label}")))
+                            .a11y_menu_item(label)
+                            .a11y_disabled(disabled)
                             .h(px(30.))
                             .px_3()
                             .flex()
@@ -2739,6 +2788,8 @@ impl Render for NoteView {
             .when(!self.message.is_empty(), |view| {
                 view.child(
                     div()
+                        .id("note-message")
+                        .a11y_status(self.message.clone(), self.rename_error)
                         .px_3()
                         .py_1()
                         .text_sm()
@@ -2752,6 +2803,7 @@ impl Render for NoteView {
                                     .child(
                                         div()
                                             .id("retry-title")
+                                            .a11y_button("Retry")
                                             .cursor_pointer()
                                             .child("Retry")
                                             .on_click(
@@ -2761,6 +2813,7 @@ impl Render for NoteView {
                                     .child(
                                         div()
                                             .id("restore-title")
+                                            .a11y_button("Restore")
                                             .cursor_pointer()
                                             .child("Restore")
                                             .on_click(

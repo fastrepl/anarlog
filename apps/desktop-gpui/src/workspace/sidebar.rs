@@ -10,6 +10,7 @@ use super::{
     shell::WorkspaceView,
     timeline::{Grouping, Ordering, View},
 };
+use crate::ui::a11y::Accessible;
 use crate::ui::theme::{Theme, theme};
 
 const MENU_WIDTH: f32 = 224.;
@@ -194,16 +195,19 @@ impl WorkspaceView {
                             false,
                             colors,
                         )
+                        .a11y_button("Hide sidebar")
                         .on_click(cx.listener(|this, _, _, cx| this.toggle_sidebar(cx))),
                     )
                     .child(
                         chrome_button("open-picker", "Search01Icon.svg", 15., false, colors)
+                            .a11y_button("Search")
                             .on_click(
                                 cx.listener(|this, _, window, cx| this.show_picker(window, cx)),
                             ),
                     )
                     .child(
                         chrome_button("new-note", "NoteEditIcon.svg", 15., false, colors)
+                            .a11y_button("New note")
                             .on_click(cx.listener(|this, _, _, cx| this.create(false, cx))),
                     )
                     .child(
@@ -218,6 +222,8 @@ impl WorkspaceView {
                             filtered,
                             colors,
                         )
+                        .a11y_button("Sort notes")
+                        .aria_expanded(self.sort_menu.is_some())
                         .on_click(cx.listener(|this, _, _, cx| {
                             this.sort_menu = match this.sort_menu {
                                 Some(_) => None,
@@ -260,6 +266,8 @@ impl WorkspaceView {
                 }
             };
             menu_item(("sort-row", index), menu.row == Some(index), colors)
+                .a11y_menu_item(format!("{label}, {value}"))
+                .aria_expanded(menu.row == Some(index) && menu.submenu)
                 .on_hover(cx.listener(move |this, hovered: &bool, _, cx| {
                     if *hovered {
                         open(this, cx);
@@ -278,6 +286,7 @@ impl WorkspaceView {
         // Both panels sit in one row so a click in the submenu is not a click outside the menu.
         div()
             .id("sort-menu")
+            .a11y_group(gpui::Role::Menu, "Sort notes")
             .flex()
             .items_start()
             .occlude()
@@ -296,6 +305,11 @@ impl WorkspaceView {
                 let selected = SortMenu::selected(row, view);
                 root.child(
                     div()
+                        .id("sort-submenu")
+                        .a11y_group(
+                            gpui::Role::Menu,
+                            if row == 0 { "Grouping" } else { "Ordering" },
+                        )
                         .ml(px(-9.))
                         .mt(px(9. + MENU_ITEM_HEIGHT * row as f32))
                         .child(floating_panel(SUBMENU_WIDTH, colors).child(
@@ -307,6 +321,7 @@ impl WorkspaceView {
                                             menu.option == Some(option),
                                             colors,
                                         )
+                                        .a11y_menu_radio(label, option == selected)
                                         .on_click(cx.listener(move |this, _, _, cx| {
                                             this.choose_sort(row, option, cx);
                                         }))
@@ -397,6 +412,7 @@ impl WorkspaceView {
                     false,
                     colors,
                 )
+                .a11y_button("Show sidebar")
                 .on_click(cx.listener(|this, _, _, cx| this.toggle_sidebar(cx)))
                 .when(upcoming, |button| {
                     button.child(

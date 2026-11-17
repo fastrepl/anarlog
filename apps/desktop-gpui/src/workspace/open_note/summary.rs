@@ -12,6 +12,7 @@ use gpui::{
 use serde_json::{Value, json};
 
 use super::{NoteEvent, NoteView, icon, neutral};
+use crate::ui::a11y::Accessible;
 use crate::{
     contracts::{ProductRoute, WorkspaceEvent},
     meeting::{
@@ -372,6 +373,7 @@ fn button(
         .gap_2()
         .font_weight(crate::ui::theme::MEDIUM)
         .cursor_pointer()
+        .a11y_button(label)
         .map(|button| {
             if small {
                 button.h_7().px_2().text_xs().line_height(px(16.))
@@ -705,6 +707,8 @@ impl NoteView {
                     .text_center()
                     .child(
                         div()
+                            .id("summary-setup-title")
+                            .a11y_heading("Set up AI summaries", 2)
                             .text_base()
                             .line_height(px(24.))
                             .font_weight(crate::ui::theme::MEDIUM)
@@ -713,6 +717,8 @@ impl NoteView {
                     )
                     .child(
                         div()
+                            .id("summary-setup-description")
+                            .a11y_text("Start a Pro trial or add your own LLM API key to generate a summary from this transcript.")
                             .text_sm()
                             .line_height(px(22.75))
                             .text_color(colors.muted_foreground)
@@ -767,6 +773,9 @@ impl NoteView {
                     .gap_2()
                     .child(
                         div()
+                            .id("summary-failed")
+                            .a11y_status("Summary generation failed", true)
+                            .aria_description(error.clone())
                             .text_base()
                             .line_height(px(24.))
                             .font_weight(crate::ui::theme::MEDIUM)
@@ -930,6 +939,7 @@ impl NoteView {
             let is_used = item.id == used;
             div()
                 .id(("summary-template", index))
+                .a11y_menu_check(item.title.to_string(), is_used)
                 .h_8()
                 .flex_shrink_0()
                 .w_full()
@@ -959,6 +969,8 @@ impl NoteView {
                     row.child(
                         div()
                             .id("summary-regenerate")
+                            .a11y_button("Regenerate")
+                            .a11y_disabled(generating)
                             .flex_shrink_0()
                             .flex()
                             .items_center()
@@ -1017,6 +1029,7 @@ impl NoteView {
             rows.push(
                 div()
                     .id("summary-template-create")
+                    .a11y_menu_item(format!("Create new template {title}"))
                     .h_8()
                     .flex_shrink_0()
                     .w_full()
@@ -1046,6 +1059,8 @@ impl NoteView {
         if templates.is_empty() && !searching {
             rows.push(
                 div()
+                    .id("summary-no-templates")
+                    .a11y_text("No templates yet")
                     .px_2()
                     .py_3()
                     .text_sm()
@@ -1061,6 +1076,7 @@ impl NoteView {
         Some(
             div()
                 .id("summary-template-picker")
+                .a11y_group(gpui::Role::Menu, "Templates")
                 .w(px(320.))
                 .occlude()
                 .p(px(2.))
@@ -1114,6 +1130,7 @@ impl NoteView {
                                         view.child(
                                             div()
                                                 .id("summary-template-clear")
+                                                .a11y_button("Clear search")
                                                 .p(px(2.))
                                                 .cursor_pointer()
                                                 .hover(move |style| style.bg(colors.accent))
@@ -1147,6 +1164,7 @@ impl NoteView {
                 .child(
                     div()
                         .id("summary-see-all")
+                        .a11y_button("See all templates")
                         .w_full()
                         .flex()
                         .items_center()

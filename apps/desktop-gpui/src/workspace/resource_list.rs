@@ -15,6 +15,7 @@ use gpui::{
 use serde_json::Value;
 
 use super::catalog_icons::{self, TEMPLATE_ICONS};
+use crate::ui::a11y::Accessible;
 use crate::ui::{
     input::TextInput,
     theme::{Theme, is_dark},
@@ -209,12 +210,11 @@ pub fn sidebar_header(
         .pl(crate::zoom::window_controls_gutter(cx))
         .pt(crate::zoom::window_controls_top(cx))
         .child(
-            div()
-                .flex_1()
-                .min_w_0()
-                .flex()
-                .items_center()
-                .child(ghost_icon_button(id, "ArrowLeft02Icon", colors).on_click(on_back)),
+            div().flex_1().min_w_0().flex().items_center().child(
+                ghost_icon_button(id, "ArrowLeft02Icon", colors)
+                    .a11y_button("Go home")
+                    .on_click(on_back),
+            ),
         )
         .child(
             div()
@@ -279,6 +279,7 @@ pub fn search_field(
                 view.child(
                     div()
                         .id("clear-search")
+                        .a11y_button("Clear search")
                         .size(px(16.))
                         .flex_shrink_0()
                         .cursor_pointer()
@@ -301,8 +302,11 @@ pub fn list_row(
     muted: bool,
     colors: Theme,
 ) -> Stateful<gpui::Div> {
+    // Callers name the row with `aria_label`.
     div()
         .id(id)
+        .role(gpui::Role::Button)
+        .aria_selected(selected)
         .w_full()
         .px_3()
         .py_2()
@@ -334,7 +338,14 @@ pub fn empty_list(icon_name: &'static str, message: &'static str, colors: Theme)
         .items_center()
         .text_color(colors.muted_foreground)
         .child(icon(icon_name, 32., colors.muted_foreground.opacity(0.7)).mb_2())
-        .child(div().text_sm().line_height(px(20.)).child(message))
+        .child(
+            div()
+                .id("empty-list")
+                .a11y_text(message)
+                .text_sm()
+                .line_height(px(20.))
+                .child(message),
+        )
 }
 
 /// Shipping's `AppFloatingPanel` inside its chrome ring.
@@ -375,6 +386,8 @@ pub fn menu_item(
     };
     div()
         .id(id)
+        .a11y_menu_item(label)
+        .a11y_disabled(disabled)
         .h(px(32.))
         .px_2()
         .flex()
@@ -408,6 +421,7 @@ pub fn context_item(
 ) -> Stateful<gpui::Div> {
     div()
         .id(id)
+        .a11y_menu_item(label)
         .h(px(30.))
         .px_3()
         .flex()
@@ -436,6 +450,7 @@ pub fn dropdown<T: MenuOwner + 'static>(
         .child(gpui::deferred(
             gpui::anchored().anchor(corner).snap_to_window().child(
                 menu.id("dropdown")
+                    .role(gpui::Role::Menu)
                     .occlude()
                     .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| cx.stop_propagation())
                     .on_mouse_down_out(cx.listener(|this: &mut T, _, _, cx| {
@@ -457,6 +472,8 @@ pub fn popover<T: MenuOwner + 'static>(content: AnyElement, cx: &mut Context<T>)
             gpui::anchored().snap_to_window().child(
                 div()
                     .id("popover")
+                    // Radix popovers are `role="dialog"`; the content names itself.
+                    .role(gpui::Role::Dialog)
                     .occlude()
                     .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| cx.stop_propagation())
                     .on_mouse_down_out(cx.listener(|this: &mut T, _, _, cx| {
@@ -491,10 +508,12 @@ pub fn modal(window: &Window, content: AnyElement) -> AnyElement {
     .into_any_element()
 }
 
-/// Shipping's `GlassDialogContent`; native views cannot blur what is behind them.
+/// Shipping's `GlassDialogContent`; native views cannot blur what is behind them. Callers
+/// name it with its title (`a11y_dialog`).
 pub fn glass_dialog(colors: Theme) -> Stateful<gpui::Div> {
     div()
         .id("glass-dialog")
+        .role(gpui::Role::Dialog)
         .w(px(320.))
         .p_5()
         .flex()
@@ -532,6 +551,7 @@ pub fn dialog_button(
         .font_weight(crate::ui::theme::MEDIUM)
         .cursor_pointer()
         .shadow_sm()
+        .a11y_button(label)
         .child(label);
     match (id, destructive) {
         ("dialog-cancel", _) => button
@@ -555,6 +575,7 @@ pub fn dialog_button(
 pub fn share_button(id: &'static str, colors: Theme) -> Stateful<gpui::Div> {
     div()
         .id(id)
+        .a11y_button("Share")
         .group(id)
         .h(px(28.))
         .px_2()
@@ -614,6 +635,7 @@ impl WarningToast {
                 .line_height(px(16.))
                 .font_weight(crate::ui::theme::MEDIUM)
                 .cursor_pointer()
+                .a11y_button(label)
                 .map(|button| {
                     if primary {
                         button
@@ -634,6 +656,7 @@ impl WarningToast {
         gpui::deferred(
             div()
                 .id("app-toast")
+                .a11y_status(self.message, false)
                 .absolute()
                 .bottom(px(16.))
                 .right(px(16.))
@@ -700,6 +723,11 @@ impl WarningToast {
                         .text_color(colors.muted_foreground)
                         .cursor_pointer()
                         .hover(|style| style.bg(colors.muted))
+                        .a11y_button(if self.paused {
+                            "Resume timer"
+                        } else {
+                            "Pause timer"
+                        })
                         .on_click(on_pause)
                         .child(
                             div()

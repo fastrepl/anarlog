@@ -1,5 +1,6 @@
 use std::{collections::HashSet, sync::Arc};
 
+use crate::ui::a11y::Accessible;
 use chrono::{Datelike, Utc};
 use chrono_tz::Tz;
 use desktop_runtime::{LibraryPage, SessionId};
@@ -498,7 +499,10 @@ impl LibraryView {
         match self.timeline.rows.get(row).cloned() {
             None => div().into_any_element(),
             Some(Row::TopSpacer) => div().h(px(36.)).into_any_element(),
-            Some(Row::Heading(label)) => heading(label, colors).into_any_element(),
+            Some(Row::Heading(label)) => heading(label.clone(), colors)
+                .id(("timeline-heading", row))
+                .a11y_heading(gpui::SharedString::from(label), 3)
+                .into_any_element(),
             Some(Row::Now { above, below }) => div()
                 .pt(px(above))
                 .pb(px(below))
@@ -680,6 +684,23 @@ impl LibraryView {
             .and_then(|id| super::note_lock::glyph(id, colors.muted_foreground, cx));
         let lock_right = if live { 40. } else { 12. } + if spinner { 22. } else { 0. };
         let extra_rows = usize::from(!folder.is_empty()) + usize::from(!tags.is_empty());
+        // Shipping's row is a `<button>` named by its visible text.
+        let label = [
+            folder.as_str(),
+            if title.is_empty() { "Untitled" } else { &title },
+            &time,
+            &tags,
+            if lock_glyph.is_some() {
+                "Locked note"
+            } else {
+                ""
+            },
+        ]
+        .into_iter()
+        .filter(|part| !part.is_empty())
+        .collect::<Vec<_>>()
+        .join(", ");
+        let cursor = session.is_some() && self.selection.cursor == session;
         // Shipping's stylesheet never generates the item's `bg-destructive/8`, `bg-destructive/20`
         // and `text-destructive-foreground/65` classes, so upcoming items have no tint or gauge
         // track and live metadata stays full white. Match what ships.
@@ -690,6 +711,8 @@ impl LibraryView {
         };
         let content = div()
             .id(id)
+            .a11y_row(label, selected)
+            .when(cursor, |view| view.aria_active_descendant())
             .w_full()
             .min_w_0()
             .h(px(54. + 18. * extra_rows as f32))
@@ -911,6 +934,7 @@ impl LibraryView {
                         .child(
                             div()
                                 .id("sidebar-live-stop")
+                                .a11y_button("Stop listening")
                                 .size_5()
                                 .flex()
                                 .items_center()
@@ -1032,6 +1056,7 @@ impl LibraryView {
                                     }),
                             )
                             .child("Open calendar")
+                            .a11y_button("Open calendar")
                             .on_click(cx.listener(|_, _, _, cx| cx.emit(OpenNote::Calendar))),
                     )
                 })
@@ -1049,6 +1074,7 @@ impl LibraryView {
                                 chip_icon("workspace/ArrowUp02IconBold.svg", 12.)
                                     .text_color(colors.destructive_foreground),
                             )
+                            .a11y_button(label.clone())
                             .child(label)
                             .on_click(cx.listener(move |this, _, _, cx| {
                                 this.scroll_row_to(row, 0.45);
@@ -1082,6 +1108,7 @@ impl LibraryView {
             .when(!up, |view| {
                 view.child(arrow("workspace/ArrowDown02Icon.svg"))
             })
+            .a11y_button("Go back to now")
             .on_click(cx.listener(move |this, _, _, cx| {
                 this.scroll_row_to(row, 0.5);
                 cx.notify();
@@ -1175,6 +1202,8 @@ impl Render for LibraryView {
         let (chips, bottom_now) = self.chips(colors, cx);
         let sticky = self.sticky_heading(colors);
         div()
+            .id("timeline")
+            .a11y_group(gpui::Role::List, "Timeline")
             .size_full()
             .relative()
             .track_focus(&self.focus)
@@ -1268,6 +1297,7 @@ impl Render for LibraryView {
                         .child(
                             div()
                                 .id("note-context-menu")
+                                .role(gpui::Role::Menu)
                                 .w(px(224.))
                                 .p_1()
                                 .bg(colors.card)
@@ -1296,6 +1326,7 @@ impl Render for LibraryView {
                                                 view.bg(colors.accent)
                                             })
                                             .hover(|style| style.bg(colors.accent))
+                                            .a11y_menu_item(label.clone())
                                             .child(label)
                                             .on_click(cx.listener(move |this, _, _, cx| {
                                                 cx.stop_propagation();

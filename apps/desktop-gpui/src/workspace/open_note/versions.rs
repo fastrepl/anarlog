@@ -18,6 +18,7 @@ use gpui::{
 use serde_json::{Value, json};
 
 use super::{NoteEvent, NoteView, icon, is_dark};
+use crate::ui::a11y::Accessible;
 use crate::{
     chat::state::distance_to_now,
     editor::EditorPane,
@@ -380,6 +381,8 @@ impl NoteView {
                                 )
                                 .child(
                                     div()
+                                        .id("conflict-message")
+                                        .a11y_status(text, false)
                                         .min_w_0()
                                         .text_size(px(13.))
                                         .line_height(px(20.))
@@ -443,6 +446,8 @@ impl NoteView {
         let list =
             if history.entries.is_empty() {
                 div()
+                    .id("version-history-empty")
+                    .a11y_text("No earlier versions yet.")
                     .py_6()
                     .text_center()
                     .text_xs()
@@ -453,6 +458,7 @@ impl NoteView {
             } else {
                 div()
                     .id("version-history-list")
+                    .a11y_group(gpui::Role::List, "Versions")
                     .flex_1()
                     .min_h_0()
                     .flex()
@@ -464,7 +470,21 @@ impl NoteView {
                             let at = chrono::DateTime::from_timestamp_millis(entry.at_ms)
                                 .filter(|_| entry.at_ms > 0)
                                 .map(|at| distance_to_now(at, now));
+                            let preview = if preview.is_empty() {
+                                SharedString::from("Empty note")
+                            } else {
+                                preview.clone()
+                            };
                             div()
+                                .id(("version", index))
+                                .role(gpui::Role::ListItem)
+                                .aria_label(
+                                    [Some(entry.label), at.as_deref(), Some(&preview)]
+                                        .into_iter()
+                                        .flatten()
+                                        .collect::<Vec<_>>()
+                                        .join(", "),
+                                )
                                 .flex()
                                 .flex_shrink_0()
                                 .items_start()
@@ -500,11 +520,7 @@ impl NoteView {
                                                 .line_height(px(20.))
                                                 .text_color(colors.muted_foreground)
                                                 .line_clamp(3)
-                                                .child(if preview.is_empty() {
-                                                    SharedString::from("Empty note")
-                                                } else {
-                                                    preview.clone()
-                                                }),
+                                                .child(preview),
                                         ),
                                 )
                                 .child(
@@ -527,6 +543,8 @@ impl NoteView {
             };
         let dialog = div()
             .id("version-history")
+            .a11y_dialog("Version history")
+            .aria_description("Earlier versions of this note, newest first.")
             .track_focus(&history.focus)
             .relative()
             .w_full()
@@ -574,6 +592,8 @@ impl NoteView {
             .child(list)
             .children(history.error.clone().map(|error| {
                 div()
+                    .id("version-history-error")
+                    .a11y_status(error.clone(), true)
                     .text_xs()
                     .line_height(px(16.))
                     .text_color(rgb(0xef4444))
@@ -582,6 +602,7 @@ impl NoteView {
             .child(
                 div()
                     .id("version-history-close")
+                    .a11y_button("Close")
                     .absolute()
                     .top_4()
                     .right_4()
@@ -652,6 +673,8 @@ fn button(
                     .hover(|style| style.bg(colors.accent).text_color(colors.accent_foreground))
             },
         )
+        .a11y_button(label)
+        .a11y_disabled(disabled)
         .child(label)
 }
 

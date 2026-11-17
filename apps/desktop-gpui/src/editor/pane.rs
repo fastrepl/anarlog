@@ -25,6 +25,7 @@ use super::{
     persistence::{Flush, SaveEvent, SaveJournal},
     surface::{self, ProjectedBlock, VisibleLayout},
 };
+use crate::ui::a11y::Accessible;
 use crate::{
     contracts::{EditorEvent, EditorInit, LaneContext},
     ui::{caret::Caret, theme::theme},
@@ -1166,6 +1167,21 @@ impl EditorPane {
         self.edited(before, result, cx);
     }
 
+    fn open_attachment_file(&mut self, path: Arc<std::path::PathBuf>, cx: &mut Context<Self>) {
+        let job = cx.background_executor().spawn(async move {
+            crate::platform::os::open(path.as_ref()).map_err(|error| error.to_string())
+        });
+        cx.spawn(async move |entity, cx| {
+            if let Err(error) = job.await {
+                let _ = entity.update(cx, |this, cx| {
+                    this.message = error;
+                    cx.notify();
+                });
+            }
+        })
+        .detach();
+    }
+
     fn attachment_remove_control(
         &self,
         start: usize,
@@ -1177,18 +1193,27 @@ impl EditorPane {
             .text_sm()
             .cursor_pointer()
             .when(!self.read_only, |view| {
-                view.child("Remove").on_mouse_down(
-                    MouseButton::Left,
-                    cx.listener(move |this, _, _, cx| {
+                view.child("Remove")
+                    .a11y_button("Remove attachment")
+                    .a11y_press(cx, move |this, _, cx| {
                         if let Some(model) = &mut this.model {
                             let before = model.revision;
                             let result = model.remove_block_atom(start, id);
                             this.edited(before, result, cx);
                         }
-                        this.dragging = false;
-                        cx.stop_propagation();
-                    }),
-                )
+                    })
+                    .on_mouse_down(
+                        MouseButton::Left,
+                        cx.listener(move |this, _, _, cx| {
+                            if let Some(model) = &mut this.model {
+                                let before = model.revision;
+                                let result = model.remove_block_atom(start, id);
+                                this.edited(before, result, cx);
+                            }
+                            this.dragging = false;
+                            cx.stop_propagation();
+                        }),
+                    )
             })
             .into_any_element()
     }
@@ -1410,23 +1435,19 @@ impl EditorPane {
                         .items_center()
                         .gap_3()
                         .cursor_pointer()
+                        .a11y_button(format!(
+                            "{}, {:.1} KB",
+                            preview.name,
+                            preview.size as f64 / 1024.
+                        ))
+                        .a11y_press(cx, {
+                            let path = path.clone();
+                            move |this, _, cx| this.open_attachment_file(path.clone(), cx)
+                        })
                         .on_mouse_down(
                             MouseButton::Left,
                             cx.listener(move |this, _, _, cx| {
-                                let path = path.clone();
-                                let job = cx.background_executor().spawn(async move {
-                                    crate::platform::os::open(path.as_ref())
-                                        .map_err(|error| error.to_string())
-                                });
-                                cx.spawn(async move |entity, cx| {
-                                    if let Err(error) = job.await {
-                                        let _ = entity.update(cx, |this, cx| {
-                                            this.message = error;
-                                            cx.notify();
-                                        });
-                                    }
-                                })
-                                .detach();
+                                this.open_attachment_file(path.clone(), cx);
                                 this.dragging = false;
                                 cx.stop_propagation();
                             }),
@@ -2180,6 +2201,7 @@ impl Render for EditorPane {
                 Some(
                     div()
                         .id("slash-menu")
+                        .a11y_group(gpui::Role::ListBox, "Commands")
                         .absolute()
                         .left(menu_position.x)
                         .top(menu_position.y)
@@ -2208,6 +2230,13 @@ impl Render for EditorPane {
                             |(index, (command, label))| {
                                 div()
                                     .id(("slash-option", index))
+                                    .a11y_option(label, index == menu.selected)
+                                    .a11y_press(cx, move |this, _, cx| {
+                                        if let Some(menu) = &mut this.slash {
+                                            menu.selected = index;
+                                        }
+                                        this.slash_commit(cx);
+                                    })
                                     .h(px(32.))
                                     .px_2()
                                     .flex()
@@ -2260,6 +2289,7 @@ impl Render for EditorPane {
             .map(|menu| {
                 div()
                     .id("mention-menu")
+                    .a11y_group(gpui::Role::ListBox, "Mentions")
                     .absolute()
                     .left(menu_position.x)
                     .top(menu_position.y)
@@ -2280,6 +2310,13 @@ impl Render for EditorPane {
                             };
                             div()
                                 .id(("mention-option", index))
+                                .a11y_option(candidate.label.clone(), index == menu.selected)
+                                .a11y_press(cx, move |this, _, cx| {
+                                    if let Some(menu) = &mut this.mention {
+                                        menu.selected = index;
+                                    }
+                                    this.commit_mention(cx);
+                                })
                                 .h(px(32.))
                                 .px_2()
                                 .flex()
@@ -2317,6 +2354,8 @@ impl Render for EditorPane {
                     ))
                     .children(menu.results.error.clone().map(|error| {
                         div()
+                            .id("mention-error")
+                            .a11y_status(error.clone(), false)
                             .px_2()
                             .py_1()
                             .text_sm()
@@ -2482,6 +2521,8 @@ impl Render for EditorPane {
                     };
                     view.child(gpui::deferred(
                         div()
+                            .id("format-toolbar")
+                            .a11y_group(gpui::Role::Toolbar, "Format selection")
                             .absolute()
                             .left(toolbar_position.x)
                             .top(toolbar_position.y)
@@ -2495,18 +2536,32 @@ impl Render for EditorPane {
                             .shadow_lg()
                             .children(
                                 [
-                                    ("bold", "editor/TextBoldIcon.svg"),
-                                    ("italic", "editor/TextItalicIcon.svg"),
-                                    ("underline", "editor/TextUnderlineIcon.svg"),
-                                    ("strike", "editor/TextStrikethroughIcon.svg"),
-                                    ("code", "editor/CodeIcon.svg"),
-                                    ("highlight", "editor/HighlighterIcon.svg"),
+                                    ("bold", "editor/TextBoldIcon.svg", "Bold"),
+                                    ("italic", "editor/TextItalicIcon.svg", "Italic"),
+                                    ("underline", "editor/TextUnderlineIcon.svg", "Underline"),
+                                    (
+                                        "strike",
+                                        "editor/TextStrikethroughIcon.svg",
+                                        "Strikethrough",
+                                    ),
+                                    ("code", "editor/CodeIcon.svg", "Code"),
+                                    ("highlight", "editor/HighlighterIcon.svg", "Highlight"),
                                 ]
                                 .into_iter()
-                                .map(|(kind, icon)| {
+                                .map(|(kind, icon, label)| {
                                     let on = active(kind);
                                     div()
                                         .id(kind)
+                                        // Shipping's toggle buttons (`aria-pressed`).
+                                        .a11y_button(label)
+                                        .aria_toggled(crate::ui::a11y::toggled(on))
+                                        .a11y_press(cx, move |this, _, cx| {
+                                            if let Some(model) = &mut this.model {
+                                                let before = model.revision;
+                                                let result = model.toggle_mark(kind);
+                                                this.edited(before, result, cx);
+                                            }
+                                        })
                                         .group(kind)
                                         .size(px(28.))
                                         .flex()
@@ -2552,6 +2607,9 @@ impl Render for EditorPane {
             .when_some(self.link_input.clone(), |view, input| {
                 view.child(
                     div()
+                        .id("link-editor")
+                        .a11y_group(gpui::Role::Group, "Link")
+                        .aria_value(input.clone())
                         .flex()
                         .gap_2()
                         .p_2()
@@ -2565,6 +2623,8 @@ impl Render for EditorPane {
                         .child(
                             div()
                                 .id("save-link")
+                                .a11y_button("Apply")
+                                .a11y_press(cx, |this, _, cx| this.commit_link(cx))
                                 .cursor_pointer()
                                 .child("Apply")
                                 .on_mouse_down(
@@ -2578,6 +2638,11 @@ impl Render for EditorPane {
                         .child(
                             div()
                                 .id("remove-link")
+                                .a11y_button("Remove")
+                                .a11y_press(cx, |this, _, cx| {
+                                    this.link_input = Some(String::new());
+                                    this.commit_link(cx);
+                                })
                                 .cursor_pointer()
                                 .child("Remove")
                                 .on_mouse_down(
@@ -2596,6 +2661,7 @@ impl Render for EditorPane {
                 container.child(
                     div()
                         .id("retry-editor-save")
+                        .a11y_button("Unsaved · Retry save")
                         .text_sm()
                         .px_2()
                         .cursor_pointer()
@@ -2609,6 +2675,7 @@ impl Render for EditorPane {
                     container.child(
                         div()
                             .id("merge-editor-remote")
+                            .a11y_button("Merge nonoverlapping remote changes")
                             .text_sm()
                             .px_2()
                             .cursor_pointer()

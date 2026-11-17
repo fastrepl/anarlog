@@ -13,6 +13,7 @@ use super::{
     model::Selection,
     sequence::Measured,
 };
+use crate::ui::a11y::Accessible;
 use crate::ui::theme::theme;
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -650,9 +651,25 @@ pub fn render_row(
             let marker = row.style.marker.clone();
             if matches!(marker.as_str(), "[ ]" | "[x]") {
                 let done = marker == "[x]";
+                let task = block_start + row.start;
                 div.child(
                     gpui::div()
                         .id(("task", row.id))
+                        .a11y_checkbox(
+                            if row.text.is_empty() {
+                                SharedString::from("Task")
+                            } else {
+                                row.text.clone()
+                            },
+                            done,
+                        )
+                        .a11y_press(cx, move |this, _, cx| {
+                            if let Some(model) = &mut this.model {
+                                let before = model.revision;
+                                let result = model.toggle_task(task);
+                                this.edited(before, result, cx);
+                            }
+                        })
                         .absolute()
                         .left(px(marker_left))
                         .top(px(font_size * 0.375))

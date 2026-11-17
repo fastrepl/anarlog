@@ -15,6 +15,7 @@ use gpui::{
     prelude::FluentBuilder, px, relative, rgb, svg,
 };
 
+use crate::ui::a11y::Accessible;
 use crate::ui::theme::{MEDIUM, system_font, theme};
 
 /// `TOAST_DURATIONS` in `@anlg/ui` toast.tsx.
@@ -389,6 +390,7 @@ fn button(
         .line_height(px(16.))
         .font_weight(MEDIUM)
         .cursor_pointer()
+        .a11y_button(label.clone())
         .child(label);
     if primary {
         button
@@ -523,6 +525,11 @@ impl Toasts {
                 .line_height(px(16.5))
                 .cursor_pointer()
                 .hover(|style| style.bg(colors.muted))
+                .a11y_button(if paused {
+                    "Resume timer"
+                } else {
+                    "Pause timer"
+                })
                 .on_click(cx.listener(move |this, _, _, cx| {
                     cx.stop_propagation();
                     this.toggle_timer(&id, Instant::now());
@@ -554,6 +561,14 @@ impl Toasts {
         let width = (window.viewport_size().width - px(32.)).min(px(WIDTH));
         let card = div()
             .id(SharedString::from(format!("toast-{id}")))
+            // Sonner's toasts are live regions; errors interrupt.
+            .a11y_status(toast.message.clone(), toast.tone == Tone::Error)
+            .when_some(toast.description.clone(), |card, text| {
+                card.aria_description(text)
+            })
+            .when(item.has_details() && !behind, |card| {
+                card.aria_expanded(expanded)
+            })
             .relative()
             .w(if behind { width * scale } else { width })
             .border_1()

@@ -14,6 +14,7 @@ use gpui::{
 };
 use serde_json::{Value, json};
 
+use crate::ui::a11y::Accessible;
 use crate::{
     editor::EditorPane,
     product::{
@@ -262,6 +263,7 @@ impl ExportModal {
                 "export-format-{}",
                 format.extension()
             )))
+            .a11y_radio(label, checked)
             .flex()
             .items_center()
             .gap(px(6.))
@@ -303,6 +305,7 @@ impl ExportModal {
     ) -> gpui::Stateful<gpui::Div> {
         div()
             .id(id)
+            .a11y_checkbox(label, checked)
             .flex()
             .items_center()
             .gap(px(6.))
@@ -409,7 +412,7 @@ impl Render for ExportModal {
                             .items_center()
                             .gap_2()
                             .child(section("File format"))
-                            .child(div().flex().justify_center().gap_4().children(
+                            .child(div().id("export-formats").a11y_group(gpui::Role::RadioGroup, "File format").flex().justify_center().gap_4().children(
                                 FORMATS
                                     .iter()
                                     .map(|(format, label)| self.radio(*format, label, colors, cx))
@@ -425,6 +428,8 @@ impl Render for ExportModal {
                             .child(section("Include"))
                             .child(
                                 div()
+                                    .id("export-include")
+                                    .a11y_group(gpui::Role::Group, "Include")
                                     .flex()
                                     .justify_center()
                                     .gap_4()
@@ -458,6 +463,11 @@ impl Render for ExportModal {
             .when(self.failed, |card| {
                 card.child(
                     div()
+                        .id("export-error")
+                        .a11y_status(
+                            "Could not export. Check the export location in Settings and try again.",
+                            true,
+                        )
                         .text_xs()
                         .text_center()
                         .text_color(rgba(0xef4444ff))
@@ -467,6 +477,8 @@ impl Render for ExportModal {
             .child(
                 div()
                     .id("export-submit")
+                    .a11y_button(if self.pending { "Exporting..." } else { "Export" })
+                    .a11y_disabled(disabled)
                     .h(px(40.))
                     .w_full()
                     .flex()
@@ -501,6 +513,8 @@ impl Render for ExportModal {
             gpui::anchored().position(point(px(0.), px(0.))).child(
                 div()
                     .id("export-overlay")
+                    .a11y_dialog("Export")
+                    .aria_description("Choose a file format and what to include.")
                     .track_focus(&self.focus)
                     .w(window.viewport_size().width)
                     .h(window.viewport_size().height)
