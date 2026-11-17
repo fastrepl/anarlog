@@ -327,19 +327,28 @@ impl ApplicationView {
         )
     }
 
-    /// Shipping's main-window close: hide and keep running. Platforms that cannot hide one
-    /// window quit through the drain instead.
+    /// Shipping's main-window close: hide and keep running. An unsupported Linux backend
+    /// leaves the window open with an error instead of turning Close into Quit Completely.
     pub fn close_main(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.closing {
             return;
         }
         self.main_window_hidden(cx);
-        if crate::platform::windows::hide_main(window, cx).is_err() {
+        if let Err(error) = crate::platform::windows::hide_main(window, cx) {
+            #[cfg(target_os = "linux")]
+            self.status(&error.to_string(), cx);
+            #[cfg(not(target_os = "linux"))]
+            let _ = error;
+            #[cfg(not(target_os = "linux"))]
             self.request_quit(cx);
         }
     }
 
     pub(super) fn show_main(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        #[cfg(target_os = "linux")]
+        if let Err(error) = crate::platform::windows::show_main(window) {
+            self.status(&error.to_string(), cx);
+        }
         cx.activate(true);
         window.activate_window();
     }

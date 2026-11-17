@@ -172,12 +172,52 @@ pub fn hide_main(window: &Window, cx: &App) -> Result<()> {
             .detach();
         Ok(())
     }
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(target_os = "linux")]
+    {
+        let _ = cx;
+        linux::set_visible(window, false)
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
     {
         let _ = cx;
         Err(ServiceError::Unsupported(
             "This platform cannot hide a single window".into(),
         ))
+    }
+}
+
+/// Restore an X11 window withdrawn to the tray before requesting focus.
+#[cfg(target_os = "linux")]
+pub fn show_main(window: &Window) -> Result<()> {
+    linux::set_visible(window, true)
+}
+
+#[cfg(target_os = "linux")]
+mod linux {
+    use desktop_runtime::{Result, ServiceError};
+    use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+    use x11rb::{connection::Connection, protocol::xproto::ConnectionExt};
+
+    pub(super) fn set_visible(window: &gpui::Window, visible: bool) -> Result<()> {
+        let handle = HasWindowHandle::window_handle(window)
+            .map_err(|error| ServiceError::Failed(error.to_string().into()))?;
+        let RawWindowHandle::Xcb(handle) = handle.as_raw() else {
+            return Err(ServiceError::Unsupported(
+                "Hiding a window to the tray is not supported by this display backend".into(),
+            ));
+        };
+        let failed = |error: &dyn std::fmt::Display| ServiceError::Failed(error.to_string().into());
+        let (connection, _) = x11rb::connect(None).map_err(|error| failed(&error))?;
+        // GPUI's X11 activate() only asks the WM for focus; it does not map a hidden window.
+        let request = if visible {
+            connection.map_window(handle.window.get())
+        } else {
+            connection.unmap_window(handle.window.get())
+        }
+        .map_err(|error| failed(&error))?;
+        request.check().map_err(|error| failed(&error))?;
+        connection.flush().map_err(|error| failed(&error))?;
+        Ok(())
     }
 }
 
