@@ -49,14 +49,7 @@ impl Prefs<'_> {
 
     fn list(&self, key: &str) -> Vec<String> {
         self.value(key)
-            .and_then(|value| value.as_str().map(str::to_owned))
-            .and_then(|text| serde_json::from_str::<Vec<Value>>(&text).ok())
-            .map(|items| {
-                items
-                    .into_iter()
-                    .filter_map(|item| item.as_str().map(str::to_owned))
-                    .collect()
-            })
+            .and_then(|value| value.as_str().map(super::detect::parse_ids))
             .unwrap_or_default()
     }
 

@@ -153,6 +153,81 @@ impl Detection {
     }
 }
 
+/// A stored JSON list of app ids such as `ignored_platforms`.
+pub fn parse_ids(text: &str) -> Vec<String> {
+    serde_json::from_str::<Vec<serde_json::Value>>(text)
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|item| item.as_str().map(str::to_owned))
+        .collect()
+}
+
+fn excluded(id: &str, ignored: &[String], included: &[String]) -> bool {
+    ignored.iter().any(|known| known == id)
+        || (DEFAULT_IGNORED.contains(&id) && !included.iter().any(|known| known == id))
+}
+
+/// The settings badges: every user-excluded app, plus default-excluded apps that are installed
+/// and not re-included (`getIgnoredBundleIds`).
+pub fn excluded_ids(installed: &[MicApp], ignored: &[String], included: &[String]) -> Vec<String> {
+    let mut ids = Vec::new();
+    for id in ignored {
+        if !ids.contains(id) {
+            ids.push(id.clone());
+        }
+    }
+    for id in DEFAULT_IGNORED {
+        if installed.iter().any(|app| app.id == *id)
+            && excluded(id, ignored, included)
+            && !ids.iter().any(|known| known == id)
+        {
+            ids.push((*id).to_owned());
+        }
+    }
+    ids
+}
+
+/// Installed apps that can still be excluded and match the search (`getIgnorableApps`).
+pub fn excludable(
+    installed: &[MicApp],
+    ignored: &[String],
+    included: &[String],
+    query: &str,
+) -> Vec<MicApp> {
+    let query = query.trim().to_lowercase();
+    installed
+        .iter()
+        .filter(|app| {
+            app.name.to_lowercase().contains(&query) && !excluded(&app.id, ignored, included)
+        })
+        .cloned()
+        .collect()
+}
+
+/// Shipping's `toggleIgnoredApp`: returns the new `(ignored, included)` lists. Re-including a
+/// default-excluded app records it as included rather than editing the defaults.
+pub fn toggle_excluded(
+    id: &str,
+    ignored: &[String],
+    included: &[String],
+) -> (Vec<String>, Vec<String>) {
+    let default = DEFAULT_IGNORED.contains(&id);
+    let mut ignored = ignored.to_vec();
+    let mut included = included.to_vec();
+    if excluded(id, &ignored, &included) {
+        ignored.retain(|known| known != id);
+        if default {
+            included.push(id.to_owned());
+        }
+    } else {
+        if !default {
+            ignored.push(id.to_owned());
+        }
+        included.retain(|known| known != id);
+    }
+    (ignored, included)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -210,5 +285,22 @@ mod tests {
         // The suppressed alert still started the cooldown.
         detection.mic_started(&[vscode], &policy, due);
         assert_eq!(detection.next_deadline(), None);
+    }
+    #[test]
+    fn re_including_a_default_excluded_app_lets_detection_watch_it() {
+        let vscode = "com.microsoft.VSCode";
+        let (ignored, included) = toggle_excluded(vscode, &[], &[]);
+        assert!(ignored.is_empty());
+        assert_eq!(included, vec![vscode.to_owned()]);
+        let policy = Policy {
+            ignored: ignored.iter().cloned().collect(),
+            included: included.iter().cloned().collect(),
+            ..Policy::default()
+        };
+        assert!(policy.tracks(vscode));
+        let (ignored, included) = toggle_excluded(vscode, &ignored, &included);
+        assert!(ignored.is_empty() && included.is_empty());
+        let (ignored, _) = toggle_excluded("us.zoom.xos", &ignored, &included);
+        assert_eq!(ignored, vec!["us.zoom.xos".to_owned()]);
     }
 }

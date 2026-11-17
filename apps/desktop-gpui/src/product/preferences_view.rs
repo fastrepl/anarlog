@@ -474,6 +474,7 @@ impl PreferencesView {
                     this.menu = Some(id);
                     if searchable {
                         this.menu_search.update(cx, |search, cx| {
+                            search.set_placeholder("Search...");
                             search.set_text(String::new(), cx);
                             search.focus_handle(cx).focus(window, cx);
                         });

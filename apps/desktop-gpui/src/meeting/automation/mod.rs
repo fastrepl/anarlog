@@ -59,6 +59,8 @@ pub trait Platform: Send + Sync {
     /// Shipping's informational `requestUserAttention` (a single Dock bounce).
     fn request_attention(&self);
     fn open_url(&self, url: &str) -> Result<()>;
+    /// Applications the user can exclude from detection.
+    fn installed_apps(&self) -> Vec<MicApp>;
 }
 
 pub struct Installed(pub Arc<dyn Platform>);
@@ -123,6 +125,7 @@ pub struct MeetingAutomation {
     viewer: Option<Arc<str>>,
     cloudsync: Option<(Arc<str>, Task<()>)>,
     profile: Option<PathBuf>,
+    installed: Option<Arc<[MicApp]>>,
     _tasks: Vec<Task<()>>,
     _subscriptions: Vec<Subscription>,
 }
@@ -207,6 +210,7 @@ impl MeetingAutomation {
             viewer: None,
             cloudsync: None,
             profile,
+            installed: None,
             _tasks: tasks,
             _subscriptions: subscriptions,
         }
@@ -619,6 +623,34 @@ pub fn summary_ready(session: &SessionId, title: &str, cx: &mut App) {
     }
 }
 
+/// Installed applications for the excluded-apps picker, listed once in the background; windows
+/// refresh when the list arrives.
+pub fn installed_apps(cx: &mut App) -> Arc<[MicApp]> {
+    let Some(automation) = MeetingAutomation::global(cx) else {
+        return Arc::from([]);
+    };
+    automation.update(cx, |automation, cx| {
+        if let Some(installed) = &automation.installed {
+            return installed.clone();
+        }
+        let empty: Arc<[MicApp]> = Arc::from([]);
+        automation.installed = Some(empty.clone());
+        if let Some(platform) = automation.platform.clone() {
+            cx.spawn(async move |this, cx| {
+                let apps = cx
+                    .background_spawn(async move { platform.installed_apps() })
+                    .await;
+                let _ = this.update(cx, |this, cx| {
+                    this.installed = Some(apps.into());
+                    cx.refresh_windows();
+                });
+            })
+            .detach();
+        }
+        empty
+    })
+}
+
 /// A capture finished saving its transcript.
 pub fn capture_completed(cx: &mut App) {
     if let Some(automation) = MeetingAutomation::global(cx) {
@@ -847,5 +879,12 @@ impl Platform for NativePlatform {
 
     fn open_url(&self, url: &str) -> Result<()> {
         open::that(url).map_err(failure)
+    }
+
+    fn installed_apps(&self) -> Vec<MicApp> {
+        anlg_detect::list_installed_apps()
+            .into_iter()
+            .map(|app| MicApp::new(app.id, app.name))
+            .collect()
     }
 }

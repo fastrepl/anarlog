@@ -1081,53 +1081,292 @@ impl PreferencesView {
             .unwrap_or_default();
         controls::nested(colors)
             .pt_2()
-            .child(setting_row(
-                "Detection delay",
-                Some("Wait before treating microphone activity as a meeting.".into()),
-                false,
-                div().w(px(100.)).child(
-                    self.dropdown_select(
-                        "mic_active_threshold",
-                        [
-                            ("5", "5 sec"),
-                            ("10", "10 sec"),
-                            ("15", "15 sec"),
-                            ("30", "30 sec"),
-                            ("60", "1 min"),
-                            ("120", "2 min"),
-                        ]
-                        .into_iter()
-                        .map(|(value, label)| SelectOption::new(value, label))
-                        .collect(),
-                        &threshold,
-                        "",
-                        self.writable("mic_active_threshold"),
-                        false,
-                        100.,
-                        |this, value, cx| {
-                            if let Ok(seconds) = value.parse::<u64>() {
-                                this.set("mic_active_threshold", json!(seconds), cx)
-                            }
-                        },
-                        window,
-                        cx,
-                    ),
-                ),
-                colors,
-            ))
+            // Unlike `SettingRow`, the description sits right under the title here.
             .child(
                 div()
+                    .flex()
+                    .items_center()
+                    .justify_between()
+                    .gap_4()
                     .child(
                         div()
-                            .text_sm()
-                            .font_weight(crate::ui::theme::MEDIUM)
-                            .child("Exclude apps from detection"),
+                            .flex_1()
+                            .child(
+                                div()
+                                    .text_sm()
+                                    .line_height(px(20.))
+                                    .font_weight(crate::ui::theme::MEDIUM)
+                                    .child("Detection delay"),
+                            )
+                            .child(controls::description(
+                                "Wait before treating microphone activity as a meeting.",
+                                colors,
+                            )),
                     )
-                    .child(controls::description(
-                        "Prevent selected apps from triggering meeting detection.",
-                        colors,
-                    )),
+                    .child(
+                        div().w(px(100.)).child(
+                            self.dropdown_select(
+                                "mic_active_threshold",
+                                [
+                                    ("5", "5 sec"),
+                                    ("10", "10 sec"),
+                                    ("15", "15 sec"),
+                                    ("30", "30 sec"),
+                                    ("60", "1 min"),
+                                    ("120", "2 min"),
+                                ]
+                                .into_iter()
+                                .map(|(value, label)| SelectOption::new(value, label))
+                                .collect(),
+                                &threshold,
+                                "",
+                                self.writable("mic_active_threshold"),
+                                false,
+                                100.,
+                                |this, value, cx| {
+                                    if let Ok(seconds) = value.parse::<u64>() {
+                                        this.set("mic_active_threshold", json!(seconds), cx)
+                                    }
+                                },
+                                window,
+                                cx,
+                            ),
+                        ),
+                    ),
             )
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_3()
+                    .child(
+                        div()
+                            .flex()
+                            .flex_col()
+                            .gap_1()
+                            .child(
+                                div()
+                                    .text_sm()
+                                    .font_weight(crate::ui::theme::MEDIUM)
+                                    .child("Exclude apps from detection"),
+                            )
+                            .child(controls::description(
+                                "Prevent selected apps from triggering meeting detection.",
+                                colors,
+                            )),
+                    )
+                    .child(self.excluded_apps(colors, cx)),
+            )
+    }
+
+    /// The excluded-apps badges and their installed-apps search popover.
+    fn excluded_apps(&self, colors: &Theme, cx: &mut Context<Self>) -> Div {
+        use crate::meeting::automation::detect;
+        const MENU: &str = "excluded-apps";
+        let installed = crate::meeting::automation::installed_apps(cx);
+        let ignored = detect::parse_ids(&self.text("ignored_platforms"));
+        let included = detect::parse_ids(&self.text("included_platforms"));
+        let writable = self.writable("ignored_platforms") && self.writable("included_platforms");
+        let name = |id: &str| {
+            installed
+                .iter()
+                .find(|app| app.id == id)
+                .map_or_else(|| id.to_owned(), |app| app.name.clone())
+        };
+        let badges = detect::excluded_ids(&installed, &ignored, &included)
+            .into_iter()
+            .enumerate()
+            .map(|(index, id)| {
+                let default = detect::DEFAULT_IGNORED.contains(&id.as_str());
+                let text = if default {
+                    colors.muted_foreground
+                } else {
+                    colors.secondary_foreground
+                };
+                div()
+                    .flex()
+                    .items_center()
+                    .gap_1()
+                    .px_2()
+                    .py(px(2.))
+                    .rounded(px(8.))
+                    .border_1()
+                    .border_color(gpui::transparent_black())
+                    .bg(if default { colors.accent } else { colors.muted })
+                    .text_xs()
+                    .line_height(px(16.))
+                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                    .text_color(text)
+                    .child(name(&id))
+                    .when(default, |view| {
+                        view.child(div().text_size(px(10.)).opacity(0.7).child("(default)"))
+                    })
+                    .child(
+                        div()
+                            .id(("excluded-app-remove", index))
+                            .ml(px(2.))
+                            .size(px(12.))
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .cursor_pointer()
+                            .child(controls::icon("chat/XIcon.svg", 10., text))
+                            .when(writable, |view| {
+                                view.on_click(cx.listener(move |this, _, _, cx| {
+                                    cx.stop_propagation();
+                                    this.toggle_excluded(&id, cx);
+                                }))
+                            }),
+                    )
+            });
+        let trigger = div()
+            .id(MENU)
+            .min_h(px(38.))
+            .w_full()
+            .p_2()
+            .flex()
+            .flex_wrap()
+            .items_center()
+            .gap_2()
+            .rounded(px(16.))
+            .border_1()
+            .border_color(colors.border)
+            .cursor_text()
+            .children(badges)
+            .child(
+                div()
+                    .text_sm()
+                    .text_color(colors.muted_foreground)
+                    .child("Search installed apps..."),
+            )
+            .when(writable, |view| {
+                view.on_click(cx.listener(|this, _, window, cx| {
+                    this.menu = Some(MENU);
+                    this.menu_search.update(cx, |search, cx| {
+                        search.set_placeholder("Search installed apps...");
+                        search.set_text(String::new(), cx);
+                        search.focus_handle(cx).focus(window, cx);
+                    });
+                    cx.notify();
+                }))
+            });
+        let menu = (self.menu == Some(MENU)).then(|| {
+            let query = self.menu_search.read(cx).buffer.text.clone();
+            let apps = detect::excludable(&installed, &ignored, &included, &query);
+            let empty = apps.is_empty();
+            div()
+                .p(px(2.))
+                .rounded(px(22.))
+                .border_1()
+                .border_color(colors.app_floating_border)
+                .bg(colors.app_floating_chrome)
+                .text_color(colors.popover_foreground)
+                .shadow_lg()
+                .occlude()
+                .child(
+                    div()
+                        .rounded(px(20.))
+                        .border_1()
+                        .border_color(colors.app_floating_border)
+                        .bg(colors.app_floating_panel)
+                        .overflow_hidden()
+                        .child(
+                            div()
+                                .h(px(40.))
+                                .px_3()
+                                .flex()
+                                .items_center()
+                                .gap_2()
+                                .border_b_1()
+                                .border_color(colors.border)
+                                .text_sm()
+                                .child(controls::icon(
+                                    "Search01Icon.svg",
+                                    16.,
+                                    colors.foreground.opacity(0.5),
+                                ))
+                                .child(div().flex_1().h(px(20.)).child(self.menu_search.clone())),
+                        )
+                        .when(empty, |view| {
+                            view.child(
+                                div().py_6().flex().justify_center().child(
+                                    div()
+                                        .px_2()
+                                        .py(px(6.))
+                                        .text_sm()
+                                        .text_color(colors.muted_foreground)
+                                        .child("No apps found."),
+                                ),
+                            )
+                        })
+                        .when(!empty, |view| {
+                            view.child(
+                                div()
+                                    .id("excluded-apps-options")
+                                    .max_h(px(250.))
+                                    .overflow_y_scroll()
+                                    .p_1()
+                                    .flex()
+                                    .flex_col()
+                                    .children(apps.into_iter().enumerate().map(|(index, app)| {
+                                        let hover = colors.accent;
+                                        div()
+                                            .id(("excluded-app-option", index))
+                                            .px_2()
+                                            .py(px(6.))
+                                            .flex()
+                                            .items_center()
+                                            .gap_2()
+                                            .rounded(px(14.))
+                                            .text_sm()
+                                            .cursor_pointer()
+                                            .hover(move |style| style.bg(hover))
+                                            .child(
+                                                div()
+                                                    .flex_1()
+                                                    .min_w_0()
+                                                    .truncate()
+                                                    .child(app.name.clone()),
+                                            )
+                                            .on_click(cx.listener(move |this, _, _, cx| {
+                                                this.toggle_excluded(&app.id, cx)
+                                            }))
+                                    })),
+                            )
+                        }),
+                )
+        });
+        div()
+            .relative()
+            .w_full()
+            .child(trigger)
+            .when_some(menu, |view, menu| {
+                view.child(
+                    deferred(
+                        div()
+                            .absolute()
+                            .top_full()
+                            .left_0()
+                            .right_0()
+                            .mt_1()
+                            .child(menu),
+                    )
+                    .with_priority(1),
+                )
+            })
+    }
+
+    /// Shipping's `handleToggleIgnoredApp`: saves both lists and closes the search.
+    fn toggle_excluded(&mut self, id: &str, cx: &mut Context<Self>) {
+        use crate::meeting::automation::detect;
+        let (ignored, included) = detect::toggle_excluded(
+            id,
+            &detect::parse_ids(&self.text("ignored_platforms")),
+            &detect::parse_ids(&self.text("included_platforms")),
+        );
+        self.menu = None;
+        self.set("ignored_platforms", json!(json!(ignored).to_string()), cx);
+        self.set("included_platforms", json!(json!(included).to_string()), cx);
     }
 
     /// `settings/general/index.tsx` (section "meetings"), `meeting-settings.tsx` and

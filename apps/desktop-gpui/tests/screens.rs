@@ -223,6 +223,7 @@ fn main() {
         capture(&mut cx, window, &out, &format!("settings-{page}"));
     }
     account_states(&mut cx, window, &out);
+    detection(&mut cx, window, &out);
     capture_onboarding(&mut cx, window, &out);
 }
 
@@ -303,6 +304,29 @@ fn modified_click(
     );
 }
 
+/// Microphone detection under Notifications, scrolled into view, then the excluded-apps search.
+fn detection(
+    cx: &mut HeadlessAppContext,
+    window: WindowHandle<ApplicationView>,
+    out: &std::path::Path,
+) {
+    open(cx, window, Route::Settings("notifications".into()));
+    input(
+        cx,
+        window,
+        [PlatformInput::Scroll(ScrollEvent {
+            position: point(px(600.), px(300.)),
+            delta: ScrollDelta::Pixels(point(px(0.), px(-2000.))),
+            modifiers: Modifiers::default(),
+            touch_phase: TouchPhase::Moved,
+            source: ScrollSource::Pointer,
+        })],
+    );
+    capture(cx, window, out, "settings-notifications-detection");
+    click(cx, window, 570., 406.);
+    capture(cx, window, out, "settings-notifications-exclude");
+    type_text(cx, window, &["escape"]);
+}
 /// The month grid's cell for `day`, top-left in window pixels (Sunday-first, as captured).
 fn calendar_cell(day: chrono::NaiveDate) -> Option<(f32, f32)> {
     use chrono::Datelike;

@@ -135,6 +135,10 @@ impl TextInput {
         self
     }
 
+    pub fn set_placeholder(&mut self, placeholder: impl Into<String>) {
+        self.placeholder = placeholder.into();
+    }
+
     pub fn set_text(&mut self, text: String, cx: &mut Context<Self>) {
         if self.secret && !text.is_ascii() {
             self.changed(false, cx);
