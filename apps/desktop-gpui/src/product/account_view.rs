@@ -1,5 +1,6 @@
 //! The account-backed settings pages: `settings/general/account.tsx`, `billing.tsx`, and the
-//! signed-out and plan-gated states of `settings/team` and `settings/sync`.
+//! signed-out and plan-gated states of `settings/team` and `settings/sync`. Signed in, those
+//! two are `cloud::teams_view` and `cloud::sync_view`.
 
 use std::sync::Arc;
 
@@ -478,13 +479,6 @@ impl ProductPane {
             "team" if !signed_in => page("Teams").child(
                 text_sm(colors, true).child("Sign in to create a shared workspace for your team."),
             ),
-            "team" if account.workspaces.as_ref().is_some_and(|w| w.is_empty()) => {
-                page("Teams").child(plan_gate(
-                    pro,
-                    self.create_workspace(colors, cx),
-                    cx.listener(|this, _, _, cx| this.notify_plan_required(cx)),
-                ))
-            }
             "sync" if !signed_in => page("Sync").child(self.sync_signed_out(colors, cx)),
             "sync" if !pro => page("Sync").child(plan_gate(
                 false,
@@ -1437,88 +1431,6 @@ impl ProductPane {
                             }),
                     )
                     .child(details)
-            }))
-    }
-
-    fn create_workspace(&self, colors: &Theme, cx: &mut Context<Self>) -> Div {
-        let name = self.workspace_name.read(cx).buffer.text.trim().to_owned();
-        let enabled = !name.is_empty() && !self.account_ui.busy;
-        let hover = colors.primary.opacity(0.9);
-        div()
-            .max_w(px(576.))
-            .flex()
-            .flex_col()
-            .gap_4()
-            .child(controls::section_title("Create a shared workspace"))
-            .child(
-                div()
-                    .text_xs()
-                    .line_height(px(20.))
-                    .text_color(colors.muted_foreground)
-                    .child("Invite teammates, share notes across the workspace, and manage who has access. Your personal notes stay private."),
-            )
-            .child(
-                div()
-                    .flex()
-                    .gap_2()
-                    .child(
-                        div()
-                            .w(px(320.))
-                            .h(px(36.))
-                            .px_3()
-                            .flex()
-                            .items_center()
-                            .rounded(px(8.))
-                            .border_1()
-                            .border_color(colors.input)
-                            .bg(colors.card)
-                            .text_sm()
-                            .child(div().w_full().child(self.workspace_name.clone())),
-                    )
-                    .child(
-                        div()
-                            .id("create-workspace")
-                            .h(px(28.))
-                            .px_2()
-                            .flex()
-                            .items_center()
-                            .gap_2()
-                            .rounded(px(8.))
-                            .bg(colors.primary)
-                            .text_color(colors.primary_foreground)
-                            .shadow_xs()
-                            .text_xs()
-                            .font_weight(crate::ui::theme::MEDIUM)
-                            .child(controls::icon(
-                                if self.account_ui.busy {
-                                    "product/LoaderCircleIcon.svg"
-                                } else {
-                                    "product/PlusIcon.svg"
-                                },
-                                16.,
-                                colors.primary_foreground,
-                            ))
-                            .child("Create")
-                            .when(!enabled, |view| view.opacity(0.5))
-                            .when(enabled, |view| {
-                                view.cursor_pointer()
-                                    .hover(move |style| style.bg(hover))
-                                    .on_click(cx.listener(move |this, _, _, cx| {
-                                        this.account_action(
-                                            Surface::Teams,
-                                            Action::CreateWorkspace,
-                                            vec![("name", name.clone())],
-                                            cx,
-                                        )
-                                    }))
-                            }),
-                    ),
-            )
-            .children(self.account_ui.error.as_ref().map(|error| {
-                div()
-                    .text_xs()
-                    .text_color(colors.destructive)
-                    .child(error.clone())
             }))
     }
 

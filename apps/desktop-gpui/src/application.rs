@@ -11,6 +11,7 @@ mod notifications;
 pub mod toasts;
 mod updates;
 mod release_notes;
+pub mod team_invitations;
 
 use std::{path::PathBuf, sync::Arc, time::Duration};
 
@@ -806,6 +807,10 @@ impl ApplicationView {
             .update(cx, |dialogs, _| dialogs.set_cloud(cloud.clone()));
         enterprise_capture::watch(cloud.clone(), cx);
         cx.set_global(crate::product::sharing::SharingCloud(cloud.clone()));
+        cx.set_global(crate::product::cloud::calls::AccountCloud(Arc::new(
+            cloud.clone(),
+        )));
+        team_invitations::watch(cx);
         let mut identities = cloud.identities();
         let identity_cloud = cloud.clone();
         cx.spawn(async move |this, cx| {

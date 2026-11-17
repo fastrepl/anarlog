@@ -1410,3 +1410,63 @@ async fn cloud_api_enable_uploads_existing_meetings_and_surfaces_api_errors() {
     assert!(!api.set_enabled(false).await.unwrap().enabled);
     runtime.shutdown().await.unwrap();
 }
+
+
+#[tokio::test]
+async fn sync_setup_claims_the_recovery_key_it_showed_and_enabling_without_one_asks_for_setup() {
+    use super::calls::{CloudCalls, SyncBlock, SyncCommand};
+    let server = MockServer::start().await;
+    let directory = tempfile::tempdir().unwrap();
+    let (runtime, ready) = RuntimeHandle::start(Profile {
+        database: directory.path().join("cloud.sqlite"),
+    })
+    .unwrap();
+    ready.receive().await.unwrap();
+    let store = Arc::new(MemoryStore::default());
+    let cloud = fixture_cloud(&runtime, &server, store.clone()).await;
+    // Without a recovery key the switch opens setup instead of enabling or failing.
+    assert!(
+        cloud
+            .sync(SyncCommand::SetEnabled(true))
+            .await
+            .unwrap()
+            .is_none()
+    );
+    let state = cloud.sync_state().await.unwrap();
+    assert_eq!(
+        (state.enabled, state.block),
+        (false, Some(SyncBlock::SetupRequired))
+    );
+    // Reopening setup shows the same unsaved key, and "I saved it" claims exactly that key.
+    let shown = cloud
+        .sync(SyncCommand::CreateRecoveryKey)
+        .await
+        .unwrap()
+        .unwrap();
+    let again = cloud
+        .sync(SyncCommand::CreateRecoveryKey)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(again.as_str(), shown.as_str());
+    let key = anlg_e2ee::RecoveryKey::parse(&shown).unwrap();
+    Mock::given(method("PUT"))
+        .and(path("/sync/e2ee/identity"))
+        .and(body_json(json!({"keyId": key.key_id()})))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"keyId": key.key_id()})))
+        .expect(1)
+        .mount(&server)
+        .await;
+    cloud
+        .sync(SyncCommand::UseRecoveryKey(shown.clone()))
+        .await
+        .unwrap();
+    let stored = |slot: &str| store.read(format!("fixture:{ACCOUNT}:{slot}"));
+    assert_eq!(
+        stored("recovery").await.unwrap().unwrap().as_str(),
+        shown.as_str()
+    );
+    assert!(stored("candidate-recovery").await.unwrap().is_none());
+    assert_eq!(cloud.sync_state().await.unwrap().block, None);
+    runtime.shutdown().await.unwrap();
+}

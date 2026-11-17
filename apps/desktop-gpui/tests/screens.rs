@@ -239,6 +239,7 @@ fn main() {
     detection(&mut cx, window, &out);
     instruction(&mut cx, &out);
     polish(&mut cx, window, &out);
+    teams_and_sync(&mut cx, window, &out);
     capture_onboarding(&mut cx, window, &out);
 }
 
@@ -2660,4 +2661,399 @@ fn press(cx: &mut HeadlessAppContext, window: AnyWindowHandle, x: f32, y: f32) {
         cx.run_until_parked();
     }
     settle(cx);
+}
+
+
+/// Signed-in Teams and Sync pages, answered by an in-memory cloud: an Enterprise workspace the
+/// viewer owns, a Team workspace they belong to, a pending invitation, and synced devices.
+fn teams_and_sync(
+    cx: &mut HeadlessAppContext,
+    window: WindowHandle<ApplicationView>,
+    out: &std::path::Path,
+) {
+    use desktop_gpui::product::{
+        account::{self, Account, Claims, User, Workspace, WorkspaceTier},
+        cloud::calls::{AccountCloud, SyncBlock, SyncHealth, SyncState, SyncStatus},
+    };
+    let viewer = "7f1c2a9e-3b4d-4e5f-8a6b-9c0d1e2f3a4b";
+    let fake = Arc::new(FakeCloud::default());
+    let northwind = "5d8f2c1a-7b3e-4f6a-9c2d-1e0b7a6f5c4d";
+    let contoso = "2c4e6a8b-1d3f-4a5b-8c7d-9e0f1a2b3c4d";
+    let workspace = |id: &str, name: &str, owner: &str, role: &str| {
+        serde_json::json!({"id": id, "name": name, "kind": "shared", "owner_user_id": owner,
+            "share_slug": null, "logo_data": null, "workspace_memberships": [{"role": role}]})
+    };
+    let member = |id: &str, email: &str, name: &str, role: &str| serde_json::json!({"user_id": id, "user_email": email, "user_name": name, "role": role, "deleted_at": null});
+    fake.set(
+        "workspaces",
+        serde_json::json!([
+            workspace(northwind, "Northwind", viewer, "owner"),
+            workspace(
+                contoso,
+                "Contoso Design",
+                "4b2d6f8a-0c1e-4d3f-9a5b-7c8d9e0f1a2b",
+                "member"
+            ),
+        ]),
+    );
+    fake.set("list_my_workspace_invitations", serde_json::json!([]));
+    fake.set(
+        &format!("get_workspace_access:{northwind}"),
+        serde_json::json!([{"workspace_role": "owner", "workspace_tier": "enterprise", "used_seats": 3, "seat_limit": 10,
+            "capabilities": ["team.manage_workspace", "team.manage_members", "team.manage_policies", "team.view_usage",
+                "team.custom_subdomain", "enterprise.sso", "enterprise.scim", "enterprise.retention"]}]),
+    );
+    fake.set(
+        &format!("get_workspace_access:{contoso}"),
+        serde_json::json!([{"workspace_role": "member", "workspace_tier": "team", "used_seats": 4, "seat_limit": 5,
+            "capabilities": ["team.shared_notes"]}]),
+    );
+    fake.set(
+        &format!("list_workspace_members_with_profiles:{northwind}"),
+        serde_json::json!([
+            member(viewer, "alex@example.com", "Alex Rivera", "owner"),
+            member(
+                "0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d",
+                "maya@northwind.example",
+                "Maya Chen",
+                "admin"
+            ),
+            member(
+                "1b2c3d4e-5f6a-4b7c-9d8e-0f1a2b3c4d5e",
+                "sam@northwind.example",
+                "Sam Patel",
+                "member"
+            ),
+        ]),
+    );
+    fake.set(
+        &format!("list_workspace_members_with_profiles:{contoso}"),
+        serde_json::json!([
+            member(
+                "4b2d6f8a-0c1e-4d3f-9a5b-7c8d9e0f1a2b",
+                "jordan@contoso.example",
+                "Jordan Lee",
+                "owner"
+            ),
+            member(viewer, "alex@example.com", "Alex Rivera", "member"),
+        ]),
+    );
+    fake.set(
+        &format!("list_workspace_invitations:{northwind}"),
+        serde_json::json!([{"invitation_id": "6e7f8a9b-0c1d-4e2f-8a3b-4c5d6e7f8a9b", "invitee_email": "priya@fabrikam.example",
+            "expires_at": "2026-12-01T00:00:00Z", "accepted_at": null, "revoked_at": null}]),
+    );
+    fake.set(
+        &format!("get_workspace_usage_overview:{northwind}"),
+        serde_json::json!([{"member_count": 3, "enrolled_devices": 5, "shares_created_30d": 12, "seat_limit": 10, "used_seats": 3}]),
+    );
+    fake.set(
+        &format!("get_workspace_policy:{northwind}"),
+        serde_json::json!([{"allowed_share_scopes": ["restricted", "workspace", "link"], "default_share_scope": "workspace",
+            "retention_days": 365, "model_training_opt_out": true, "consent_notification_enabled": true, "require_sso": false}]),
+    );
+    fake.set(
+        &format!("get_workspace_email_auto_join:{northwind}"),
+        serde_json::json!([{"domain": "northwind.example", "enabled": true}]),
+    );
+    let now = chrono::Utc::now();
+    let ago = |minutes: i64| (now - chrono::Duration::minutes(minutes)).to_rfc3339();
+    fake.set(
+        "GET /sync/devices",
+        serde_json::json!({"maxDevices": 3,
+            "devices": [
+                {"deviceFingerprint": "fp-macbook-0001", "deviceName": "Alex's MacBook Pro", "lastSeenAt": ago(1)},
+                {"deviceFingerprint": "fp-iphone-0002", "deviceName": "Alex's iPhone", "lastSeenAt": ago(125)},
+            ],
+            "pendingDevices": [
+                {"requestId": "9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d", "deviceFingerprint": "fp-studio-0003",
+                    "deviceName": "Studio Mac mini", "status": "pending"},
+            ]}),
+    );
+    let synced = SyncState {
+        enabled: true,
+        block: None,
+        status: SyncStatus {
+            configured: true,
+            running: true,
+            last_sync_at_ms: Some((now.timestamp_millis() - 3 * 60_000) as u64),
+            ..SyncStatus::default()
+        },
+        health: SyncHealth::default(),
+        fingerprint: "fp-macbook-0001".into(),
+        log: vec![
+            format!("{} INFO cloudsync: manual sync requested", ago(3)),
+            format!("{} INFO cloudsync: encrypted sync started", ago(42)),
+        ],
+    };
+    *fake.sync.lock().unwrap() = synced.clone();
+    cx.update(|cx| cx.set_global(AccountCloud(fake.clone())));
+
+    let account = |claims: Claims, workspaces: Vec<Workspace>| Account {
+        user: Some(User {
+            id: viewer.into(),
+            email: Some("alex@example.com".into()),
+        }),
+        claims: Some(claims),
+        workspaces: Some(workspaces.into()),
+        trial_eligible: false,
+        devices: None,
+    };
+    let pro = || Claims {
+        entitlements: vec!["hyprnote_pro".into()],
+        subscription_status: Some("active".into()),
+        current_period_end: Some(account::now() + 20 * 86_400),
+        ..Claims::default()
+    };
+    let seat = |id: &str, name: &str, tier| Workspace {
+        id: id.into(),
+        name: name.into(),
+        tier,
+        seat_limit: Some(10),
+        used_seats: 3,
+    };
+    cx.update(|cx| {
+        account::set(
+            account(
+                pro(),
+                vec![
+                    seat(northwind, "Northwind", WorkspaceTier::Enterprise),
+                    seat(contoso, "Contoso Design", WorkspaceTier::Team),
+                ],
+            ),
+            cx,
+        )
+    });
+    let team = |cx: &mut HeadlessAppContext| {
+        open(cx, window, Route::Settings("app".into()));
+        open(cx, window, Route::Settings("team".into()));
+    };
+    team(cx);
+    capture(cx, window, out, "settings-team-owner");
+    for (index, y) in [560., 1120., 1680.].into_iter().enumerate() {
+        scroll_content(cx, window, -y);
+        capture(
+            cx,
+            window,
+            out,
+            &format!("settings-team-owner-{}", index + 1),
+        );
+        scroll_content(cx, window, y);
+    }
+    // Each interaction starts from a fresh page; `scroll` moves the content first.
+    for (name, scroll, (x, y), then) in TEAMS_CLICKS {
+        team(cx);
+        scroll_content(cx, window, -scroll);
+        click(cx, window, x, y);
+        if let Some((x, y)) = then {
+            click(cx, window, x, y);
+        }
+        capture(cx, window, out, &format!("settings-team-{name}"));
+    }
+
+    // Another workspace where the viewer is a member: read-only roles and Leave.
+    team(cx);
+    click(cx, window, TEAMS_CONTOSO_TAB.0, TEAMS_CONTOSO_TAB.1);
+    capture(cx, window, out, "settings-team-member");
+
+    // An invited Pro account without workspaces: the invitation above the create form.
+    fake.set("workspaces", serde_json::json!([]));
+    fake.set(
+        "list_my_workspace_invitations",
+        serde_json::json!([{"invitation_id": "3f4e5d6c-7b8a-4c9d-8e0f-1a2b3c4d5e6f", "workspace_id": contoso,
+            "workspace_name": "Contoso Design", "workspace_logo_data": null, "invited_by_email": "jordan@contoso.example",
+            "expires_at": "2026-12-01T00:00:00Z"}]),
+    );
+    cx.update(|cx| account::set(account(pro(), vec![]), cx));
+    open(cx, window, Route::Settings("app".into()));
+    open(cx, window, Route::Settings("team".into()));
+    capture(cx, window, out, "settings-team-invited");
+    // Free and invited: the create form stays behind the Pro plan gate.
+    cx.update(|cx| account::set(account(Claims::default(), vec![]), cx));
+    capture(cx, window, out, "settings-team-invited-free");
+
+    cx.update(|cx| account::set(account(pro(), vec![]), cx));
+    let sync = |cx: &mut HeadlessAppContext| {
+        open(cx, window, Route::Settings("app".into()));
+        open(cx, window, Route::Settings("sync".into()));
+    };
+    sync(cx);
+    capture(cx, window, out, "settings-sync-pro");
+    for (name, (x, y)) in SYNC_CLICKS {
+        sync(cx);
+        click(cx, window, x, y);
+        capture(cx, window, out, &format!("settings-sync-{name}"));
+    }
+
+    // Attention states: a device limit with health counters, then a missing recovery key.
+    *fake.sync.lock().unwrap() = SyncState {
+        block: Some(SyncBlock::DeviceLimit),
+        health: SyncHealth {
+            conflicted_notes: 2,
+            pending_update: 1,
+            too_large: 0,
+        },
+        ..synced.clone()
+    };
+    open(cx, window, Route::Settings("app".into()));
+    open(cx, window, Route::Settings("sync".into()));
+    capture(cx, window, out, "settings-sync-device-limit");
+    *fake.sync.lock().unwrap() = SyncState {
+        enabled: false,
+        block: Some(SyncBlock::SetupRequired),
+        ..synced
+    };
+    open(cx, window, Route::Settings("app".into()));
+    open(cx, window, Route::Settings("sync".into()));
+    capture(cx, window, out, "settings-sync-paused");
+    // Turning sync on without a recovery key opens the setup dialog; Create shows the key.
+    click(cx, window, SYNC_SWITCH.0, SYNC_SWITCH.1);
+    capture(cx, window, out, "settings-sync-setup");
+    click(cx, window, SYNC_SETUP_CREATE.0, SYNC_SETUP_CREATE.1);
+    capture(cx, window, out, "settings-sync-setup-key");
+
+    cx.update(|cx| {
+        cx.remove_global::<AccountCloud>();
+        account::set(Account::default(), cx);
+    });
+    open(cx, window, Route::Settings("app".into()));
+}
+
+type Point = (f32, f32);
+
+/// Teams interactions: capture name, content scroll, click, and an optional second click.
+const TEAMS_CLICKS: [(&str, f32, Point, Option<Point>); 6] = [
+    ("invite", 0., (826., 413.), None),
+    ("role-menu", 560., (725., 118.), None),
+    ("transfer", 560., (725., 118.), Some((725., 158.))),
+    ("member-menu", 560., (853., 118.), None),
+    ("remove", 560., (853., 118.), Some((773., 158.))),
+    ("cancel-invitation", 560., (853., 232.), Some((773., 304.))),
+];
+const TEAMS_CONTOSO_TAB: Point = (435., 110.);
+/// Sync interactions from the synced page: capture name and click.
+const SYNC_CLICKS: [(&str, Point); 3] = [
+    ("log", (550., 227.)),
+    ("rename", (489., 358.)),
+    ("add-device", (833., 303.)),
+];
+const SYNC_SWITCH: Point = (864., 105.);
+const SYNC_SETUP_CREATE: Point = (455., 340.);
+
+/// Scrolls the settings content; negative deltas move the content up.
+fn scroll_content(cx: &mut HeadlessAppContext, window: WindowHandle<ApplicationView>, y: f32) {
+    input(
+        cx,
+        window,
+        [PlatformInput::Scroll(ScrollEvent {
+            position: point(px(560.), px(400.)),
+            delta: ScrollDelta::Pixels(point(px(0.), px(y))),
+            modifiers: Modifiers::default(),
+            touch_phase: TouchPhase::Moved,
+            source: ScrollSource::Pointer,
+        })],
+    );
+}
+
+/// Answers the Teams and Sync pages' cloud calls from memory. RPC answers are keyed by name,
+/// or by `name:workspace` for workspace-scoped calls.
+#[derive(Default)]
+struct FakeCloud {
+    answers: std::sync::Mutex<std::collections::HashMap<String, serde_json::Value>>,
+    sync: std::sync::Mutex<desktop_gpui::product::cloud::calls::SyncState>,
+}
+
+impl FakeCloud {
+    fn set(&self, key: &str, value: serde_json::Value) {
+        self.answers.lock().unwrap().insert(key.into(), value);
+    }
+
+    fn answer(&self, key: &str, workspace: Option<&str>) -> serde_json::Value {
+        let answers = self.answers.lock().unwrap();
+        workspace
+            .and_then(|workspace| answers.get(&format!("{key}:{workspace}")))
+            .or_else(|| answers.get(key))
+            .cloned()
+            .unwrap_or_else(|| serde_json::json!([]))
+    }
+}
+
+impl desktop_gpui::product::cloud::calls::CloudCalls for FakeCloud {
+    fn rpc(
+        &self,
+        name: &'static str,
+        body: serde_json::Value,
+    ) -> futures::future::BoxFuture<'static, desktop_runtime::Result<serde_json::Value>> {
+        let value = self.answer(name, body["p_workspace_id"].as_str());
+        Box::pin(async move { Ok(value) })
+    }
+    fn api(
+        &self,
+        method: reqwest::Method,
+        path: String,
+        _: Option<serde_json::Value>,
+    ) -> futures::future::BoxFuture<'static, desktop_runtime::Result<serde_json::Value>> {
+        let value = self.answer(&format!("{method} {path}"), None);
+        Box::pin(async move { Ok(value) })
+    }
+    fn select(
+        &self,
+        table: &'static str,
+        _: Vec<(&'static str, String)>,
+    ) -> futures::future::BoxFuture<'static, desktop_runtime::Result<serde_json::Value>> {
+        let value = self.answer(table, None);
+        Box::pin(async move { Ok(value) })
+    }
+    fn open_web(
+        &self,
+        _: &'static str,
+        _: Vec<(&'static str, String)>,
+        _: Option<&'static str>,
+    ) -> futures::future::BoxFuture<'static, desktop_runtime::Result<()>> {
+        Box::pin(async { Ok(()) })
+    }
+    fn copy_text(
+        &self,
+        _: zeroize::Zeroizing<String>,
+    ) -> futures::future::BoxFuture<'static, desktop_runtime::Result<()>> {
+        Box::pin(async { Ok(()) })
+    }
+    fn invitation_url(&self, invitation: &str, token: &str) -> desktop_runtime::Result<String> {
+        Ok(format!(
+            "https://anarlog.so/team/invite/{invitation}/#token={token}"
+        ))
+    }
+    fn sync_state(
+        &self,
+    ) -> futures::future::BoxFuture<
+        'static,
+        desktop_runtime::Result<desktop_gpui::product::cloud::calls::SyncState>,
+    > {
+        let state = self.sync.lock().unwrap().clone();
+        Box::pin(async move { Ok(state) })
+    }
+    fn sync(
+        &self,
+        command: desktop_gpui::product::cloud::calls::SyncCommand,
+    ) -> futures::future::BoxFuture<
+        'static,
+        desktop_runtime::Result<Option<zeroize::Zeroizing<String>>>,
+    > {
+        use desktop_gpui::product::cloud::calls::{SyncBlock, SyncCommand};
+        let mut state = self.sync.lock().unwrap();
+        let key = match command {
+            SyncCommand::CreateRecoveryKey => Some(zeroize::Zeroizing::new(
+                "anarlog-e2ee-v1:Q2xvdWRTeW5jRml4dHVyZVJlY292ZXJ5S2V5Rm9yU2NyZWVuc2hvdHM"
+                    .to_owned(),
+            )),
+            SyncCommand::SetEnabled(true) if state.block == Some(SyncBlock::SetupRequired) => None,
+            SyncCommand::SetEnabled(enabled) => {
+                state.enabled = enabled;
+                None
+            }
+            _ => None,
+        };
+        Box::pin(async move { Ok(key) })
+    }
+    fn refresh_account(&self, _: &mut gpui::App) {}
 }

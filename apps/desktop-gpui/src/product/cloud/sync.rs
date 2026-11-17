@@ -1,5 +1,5 @@
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{HashMap, HashSet, VecDeque},
     sync::Arc,
 };
 
@@ -20,16 +20,28 @@ use tokio::sync::Mutex;
 use super::{
     Core, account,
     auth::{Auth, AuthLease},
+    calls::{SyncBlock, SyncCommand, SyncHealth, SyncState, SyncStatus},
     field, target,
     transport::{Transport, failure, text, uuid},
 };
 use crate::product::services::{Action, Mutation};
+
+const SETUP_REQUIRED: &str = "Set up encryption, import your recovery key, or approve this device";
+const KEYCHAIN: &str = "macOS could not access your recovery key";
+const DEVICE_LIMIT: &str =
+    "Your plan's sync device limit is reached. Replace or remove another device to sync here.";
+const UPDATE_REQUIRED: &str = "This version can no longer sync";
+const APPROVAL: &str = "Approval requested. Approve this device on an enrolled device, then retry";
+const LOG_LIMIT: usize = 200;
 
 #[derive(Default)]
 pub(super) struct Sync {
     pub hook: Arc<E2eeSyncHook>,
     task: Mutex<Option<ReplicaSyncTask>>,
     watch: Mutex<Option<WitnessWatchTask>>,
+    /// Why sync last failed to start on this device, for the Sync page.
+    block: std::sync::Mutex<Option<SyncBlock>>,
+    log: std::sync::Mutex<VecDeque<String>>,
 }
 
 impl Sync {
@@ -37,6 +49,19 @@ impl Sync {
         self.hook.clear();
         self.task.lock().await.take();
         self.watch.lock().await.take();
+    }
+
+    fn set_block(&self, block: Option<SyncBlock>) {
+        *self.block.lock().unwrap_or_else(|error| error.into_inner()) = block;
+    }
+
+    fn record(&self, level: &str, message: &str) {
+        let mut log = self.log.lock().unwrap_or_else(|error| error.into_inner());
+        log.push_front(format!(
+            "{} {level} cloudsync: {message}",
+            chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true)
+        ));
+        log.truncate(LOG_LIMIT);
     }
 
     pub async fn enabled(&self, auth: &Auth, account: &str) -> Result<bool> {
@@ -62,10 +87,9 @@ impl Sync {
         let code = auth
             .store
             .read(auth.key(&format!("{account}:recovery")))
-            .await?
-            .ok_or_else(|| {
-                failure("Set up encryption, import your recovery key, or approve this device")
-            })?;
+            .await
+            .map_err(|_| failure(KEYCHAIN))?
+            .ok_or_else(|| failure(SETUP_REQUIRED))?;
         RecoveryKey::parse(&code).map_err(|_| failure("Stored recovery key is invalid"))
     }
 
@@ -115,6 +139,14 @@ impl Sync {
             )
             .await?;
         lease.check()?;
+        if response.status == reqwest::StatusCode::FORBIDDEN
+            && response.body["error"]["code"] == "sync_device_limit_reached"
+        {
+            return Err(failure(DEVICE_LIMIT));
+        }
+        if response.status == reqwest::StatusCode::UPGRADE_REQUIRED {
+            return Err(failure(UPDATE_REQUIRED));
+        }
         let value = Transport::checked(response)?;
         if text(&value, "transport")? != "replica"
             || text(&value, "accountUserId")? != account(lease)?
@@ -132,8 +164,17 @@ impl Sync {
     pub async fn start(&self, core: &Core, services: &Services, lease: &AuthLease) -> Result<()> {
         self.stop().await;
         let result = self.configure(core, services, lease).await;
-        if result.is_err() {
-            self.stop().await;
+        match &result {
+            Ok(()) => {
+                self.set_block(None);
+                self.record("INFO", "encrypted sync started");
+            }
+            Err(desktop_runtime::ServiceError::Cancelled) => self.stop().await,
+            Err(error) => {
+                self.stop().await;
+                self.set_block(Some(block_for(error)));
+                self.record("WARN", &format!("sync could not start: {error}"));
+            }
         }
         result
     }
@@ -551,10 +592,256 @@ impl Sync {
             core.auth.store.remove(slot).await?;
             Ok(())
         } else {
-            Err(failure(
-                "Approval requested. Approve this device on an enrolled device, then retry",
-            ))
+            Err(failure(APPROVAL))
         }
+    }
+
+    /// The Sync page's view of this device: preference, block, status, health and log.
+    pub async fn state(
+        &self,
+        core: &Core,
+        services: &Services,
+        lease: &AuthLease,
+    ) -> Result<SyncState> {
+        let mut block = self
+            .block
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .clone();
+        let enabled = match self.enabled(&core.auth, account(lease)?).await {
+            Ok(enabled) => enabled,
+            Err(_) => {
+                block = Some(SyncBlock::KeychainAccess);
+                true
+            }
+        };
+        let replica = self.hook.replica_status();
+        Ok(SyncState {
+            enabled,
+            block,
+            status: SyncStatus {
+                configured: self.hook.replica_transport_configured(),
+                running: self.task.lock().await.is_some(),
+                last_sync_at_ms: replica.last_sync_at_ms,
+                has_unsent_changes: replica.pending_changes,
+                consecutive_failures: replica.consecutive_failures,
+                activity_paused: self.hook.activity_paused(),
+            },
+            health: health(services).await,
+            fingerprint: core
+                .auth
+                .transport
+                .config
+                .device_fingerprint
+                .as_str()
+                .into(),
+            log: self
+                .log
+                .lock()
+                .unwrap_or_else(|error| error.into_inner())
+                .iter()
+                .cloned()
+                .collect(),
+        })
+    }
+
+    /// The Sync page's commands, with shipping's ordering: enabling checks the recovery key
+    /// first, and a device change retries a blocked start.
+    pub async fn command(
+        &self,
+        core: &Core,
+        services: &Services,
+        lease: &AuthLease,
+        command: SyncCommand,
+    ) -> Result<Option<zeroize::Zeroizing<String>>> {
+        let owner = account(lease)?;
+        match command {
+            SyncCommand::SetEnabled(false) => {
+                self.stop().await;
+                self.set_enabled(&core.auth, owner, false).await?;
+                self.set_block(None);
+                self.record("INFO", "sync paused");
+            }
+            SyncCommand::SetEnabled(true) => {
+                if let Err(error) = self.recovery(&core.auth, owner).await {
+                    let block = block_for(&error);
+                    self.set_block(Some(block.clone()));
+                    // A missing key opens the setup dialog rather than failing the switch.
+                    if block == SyncBlock::SetupRequired {
+                        return Ok(None);
+                    }
+                    return Err(error);
+                }
+                self.start(core, services, lease).await?;
+                self.set_enabled(&core.auth, owner, true).await?;
+            }
+            SyncCommand::SyncNow => {
+                if !self.hook.replica_transport_configured() {
+                    self.start(core, services, lease).await?;
+                }
+                self.hook.request_replica_sync();
+                self.record("INFO", "manual sync requested");
+            }
+            SyncCommand::CreateRecoveryKey => {
+                let slot = core.auth.key(&format!("{owner}:candidate-recovery"));
+                let key = match core.auth.store.read(slot.clone()).await? {
+                    Some(code) => RecoveryKey::parse(&code)
+                        .map_err(|_| failure("Invalid pending recovery key"))?,
+                    None => {
+                        let key = RecoveryKey::generate()
+                            .map_err(|_| failure("Secure randomness unavailable"))?;
+                        core.auth.store.write(slot, key.expose_code()).await?;
+                        key
+                    }
+                };
+                return Ok(Some(key.expose_code()));
+            }
+            SyncCommand::UseRecoveryKey(code) => {
+                let key =
+                    RecoveryKey::parse(code.trim()).map_err(|_| failure("Invalid recovery key"))?;
+                let claimed = core
+                    .api(
+                        lease,
+                        Method::PUT,
+                        "/sync/e2ee/identity",
+                        Some(&json!({"keyId": key.key_id()})),
+                    )
+                    .await;
+                let conflict = || {
+                    failure(
+                        "This account already uses another recovery key. Use the key from your first device.",
+                    )
+                };
+                match claimed {
+                    Ok(identity) if identity["keyId"] == key.key_id() => {}
+                    Ok(_) | Err(desktop_runtime::ServiceError::Conflict) => return Err(conflict()),
+                    Err(_) => return Err(failure("Could not protect this account. Try again.")),
+                }
+                self.save_recovery(&core.auth, owner, &key).await?;
+                core.auth
+                    .store
+                    .remove(core.auth.key(&format!("{owner}:candidate-recovery")))
+                    .await?;
+                self.set_block(None);
+                self.record("INFO", "recovery key saved on this device");
+            }
+            SyncCommand::DownloadRecoveryKey(code) => core.host.export_recovery(code).await?,
+            SyncCommand::RepairKeychain => {
+                self.recovery(&core.auth, owner).await?;
+                self.set_block(None);
+                if self.enabled(&core.auth, owner).await? {
+                    self.start(core, services, lease).await?;
+                }
+            }
+            SyncCommand::RenameDevice { fingerprint, name } => {
+                let name = name.trim();
+                if name.is_empty() || name.len() > 128 {
+                    return Err(failure("Enter a device name up to 128 bytes"));
+                }
+                core.api(
+                    lease,
+                    Method::PATCH,
+                    &format!("/sync/devices/{}", device(&fingerprint)?),
+                    Some(&json!({"deviceName": name})),
+                )
+                .await?;
+            }
+            SyncCommand::RemoveDevice(fingerprint) => {
+                core.api(
+                    lease,
+                    Method::DELETE,
+                    &format!("/sync/devices/{}", device(&fingerprint)?),
+                    None,
+                )
+                .await?;
+                self.record("INFO", "device disconnected");
+                if fingerprint == core.auth.transport.config.device_fingerprint {
+                    self.stop().await;
+                    self.set_enabled(&core.auth, owner, false).await?;
+                } else if self.blocked_by(&SyncBlock::DeviceLimit) {
+                    self.start(core, services, lease).await?;
+                }
+            }
+            SyncCommand::ReplaceDevice(fingerprint) => {
+                match self.enroll(core, lease, Some(device(&fingerprint)?)).await {
+                    Ok(()) => {}
+                    Err(error) => {
+                        if error.to_string().contains(APPROVAL) {
+                            self.set_block(Some(SyncBlock::ApprovalPending));
+                        }
+                        return Err(error);
+                    }
+                }
+                self.start(core, services, lease).await?;
+            }
+        }
+        Ok(None)
+    }
+
+    fn blocked_by(&self, block: &SyncBlock) -> bool {
+        self.block
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .as_ref()
+            == Some(block)
+    }
+}
+
+fn block_for(error: &desktop_runtime::ServiceError) -> SyncBlock {
+    let message = error.to_string();
+    if message.contains(SETUP_REQUIRED) {
+        SyncBlock::SetupRequired
+    } else if message.contains(KEYCHAIN) {
+        SyncBlock::KeychainAccess
+    } else if message.contains(DEVICE_LIMIT) {
+        SyncBlock::DeviceLimit
+    } else if message.contains(UPDATE_REQUIRED) {
+        SyncBlock::UpdateRequired
+    } else {
+        SyncBlock::ActivationFailed(message)
+    }
+}
+
+fn device(fingerprint: &str) -> Result<&str> {
+    if !(8..=128).contains(&fingerprint.len())
+        || !fingerprint
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
+    {
+        return Err(failure("Invalid device fingerprint"));
+    }
+    Ok(fingerprint)
+}
+
+/// `SyncHealthSection`'s counts: notes with an unresolved version from another device, and
+/// encrypted records this build parked.
+async fn health(services: &Services) -> SyncHealth {
+    let pool = services.db.pool();
+    let conflicted_notes = sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(DISTINCT row_id) FROM e2ee_field_conflicts WHERE resolved_at IS NULL \
+         AND ((table_name = 'session_documents' AND field_name = 'body') \
+         OR (table_name = 'sessions' AND field_name = 'title'))",
+    )
+    .fetch_one(pool)
+    .await
+    .unwrap_or_default();
+    let parked = sqlx::query_as::<_, (String, i64)>(
+        "SELECT reason, COUNT(*) FROM e2ee_parked_records GROUP BY reason",
+    )
+    .fetch_all(pool)
+    .await
+    .unwrap_or_default();
+    let count = |reasons: &[&str]| {
+        parked
+            .iter()
+            .filter(|(reason, _)| reasons.contains(&reason.as_str()))
+            .map(|(_, count)| *count)
+            .sum::<i64>() as u32
+    };
+    SyncHealth {
+        conflicted_notes: conflicted_notes as u32,
+        pending_update: count(&["unknown_table", "unknown_field"]),
+        too_large: count(&["too_large"]),
     }
 }
 

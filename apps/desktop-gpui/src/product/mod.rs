@@ -66,7 +66,6 @@ pub struct ProductPane {
     active: navigation::Page,
     account_ui: account_view::AccountUi,
     profile: Option<(profile::ProfileKey, Entity<profile::ProfileCard>)>,
-    workspace_name: Entity<TextInput>,
     onboarding: Option<Entity<OnboardingView>>,
     notice: String,
     pro_notice: Option<ProNotice>,
@@ -80,10 +79,10 @@ pub struct ProductPane {
     service_subscription: Option<Subscription>,
     settings_subscription: Option<Subscription>,
     plan_subscription: Option<Subscription>,
+    surface_plan_subscription: Option<Subscription>,
     open_page_subscription: Option<Subscription>,
     scope_subscription: Option<Subscription>,
-    surface_plan_subscription: Option<Subscription>,
-    _account_subscriptions: [Subscription; 2],
+    _account_subscriptions: [Subscription; 1],
 }
 
 impl ProductPane {
@@ -119,11 +118,7 @@ impl ProductPane {
                 cx.notify();
             }
         });
-        let workspace_name = cx.new(|cx| TextInput::new("Acme", cx));
-        let account_subscriptions = [
-            cx.observe_global::<account::Account>(|_, cx| cx.notify()),
-            cx.subscribe(&workspace_name, |_, _, _: &InputEvent, cx| cx.notify()),
-        ];
+        let account_subscriptions = [cx.observe_global::<account::Account>(|_, cx| cx.notify())];
         let providers = cx
             .try_global::<crate::meeting::config::ProviderServices>()
             .cloned()
@@ -141,7 +136,6 @@ impl ProductPane {
             active: navigation::page("app"),
             account_ui: Default::default(),
             profile: None,
-            workspace_name,
             onboarding: None,
             notice: String::new(),
             pro_notice: None,
@@ -154,9 +148,9 @@ impl ProductPane {
             service_subscription: None,
             settings_subscription: None,
             plan_subscription: None,
+            surface_plan_subscription: None,
             open_page_subscription: None,
             scope_subscription: None,
-            surface_plan_subscription: None,
             _account_subscriptions: account_subscriptions,
         };
         this.open_route(route, window, cx);
@@ -275,6 +269,10 @@ impl ProductPane {
                 Some(cx.subscribe(&view, |_, _, event: &ProductEvent, cx| {
                     cx.emit(event.clone())
                 }));
+            self.surface_plan_subscription =
+                Some(cx.subscribe(&view, |this, _, _: &PlanRequired, cx| {
+                    this.notify_plan_required(cx)
+                }));
             self.scope_subscription = Some(cx.subscribe(&view, |this, _, scope: &Scope, cx| {
                 this.scope = scope.clone();
                 this.preferences = None;
@@ -282,10 +280,6 @@ impl ProductPane {
                 cx.emit(scope.clone());
                 cx.notify();
             }));
-            self.surface_plan_subscription =
-                Some(cx.subscribe(&view, |this, _, _: &PlanRequired, cx| {
-                    this.notify_plan_required(cx)
-                }));
             self.service = Some(view);
         } else {
             if let Some(providers) = &self.providers {
@@ -704,7 +698,11 @@ impl ProductPane {
             .map(|view| view.read(cx).surface.title())
             .unwrap_or(self.active.label);
         // These surfaces lay out their own title row, like shipping's pages.
-        let titled = matches!(surface, Some(Surface::Permissions | Surface::Developers));
+        let titled = matches!(surface, Some(Surface::Permissions | Surface::Developers))
+            || self
+                .service
+                .as_ref()
+                .is_some_and(|view| view.read(cx).titled());
         div()
             .flex()
             .flex_col()
