@@ -1355,7 +1355,6 @@ async fn enterprise_capture_applies_acknowledges_and_queues_finished_meetings() 
     runtime.shutdown().await.unwrap();
 }
 
-
 #[tokio::test]
 async fn cloud_api_enable_uploads_existing_meetings_and_surfaces_api_errors() {
     let server = MockServer::start().await;
@@ -1410,7 +1409,6 @@ async fn cloud_api_enable_uploads_existing_meetings_and_surfaces_api_errors() {
     assert!(!api.set_enabled(false).await.unwrap().enabled);
     runtime.shutdown().await.unwrap();
 }
-
 
 #[tokio::test]
 async fn sync_setup_claims_the_recovery_key_it_showed_and_enabling_without_one_asks_for_setup() {

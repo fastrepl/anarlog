@@ -2,9 +2,9 @@
 
 mod account;
 pub mod auth;
-pub mod enterprise_capture;
-pub mod cloud_api;
 pub mod calls;
+pub mod cloud_api;
+pub mod enterprise_capture;
 pub mod host;
 mod integration;
 mod management;

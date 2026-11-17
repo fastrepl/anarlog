@@ -2824,7 +2824,6 @@ fn press(cx: &mut HeadlessAppContext, window: AnyWindowHandle, x: f32, y: f32) {
     settle(cx);
 }
 
-
 /// Signed-in Teams and Sync pages, answered by an in-memory cloud: an Enterprise workspace the
 /// viewer owns, a Team workspace they belong to, a pending invitation, and synced devices.
 fn teams_and_sync(

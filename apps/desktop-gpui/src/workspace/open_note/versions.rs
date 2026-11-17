@@ -17,7 +17,7 @@ use gpui::{
 };
 use serde_json::{Value, json};
 
-use super::{MenuAction, MenuItem, NoteEvent, NoteView, icon, is_dark};
+use super::{NoteEvent, NoteView, icon, is_dark};
 use crate::{
     chat::state::distance_to_now,
     editor::EditorPane,
@@ -617,20 +617,6 @@ impl NoteView {
             .into_any_element(),
         )
     }
-}
-
-/// Shipping's standalone note window has no "Open in New Window"; its separator moves down.
-pub(super) fn without_window_row(standalone: bool, mut items: Vec<MenuItem>) -> Vec<MenuItem> {
-    if let Some(index) = items
-        .iter()
-        .position(|item| standalone && item.action == MenuAction::OpenWindow)
-    {
-        let removed = items.remove(index);
-        if let Some(next) = items.get_mut(index) {
-            next.separator_before |= removed.separator_before;
-        }
-    }
-    items
 }
 
 /// Shipping's small `outline` and `ghost` buttons.

@@ -736,7 +736,7 @@ impl Dictation {
                 });
                 let bar = opened
                     .ok()
-                    .and_then(|handle| Some((handle, handle.root(cx).ok()?)));
+                    .and_then(|handle| Some((handle, handle.entity(cx).ok()?)));
                 match bar {
                     Some((handle, bar)) => {
                         let subscription = cx.subscribe(&bar, |this, _, event, cx| match event {
