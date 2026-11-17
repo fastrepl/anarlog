@@ -128,6 +128,62 @@ pub fn reveal_path(path: &std::path::Path) {
 #[cfg(all(test, target_os = "linux"))]
 mod tests {
     #[test]
+    fn reveal_outside_tokio_opens_the_parent_when_the_portal_is_unavailable() {
+        use std::{os::unix::fs::PermissionsExt, time::Duration};
+
+        const FILE: &str = "ANLG_REVEAL_TEST_FILE";
+        const RESULT: &str = "ANLG_REVEAL_TEST_RESULT";
+        // Isolate D-Bus and opener environment from parallel tests and the user's desktop.
+        if let Some(file) = std::env::var_os(FILE) {
+            assert!(tokio::runtime::Handle::try_current().is_err());
+            let file = std::path::PathBuf::from(file);
+            let result = std::env::var_os(RESULT).unwrap();
+            super::reveal_path(&file);
+            let deadline = std::time::Instant::now() + Duration::from_secs(5);
+            loop {
+                if let Ok(directory) = std::fs::read_to_string(&result) {
+                    assert_eq!(std::path::Path::new(&directory), file.parent().unwrap());
+                    return;
+                }
+                assert!(
+                    std::time::Instant::now() < deadline,
+                    "reveal did not open the containing folder"
+                );
+                std::thread::sleep(Duration::from_millis(10));
+            }
+        }
+
+        let directory = tempfile::tempdir().unwrap();
+        let file = directory.path().join("export.txt");
+        std::fs::write(&file, "exported note").unwrap();
+        let opener = directory.path().join("xdg-open");
+        std::fs::write(
+            &opener,
+            "#!/bin/sh\nprintf '%s' \"$1\" > \"$ANLG_REVEAL_TEST_RESULT\"\n",
+        )
+        .unwrap();
+        std::fs::set_permissions(&opener, std::fs::Permissions::from_mode(0o700)).unwrap();
+        let output = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "platform::os::tests::reveal_outside_tokio_opens_the_parent_when_the_portal_is_unavailable",
+                "--nocapture",
+            ])
+            .env(FILE, &file)
+            .env(RESULT, directory.path().join("opened-directory"))
+            .env("PATH", directory.path())
+            .env("DBUS_SESSION_BUS_ADDRESS", format!("unix:path={}", directory.path().join("absent-bus").display()))
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}\n{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
+    #[test]
     fn dialog_can_use_the_portal_reactor_outside_tokio() {
         let selected = futures::executor::block_on(super::dialog(|| {
             // Both constructing a portal request and resuming it can use Tokio.
