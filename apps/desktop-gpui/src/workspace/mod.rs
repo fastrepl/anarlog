@@ -30,4 +30,5 @@ mod timeline;
 mod undo_delete;
 
 pub use contacts::facehash;
+pub use open_note::meeting_records::MeetingRecords;
 pub use shell::{WorkspaceAction, WorkspaceView};

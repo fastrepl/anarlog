@@ -115,7 +115,7 @@ anlg-calendar-interface = { workspace = true }
 anlg-db-app = { workspace = true }
 anlg-db-execute = { workspace = true }
 anlg-db-sync = { workspace = true }
-anlg-detect = { workspace = true, features = ["mic", "list", "sleep"] }
+anlg-detect = { workspace = true, features = ["list", "mic", "screen", "sleep"] }
 anlg-e2ee = { workspace = true }
 anlg-export-core = { workspace = true }
 anlg-fs-sync-core = { workspace = true }

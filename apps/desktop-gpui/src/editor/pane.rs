@@ -66,6 +66,8 @@ pub struct EditorPane {
     watch_cancel: CancellationToken,
     pub(super) link_input: Option<String>,
     attachment_service: Option<super::AttachmentService>,
+    /// Rendered after the last block, inside the same scroll (shipping's memo extras).
+    footer: Option<gpui::AnyView>,
     attachment_previews: HashMap<String, Result<super::AttachmentPreview, String>>,
     attachment_loading: HashSet<String>,
     pending_attachment: Option<super::AttachmentPreview>,
@@ -182,7 +184,7 @@ impl EditorPane {
                 match loaded {
                     Ok((document, journal, receiver)) => {
                         this.list_count = document.root.children.render_blocks();
-                        this.list.reset(this.list_count);
+                        this.list.reset(this.list_rows());
                         let mut model = EditorModel::new(document);
                         model.read_only = this.read_only;
                         this.model = Some(model);
@@ -260,6 +262,7 @@ impl EditorPane {
             watch_cancel,
             link_input: None,
             attachment_service: None,
+            footer: None,
             attachment_previews: HashMap::new(),
             attachment_loading: HashSet::new(),
             pending_attachment: None,
@@ -349,8 +352,8 @@ impl EditorPane {
             });
             let count = model.document.root.children.render_blocks();
             if count != self.list_count {
-                self.list.reset(count);
                 self.list_count = count;
+                self.list.reset(self.list_rows());
             } else if let Some(index) = surface::block_index(&model.document, model.selection.head)
             {
                 self.list.splice(index..index + 1, 1);
@@ -586,6 +589,16 @@ impl EditorPane {
         ]);
         let result = model.insert_block_atom(if image { "image" } else { "fileAttachment" }, attrs);
         self.edited(before, result, cx);
+    }
+
+    pub fn set_footer(&mut self, footer: Option<gpui::AnyView>, cx: &mut Context<Self>) {
+        self.footer = footer;
+        self.list.reset(self.list_rows());
+        cx.notify();
+    }
+
+    fn list_rows(&self) -> usize {
+        self.list_count + usize::from(self.footer.is_some())
     }
 
     pub fn configure_attachments(&mut self, vault: std::path::PathBuf, cx: &mut Context<Self>) {
@@ -1089,7 +1102,7 @@ impl EditorPane {
                                 model.read_only = this.read_only;
                                 if model.document.resolve(selection.head).is_ok() && model.document.resolve(selection.anchor).is_ok() { model.select(selection); }
                                 this.list_count = model.document.root.children.render_blocks();
-                                this.list.reset(this.list_count);
+                                this.list.reset(this.list_rows());
                                 this.model = Some(model);
                                 this.init.document = remote;
                                 this.external = None;
@@ -1155,7 +1168,7 @@ impl EditorPane {
                 match parsed {
                     Ok(document) if this.journal.as_ref().is_some_and(|journal| journal.rebase_if_clean(snapshot.clone())) => {
                         this.list_count = document.root.children.render_blocks();
-                        this.list.reset(this.list_count);
+                        this.list.reset(this.list_rows());
                         let mut model = EditorModel::new(document);
                         model.read_only = this.read_only;
                         this.model = Some(model);
@@ -1178,6 +1191,11 @@ impl EditorPane {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> gpui::AnyElement {
+        if index >= self.list_count
+            && let Some(footer) = &self.footer
+        {
+            return footer.clone().into_any_element();
+        }
         let Some(model) = &self.model else {
             return div().into_any_element();
         };

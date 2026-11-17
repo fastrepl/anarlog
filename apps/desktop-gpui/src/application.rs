@@ -1,6 +1,7 @@
 mod automation;
 mod chrome;
 pub(crate) mod lifecycle;
+mod meeting_schedule;
 mod notifications;
 pub mod toasts;
 mod updates;
@@ -53,6 +54,7 @@ pub struct ApplicationView {
     runtime: RuntimeHandle,
     window: gpui::AnyWindowHandle,
     notifications: notifications::Notifications,
+    schedule: meeting_schedule::MeetingSchedule,
     preferences_task: Option<gpui::Task<()>>,
     chrome: chrome::Chrome,
     workspace: Entity<WorkspaceView>,
@@ -324,6 +326,7 @@ impl ApplicationView {
                         this.watch_cloud(cloud, cx);
                     }
                     this.native = Some(native);
+                    this.start_schedule(cx);
                     this.watch_preferences(cx);
                     this.start_lifecycle(cx);
                     this.watch_updates(cx);
@@ -347,6 +350,7 @@ impl ApplicationView {
         Self {
             window: window.window_handle(),
             notifications: notifications::Notifications::default(),
+            schedule: Default::default(),
             preferences_task: None,
             runtime,
             chrome: chrome::Chrome::default(),
@@ -589,6 +593,7 @@ impl ApplicationView {
             }
             Phase::Failed => self.capture_session = None,
         }
+        self.schedule_capture_phase(cx);
     }
 
     pub(super) fn resume_writers(&mut self, cx: &mut Context<Self>) {
@@ -991,6 +996,18 @@ impl ApplicationView {
                 cx,
             );
             editor.configure_attachments(self.editor_vault.clone(), cx);
+            let records = cx.new(|cx| {
+                crate::workspace::MeetingRecords::new(
+                    self.runtime.clone(),
+                    crate::editor::AttachmentService::new(
+                        self.runtime.clone(),
+                        self.editor_vault.clone(),
+                    ),
+                    session_id.clone(),
+                    cx,
+                )
+            });
+            editor.set_footer(Some(records.into()), cx);
             editor
         });
         self.editor_subscriptions = vec![

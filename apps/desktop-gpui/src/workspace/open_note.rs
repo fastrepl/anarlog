@@ -1,3 +1,4 @@
+pub(super) mod meeting_records;
 mod memo;
 mod summary;
 

@@ -70,7 +70,10 @@ async fn calendar_uses_typed_auth_and_fetches_all_event_pages() {
             ),
             (
                 "/calendar/google/list-events",
-                json!({"items":[{"id":"event","summary":"Meeting","start":{"dateTime":"2026-09-21T09:00:00Z"},"end":{"dateTime":"2026-09-21T10:00:00Z"}}]}),
+                json!({"items":[
+                    {"id":"event","summary":"Meeting","organizer":{"email":"me@example.com","self":true},"start":{"dateTime":"2026-09-21T09:00:00Z"},"end":{"dateTime":"2026-09-21T10:00:00Z"}},
+                    {"id":"declined","summary":"Declined","attendees":[{"email":"me@example.com","self":true,"responseStatus":"declined"}],"start":{"dateTime":"2026-09-21T11:00:00Z"},"end":{"dateTime":"2026-09-21T12:00:00Z"}}
+                ]}),
             ),
         ];
         for (index, (path, response)) in replies.into_iter().enumerate() {
@@ -148,6 +151,16 @@ async fn calendar_uses_typed_auth_and_fetches_all_event_pages() {
     assert_eq!(events[0]["title"], "Meeting");
     assert_eq!(events[0]["calendar_id"], id);
     assert!(events[0]["deleted_at"].is_null());
+    // Declined events are not kept; the attendance seen now gates automatic recording.
+    let attendance = events[0]["attendance_json"].as_str().unwrap();
+    assert!(attendance.contains(r#""self_status":"organizer""#));
+    assert!(
+        crate::meeting::schedule::attendance::decide(
+            Some(attendance),
+            chrono::Utc::now().timestamp_millis()
+        )
+        .eligible()
+    );
     service
         .toggle(&runtime, id, CancellationToken::new())
         .await

@@ -213,6 +213,11 @@ impl WorkspaceView {
             .update(cx, |sync, cx| sync.set_services(accounts, cx));
     }
 
+    /// Refreshes connected calendars unless a refresh is already running.
+    pub fn sync_calendars(&mut self, cx: &mut Context<Self>) {
+        self.calendar_sync.update(cx, |sync, cx| sync.schedule(cx));
+    }
+
     pub fn set_automation_client(
         &mut self,
         client: Option<super::automation_runner::AutomationClient>,

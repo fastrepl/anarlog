@@ -16,6 +16,7 @@ pub mod player_view;
 pub mod provider;
 pub mod recovery;
 pub mod retention;
+pub mod schedule;
 pub mod store;
 pub mod subscription;
 #[cfg(test)]

@@ -173,6 +173,7 @@ fn main() {
     sharing(&mut cx, window, &out);
     note_depth(&mut cx, window, &out);
     toasts(&mut cx, window, &out);
+    meeting_records(&mut cx, window, &runtime, profile.path(), &out);
     for (name, route) in [
         ("note", Route::Session(SessionId("s-sync".into()))),
         (
@@ -326,6 +327,109 @@ fn detection(
     click(cx, window, 570., 406.);
     capture(cx, window, out, "settings-notifications-exclude");
     type_text(cx, window, &["escape"]);
+}
+
+/// The memo's shared screens and meeting chat. The records are added late so no other
+/// screen changes; `meeting-records.sqlite` lets the shipping app render the same rows. Its
+/// parity server has no attachment files, so the compared tiles are empty on both sides.
+fn meeting_records(
+    cx: &mut HeadlessAppContext,
+    window: WindowHandle<ApplicationView>,
+    runtime: &RuntimeHandle,
+    profile: &std::path::Path,
+    out: &std::path::Path,
+) {
+    sql(runtime, include_str!("screens/late/meeting-records.sql"));
+    let copy = out.join("meeting-records.sqlite");
+    let _ = std::fs::remove_file(&copy);
+    let copy = copy.to_string_lossy().into_owned();
+    let reply = runtime
+        .submit(move |services| async move {
+            sqlx::query("VACUUM INTO ?")
+                .bind(copy)
+                .execute(services.db.pool())
+                .await
+                .map_err(|error| ServiceError::Failed(error.to_string().into()))?;
+            Ok(())
+        })
+        .unwrap();
+    futures::executor::block_on(reply.receive()).unwrap();
+    open(cx, window, Route::Session(SessionId("s-sync".into())));
+    capture(cx, window, out, "note-meeting-records");
+    // Shipping's capture scrolls the shared screens to the same height.
+    wheel(cx, window, (600., 350.), -233.);
+    capture(cx, window, out, "note-meeting-records-scrolled");
+    sql(
+        runtime,
+        "UPDATE session_documents SET deleted_at = '2026-11-17T11:00:00Z'
+        WHERE kind IN ('meeting_chat', 'meeting_screen')",
+    );
+    // A captured frame on disk, which only the native capture can show. Attachments live
+    // under UUID notes, which the seeded library does not use.
+    const NOTE: &str = "6b3f7a52-1c4e-4f0a-9d2b-7e5c8a1f3d40";
+    sql(
+        runtime,
+        "INSERT INTO sessions (id, title, created_at, started_at, ended_at, folder_path) VALUES
+            ('6b3f7a52-1c4e-4f0a-9d2b-7e5c8a1f3d40', 'Design review', '2026-11-17T10:00:00Z',
+             '2026-11-17T10:00:00Z', '', '')",
+    );
+    sql(
+        runtime,
+        "INSERT INTO session_documents (id, session_id, kind, body_format, body) VALUES
+            ('6b3f7a52-1c4e-4f0a-9d2b-7e5c8a1f3d40', '6b3f7a52-1c4e-4f0a-9d2b-7e5c8a1f3d40',
+             'note', 'prosemirror_json',
+             '{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Walked through the new onboarding flow.\"}]}]}')",
+    );
+    let attachments =
+        desktop_gpui::editor::AttachmentService::new(runtime.clone(), profile.join("vault"));
+    let mut frame = image::RgbaImage::from_pixel(640, 360, image::Rgba([241, 245, 249, 255]));
+    for (x, y, pixel) in frame.enumerate_pixels_mut() {
+        if (40..600).contains(&x) && (40..90).contains(&y) {
+            *pixel = image::Rgba([30, 41, 59, 255]);
+        } else if (40..380).contains(&x) && (130..320).contains(&y) {
+            *pixel = image::Rgba([99, 102, 241, 255]);
+        }
+    }
+    let mut png = Vec::new();
+    frame
+        .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
+        .unwrap();
+    let saved = futures::executor::block_on(attachments.import_bytes(
+        SessionId(NOTE.into()),
+        "shared-screen-2026-11-17T10-04-00-000Z.png".into(),
+        png,
+    ))
+    .unwrap();
+    let id = saved.id.clone();
+    let reply = runtime
+        .submit(move |services| async move {
+            services
+                .executor
+                .execute_transaction(vec![
+                    desktop_gpui::meeting::schedule::records::screen_statement(
+                        NOTE,
+                        &id,
+                        Some(&desktop_gpui::meeting::schedule::apps::MeetingPlatform::Zoom),
+                        640,
+                        360,
+                        "2026-11-17T10:04:00.000Z",
+                        9,
+                    ),
+                ])
+                .await
+                .map_err(|error| ServiceError::Failed(error.to_string().into()))?;
+            Ok(())
+        })
+        .unwrap();
+    futures::executor::block_on(reply.receive()).unwrap();
+    open(cx, window, Route::Session(SessionId(NOTE.into())));
+    capture(cx, window, out, "note-meeting-records-image");
+    sql(
+        runtime,
+        "UPDATE sessions SET deleted_at = '2026-11-17T11:00:00Z'
+        WHERE id = '6b3f7a52-1c4e-4f0a-9d2b-7e5c8a1f3d40'",
+    );
+    open(cx, window, Route::Session(SessionId("s-sync".into())));
 }
 /// The month grid's cell for `day`, top-left in window pixels (Sunday-first, as captured).
 fn calendar_cell(day: chrono::NaiveDate) -> Option<(f32, f32)> {

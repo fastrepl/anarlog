@@ -135,7 +135,7 @@ async fn load_context(
                 .as_ref()
                 .map(|summary| markdown(&summary.body, &summary.body_format))
                 .transpose()?,
-            meeting_chat: None,
+            meeting_chat: content.meeting_chat.clone(),
             transcript: Some(transcript.clone()),
             participants: content.participants.clone(),
             event: content.session.event.clone(),
@@ -186,6 +186,7 @@ struct Snapshot {
     template: Option<EnhanceTemplate>,
     summary: Option<DocumentSnapshot>,
     history: Vec<Message>,
+    meeting_chat: Option<String>,
 }
 
 async fn snapshot(
@@ -200,7 +201,7 @@ async fn snapshot(
         let title = string(row, "title")?.to_owned();
         let event: Value = serde_json::from_str(string(row, "event_json")?).unwrap_or(Value::Null);
         let event_name = event["title"].as_str().or_else(|| event["name"].as_str()).map(str::to_owned);
-        let docs = services.executor.execute("SELECT id, session_id, body_format, body, updated_at, kind, template_id FROM session_documents WHERE session_id = ? AND deleted_at IS NULL ORDER BY sort_order, created_at, id LIMIT 101".into(), vec![json!(session)]).await.map_err(failure)?;
+        let docs = services.executor.execute("SELECT id, session_id, body_format, body, updated_at, kind, template_id FROM session_documents WHERE session_id = ? AND deleted_at IS NULL AND kind NOT IN ('meeting_chat', 'meeting_screen') ORDER BY sort_order, created_at, id LIMIT 101".into(), vec![json!(session)]).await.map_err(failure)?;
         if docs.len() > 100 { return Err(failure("Meeting contains too many documents for AI context.")); }
         let is_summary = |document: &Value| document["kind"] == "summary" || document["kind"] == "template_output";
         let (target, explicit) = match request {
@@ -259,6 +260,8 @@ async fn snapshot(
         };
         let participants = services.executor.execute("SELECT COALESCE(NULLIF(h.name, ''), p.display_name) AS name, h.job_title FROM session_participants p LEFT JOIN humans h ON h.id = p.human_id AND h.deleted_at IS NULL WHERE p.session_id = ? AND p.source <> 'excluded' AND p.deleted_at IS NULL ORDER BY p.id LIMIT 500".into(), vec![json!(session)]).await.map_err(failure)?
             .into_iter().map(|row| Participant { name: row["name"].as_str().unwrap_or_default().into(), job_title: row["job_title"].as_str().map(str::to_owned) }).collect();
+        let chat = services.executor.execute(super::schedule::records::CHAT_SQL.into(), vec![json!(session)]).await.map_err(failure)?;
+        let meeting_chat = Some(super::schedule::records::chat_markdown(&super::schedule::records::parse_chat(&chat))).filter(|chat| !chat.is_empty());
         let rows = services.executor.execute("SELECT memo FROM transcripts WHERE session_id = ? AND deleted_at IS NULL ORDER BY started_at_ms, id LIMIT 1".into(), vec![json!(session)]).await.map_err(failure)?;
         let pre_memo = rows.first().and_then(|row| row["memo"].as_str()).unwrap_or_default().to_owned();
         let rows = services.executor.execute("SELECT id, role, content, parts_json FROM chat_messages WHERE chat_group_id = ? AND deleted_at IS NULL ORDER BY created_at DESC, id DESC LIMIT 20".into(), vec![json!(session)]).await.map_err(failure)?;
@@ -272,7 +275,7 @@ async fn snapshot(
         }
         Ok(Snapshot {
             session: Session { title: Some(title), started_at: Some(string(row, "created_at")?.into()), ended_at: None, event: event_name.map(|name| anlg_template_app::Event { name }) },
-            memo, pre_memo, participants, template, summary, history,
+            memo, pre_memo, participants, template, summary, history, meeting_chat,
         })
     })?.receive().await
 }

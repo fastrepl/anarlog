@@ -216,6 +216,19 @@ impl CalendarService {
         } else {
             Vec::new()
         };
+        // Shipping's `fetchIncomingEvents`: declined events are not kept, and the attendance
+        // observed now gates automatic recording.
+        let observed = chrono::Utc::now();
+        let events: Vec<_> = events
+            .into_iter()
+            .filter(|event| {
+                event
+                    .attendance
+                    .as_ref()
+                    .map(|attendance| attendance.self_status)
+                    != Some(anlg_calendar_interface::SelfAttendanceStatus::Declined)
+            })
+            .collect();
         runtime.submit(move |services| async move {
             let now=chrono::Utc::now().to_rfc3339();
             let mut statements=vec![DbStatement {expected_rows_affected:Some(1),sql:"UPDATE calendars SET enabled=?,updated_at=? WHERE id=? AND deleted_at IS NULL AND enabled=?".into(),params:vec![json!(enabled as i64),json!(now),json!(id),json!(previous as i64)]}];
@@ -248,7 +261,8 @@ impl CalendarService {
                     participants.push(json!({"name":person.name,"email":person.email,"is_organizer":false,"is_current_user":person.is_current_user}));
                 }
                 let deleted=if event.status==EventStatus::Cancelled {json!(now)} else {Value::Null};
-                statements.push(DbStatement {expected_rows_affected:None,sql:"INSERT INTO events (id,tracking_id_event,calendar_id,title,started_at,ended_at,location,meeting_link,description,recurrence_series_id,has_recurrence_rules,is_all_day,provider,participants_json,deleted_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET tracking_id_event=excluded.tracking_id_event,title=excluded.title,started_at=excluded.started_at,ended_at=excluded.ended_at,location=excluded.location,meeting_link=excluded.meeting_link,description=excluded.description,recurrence_series_id=excluded.recurrence_series_id,has_recurrence_rules=excluded.has_recurrence_rules,is_all_day=excluded.is_all_day,participants_json=excluded.participants_json,deleted_at=excluded.deleted_at,updated_at=strftime('%Y-%m-%dT%H:%M:%SZ','now')".into(),params:vec![json!(event_id),json!(event.id),json!(id),json!(event.title),json!(event.started_at),json!(event.ended_at),json!(event.location.unwrap_or_default()),json!(event.meeting_link.unwrap_or_default()),json!(event.description.unwrap_or_default()),json!(event.recurring_event_id.unwrap_or_default()),json!(event.has_recurrence_rules as i64),json!(event.is_all_day as i64),json!(super::provider_id(provider)),json!(serde_json::to_string(&participants).map_err(failure)?),deleted]});
+                let attendance=event.attendance.as_ref().and_then(|attendance|crate::meeting::schedule::attendance::snapshot_json(attendance,observed));
+                statements.push(DbStatement {expected_rows_affected:None,sql:"INSERT INTO events (id,tracking_id_event,calendar_id,title,started_at,ended_at,location,meeting_link,description,recurrence_series_id,has_recurrence_rules,is_all_day,provider,participants_json,deleted_at,attendance_json) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET tracking_id_event=excluded.tracking_id_event,title=excluded.title,started_at=excluded.started_at,ended_at=excluded.ended_at,location=excluded.location,meeting_link=excluded.meeting_link,description=excluded.description,recurrence_series_id=excluded.recurrence_series_id,has_recurrence_rules=excluded.has_recurrence_rules,is_all_day=excluded.is_all_day,participants_json=excluded.participants_json,deleted_at=excluded.deleted_at,attendance_json=excluded.attendance_json,updated_at=strftime('%Y-%m-%dT%H:%M:%SZ','now')".into(),params:vec![json!(event_id),json!(event.id),json!(id),json!(event.title),json!(event.started_at),json!(event.ended_at),json!(event.location.unwrap_or_default()),json!(event.meeting_link.unwrap_or_default()),json!(event.description.unwrap_or_default()),json!(event.recurring_event_id.unwrap_or_default()),json!(event.has_recurrence_rules as i64),json!(event.is_all_day as i64),json!(super::provider_id(provider)),json!(serde_json::to_string(&participants).map_err(failure)?),deleted,json!(attendance)]});
             }
             if cancel.is_cancelled() {return Err(ServiceError::Cancelled);}
             services.executor.execute_transaction(statements).await.map_err(failure)?;

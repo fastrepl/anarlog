@@ -63,6 +63,12 @@ fn main() -> anyhow::Result<()> {
         cx.set_global(desktop_gpui::platform::device_auth::Installed(
             std::sync::Arc::new(desktop_gpui::platform::device_auth::NativeDeviceAuth),
         ));
+        match desktop_gpui::meeting::schedule::apps::DetectMeetingApps::spawn() {
+            Ok(apps) => cx.set_global(desktop_gpui::meeting::schedule::apps::InstalledMeetingApps(
+                std::sync::Arc::new(apps),
+            )),
+            Err(error) => tracing::warn!(%error, "meeting app automation is unavailable"),
+        }
         let (mut handles, errors) = events.attach(cx);
         for error in errors {
             tracing::warn!("{error}");

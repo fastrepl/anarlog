@@ -396,6 +396,7 @@ impl ApplicationView {
                                 this.automation.update(cx, |automation, _| {
                                     automation.set_preferences(snapshot.clone())
                                 });
+                                this.schedule_preferences(snapshot.clone(), cx);
                                 this.notifications.preferences = Some(snapshot);
                             }
                             Err(error) => {
