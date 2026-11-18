@@ -142,7 +142,7 @@ pub fn keep_focus_elsewhere(window: &Window) {
         // SAFETY: comctl32 calls this on the window thread with its current message.
         unsafe {
             if message == WM_NCDESTROY {
-                RemoveWindowSubclass(hwnd, Some(panel_proc), id);
+                let _ = RemoveWindowSubclass(hwnd, Some(panel_proc), id);
             }
             DefSubclassProc(hwnd, message, wparam, lparam)
         }
