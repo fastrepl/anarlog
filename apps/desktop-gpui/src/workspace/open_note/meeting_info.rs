@@ -1632,6 +1632,49 @@ mod tests {
     /// input on the old title, which then blocked navigation and could be saved back over it.
     #[gpui::test]
     fn a_date_change_shows_a_rename_made_in_another_window(cx: &mut gpui::TestAppContext) {
+        let (note, runtime, _directory, cx) = change_date_after_a_rename_elsewhere(None, cx);
+        note.read_with(cx, |note, cx| {
+            assert_eq!(
+                note.current.as_ref().unwrap().summary.title.as_ref(),
+                "Renamed elsewhere"
+            );
+            assert_eq!(note.title.read(cx).buffer.text, "Renamed elsewhere");
+            assert!(!note.has_unsaved_title(cx));
+        });
+        shut_down(&runtime, cx);
+    }
+
+    /// A title draft keeps the old base through the date change, but discarding it once
+    /// restored the old title instead of the rename the date change brought in.
+    #[gpui::test]
+    fn discarding_a_title_draft_after_a_date_change_shows_the_rename(
+        cx: &mut gpui::TestAppContext,
+    ) {
+        let (note, runtime, _directory, cx) =
+            change_date_after_a_rename_elsewhere(Some("Draft"), cx);
+        note.update(cx, |note, cx| {
+            assert_eq!(
+                note.current.as_ref().unwrap().summary.title.as_ref(),
+                "Sync"
+            );
+            note.restore_title(cx);
+            assert_eq!(note.title.read(cx).buffer.text, "Renamed elsewhere");
+            assert!(!note.has_unsaved_title(cx));
+        });
+        shut_down(&runtime, cx);
+    }
+
+    /// Shows a note that another window renamed to "Renamed elsewhere", types `draft` into its
+    /// title, then saves a new date and runs until the note has read the session back.
+    fn change_date_after_a_rename_elsewhere<'a>(
+        draft: Option<&str>,
+        cx: &'a mut gpui::TestAppContext,
+    ) -> (
+        Entity<super::super::NoteView>,
+        RuntimeHandle,
+        tempfile::TempDir,
+        &'a mut gpui::VisualTestContext,
+    ) {
         cx.executor().allow_parking();
         cx.update(crate::ui::theme::UiFonts::init);
         let directory = tempfile::tempdir().unwrap();
@@ -1652,6 +1695,10 @@ mod tests {
             .add_window_view(|window, cx| super::super::NoteView::new(runtime.clone(), window, cx));
         note.update(cx, |note, cx| {
             note.show(open, cx);
+            if let Some(draft) = draft {
+                note.title
+                    .update(cx, |title, cx| title.set_text(draft.into(), cx));
+            }
             note.open_meeting_info(cx);
         });
         let info = note.read_with(cx, |note, _| note.meeting_info.as_ref().unwrap().0.clone());
@@ -1666,22 +1713,15 @@ mod tests {
         for _ in 0..2000 {
             cx.run_until_parked();
             let refreshed = note.read_with(cx, |note, _| {
-                note.current.as_ref().unwrap().summary.title.as_ref() == "Renamed elsewhere"
+                note.newer_session.is_some()
+                    || note.current.as_ref().unwrap().summary.title.as_ref() == "Renamed elsewhere"
             });
             if refreshed {
                 break;
             }
             std::thread::sleep(std::time::Duration::from_millis(5));
         }
-        note.read_with(cx, |note, cx| {
-            assert_eq!(
-                note.current.as_ref().unwrap().summary.title.as_ref(),
-                "Renamed elsewhere"
-            );
-            assert_eq!(note.title.read(cx).buffer.text, "Renamed elsewhere");
-            assert!(!note.has_unsaved_title(cx));
-        });
-        shut_down(&runtime, cx);
+        (note, runtime, directory, cx)
     }
 
     /// Shuts the runtime down while GPUI's foreground tasks keep running, as blocking this thread

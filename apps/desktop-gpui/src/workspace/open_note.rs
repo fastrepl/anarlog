@@ -73,6 +73,9 @@ pub struct NoteView {
     cancellation: CancellationToken,
     rename_pending: bool,
     rename_error: bool,
+    /// A newer stored session found while a title draft kept `current` as its base, paired with
+    /// that base. Discarding the draft takes the newer one while `current` is still the base.
+    newer_session: Option<(Arc<OpenSession>, Arc<OpenSession>)>,
     /// The open session's live capture mode.
     mode: SessionMode,
     /// Saved audio for the open session, which enables the transcript tab and its player.
@@ -450,6 +453,7 @@ impl NoteView {
             cancellation: CancellationToken::new(),
             rename_pending: false,
             rename_error: false,
+            newer_session: None,
             mode: SessionMode::Inactive,
             audio: None,
             batch: None,
@@ -677,6 +681,15 @@ impl NoteView {
         if self.rename_error {
             self.reload_title(cx);
             return;
+        }
+        if let Some((base, newer)) = self.newer_session.take()
+            && self
+                .current
+                .as_ref()
+                .is_some_and(|current| Arc::ptr_eq(current, &base))
+        {
+            self.current = Some(newer.clone());
+            cx.emit(NoteEvent::TitleUpdated(newer));
         }
         if let Some(session) = &self.current {
             self.title.update(cx, |title, cx| {
@@ -1266,10 +1279,13 @@ impl NoteView {
                 let stored = session.summary.title.clone();
                 if previous.as_ref() != Some(&stored) {
                     // Another window renamed the note. A draft keeps the old base, so saving it
-                    // reports the conflict instead of overwriting the new title.
+                    // reports the conflict instead of overwriting the new title; discarding it
+                    // shows the new title.
                     let input = this.title.read(cx).buffer.text.clone();
                     if input != *stored {
                         if previous.as_deref() != Some(input.as_str()) {
+                            this.newer_session =
+                                this.current.clone().map(|base| (base, Arc::new(session)));
                             return;
                         }
                         this.title
