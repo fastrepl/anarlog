@@ -253,6 +253,14 @@ impl ApplicationView {
                             Ok(flush) => flush.await,
                             Err(_) => Err(ServiceError::Closed),
                         };
+                        // A pause that could not drain must not leave the app read-only.
+                        if result.is_err() {
+                            let _ = this.update(cx, |this, cx| {
+                                if this.writers_paused {
+                                    this.resume_writers(cx);
+                                }
+                            });
+                        }
                         let _ = reply.send(result);
                     }
                     HostCommand::Resume(reply) => {
@@ -782,7 +790,7 @@ impl ApplicationView {
         let notes = self
             .note_windows
             .values()
-            .filter_map(|window| window.update(cx, |view, _, cx| view.flush(true, cx)).ok())
+            .filter_map(|window| window.update(cx, |view, _, cx| view.pause(cx)).ok())
             .collect::<Vec<_>>();
         let cloud = self.native.as_ref().and_then(|n| n.cloud.service.clone());
         let runtime = self.runtime.clone();

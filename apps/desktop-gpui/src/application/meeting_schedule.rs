@@ -265,7 +265,13 @@ impl ApplicationView {
     ) -> Result<Outcome> {
         let closed = || desktop_runtime::ServiceError::Closed;
         let check = |this: &mut Self, cx: &mut Context<Self>| -> Option<Outcome> {
-            if !this.auto_start_enabled(cx) || this.services.is_none() {
+            // A storage move or quit holds writers paused; a new note would land in the old
+            // profile.
+            if !this.auto_start_enabled(cx)
+                || this.services.is_none()
+                || this.writers_paused
+                || this.closing
+            {
                 return Some(Outcome::Blocked);
             }
             match this.live_phase().0 {

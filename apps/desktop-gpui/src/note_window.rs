@@ -31,6 +31,9 @@ pub struct NoteWindow {
     chat: Entity<ChatView>,
     focus: FocusHandle,
     closing: bool,
+    /// Writers are paused (a storage move): the note and its chat are hidden, as in the main
+    /// window, so nothing here can write until the app relaunches or resumes.
+    paused: bool,
     /// Closing waits for an unsaved title to save first.
     close_after_title: bool,
     status: String,
@@ -120,6 +123,7 @@ impl NoteWindow {
             chat,
             focus: cx.focus_handle(),
             closing: false,
+            paused: false,
             close_after_title: false,
             status: String::new(),
             widened: None,
@@ -185,7 +189,15 @@ impl NoteWindow {
         Box::pin(async move { flush.await.map_err(|_| ServiceError::Closed)? })
     }
 
+    pub fn pause(&mut self, cx: &mut Context<Self>) -> BoxFuture<'static, Result<()>> {
+        self.paused = true;
+        cx.notify();
+        self.flush(true, cx)
+    }
+
     pub fn resume(&mut self, cx: &mut Context<Self>) {
+        self.paused = false;
+        cx.notify();
         if let Some(editor) = &self.editor {
             editor.update(cx, |editor, cx| editor.set_read_only(false, cx));
         }
@@ -262,6 +274,9 @@ impl Render for NoteWindow {
                 .size_full()
                 .font_family(system_font(cx))
                 .child(gate);
+        }
+        if self.paused {
+            return div().id("note-window").size_full().bg(colors.background);
         }
         let route = Route::Session(self.id.clone());
         div()
