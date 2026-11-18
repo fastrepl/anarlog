@@ -359,10 +359,13 @@ impl TranscriptView {
             return;
         };
         let text = normalize(&editor.input.read(cx).buffer.text);
-        if text == editor.original
-            || editor.saving.as_ref() == Some(&text)
-            || editor.word_ids.is_empty()
-        {
+        // Text back at the last save still saves while a different save is in flight, which
+        // would otherwise overwrite it. The queue is FIFO, so the later save lands last.
+        let saved = match &editor.saving {
+            Some(saving) => *saving == text,
+            None => text == editor.original,
+        };
+        if saved || editor.word_ids.is_empty() {
             return;
         }
         editor.saving = Some(text.clone());
@@ -2388,10 +2391,46 @@ mod tests {
         );
     }
 
-    /// A transcript edit was once marked saved before its save finished: after a failed
-    /// save, blurring retried nothing and leaving edit mode dropped the draft.
-    #[gpui::test]
-    fn a_failed_transcript_edit_is_kept_and_saved_on_the_next_blur(cx: &mut gpui::TestAppContext) {
+    fn sql(runtime: &RuntimeHandle, sql: &'static str) -> Vec<Value> {
+        let reply = runtime
+            .submit(move |services| async move {
+                services
+                    .executor
+                    .execute(sql.into(), vec![])
+                    .await
+                    .map_err(|error| {
+                        desktop_runtime::ServiceError::Failed(error.to_string().into())
+                    })
+            })
+            .unwrap();
+        futures::executor::block_on(reply.receive()).unwrap()
+    }
+
+    fn settle(
+        cx: &mut gpui::VisualTestContext,
+        done: &dyn Fn(&mut gpui::VisualTestContext) -> bool,
+    ) {
+        for _ in 0..400 {
+            cx.update(|window, cx| window.draw(cx).clear(cx));
+            cx.run_until_parked();
+            if done(cx) {
+                return;
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        panic!("transcript did not settle");
+    }
+
+    /// A transcript of "Hello there." in edit mode, and its segment's editor id.
+    fn editing(
+        cx: &mut gpui::TestAppContext,
+    ) -> (
+        tempfile::TempDir,
+        RuntimeHandle,
+        Entity<TranscriptView>,
+        &mut gpui::VisualTestContext,
+        String,
+    ) {
         cx.executor().allow_parking();
         cx.update(crate::ui::theme::UiFonts::init);
         let directory = tempfile::tempdir().unwrap();
@@ -2400,22 +2439,12 @@ mod tests {
         })
         .unwrap();
         futures::executor::block_on(ready.receive()).unwrap();
-        let sql = |sql: &'static str| {
-            let reply = runtime
-                .submit(move |services| async move {
-                    services
-                        .executor
-                        .execute(sql.into(), vec![])
-                        .await
-                        .map_err(|error| {
-                            desktop_runtime::ServiceError::Failed(error.to_string().into())
-                        })
-                })
-                .unwrap();
-            futures::executor::block_on(reply.receive()).unwrap()
-        };
-        sql("INSERT INTO sessions (id, title) VALUES ('s', 'Sync')");
         sql(
+            &runtime,
+            "INSERT INTO sessions (id, title) VALUES ('s', 'Sync')",
+        );
+        sql(
+            &runtime,
             r#"INSERT INTO transcripts (id, session_id, started_at_ms, ended_at_ms, words_json)
             VALUES ('t', 's', 0, 1000, '[{"id":"a","text":"Hello","start_ms":0,"end_ms":200,"channel":0},
               {"id":"b","text":" there.","start_ms":200,"end_ms":400,"channel":0}]')"#,
@@ -2423,18 +2452,6 @@ mod tests {
         let runtime_view = runtime.clone();
         let (view, cx) = cx
             .add_window_view(|_, cx| TranscriptView::new(runtime_view, SessionId("s".into()), cx));
-        let settle = |cx: &mut gpui::VisualTestContext,
-                      done: &dyn Fn(&mut gpui::VisualTestContext) -> bool| {
-            for _ in 0..400 {
-                cx.update(|window, cx| window.draw(cx).clear(cx));
-                cx.run_until_parked();
-                if done(cx) {
-                    return;
-                }
-                std::thread::sleep(Duration::from_millis(5));
-            }
-            panic!("transcript did not settle");
-        };
         settle(cx, &|cx| {
             view.read_with(cx, |view, _| !view.segments.is_empty())
         });
@@ -2443,8 +2460,23 @@ mod tests {
             view.read_with(cx, |view, _| !view.editors.is_empty())
         });
         let id = view.read_with(cx, |view, _| view.editors.keys().next().unwrap().clone());
+        (directory, runtime, view, cx, id)
+    }
+
+    fn stored_words(runtime: &RuntimeHandle) -> String {
+        sql(runtime, "SELECT words_json FROM transcripts WHERE id = 't'")[0]["words_json"]
+            .as_str()
+            .unwrap()
+            .to_owned()
+    }
+
+    /// A transcript edit was once marked saved before its save finished: after a failed
+    /// save, blurring retried nothing and leaving edit mode dropped the draft.
+    #[gpui::test]
+    fn a_failed_transcript_edit_is_kept_and_saved_on_the_next_blur(cx: &mut gpui::TestAppContext) {
+        let (_directory, runtime, view, cx, id) = editing(cx);
         // A locked note refuses the save.
-        sql("UPDATE sessions SET locked = 1 WHERE id = 's'");
+        sql(&runtime, "UPDATE sessions SET locked = 1 WHERE id = 's'");
         view.update(cx, |view, cx| {
             let input = view.editors[&id].input.clone();
             input.update(cx, |input, cx| input.set_text("Hello world.".into(), cx));
@@ -2455,15 +2487,50 @@ mod tests {
         settle(cx, &|cx| {
             view.read_with(cx, |view, _| view.editors[&id].saving.is_none())
         });
-        sql("UPDATE sessions SET locked = 0 WHERE id = 's'");
+        sql(&runtime, "UPDATE sessions SET locked = 0 WHERE id = 's'");
         view.update(cx, |view, cx| view.set_edit_mode(true, cx));
         // Blur commits; repeated, it waits out any save still in flight from before.
         settle(cx, &|cx| {
             view.update(cx, |view, cx| view.commit(&id, cx));
-            sql("SELECT words_json FROM transcripts WHERE id = 't'")[0]["words_json"]
-                .as_str()
-                .is_some_and(|words| words.contains("world."))
+            stored_words(&runtime).contains("world.")
         });
+        futures::executor::block_on(runtime.shutdown()).unwrap();
+    }
+
+    /// Reverting a segment to its saved text while another edit was still saving skipped the
+    /// revert as unchanged, so the in-flight edit was stored.
+    #[gpui::test]
+    fn reverting_a_segment_during_a_save_stores_the_reverted_text(cx: &mut gpui::TestAppContext) {
+        let (_directory, runtime, view, cx, id) = editing(cx);
+        // Holds the database queue so the edit's save stays in flight.
+        let (release, held) = futures::channel::oneshot::channel::<()>();
+        let blocker = runtime
+            .submit(move |_| async move {
+                let _ = held.await;
+                Ok(())
+            })
+            .unwrap();
+        let input = view.read_with(cx, |view, _| view.editors[&id].input.clone());
+        view.update(cx, |view, cx| {
+            input.update(cx, |input, cx| input.set_text("Hello world.".into(), cx));
+            view.commit(&id, cx);
+            input.update(cx, |input, cx| input.set_text("Hello there.".into(), cx));
+            view.set_edit_mode(false, cx);
+        });
+        release.send(()).unwrap();
+        futures::executor::block_on(blocker.receive()).unwrap();
+        settle(cx, &|cx| {
+            view.read_with(cx, |view, _| {
+                view.editors
+                    .get(&id)
+                    .is_none_or(|editor| editor.saving.is_none())
+            })
+        });
+        let words = stored_words(&runtime);
+        assert!(
+            words.contains("there.") && !words.contains("world."),
+            "{words}"
+        );
         futures::executor::block_on(runtime.shutdown()).unwrap();
     }
 }
