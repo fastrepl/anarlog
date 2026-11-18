@@ -1,6 +1,7 @@
 mod automation;
 mod chrome;
 mod cloud_api;
+mod device_approval;
 mod enterprise_capture;
 pub mod instruction;
 pub(crate) mod lifecycle;
@@ -827,6 +828,7 @@ impl ApplicationView {
         )));
         team_invitations::watch(cx);
         shared_notes::watch(cloud.clone(), cx);
+        device_approval::watch(cloud.clone(), cx);
         let mut identities = cloud.identities();
         let identity_cloud = cloud.clone();
         cx.spawn(async move |this, cx| {

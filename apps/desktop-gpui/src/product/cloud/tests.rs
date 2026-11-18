@@ -1860,6 +1860,84 @@ async fn workspace_keys_are_granted_to_members_with_an_identity_without_waiting_
 }
 
 #[tokio::test]
+async fn devices_waiting_for_approval_keep_waiting_and_syncing_devices_approve_them() {
+    use super::calls::{CloudCalls, SyncBlock};
+    let server = MockServer::start().await;
+    let directory = tempfile::tempdir().unwrap();
+    let (runtime, ready) = RuntimeHandle::start(Profile {
+        database: directory.path().join("cloud.sqlite"),
+    })
+    .unwrap();
+    ready.receive().await.unwrap();
+    let store = Arc::new(MemoryStore::default());
+    let cloud = fixture_cloud(&runtime, &server, store.clone()).await;
+    let slot = |name: &str| format!("fixture:{ACCOUNT}:{name}");
+    let enrollment = anlg_e2ee::DeviceEnrollmentKey::generate().unwrap();
+    store
+        .write(slot("sync-enabled"), Zeroizing::new("true".into()))
+        .await
+        .unwrap();
+    store
+        .write(slot("enrollment"), enrollment.expose_code())
+        .await
+        .unwrap();
+    // This device asked for approval earlier: each refresh checks again and keeps waiting.
+    let expires = (chrono::Utc::now() + chrono::Duration::minutes(10)).to_rfc3339();
+    Mock::given(method("POST"))
+        .and(path("/sync/e2ee/device-enrollments"))
+        .and(body_partial_json(json!({"publicKey": enrollment.public_key()})))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "requestId": uuid::Uuid::new_v4().to_string(), "status": "pending", "expiresAt": expires,
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+    assert!(cloud.refresh().await.is_err());
+    assert_eq!(
+        cloud.sync_state().await.unwrap().block,
+        Some(SyncBlock::ApprovalPending)
+    );
+    // A syncing device approves the account's other open requests.
+    let recovery = anlg_e2ee::RecoveryKey::generate().unwrap();
+    store
+        .write(slot("recovery"), recovery.expose_code())
+        .await
+        .unwrap();
+    let request = |status: &str, expires: String| {
+        json!({"requestId": uuid::Uuid::new_v4().to_string(), "deviceFingerprint": "device-fingerprint",
+            "publicKey": anlg_e2ee::DeviceEnrollmentKey::generate().unwrap().public_key(),
+            "status": status, "expiresAt": expires})
+    };
+    let open = request("pending", expires.clone());
+    Mock::given(method("GET"))
+        .and(path("/sync/devices"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(
+            json!({"devices": [], "maxDevices": 3,
+            "pendingDevices": [open, request("sealed", expires),
+                request("pending", "2026-01-01T00:00:00Z".into())]}),
+        ))
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path(format!(
+            "/sync/e2ee/device-enrollments/{}/seal",
+            open["requestId"].as_str().unwrap()
+        )))
+        .respond_with(ResponseTemplate::new(204))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let lease = cloud.core.auth.lease(ACCOUNT, false).await.unwrap();
+    cloud
+        .core
+        .sync
+        .seal_open_requests(&cloud.core, &lease)
+        .await
+        .unwrap();
+    runtime.shutdown().await.unwrap();
+}
+
+#[tokio::test]
 async fn sync_setup_claims_the_recovery_key_it_showed_and_enabling_without_one_asks_for_setup() {
     use super::calls::{CloudCalls, SyncBlock, SyncCommand};
     let server = MockServer::start().await;
