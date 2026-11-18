@@ -1625,6 +1625,81 @@ mod tests {
                 "Renamed"
             );
         });
-        futures::executor::block_on(runtime.shutdown()).unwrap();
+        shut_down(&runtime, cx);
+    }
+
+    /// Saving the date once took another window's rename into the note but left the title
+    /// input on the old title, which then blocked navigation and could be saved back over it.
+    #[gpui::test]
+    fn a_date_change_shows_a_rename_made_in_another_window(cx: &mut gpui::TestAppContext) {
+        cx.executor().allow_parking();
+        cx.update(crate::ui::theme::UiFonts::init);
+        let directory = tempfile::tempdir().unwrap();
+        let (runtime, ready) = RuntimeHandle::start(desktop_runtime::Profile {
+            database: directory.path().join("library.sqlite"),
+        })
+        .unwrap();
+        futures::executor::block_on(ready.receive()).unwrap();
+        let open =
+            futures::executor::block_on(runtime.create_note("Sync".into()).unwrap().receive())
+                .unwrap();
+        let renamed = desktop_runtime::RenameSession {
+            base: open.summary.clone(),
+            title: "Renamed elsewhere".into(),
+        };
+        futures::executor::block_on(runtime.rename_session(renamed).unwrap().receive()).unwrap();
+        let (note, cx) = cx
+            .add_window_view(|window, cx| super::super::NoteView::new(runtime.clone(), window, cx));
+        note.update(cx, |note, cx| {
+            note.show(open, cx);
+            note.open_meeting_info(cx);
+        });
+        let info = note.read_with(cx, |note, _| note.meeting_info.as_ref().unwrap().0.clone());
+        cx.update(|window, cx| info.update(cx, |info, cx| info.edit_date(window, cx)));
+        info.update(cx, |info, cx| {
+            let input = info.date.as_ref().unwrap().0.clone();
+            input.update(cx, |input, cx| {
+                input.set_text("2026-01-02 10:00".into(), cx)
+            });
+            info.save_date(cx);
+        });
+        for _ in 0..2000 {
+            cx.run_until_parked();
+            let refreshed = note.read_with(cx, |note, _| {
+                note.current.as_ref().unwrap().summary.title.as_ref() == "Renamed elsewhere"
+            });
+            if refreshed {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        note.read_with(cx, |note, cx| {
+            assert_eq!(
+                note.current.as_ref().unwrap().summary.title.as_ref(),
+                "Renamed elsewhere"
+            );
+            assert_eq!(note.title.read(cx).buffer.text, "Renamed elsewhere");
+            assert!(!note.has_unsaved_title(cx));
+        });
+        shut_down(&runtime, cx);
+    }
+
+    /// Shuts the runtime down while GPUI's foreground tasks keep running, as blocking this thread
+    /// on the drain can deadlock when it waits on work those tasks finish.
+    fn shut_down(runtime: &RuntimeHandle, cx: &mut gpui::VisualTestContext) {
+        let (done, result) = std::sync::mpsc::channel();
+        let runtime = runtime.clone();
+        std::thread::spawn(move || {
+            let _ = done.send(futures::executor::block_on(runtime.shutdown()));
+        });
+        for _ in 0..2000 {
+            cx.run_until_parked();
+            if let Ok(result) = result.try_recv() {
+                result.unwrap();
+                return;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        panic!("shutdown timed out");
     }
 }

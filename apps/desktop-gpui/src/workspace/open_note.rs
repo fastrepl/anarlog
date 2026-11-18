@@ -1262,7 +1262,25 @@ impl NoteView {
                 if this.busy || this.session_id() != Some(&id) {
                     return;
                 }
-                this.current = Some(Arc::new(session));
+                let previous = this.current.as_ref().map(|s| s.summary.title.clone());
+                let stored = session.summary.title.clone();
+                if previous.as_ref() != Some(&stored) {
+                    // Another window renamed the note. A draft keeps the old base, so saving it
+                    // reports the conflict instead of overwriting the new title.
+                    let input = this.title.read(cx).buffer.text.clone();
+                    if input != *stored {
+                        if previous.as_deref() != Some(input.as_str()) {
+                            return;
+                        }
+                        this.title
+                            .update(cx, |title, cx| title.set_text(stored.to_string(), cx));
+                    }
+                    let session = Arc::new(session);
+                    this.current = Some(session.clone());
+                    cx.emit(NoteEvent::TitleUpdated(session));
+                } else {
+                    this.current = Some(Arc::new(session));
+                }
                 cx.notify();
             });
         })
