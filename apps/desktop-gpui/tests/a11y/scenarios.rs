@@ -495,7 +495,16 @@ fn transcript_segments_read_as_speaker_and_text() {
         .find(Role::Tab, "Transcript")
         .id;
     app.press(tab);
-    let tree = app.tree();
+    // The transcript loads on the runtime's own threads, which can take longer than one settle
+    // on a busy machine.
+    let mut tree = app.tree();
+    for _ in 0..25 {
+        if tree.try_find(Role::List, "Transcript").is_some() {
+            break;
+        }
+        app.settle();
+        tree = app.tree();
+    }
     let transcript = tree.find(Role::List, "Transcript");
     let segments = transcript.items(Role::ListItem);
     assert!(!segments.is_empty(), "{}", transcript.outline());
