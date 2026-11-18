@@ -184,6 +184,9 @@ impl ProductPane {
     }
 
     pub fn can_close(&mut self, cx: &mut Context<Self>) -> bool {
+        if let Some((_, card)) = &self.profile {
+            card.update(cx, |card, cx| card.flush(cx));
+        }
         if self
             .providers
             .as_ref()

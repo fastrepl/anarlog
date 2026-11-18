@@ -203,6 +203,14 @@ fn selectable(kind: ProviderKind, provider: &ProviderInfo) -> bool {
         && !(kind == ProviderKind::Llm && provider.id == "apple_foundation")
 }
 
+/// What a save submitted, so only those edits become clean.
+#[derive(Clone, Copy)]
+enum Saved {
+    Choice,
+    Card,
+    Effort,
+}
+
 /// `settings/ai/{stt,llm}`: "Model being used" plus the provider cards. Choices save as one
 /// compare-and-swap transaction; API keys go to the system keyring.
 pub struct ProviderView {
@@ -219,7 +227,9 @@ pub struct ProviderView {
     expanded: Option<&'static str>,
     base: Entity<TextInput>,
     secret: Entity<TextInput>,
-    dirty: bool,
+    /// Unsaved edits to the model choice and to the expanded card, which save separately.
+    dirty_choice: bool,
+    dirty_card: bool,
     generation: u64,
     operation: Option<Operation>,
     status: String,
@@ -246,7 +256,11 @@ impl ProviderView {
             .map(|input| {
                 cx.subscribe(input, |this, input, event, cx| match event {
                     InputEvent::Changed => {
-                        this.dirty = true;
+                        if input == this.model {
+                            this.dirty_choice = true;
+                        } else {
+                            this.dirty_card = true;
+                        }
                         this.generation = this.generation.wrapping_add(1);
                         cx.notify();
                     }
@@ -270,7 +284,8 @@ impl ProviderView {
             expanded: None,
             base,
             secret,
-            dirty: false,
+            dirty_choice: false,
+            dirty_card: false,
             generation: 0,
             operation: None,
             status: String::new(),
@@ -281,7 +296,8 @@ impl ProviderView {
     }
 
     pub fn has_unsaved(&self, cx: &gpui::App) -> bool {
-        self.dirty
+        self.dirty_choice
+            || self.dirty_card
             || self.draft.is_some()
             || self.operation == Some(Operation::Saving)
             || [&self.model, &self.base, &self.secret]
@@ -370,7 +386,7 @@ impl ProviderView {
         self.draft = None;
         self.model.update(cx, |input, cx| input.set_text(model, cx));
         self.restore_card(cx);
-        self.dirty = false;
+        self.dirty_choice = false;
     }
 
     fn restore_card(&mut self, cx: &mut Context<Self>) {
@@ -381,6 +397,7 @@ impl ProviderView {
         self.base.update(cx, |input, cx| input.set_text(base, cx));
         self.secret
             .update(cx, |input, cx| input.set_text(String::new(), cx));
+        self.dirty_card = false;
     }
 
     fn pick_provider(&mut self, provider: &'static str, cx: &mut Context<Self>) {
@@ -440,6 +457,7 @@ impl ProviderView {
         });
         self.finish(
             reply,
+            Saved::Choice,
             "Provider choice saved. Credentials are checked when the provider is used.",
             cx,
         );
@@ -482,6 +500,7 @@ impl ProviderView {
         });
         self.finish(
             reply,
+            Saved::Card,
             "Provider saved. API keys are stored in the system keyring.",
             cx,
         );
@@ -490,6 +509,7 @@ impl ProviderView {
     fn finish(
         &mut self,
         reply: Result<desktop_runtime::Reply<()>>,
+        part: Saved,
         saved: &'static str,
         cx: &mut Context<Self>,
     ) {
@@ -505,11 +525,20 @@ impl ProviderView {
                 match result {
                     Ok(()) => {
                         this.status = saved.into();
+                        // Only what this save submitted is clean; other edits stay unsaved.
                         if this.generation == generation {
-                            this.dirty = false;
-                            this.draft = None;
-                            this.secret
-                                .update(cx, |input, cx| input.set_text(String::new(), cx));
+                            match part {
+                                Saved::Choice => {
+                                    this.dirty_choice = false;
+                                    this.draft = None;
+                                }
+                                Saved::Card => {
+                                    this.dirty_card = false;
+                                    this.secret
+                                        .update(cx, |input, cx| input.set_text(String::new(), cx));
+                                }
+                                Saved::Effort => {}
+                            }
                         }
                         this.reload(false, cx);
                     }
@@ -863,7 +892,7 @@ impl ProviderView {
                 .map_err(failure)?;
             Ok(())
         });
-        self.finish(reply, "Reasoning effort saved.", cx);
+        self.finish(reply, Saved::Effort, "Reasoning effort saved.", cx);
     }
 }
 
@@ -1047,7 +1076,65 @@ impl Render for ProviderView {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
+    use gpui::{AppContext, TestAppContext};
+
     use super::*;
+
+    #[gpui::test]
+    fn saving_the_model_keeps_an_api_key_typed_but_not_saved(cx: &mut TestAppContext) {
+        cx.executor().allow_parking();
+        let directory = tempfile::tempdir().unwrap();
+        let (runtime, ready) = desktop_runtime::RuntimeHandle::start(desktop_runtime::Profile {
+            database: directory.path().join("library.sqlite"),
+        })
+        .unwrap();
+        futures::executor::block_on(ready.receive()).unwrap();
+        let services = ProviderServices {
+            runtime: runtime.clone(),
+            api_url: String::new(),
+            cloud: Arc::new(|| Box::pin(async { Err(ServiceError::Closed) })),
+            local: Arc::new(|_| Box::pin(async { Err(ServiceError::Closed) })),
+            secret: Arc::new(|_, _| Box::pin(async { Ok(None) })),
+            secret_write: Arc::new(|_, _, _| Box::pin(async { Ok(()) })),
+        };
+        let view = cx.new(|cx| ProviderView::new(services, cx));
+        let settle = |cx: &mut TestAppContext| {
+            for _ in 0..400 {
+                cx.run_until_parked();
+                if view.read_with(cx, |view, _| {
+                    view.snapshot.is_some() && view.operation.is_none()
+                }) {
+                    return;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(5));
+            }
+            panic!("provider view did not settle");
+        };
+        settle(cx);
+        view.update(cx, |view, cx| {
+            view.expanded = Some("deepgram");
+            view.secret.update(cx, |input, cx| {
+                input.set_text("typed-key".into(), cx);
+                cx.emit(InputEvent::Changed);
+            });
+        });
+        cx.run_until_parked();
+        // Picking a model from its menu saves the choice right away.
+        view.update(cx, |view, cx| {
+            view.draft = Some("deepgram");
+            view.model
+                .update(cx, |input, cx| input.set_text("nova-3".into(), cx));
+            view.save_choice(cx);
+        });
+        settle(cx);
+        view.read_with(cx, |view, cx| {
+            assert_eq!(view.secret.read(cx).buffer.text, "typed-key");
+            assert!(view.has_unsaved(cx));
+        });
+        futures::executor::block_on(runtime.shutdown()).unwrap();
+    }
 
     #[test]
     fn stale_provider_choice_rolls_back_the_whole_transaction() {
