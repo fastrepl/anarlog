@@ -71,6 +71,10 @@ struct Form {
     sections: Vec<SectionInputs>,
     icon: Glyph,
     pending: Changes,
+    /// What the form's saves in flight write, repeated by each newer save.
+    saving: Changes,
+    /// The form's newest save, numbered by `TemplatesView::saves`.
+    latest_save: u64,
     revision: u64,
     _subscriptions: [Subscription; 2],
     section_subscriptions: Vec<Subscription>,
@@ -85,6 +89,8 @@ pub struct TemplatesView {
     menu: Option<Menu>,
     context: Option<(Point<Pixels>, Arc<str>)>,
     form: Option<Form>,
+    /// Template saves started, which number them across rebuilt forms.
+    saves: u64,
     picker: Option<(Entity<IconPicker>, Subscription)>,
     signed_in: bool,
     sharing: Option<(Entity<ResourceShareDialog>, Subscription)>,
@@ -141,6 +147,7 @@ impl TemplatesView {
             menu: None,
             context: None,
             form: None,
+            saves: 0,
             picker: None,
             signed_in: false,
             sharing: None,
@@ -290,6 +297,8 @@ impl TemplatesView {
             sections: Vec::new(),
             icon: template.icon.clone(),
             pending: Changes::default(),
+            saving: Changes::default(),
+            latest_save: 0,
             revision: 0,
             _subscriptions: subscriptions,
             section_subscriptions: Vec::new(),
@@ -383,20 +392,34 @@ impl TemplatesView {
         if form.pending.is_empty() {
             return Task::ready(Ok(()));
         }
-        let (id, changes) = (form.id.clone(), std::mem::take(&mut form.pending));
+        // Each save repeats the fields still in flight, so only the newest save puts its edits
+        // back on failure: an older one restoring its values would overwrite newer edits.
+        let mut changes = form.saving.clone();
+        changes.merge(std::mem::take(&mut form.pending));
+        self.saves += 1;
+        let save = self.saves;
+        form.saving = changes.clone();
+        form.latest_save = save;
+        let id = form.id.clone();
         let reply = templates::save(&self.runtime, id.clone(), changes.clone());
         cx.spawn(async move |this, cx| {
             let result = receive(reply).await;
-            if let Err(error) = &result {
-                let _ = this.update(cx, |this, cx| {
-                    if let Some(form) = this.form.as_mut().filter(|form| form.id == id) {
-                        let newer = std::mem::replace(&mut form.pending, changes);
-                        form.pending.merge(newer);
-                    }
+            let _ = this.update(cx, |this, cx| {
+                let Some(form) = this
+                    .form
+                    .as_mut()
+                    .filter(|form| form.id == id && form.latest_save <= save)
+                else {
+                    return;
+                };
+                form.saving = Changes::default();
+                if let Err(error) = &result {
+                    let newer = std::mem::replace(&mut form.pending, changes);
+                    form.pending.merge(newer);
                     this.message = format!("Could not save the template: {error}");
                     cx.notify();
-                });
-            }
+                }
+            });
             result
         })
     }
@@ -2012,29 +2035,59 @@ mod tests {
         });
         // The row is missing, so this save fails and must keep the edit.
         let row = sql("SELECT * FROM templates WHERE id=?");
+        let restore = || {
+            let row = row[0].clone();
+            runtime
+                .submit(move |services| async move {
+                    services
+                        .executor
+                        .execute(
+                            "INSERT INTO templates (id,title,description,pinned,icon_json,targets_json,sections_json,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?)".into(),
+                            ["id", "title", "description", "pinned", "icon_json", "targets_json", "sections_json", "created_at", "updated_at"]
+                                .iter()
+                                .map(|column| row[*column].clone())
+                                .collect(),
+                        )
+                        .await
+                        .map_err(super::super::mutations::failure)
+                })
+                .unwrap()
+        };
         sql("DELETE FROM templates WHERE id=?");
         assert!(flush(cx).is_err());
-        let restore = runtime
-            .submit(move |services| async move {
-                let row = &row[0];
-                services
-                    .executor
-                    .execute(
-                        "INSERT INTO templates (id,title,description,pinned,icon_json,targets_json,sections_json,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?)".into(),
-                        ["id", "title", "description", "pinned", "icon_json", "targets_json", "sections_json", "created_at", "updated_at"]
-                            .iter()
-                            .map(|column| row[*column].clone())
-                            .collect(),
-                    )
-                    .await
-                    .map_err(super::super::mutations::failure)
-            })
-            .unwrap();
-        block_on(restore.receive()).unwrap();
+        block_on(restore().receive()).unwrap();
         assert!(flush(cx).is_ok());
         assert_eq!(
             sql("SELECT title FROM templates WHERE id=?")[0]["title"],
             "Weekly review"
+        );
+
+        // A failed save put its title back over a newer save's, and the next flush wrote it.
+        sql("DELETE FROM templates WHERE id=?");
+        let save_title = |title: &str, cx: &mut gpui::TestAppContext| {
+            view.update(cx, |view, cx| {
+                view.edit(
+                    Changes {
+                        title: Some(title.into()),
+                        ..Changes::default()
+                    },
+                    cx,
+                );
+                view.flush(cx)
+            })
+        };
+        let older = save_title("Draft", cx);
+        let restored = restore();
+        let newer = save_title("Final", cx);
+        block_on(restored.receive()).unwrap();
+        block_on(runtime.flush().unwrap().receive()).unwrap();
+        cx.run_until_parked();
+        assert!(older.now_or_never().expect("the save finished").is_err());
+        assert!(newer.now_or_never().expect("the save finished").is_ok());
+        assert!(flush(cx).is_ok());
+        assert_eq!(
+            sql("SELECT title FROM templates WHERE id=?")[0]["title"],
+            "Final"
         );
         block_on(runtime.shutdown()).unwrap();
     }
