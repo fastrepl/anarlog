@@ -1348,6 +1348,25 @@ async fn retention_sweep_deletes_recordings_older_than_the_chosen_policy() {
     fixture.close().await;
 }
 
+#[tokio::test]
+async fn transcription_keeps_the_main_language_with_additional_ones() {
+    let fixture = Fixture::new().await;
+    fixture.setting("ai_language", json!("ko")).await;
+    fixture
+        .setting("spoken_languages", json!("[\"en\",\"ko-KR\"]"))
+        .await;
+    let preferences = super::config::preferences(&fixture.runtime).await.unwrap();
+    let languages = preferences.languages().unwrap();
+    assert_eq!(
+        languages
+            .iter()
+            .map(|l| l.iso639_code())
+            .collect::<Vec<_>>(),
+        ["ko", "en"]
+    );
+    fixture.close().await;
+}
+
 /// A tenth of a second of silence; recovery chunks keep their `.mp3` name, decoders probe content.
 fn silent_chunk(path: &std::path::Path) {
     let spec = hound::WavSpec {

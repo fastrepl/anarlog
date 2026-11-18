@@ -89,20 +89,23 @@ impl Preferences {
         }
     }
 
+    /// Shipping's `getTranscriptionLanguages`: the main language first, then the additional
+    /// spoken ones, one per base language; unknown codes are skipped.
     pub fn languages(&self) -> Result<Vec<anlg_language::Language>> {
-        let mut values = self.strings("spoken_languages")?;
-        if values.is_empty() {
-            let language = self.text("ai_language");
-            if !language.is_empty() {
-                values.push(language);
+        let mut languages: Vec<anlg_language::Language> = Vec::new();
+        for value in [self.text("ai_language")]
+            .into_iter()
+            .chain(self.strings("spoken_languages")?)
+        {
+            if let Ok(language) = value.parse::<anlg_language::Language>()
+                && !languages
+                    .iter()
+                    .any(|seen| seen.iso639() == language.iso639())
+            {
+                languages.push(language);
             }
         }
-        values.sort();
-        values.dedup();
-        values
-            .into_iter()
-            .map(|value| value.parse().map_err(failure))
-            .collect()
+        Ok(languages)
     }
 
     fn provider(&self, kind: ProviderKind, provider: &str) -> &Value {
