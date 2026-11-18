@@ -99,12 +99,22 @@ impl EventEmitter<TranscriptEvent> for TranscriptView {}
 /// One segment's text while editing (shipping's `EditableSegmentText`).
 struct SegmentEditor {
     input: Entity<TextInput>,
+    /// The text last saved; a failed save leaves it behind, so the next blur retries.
     original: String,
+    /// The text a save in flight is writing.
+    saving: Option<String>,
     transcript: Arc<str>,
     word_ids: Vec<String>,
     /// Bumped per keystroke; a pause in typing saves, so closing the note keeps the edit.
     revision: u64,
     _subscriptions: [Subscription; 2],
+}
+
+impl SegmentEditor {
+    /// Text that differs from the last save, including a save still in flight.
+    fn unsaved(&self, cx: &App) -> bool {
+        self.saving.is_some() || normalize(&self.input.read(cx).buffer.text) != self.original
+    }
 }
 
 impl TranscriptView {
@@ -144,6 +154,7 @@ impl TranscriptView {
                             Ok((segments, words)) => {
                                 this.segments = segments;
                                 this.word_transcripts = words;
+                                this.hovered = None;
                             }
                             Err(error) => this.error = Some(error),
                         }
@@ -244,7 +255,8 @@ impl TranscriptView {
         self.edit_mode
     }
 
-    /// Leaving edit mode saves every changed segment, as shipping's blur does.
+    /// Leaving edit mode saves every changed segment, as shipping's blur does. Edits that are
+    /// not saved yet keep their editors, so a failed save is still there to retry.
     pub fn set_edit_mode(&mut self, edit_mode: bool, cx: &mut Context<Self>) {
         if self.edit_mode == edit_mode {
             return;
@@ -254,7 +266,7 @@ impl TranscriptView {
             for id in ids {
                 self.commit(&id, cx);
             }
-            self.editors.clear();
+            self.editors.retain(|_, editor| editor.unsaved(cx));
             self.clear_selection();
         }
         self.edit_mode = edit_mode;
@@ -307,6 +319,7 @@ impl TranscriptView {
             SegmentEditor {
                 input: input.clone(),
                 original,
+                saving: None,
                 transcript,
                 word_ids,
                 revision: 0,
@@ -346,32 +359,55 @@ impl TranscriptView {
             return;
         };
         let text = normalize(&editor.input.read(cx).buffer.text);
-        if text == editor.original || editor.word_ids.is_empty() {
+        if text == editor.original
+            || editor.saving.as_ref() == Some(&text)
+            || editor.word_ids.is_empty()
+        {
             return;
         }
-        editor.original = text.clone();
+        editor.saving = Some(text.clone());
         let reply = TranscriptStore(self.runtime.clone()).edit_segment_text(
             editor.transcript.clone(),
             editor.word_ids.clone(),
-            text,
+            text.clone(),
         );
+        let id = id.to_owned();
         cx.spawn(async move |this, cx| {
-            if let Err(error) = async { reply?.receive().await }.await {
-                let _ = this.update(cx, |this, cx| {
-                    this.error = Some(format!("Transcript edit not saved: {error}"));
-                    cx.notify();
-                });
-            }
+            let result = async { reply?.receive().await }.await;
+            let _ = this.update(cx, |this, cx| {
+                if let Some(editor) = this.editors.get_mut(&id) {
+                    if editor.saving.as_ref() == Some(&text) {
+                        editor.saving = None;
+                    }
+                    if result.is_ok() {
+                        editor.original = text;
+                    }
+                }
+                match result {
+                    // Out of edit mode, a saved editor has nothing left to keep.
+                    Ok(_) if !this.edit_mode => {
+                        this.editors.retain(|_, editor| editor.unsaved(cx));
+                    }
+                    Ok(_) => {}
+                    Err(error) => this.error = Some(format!("Transcript edit not saved: {error}")),
+                }
+                cx.notify();
+            });
         })
         .detach();
     }
 
     /// Shipping's `seekAndPlay` for a clicked word.
     fn seek(&mut self, start_ms: i64, cx: &mut Context<Self>) {
-        let (Some(_), Some(services)) = (&self.audio, cx.try_global::<MeetingServices>()) else {
+        let (Some(audio), Some(services)) = (&self.audio, cx.try_global::<MeetingServices>())
+        else {
             return;
         };
         let playback = services.playback.clone();
+        // The player is shared: another window's note may have its own recording loaded.
+        if playback.snapshot().path.as_ref() != Some(audio) {
+            let _ = playback.send(Command::Open(audio.clone()));
+        }
         let _ = playback.send(Command::Seek(Duration::from_millis(start_ms.max(0) as u64)));
         let _ = playback.send(Command::Play);
     }
@@ -655,7 +691,8 @@ fn row_text(
             highlights.push((ranges[index].clone(), partial));
         }
     }
-    if let Some(index) = hovered.filter(|index| seekable(&row.words[*index])) {
+    // The hovered word can outlive its row's words when a sync shortens the segment.
+    if let Some(index) = hovered.filter(|index| row.words.get(*index).is_some_and(seekable)) {
         highlights.push((
             ranges[index].clone(),
             HighlightStyle {
@@ -2229,6 +2266,9 @@ mod tests {
             2,
             "the played sentence and the hovered word"
         );
+        // A hover left on a word that a sync removed once indexed past the words and panicked.
+        let (_, highlights, _) = row_text(&row, None, Some(5), false, gpui::black());
+        assert!(highlights.is_empty());
         assert_eq!(normalize("  Hi \n there "), "Hi there");
     }
 
@@ -2346,5 +2386,84 @@ mod tests {
             extend(&order, "b", false),
             Some(["b", "c", "d"].map(String::from).into())
         );
+    }
+
+    /// A transcript edit was once marked saved before its save finished: after a failed
+    /// save, blurring retried nothing and leaving edit mode dropped the draft.
+    #[gpui::test]
+    fn a_failed_transcript_edit_is_kept_and_saved_on_the_next_blur(cx: &mut gpui::TestAppContext) {
+        cx.executor().allow_parking();
+        cx.update(crate::ui::theme::UiFonts::init);
+        let directory = tempfile::tempdir().unwrap();
+        let (runtime, ready) = RuntimeHandle::start(desktop_runtime::Profile {
+            database: directory.path().join("library.sqlite"),
+        })
+        .unwrap();
+        futures::executor::block_on(ready.receive()).unwrap();
+        let sql = |sql: &'static str| {
+            let reply = runtime
+                .submit(move |services| async move {
+                    services
+                        .executor
+                        .execute(sql.into(), vec![])
+                        .await
+                        .map_err(|error| {
+                            desktop_runtime::ServiceError::Failed(error.to_string().into())
+                        })
+                })
+                .unwrap();
+            futures::executor::block_on(reply.receive()).unwrap()
+        };
+        sql("INSERT INTO sessions (id, title) VALUES ('s', 'Sync')");
+        sql(
+            r#"INSERT INTO transcripts (id, session_id, started_at_ms, ended_at_ms, words_json)
+            VALUES ('t', 's', 0, 1000, '[{"id":"a","text":"Hello","start_ms":0,"end_ms":200,"channel":0},
+              {"id":"b","text":" there.","start_ms":200,"end_ms":400,"channel":0}]')"#,
+        );
+        let runtime_view = runtime.clone();
+        let (view, cx) = cx
+            .add_window_view(|_, cx| TranscriptView::new(runtime_view, SessionId("s".into()), cx));
+        let settle = |cx: &mut gpui::VisualTestContext,
+                      done: &dyn Fn(&mut gpui::VisualTestContext) -> bool| {
+            for _ in 0..400 {
+                cx.update(|window, cx| window.draw(cx).clear(cx));
+                cx.run_until_parked();
+                if done(cx) {
+                    return;
+                }
+                std::thread::sleep(Duration::from_millis(5));
+            }
+            panic!("transcript did not settle");
+        };
+        settle(cx, &|cx| {
+            view.read_with(cx, |view, _| !view.segments.is_empty())
+        });
+        view.update(cx, |view, cx| view.set_edit_mode(true, cx));
+        settle(cx, &|cx| {
+            view.read_with(cx, |view, _| !view.editors.is_empty())
+        });
+        let id = view.read_with(cx, |view, _| view.editors.keys().next().unwrap().clone());
+        // A locked note refuses the save.
+        sql("UPDATE sessions SET locked = 1 WHERE id = 's'");
+        view.update(cx, |view, cx| {
+            let input = view.editors[&id].input.clone();
+            input.update(cx, |input, cx| input.set_text("Hello world.".into(), cx));
+            view.commit(&id, cx);
+        });
+        settle(cx, &|cx| view.read_with(cx, |view, _| view.error.is_some()));
+        view.update(cx, |view, cx| view.set_edit_mode(false, cx));
+        settle(cx, &|cx| {
+            view.read_with(cx, |view, _| view.editors[&id].saving.is_none())
+        });
+        sql("UPDATE sessions SET locked = 0 WHERE id = 's'");
+        view.update(cx, |view, cx| view.set_edit_mode(true, cx));
+        // Blur commits; repeated, it waits out any save still in flight from before.
+        settle(cx, &|cx| {
+            view.update(cx, |view, cx| view.commit(&id, cx));
+            sql("SELECT words_json FROM transcripts WHERE id = 't'")[0]["words_json"]
+                .as_str()
+                .is_some_and(|words| words.contains("world."))
+        });
+        futures::executor::block_on(runtime.shutdown()).unwrap();
     }
 }
