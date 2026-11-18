@@ -9,6 +9,7 @@ mod meeting_schedule;
 mod note_windows;
 mod notifications;
 mod release_notes;
+mod shared_notes;
 pub mod team_invitations;
 pub mod toasts;
 
@@ -825,6 +826,7 @@ impl ApplicationView {
             cloud.clone(),
         )));
         team_invitations::watch(cx);
+        shared_notes::watch(cloud.clone(), cx);
         let mut identities = cloud.identities();
         let identity_cloud = cloud.clone();
         cx.spawn(async move |this, cx| {

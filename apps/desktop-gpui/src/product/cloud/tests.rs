@@ -395,6 +395,68 @@ fn config(server: &MockServer, namespace: &str) -> CloudConfig {
     }
 }
 
+#[tokio::test]
+async fn shared_note_reconcile_evicts_notes_whose_access_was_revoked() {
+    const REVOKED: &str = "0b8f4a52-2c4e-4d55-9a37-5f3e1c6d7a90";
+    let server = MockServer::start().await;
+    let directory = tempfile::tempdir().unwrap();
+    let (runtime, ready) = RuntimeHandle::start(Profile {
+        database: directory.path().join("shared.sqlite"),
+    })
+    .unwrap();
+    ready.receive().await.unwrap();
+    let cloud = fixture_cloud(&runtime, &server, Arc::new(MemoryStore::default())).await;
+    let row = |share: &str, title: &str, revision: u64| {
+        json!({"share_id":share,"workspace_id":ACCOUNT,"session_id":format!("remote-{share}"),
+            "schema_version":1,"content_revision":revision,"title":title,
+            "body_json":{"type":"doc","content":[{"type":"paragraph"}]},"attachments_json":[],
+            "capability":"viewer","manage_access":false,"access_version":1,"web_editable":false,
+            "published_at":"2026-01-01T00:00:00Z"})
+    };
+    for (share, title) in [(SHARE, "Kept"), (REVOKED, "Revoked")] {
+        let read = Mock::given(method("POST"))
+            .and(path("/rest/v1/rpc/read_my_session_share_snapshot_v2"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!([row(share, title, 1)])))
+            .mount_as_scoped(&server)
+            .await;
+        cloud
+            .refresh_shared(share.into(), desktop_runtime::CancellationToken::new())
+            .await
+            .unwrap();
+        drop(read);
+    }
+    Mock::given(method("POST"))
+        .and(path("/rest/v1/rpc/list_my_session_share_snapshot_page_v2"))
+        .and(body_json(json!({"p_after_share_id":null,"p_limit":8})))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([row(
+            SHARE,
+            "Kept, edited",
+            2
+        )])))
+        .mount(&server)
+        .await;
+    cloud
+        .reconcile_shared(desktop_runtime::CancellationToken::new())
+        .await
+        .unwrap();
+    let cached = runtime
+        .service(|services| async move {
+            Ok(sqlx::query_scalar::<_, String>(
+                "SELECT title FROM shared_session_cache WHERE viewer_user_id = ? ORDER BY title",
+            )
+            .bind(ACCOUNT)
+            .fetch_all(services.db.pool())
+            .await
+            .unwrap())
+        })
+        .unwrap()
+        .receive()
+        .await
+        .unwrap();
+    assert_eq!(cached, ["Kept, edited"]);
+    runtime.shutdown().await.unwrap();
+}
+
 fn session(expiry: u64, token: &str) -> Value {
     json!({"access_token": token, "refresh_token": "fixture-refresh", "token_type": "bearer",
         "expires_at": expiry, "expires_in": 3600,
