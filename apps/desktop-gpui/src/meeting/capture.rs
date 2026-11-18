@@ -403,6 +403,37 @@ mod callback_tests {
         assert!(state.error.is_some());
     }
 
+    #[tokio::test]
+    async fn a_capture_that_fails_to_finish_frees_its_note() {
+        let directory =
+            std::env::temp_dir().join(format!("anarlog-capture-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir(&directory).unwrap();
+        let (runtime, ready) = RuntimeHandle::start(desktop_runtime::Profile {
+            database: directory.join("db.sqlite"),
+        })
+        .unwrap();
+        ready.receive().await.unwrap();
+        let activities = Activities::default();
+        let session = SessionId("fixture".into());
+        let state = Arc::new(Mutex::new(State {
+            session: Some(session.clone()),
+            phase: Phase::Listening,
+            activity: Some(activities.acquire(session.clone()).unwrap()),
+            ..State::default()
+        }));
+        // Stop handles this itself when the session ended before it drained the queue.
+        let ended = SessionLifecycleEvent::Inactive {
+            session_id: "fixture".into(),
+            audio_path: None,
+            error: Some("audio_stream_failed".into()),
+        };
+        handle_lifecycle(&runtime, &state, ended).await.unwrap_err();
+        assert_eq!(state.lock().unwrap().phase, Phase::Failed);
+        activities.acquire(session).unwrap();
+        runtime.shutdown().await.unwrap();
+        std::fs::remove_dir_all(directory).unwrap();
+    }
+
     #[test]
     fn lost_channels_are_health_warnings_that_still_mark_recovery() {
         let (events, _receiver) = mpsc::channel(1);
@@ -492,17 +523,7 @@ impl CaptureService {
                             }
                         }
                         Some(event) = lifecycle.recv() => {
-                            let inactive = matches!(event, SessionLifecycleEvent::Inactive { .. });
                             if let Err(error) = handle_lifecycle(&runtime, &shared, event).await {
-                                if inactive {
-                                    let repair = {
-                                        let mut state = shared.lock().unwrap_or_else(|poison| poison.into_inner());
-                                        state.phase = Phase::Failed;
-                                        state.activity.take();
-                                        state.repair.clone()
-                                    };
-                                    if let Some(repair) = repair { repair.recovery.stop().await; }
-                                }
                                 adapter.fail(error);
                             }
                         }
@@ -906,76 +927,92 @@ async fn handle_lifecycle(
         SessionLifecycleEvent::Inactive {
             session_id, error, ..
         } => {
-            let (persistence, transcript, retained) = {
-                let mut state = shared.lock().unwrap_or_else(|poison| poison.into_inner());
-                if !matches_session(&state, &session_id) {
-                    if let Some(error) = error {
-                        state.error = Some(failure(error));
-                        state.revision += 1;
-                    }
-                    return Ok(());
+            let result = finish(runtime, shared, session_id, error).await;
+            // A capture that fails to finish must not stay busy, wherever its event was handled.
+            if result.is_err() {
+                let repair = {
+                    let mut state = shared.lock().unwrap_or_else(|poison| poison.into_inner());
+                    state.phase = Phase::Failed;
+                    state.activity.take();
+                    state.repair.clone()
+                };
+                if let Some(repair) = repair {
+                    repair.recovery.stop().await;
                 }
-                state.phase = Phase::Finalizing;
-                (
-                    state.persistence.clone(),
-                    state.transcript.clone(),
-                    state.retention != Retention::Never,
-                )
-            };
-            if let Some(persistence) = persistence {
-                persistence.retire().await?;
             }
-            if let Some(error) = error {
-                return Err(failure(error));
-            }
-            repair_once(runtime, shared).await?;
-            let (incomplete, recovery) = {
-                let state = shared.lock().unwrap_or_else(|poison| poison.into_inner());
-                (state.incomplete, state.repair.clone())
-            };
-            if let Some(repair) = &recovery {
-                repair.recovery.stop().await;
-            }
-            let failed = |message: &str| {
-                shared
-                    .lock()
-                    .unwrap_or_else(|poison| poison.into_inner())
-                    .phase = Phase::Failed;
-                Err(failure(message))
-            };
-            if incomplete {
-                return failed(
-                    "Recording stopped with an incomplete transcript; its audio is kept for recovery.",
-                );
-            }
-            release_chunks(shared, true).await?;
-            // "Don't save" counts as saved only once its audio is gone.
-            if !retained
-                && let Some(repair) = recovery
-                && !delete_transcribed(repair.directory).await?
-            {
-                return failed(
-                    "Don’t save audio is still waiting for transcription; it is kept for recovery.",
-                );
-            }
-            if let Some(transcript) = transcript {
-                runtime.submit(move |services| async move {
-                    services.executor.execute_transaction(vec![
-                        statement("UPDATE transcripts SET ended_at_ms = CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER) WHERE id = ?", vec![json!(transcript)], Some(1)),
-                        statement("DELETE FROM app_settings WHERE id = ? AND json_valid(value_json) AND json_extract(value_json, '$.transcriptId') = ?",
-                            vec![json!(format!("capture_lifecycle_pending:{session_id}")), json!(transcript)], Some(1)),
-                    ]).await.map_err(failure)?;
-                    Ok(())
-                })?.receive().await?;
-            }
-            let mut state = shared.lock().unwrap_or_else(|poison| poison.into_inner());
-            state.phase = Phase::Idle;
-            state.activity = None;
-            state.status = "Recording saved".into();
-            state.persistence = None;
-            state.revision += 1;
+            return result;
         }
     }
+    Ok(())
+}
+
+async fn finish(
+    runtime: &RuntimeHandle,
+    shared: &Arc<Mutex<State>>,
+    session_id: String,
+    error: Option<String>,
+) -> Result<()> {
+    let (persistence, transcript, retained) = {
+        let mut state = shared.lock().unwrap_or_else(|poison| poison.into_inner());
+        if !matches_session(&state, &session_id) {
+            if let Some(error) = error {
+                state.error = Some(failure(error));
+                state.revision += 1;
+            }
+            return Ok(());
+        }
+        state.phase = Phase::Finalizing;
+        (
+            state.persistence.clone(),
+            state.transcript.clone(),
+            state.retention != Retention::Never,
+        )
+    };
+    if let Some(persistence) = persistence {
+        persistence.retire().await?;
+    }
+    if let Some(error) = error {
+        return Err(failure(error));
+    }
+    repair_once(runtime, shared).await?;
+    let (incomplete, recovery) = {
+        let state = shared.lock().unwrap_or_else(|poison| poison.into_inner());
+        (state.incomplete, state.repair.clone())
+    };
+    if let Some(repair) = &recovery {
+        repair.recovery.stop().await;
+    }
+    if incomplete {
+        return Err(failure(
+            "Recording stopped with an incomplete transcript; its audio is kept for recovery.",
+        ));
+    }
+    release_chunks(shared, true).await?;
+    // "Don't save" counts as saved only once its audio is gone.
+    if !retained
+        && let Some(repair) = recovery
+        && !delete_transcribed(repair.directory).await?
+    {
+        return Err(failure(
+            "Don’t save audio is still waiting for transcription; it is kept for recovery.",
+        ));
+    }
+    if let Some(transcript) = transcript {
+        runtime.submit(move |services| async move {
+            services.executor.execute_transaction(vec![
+                statement("UPDATE transcripts SET ended_at_ms = CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER) WHERE id = ?", vec![json!(transcript)], Some(1)),
+                statement("DELETE FROM app_settings WHERE id = ? AND json_valid(value_json) AND json_extract(value_json, '$.transcriptId') = ?",
+                    vec![json!(format!("capture_lifecycle_pending:{session_id}")), json!(transcript)], Some(1)),
+            ]).await.map_err(failure)?;
+            Ok(())
+        })?.receive().await?;
+    }
+    let mut state = shared.lock().unwrap_or_else(|poison| poison.into_inner());
+    state.phase = Phase::Idle;
+    state.activity = None;
+    state.status = "Recording saved".into();
+    state.persistence = None;
+    state.revision += 1;
     Ok(())
 }
 
