@@ -454,9 +454,13 @@ impl ApplicationView {
                 }
                 match desktop_runtime::deeplink::DeepLink::parse(&raw) {
                     Ok(desktop_runtime::deeplink::DeepLink::ShareAccount { share_id }) => {
+                        #[cfg(target_os = "windows")]
+                        self.show_main(window, cx);
                         self.open_shared(share_id, false, cx)
                     }
                     Ok(desktop_runtime::deeplink::DeepLink::ShareHandoff { request_id }) => {
+                        #[cfg(target_os = "windows")]
+                        self.show_main(window, cx);
                         self.open_shared(request_id, true, cx)
                     }
                     Ok(desktop_runtime::deeplink::DeepLink::OnboardingComplete) => {
