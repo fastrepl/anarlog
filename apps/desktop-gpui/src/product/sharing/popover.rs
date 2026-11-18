@@ -349,7 +349,7 @@ impl SharePopover {
                 this.pending = None;
                 this.optimistic = None;
                 match result {
-                    Ok(share) => {
+                    Ok(refreshed) => {
                         if let ShareCommand::Invite(emails) = &command {
                             for email in emails {
                                 this.invite.remove(email);
@@ -376,7 +376,10 @@ impl SharePopover {
                         {
                             this.invite.restore(email);
                         }
-                        remember(this.session.clone(), share, cx);
+                        // The command took effect; a failed read-back keeps the last known share.
+                        if let Ok(share) = refreshed {
+                            remember(this.session.clone(), share, cx);
+                        }
                         this.exclude_invited(cx);
                     }
                     Err(_) => this.error = Some(failure_message(&command).into()),

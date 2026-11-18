@@ -432,6 +432,7 @@ async fn paused_shares_still_open_the_web_copy_and_narrow_access_but_not_widen_i
         .share_command(scope.clone(), ShareCommand::OpenWebCopy)
         .await
         .unwrap()
+        .unwrap()
         .unwrap();
     assert!(share.conflict);
     let editor = share.access[0].clone();
@@ -441,6 +442,7 @@ async fn paused_shares_still_open_the_web_copy_and_narrow_access_but_not_widen_i
             ShareCommand::SetCapability(editor.clone(), Capability::Viewer),
         )
         .await
+        .unwrap()
         .unwrap();
     let viewer = crate::product::sharing::AccessEntry {
         capability: Capability::Viewer,
@@ -553,6 +555,7 @@ async fn failed_publication_retries_the_identical_mutation_then_publishes_later_
             ShareCommand::EmailRecap(vec!["lee@northwind.example".into()]),
         )
         .await
+        .unwrap()
         .unwrap();
     runtime.shutdown().await.unwrap();
 }
@@ -1527,6 +1530,7 @@ async fn share_popover_publishes_later_edits_before_sharing_or_emailing_them() {
         )
         .await
         .unwrap()
+        .unwrap()
         .unwrap();
     assert_eq!(share.general, GeneralAccess::Restricted);
     let entry = share.access[0].clone();
@@ -1542,6 +1546,7 @@ async fn share_popover_publishes_later_edits_before_sharing_or_emailing_them() {
     cloud
         .share_command(scope.clone(), ShareCommand::Remove(entry))
         .await
+        .unwrap()
         .unwrap();
     // An edit made after sharing is published before the link is copied, once.
     let edited = json!({"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Revised decisions"}]}]});
@@ -1579,9 +1584,11 @@ async fn share_popover_publishes_later_edits_before_sharing_or_emailing_them() {
         cloud
             .share_command(scope.clone(), ShareCommand::CopyLink)
             .await
+            .unwrap()
             .unwrap();
     }
-    // The recap email carries the published note as Markdown.
+    // The recap email carries the published note as Markdown. It was sent once, so a failed
+    // read-back of the share afterwards doesn't report it as failed and invite a second send.
     Mock::given(method("POST"))
         .and(path(format!("/shared-notes/{SHARE}/recap/email")))
         .and(body_partial_json(
@@ -1592,13 +1599,20 @@ async fn share_popover_publishes_later_edits_before_sharing_or_emailing_them() {
         .expect(1)
         .mount(&server)
         .await;
-    cloud
+    Mock::given(method("POST"))
+        .and(path("/rest/v1/rpc/get_session_share_management"))
+        .respond_with(ResponseTemplate::new(503))
+        .with_priority(1)
+        .mount(&server)
+        .await;
+    let refreshed = cloud
         .share_command(
             scope,
             ShareCommand::EmailRecap(vec!["lee@northwind.example".into()]),
         )
         .await
         .unwrap();
+    assert!(refreshed.is_err());
     runtime.shutdown().await.unwrap();
 }
 

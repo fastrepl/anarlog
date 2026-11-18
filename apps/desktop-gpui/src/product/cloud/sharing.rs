@@ -681,11 +681,13 @@ impl CloudServices {
     }
 
     /// Shipping's draft panel shares the note on its first action; later actions manage it.
+    /// The outer result is the command's; the inner one is the share read back after it, whose
+    /// failure doesn't undo a command that already took effect, such as a sent email.
     pub fn share_command(
         &self,
         scope: Scope,
         command: ShareCommand,
-    ) -> BoxFuture<'static, Result<Option<ManagedShare>>> {
+    ) -> BoxFuture<'static, Result<Result<Option<ManagedShare>>>> {
         let this = self.clone();
         Box::pin(async move {
             this.runtime
@@ -703,7 +705,7 @@ impl CloudServices {
                         .session_id
                         .as_ref()
                         .ok_or_else(|| failure("Open a meeting to share"))?;
-                    this.core.managed_share(&services, &lease, session).await
+                    Ok(this.core.managed_share(&services, &lease, session).await)
                 })?
                 .receive()
                 .await
