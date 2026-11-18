@@ -14,7 +14,7 @@ let package = Package(
   dependencies: [
     .package(
       url: "https://github.com/Brendonovich/swift-rs",
-      revision: "01980f981bc642a6da382cc0788f18fdd4cde6df"),
+      revision: "207e4bfe5d36fdd0cc08f28d1849ff94ac7e24b8"),
     .package(url: "https://github.com/soniqo/speech-swift", exact: "0.0.27"),
   ],
   targets: [
