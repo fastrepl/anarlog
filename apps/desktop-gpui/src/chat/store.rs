@@ -175,7 +175,7 @@ pub fn messages(
         let rows = services
             .executor
             .execute(
-                "SELECT id, role, content, parts_json, metadata_json, created_at FROM chat_messages WHERE chat_group_id = ? AND deleted_at IS NULL ORDER BY created_at, id".into(),
+                "SELECT id, role, content, parts_json, metadata_json, created_at FROM chat_messages WHERE chat_group_id = ? AND deleted_at IS NULL ORDER BY created_at, rowid".into(),
                 vec![json!(group)],
             )
             .await
