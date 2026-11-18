@@ -6,8 +6,8 @@ use std::{sync::Arc, time::Duration};
 use desktop_runtime::{CancellationToken, Reply, RuntimeHandle};
 use gpui::{
     Anchor, AnyElement, Context, Entity, EventEmitter, FocusHandle, Focusable, KeyDownEvent,
-    MouseButton, Pixels, Point, Render, SharedString, Subscription, Window, anchored, deferred,
-    div, prelude::*, px, rgb,
+    MouseButton, Pixels, Point, Render, SharedString, Subscription, Task, Window, anchored,
+    deferred, div, prelude::*, px, rgb,
 };
 
 use super::{
@@ -183,7 +183,7 @@ impl TemplatesView {
         self.cancel.cancel();
         self.menu = None;
         self.context = None;
-        self.flush(cx);
+        self.flush(cx).detach();
     }
 
     fn apply(&mut self, library: Library, cx: &mut Context<Self>) {
@@ -236,7 +236,7 @@ impl TemplatesView {
         if self.form.as_ref().map(|form| &form.id) == id.as_ref() {
             return;
         }
-        self.flush(cx);
+        self.flush(cx).detach();
         self.form = id.and_then(|id| {
             let template = self.template(&id)?.clone();
             Some(self.build_form(template, cx))
@@ -366,7 +366,7 @@ impl TemplatesView {
                     .as_ref()
                     .is_some_and(|form| form.revision == revision)
                 {
-                    this.flush(cx);
+                    this.flush(cx).detach();
                 }
             });
         })
@@ -374,25 +374,31 @@ impl TemplatesView {
         cx.notify();
     }
 
-    fn flush(&mut self, cx: &mut Context<Self>) {
-        let Some(form) = &mut self.form else { return };
+    /// Saves the form's pending edits now. Quitting awaits it; a failed save keeps the edits
+    /// for the next one.
+    pub(super) fn flush(&mut self, cx: &mut Context<Self>) -> Task<desktop_runtime::Result<()>> {
+        let Some(form) = &mut self.form else {
+            return Task::ready(Ok(()));
+        };
         if form.pending.is_empty() {
-            return;
+            return Task::ready(Ok(()));
         }
-        let reply = templates::save(
-            &self.runtime,
-            form.id.clone(),
-            std::mem::take(&mut form.pending),
-        );
+        let (id, changes) = (form.id.clone(), std::mem::take(&mut form.pending));
+        let reply = templates::save(&self.runtime, id.clone(), changes.clone());
         cx.spawn(async move |this, cx| {
-            if let Err(error) = receive(reply).await {
+            let result = receive(reply).await;
+            if let Err(error) = &result {
                 let _ = this.update(cx, |this, cx| {
+                    if let Some(form) = this.form.as_mut().filter(|form| form.id == id) {
+                        let newer = std::mem::replace(&mut form.pending, changes);
+                        form.pending.merge(newer);
+                    }
                     this.message = format!("Could not save the template: {error}");
                     cx.notify();
                 });
             }
+            result
         })
-        .detach();
     }
 
     fn select(&mut self, selection: Selection, cx: &mut Context<Self>) {
@@ -490,7 +496,7 @@ impl TemplatesView {
             self.notify_pro(cx);
             return;
         }
-        self.flush(cx);
+        self.flush(cx).detach();
         let reply = templates::duplicate(&self.runtime, id);
         self.run(
             reply,
@@ -500,7 +506,7 @@ impl TemplatesView {
     }
 
     fn delete(&mut self, id: Arc<str>, cx: &mut Context<Self>) {
-        self.flush(cx);
+        self.flush(cx).detach();
         if self.form.as_ref().is_some_and(|form| form.id == id) {
             self.form = None;
         }
@@ -1935,5 +1941,101 @@ impl Render for TemplatesView {
             .when_some(self.sharing.as_ref(), |view, (dialog, _)| {
                 view.child(list::modal(window, dialog.clone().into_any_element()))
             })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use desktop_runtime::Profile;
+    use futures::{FutureExt, executor::block_on};
+    use serde_json::json;
+
+    use super::*;
+
+    /// Template edits waited on a detached timer that quitting never flushed, and a failed save
+    /// dropped them.
+    #[gpui::test]
+    fn template_edits_are_flushed_on_demand_and_kept_until_they_persist(
+        cx: &mut gpui::TestAppContext,
+    ) {
+        cx.executor().allow_parking();
+        let directory = tempfile::tempdir().unwrap();
+        let (runtime, ready) = RuntimeHandle::start(Profile {
+            database: directory.path().join("library.sqlite"),
+        })
+        .unwrap();
+        block_on(ready.receive()).unwrap();
+        let id = block_on(templates::create(&runtime).unwrap().receive()).unwrap();
+        let sql = |sql: &'static str| {
+            let id = id.clone();
+            let reply = runtime
+                .submit(move |services| async move {
+                    services
+                        .executor
+                        .execute(sql.into(), vec![json!(id)])
+                        .await
+                        .map_err(super::super::mutations::failure)
+                })
+                .unwrap();
+            block_on(reply.receive()).unwrap()
+        };
+        let library = block_on(
+            runtime
+                .submit(|services| async move {
+                    services
+                        .executor
+                        .execute(templates::LIBRARY_SQL.into(), vec![])
+                        .await
+                        .map_err(super::super::mutations::failure)
+                })
+                .unwrap()
+                .receive(),
+        )
+        .unwrap();
+        let view = cx.new(|cx| TemplatesView::new(runtime.clone(), cx));
+        let flush = |cx: &mut gpui::TestAppContext| {
+            let task = view.update(cx, |view, cx| view.flush(cx));
+            block_on(runtime.flush().unwrap().receive()).unwrap();
+            cx.run_until_parked();
+            task.now_or_never().expect("the save finished")
+        };
+        view.update(cx, |view, cx| {
+            view.apply(templates::decode_library(&library), cx);
+            view.select(Selection::Mine(id.clone()), cx);
+            view.edit(
+                Changes {
+                    title: Some("Weekly review".into()),
+                    ..Changes::default()
+                },
+                cx,
+            );
+        });
+        // The row is missing, so this save fails and must keep the edit.
+        let row = sql("SELECT * FROM templates WHERE id=?");
+        sql("DELETE FROM templates WHERE id=?");
+        assert!(flush(cx).is_err());
+        let restore = runtime
+            .submit(move |services| async move {
+                let row = &row[0];
+                services
+                    .executor
+                    .execute(
+                        "INSERT INTO templates (id,title,description,pinned,icon_json,targets_json,sections_json,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?)".into(),
+                        ["id", "title", "description", "pinned", "icon_json", "targets_json", "sections_json", "created_at", "updated_at"]
+                            .iter()
+                            .map(|column| row[*column].clone())
+                            .collect(),
+                    )
+                    .await
+                    .map_err(super::super::mutations::failure)
+            })
+            .unwrap();
+        block_on(restore.receive()).unwrap();
+        assert!(flush(cx).is_ok());
+        assert_eq!(
+            sql("SELECT title FROM templates WHERE id=?")[0]["title"],
+            "Weekly review"
+        );
+        block_on(runtime.shutdown()).unwrap();
     }
 }

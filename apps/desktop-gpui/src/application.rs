@@ -1359,6 +1359,9 @@ impl ApplicationView {
             .values()
             .filter_map(|window| window.update(cx, |view, _, cx| view.flush(true, cx)).ok())
             .collect::<Vec<_>>();
+        let pending = self
+            .workspace
+            .update(cx, |workspace, cx| workspace.save_pending(cx));
         self.closing = true;
         // Undo windows end at quit so deleted notes do not keep their folders.
         self.workspace
@@ -1376,6 +1379,7 @@ impl ApplicationView {
                 if let Some(flush) = flush { flush.await.map_err(|_| ServiceError::Closed)??; }
                 for flush in summaries { flush.await.map_err(|_| ServiceError::Closed)??; }
                 for flush in notes { flush.await?; }
+                pending.await?;
                 if let Some(services) = services {
                     services.playback.send(playback::Command::Pause)?;
                     let update = services.capture.take_update(u64::MAX);

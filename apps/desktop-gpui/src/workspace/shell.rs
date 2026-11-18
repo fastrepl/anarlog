@@ -12,7 +12,7 @@ use futures::{
 };
 use gpui::{
     AnyView, App, AppContext, Context, Entity, EventEmitter, FocusHandle, Focusable, KeyDownEvent,
-    Subscription, Window,
+    Subscription, Task, Window,
 };
 
 use super::{
@@ -788,6 +788,12 @@ impl WorkspaceView {
         }
         self.navigation.invalidate(route);
         self.sync_route(cx);
+    }
+
+    /// Saves edits that wait on a debounce (the open template), for the quit flush.
+    pub fn save_pending(&mut self, cx: &mut Context<Self>) -> Task<desktop_runtime::Result<()>> {
+        self.templates
+            .update(cx, |templates, cx| templates.flush(cx))
     }
 
     pub fn can_close(&mut self, cx: &mut Context<Self>) -> bool {
