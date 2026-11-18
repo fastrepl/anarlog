@@ -267,6 +267,15 @@ impl NativeEvents {
     ) -> bool {
         view.native_event(NativeEvent::Action(TrayAction::Open), window, cx);
         if let Some(raw) = url {
+            use desktop_runtime::deeplink::DeepLink;
+
+            if !view.native_ready() && matches!(DeepLink::parse(&raw), Ok(DeepLink::Integration(_)))
+            {
+                tracing::warn!(
+                    "Integration callback rejected because native services are unavailable"
+                );
+                return false;
+            }
             let id = match self.links.receive(&raw) {
                 Ok(id) => id,
                 Err(error) => {
