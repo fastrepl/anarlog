@@ -1109,12 +1109,16 @@ async fn deleting_a_note_shared_from_another_device_revokes_its_share() {
         .mount(&server)
         .await;
     let id = session.clone();
+    let other = uuid::Uuid::new_v4().to_string();
+    let other_share = other.clone();
     runtime
         .service(move |services| async move {
-            // The share's cached copy, as opening its link here leaves it.
-            sqlx::query("INSERT INTO shared_session_cache (share_id, viewer_user_id, workspace_id, session_id, content_revision, access_version, published_at) VALUES (?, ?, ?, ?, 1, 1, '2026-01-01T00:00:00Z')")
-                .bind(SHARE).bind(ACCOUNT).bind(ACCOUNT).bind(id.0.as_ref())
-                .execute(services.db.pool()).await.unwrap();
+            // The share's cached copy, as opening its link here leaves it, beside another note's.
+            for (share, session) in [(SHARE, id.0.as_ref()), (&*other_share, "another-note")] {
+                sqlx::query("INSERT INTO shared_session_cache (share_id, viewer_user_id, workspace_id, session_id, content_revision, access_version, published_at) VALUES (?, ?, ?, ?, 1, 1, '2026-01-01T00:00:00Z')")
+                    .bind(share).bind(ACCOUNT).bind(ACCOUNT).bind(session)
+                    .execute(services.db.pool()).await.unwrap();
+            }
             sqlx::query("UPDATE sessions SET deleted_at = '2026-01-01T00:00:00.000Z' WHERE id = ?")
                 .bind(id.0.as_ref())
                 .execute(services.db.pool())
@@ -1135,8 +1139,8 @@ async fn deleting_a_note_shared_from_another_device_revokes_its_share() {
     let cached = runtime
         .service(|services| async move {
             Ok(
-                sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM shared_session_cache")
-                    .fetch_one(services.db.pool())
+                sqlx::query_scalar::<_, String>("SELECT share_id FROM shared_session_cache")
+                    .fetch_all(services.db.pool())
                     .await
                     .unwrap(),
             )
@@ -1145,7 +1149,7 @@ async fn deleting_a_note_shared_from_another_device_revokes_its_share() {
         .receive()
         .await
         .unwrap();
-    assert_eq!(cached, 0);
+    assert_eq!(cached, [other]);
     runtime.shutdown().await.unwrap();
 }
 
