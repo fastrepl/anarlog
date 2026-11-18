@@ -1459,10 +1459,13 @@ impl ApplicationView {
         let services = self.services.clone();
         cx.spawn(async move |this, cx| {
             let result: desktop_runtime::Result<()> = async {
-                if let Some(flush) = flush { flush.await.map_err(|_| ServiceError::Closed)??; }
-                for flush in summaries { flush.await.map_err(|_| ServiceError::Closed)??; }
-                for flush in notes { flush.await?; }
-                pending.await?;
+                // Every started save finishes before the first error stops the quit: dropping
+                // the template save would cancel it, and its failed edits restore only from it.
+                let mut saved = Vec::new();
+                for flush in flush.into_iter().chain(summaries) { saved.push(flush.await.map_err(|_| ServiceError::Closed).and_then(|result| result)); }
+                for flush in notes { saved.push(flush.await); }
+                saved.push(pending.await);
+                saved.into_iter().collect::<desktop_runtime::Result<()>>()?;
                 if let Some(services) = services {
                     services.playback.send(playback::Command::Pause)?;
                     let update = services.capture.take_update(u64::MAX);
