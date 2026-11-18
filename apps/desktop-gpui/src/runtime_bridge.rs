@@ -1,4 +1,4 @@
-use desktop_runtime::{Profile, Reply, RuntimeHandle};
+use desktop_runtime::{Profile, Reply, RuntimeHandle, RuntimeState};
 use futures::{
     FutureExt,
     future::{Either, select},
@@ -8,6 +8,21 @@ use std::time::Duration;
 
 pub fn start(profile: Profile) -> std::io::Result<(RuntimeHandle, Reply<()>)> {
     RuntimeHandle::start(profile)
+}
+
+/// Waits until the runtime accepts work; `false` once it failed to start or began shutting down.
+pub async fn ready(runtime: &RuntimeHandle) -> bool {
+    let mut state = runtime.state();
+    loop {
+        match *state.borrow_and_update() {
+            RuntimeState::Ready => return true,
+            RuntimeState::Starting => {}
+            _ => return false,
+        }
+        if state.changed().await.is_err() {
+            return false;
+        }
+    }
 }
 
 /// Call before App::quit, while windows and unsaved-draft recovery remain available.

@@ -71,24 +71,7 @@ pub fn install(runtime: &RuntimeHandle, window: &mut Window, cx: &mut App) -> Su
         hidden: presence::ordered_out(window),
         ..Default::default()
     });
-    follow(settings::watch(runtime), cx, |rows, cx| {
-        let enabled = match rows {
-            Ok(rows) => Some(lock_setting(rows)),
-            Err(error) => {
-                tracing::warn!(%error, "the app lock setting is unavailable");
-                None
-            }
-        };
-        set_enabled(enabled, cx);
-    });
-    follow(
-        runtime.watch_query(LOCKED_NOTES_SQL.into(), vec![]),
-        cx,
-        |rows, cx| match rows {
-            Ok(rows) => set_locked_notes(locked_ids(rows), cx),
-            Err(error) => tracing::warn!(%error, "locked notes are unavailable"),
-        },
-    );
+    watch(runtime, cx);
     window.observe_window_visibility(|visibility, window, cx| match visibility {
         WindowVisibility::Hidden if presence::ordered_out(window) => main_hidden(cx),
         WindowVisibility::Visible if cx.try_global::<AppLock>().is_some_and(|lock| lock.hidden) => {
@@ -127,37 +110,67 @@ fn locked_ids(rows: &[Value]) -> HashSet<SessionId> {
         .collect()
 }
 
-/// Applies every snapshot of a watch until the runtime closes it.
+/// Reads the lock setting and the locked notes, and follows them while the runtime runs.
+fn watch(runtime: &RuntimeHandle, cx: &mut App) {
+    follow(runtime, settings::watch, cx, |rows, cx| match rows {
+        Ok(rows) => set_enabled(Some(lock_setting(rows)), cx),
+        Err(ServiceError::Closed) => set_enabled(None, cx),
+        // The last known setting stays; until the first read the gate hides the content.
+        Err(error) => tracing::warn!(%error, "the app lock setting is unavailable"),
+    });
+    follow(
+        runtime,
+        |runtime| runtime.watch_query(LOCKED_NOTES_SQL.into(), vec![]),
+        cx,
+        |rows, cx| match rows {
+            Ok(rows) => set_locked_notes(locked_ids(rows), cx),
+            Err(ServiceError::Closed) => {}
+            Err(error) => tracing::warn!(%error, "locked notes are unavailable"),
+        },
+    );
+}
+
+/// Applies every snapshot of a watch from when the runtime is ready until it closes, and
+/// subscribes again after a failure. `Closed` is reported once the runtime stops.
 fn follow(
-    reply: desktop_runtime::Result<Reply<QueryWatch>>,
+    runtime: &RuntimeHandle,
+    subscribe: impl Fn(&RuntimeHandle) -> desktop_runtime::Result<Reply<QueryWatch>> + 'static,
     cx: &mut App,
     apply: impl Fn(Result<&[Value], ServiceError>, &mut App) + 'static,
 ) {
+    const RETRY: std::time::Duration = std::time::Duration::from_millis(500);
+    const MAX_RETRY: std::time::Duration = std::time::Duration::from_secs(10);
+    let runtime = runtime.clone();
     cx.spawn(async move |cx| {
-        let mut watch = match async { reply?.receive().await }.await {
-            Ok(watch) => watch,
-            Err(error) => {
-                cx.update(|cx| apply(Err(error), cx));
-                return;
+        let mut pause = RETRY;
+        while crate::runtime_bridge::ready(&runtime).await {
+            match async { subscribe(&runtime)?.receive().await }.await {
+                Ok(mut watch) => {
+                    loop {
+                        if let Some(error) = watch.terminal_error() {
+                            cx.update(|cx| apply(Err(error), cx));
+                            break;
+                        }
+                        if let Ok(error) = watch.errors.try_recv() {
+                            cx.update(|cx| apply(Err(error), cx));
+                        }
+                        let snapshot = watch.snapshots.borrow_and_update().clone();
+                        if snapshot.sequence > 0 {
+                            pause = RETRY;
+                            cx.update(|cx| apply(Ok(&snapshot.rows), cx));
+                        }
+                        if watch.snapshots.changed().await.is_err() {
+                            break;
+                        }
+                    }
+                    let _ = watch.unsubscribe().await;
+                }
+                Err(error) => cx.update(|cx| apply(Err(error), cx)),
             }
-        };
-        loop {
-            if let Some(error) = watch
-                .terminal_error()
-                .or_else(|| watch.errors.try_recv().ok())
-            {
-                cx.update(|cx| apply(Err(error), cx));
-                break;
-            }
-            let snapshot = watch.snapshots.borrow_and_update().clone();
-            if snapshot.sequence > 0 {
-                cx.update(|cx| apply(Ok(&snapshot.rows), cx));
-            }
-            if watch.snapshots.changed().await.is_err() {
-                break;
-            }
+            cx.background_executor().timer(pause).await;
+            pause = (pause * 2).min(MAX_RETRY);
         }
-        let _ = watch.unsubscribe().await;
+        cx.update(|cx| apply(Err(ServiceError::Closed), cx));
     })
     .detach();
 }
@@ -332,10 +345,10 @@ pub fn note_lock_changed(id: SessionId, locked: bool, cx: &mut App) {
     });
 }
 
+/// `None` once the runtime closed: a setting that was never read leaves the app open, as
+/// nothing can be read from a closed library either.
 fn set_enabled(enabled: Option<bool>, cx: &mut App) {
     update(cx, |lock| {
-        // A setting that was never readable leaves the app open; there is no content to protect
-        // when the library cannot be read either.
         lock.enabled = enabled.or(lock.enabled).or(Some(false));
     });
     prompt_if_due(cx);
