@@ -568,6 +568,25 @@ mod tests {
         panic!("timed out");
     }
 
+    /// Shuts the runtime down while GPUI's foreground tasks keep running. Blocking this thread on
+    /// the drain can deadlock when it waits on work those tasks finish, so a hang fails instead.
+    fn shut_down(runtime: &RuntimeHandle, cx: &mut VisualTestContext) {
+        let (done, result) = std::sync::mpsc::channel();
+        let runtime = runtime.clone();
+        std::thread::spawn(move || {
+            let _ = done.send(block_on(runtime.shutdown()));
+        });
+        for _ in 0..2000 {
+            cx.run_until_parked();
+            if let Ok(result) = result.try_recv() {
+                result.unwrap();
+                return;
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        panic!("shutdown timed out");
+    }
+
     fn deleted(runtime: &RuntimeHandle, id: &SessionId) -> bool {
         let id = id.clone();
         let reply = runtime
@@ -705,7 +724,7 @@ mod tests {
         .unwrap();
         assert!(restored.note.unwrap().body.contains("Typed just now"));
         drop(editor);
-        block_on(runtime.shutdown()).unwrap();
+        shut_down(&runtime, cx);
     }
 
     /// A batch deletion held only its notes with unsaved edits: a clean one took an edit while
@@ -726,7 +745,7 @@ mod tests {
         );
         settle(cx, |_| ids.iter().all(|id| deleted(&runtime, id)));
         drop((editor, other));
-        block_on(runtime.shutdown()).unwrap();
+        shut_down(&runtime, cx);
     }
 
     /// An editor created during a deletion's save, such as a summary shown meanwhile, was not
@@ -743,7 +762,7 @@ mod tests {
         block_on(editor.update(cx, |editor, _| editor.flush()))
             .unwrap()
             .unwrap();
-        block_on(runtime.shutdown()).unwrap();
+        shut_down(&runtime, cx);
     }
 
     /// When deletions overlapped, the first to finish thawed the other's notes while that one
@@ -764,6 +783,6 @@ mod tests {
         block_on(editor.update(cx, |editor, _| editor.flush()))
             .unwrap()
             .unwrap();
-        block_on(runtime.shutdown()).unwrap();
+        shut_down(&runtime, cx);
     }
 }
