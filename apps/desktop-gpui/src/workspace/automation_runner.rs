@@ -7,7 +7,8 @@ use std::{
 };
 
 use anlg_agent_access::MeetingExport;
-use desktop_runtime::{Reply, Result, RuntimeHandle, ServiceError, Services, SessionId};
+use desktop_runtime::{Reply, Result, RuntimeHandle, ServiceError, SessionId};
+use futures::future::BoxFuture;
 use reqwest::{Client, Method, Url};
 use serde_json::{Value, json};
 
@@ -267,14 +268,119 @@ pub enum TargetList {
     Notion(Arc<str>, Option<Arc<str>>),
 }
 
+/// Runs one workflow for the note. Orchestration and destination requests run on the service
+/// executor and every read or write is its own short database job, so a slow integration never
+/// holds up note opens and saves.
 pub fn run(
     runtime: &RuntimeHandle,
     workflow_id: Arc<str>,
     session: SessionId,
     client: Option<AutomationClient>,
 ) -> Result<Reply<String>> {
-    runtime.submit(move |services| async move {
-        let _guard=RunGuard::acquire(&workflow_id,&session)?;
+    let database = runtime.clone();
+    runtime.service(move |_| async move {
+        let _guard = RunGuard::acquire(&workflow_id, &session)?;
+        let (workflow, export) = {
+            let (workflow_id, session) = (workflow_id.clone(), session.clone());
+            database
+                .submit(move |services| async move {
+                    let rows = services
+                        .executor
+                        .execute(
+                            "SELECT value_json FROM app_settings WHERE id='automation_workflows'"
+                                .into(),
+                            vec![],
+                        )
+                        .await
+                        .map_err(failure)?;
+                    let raw = rows
+                        .first()
+                        .and_then(|row| row["value_json"].as_str())
+                        .ok_or_else(|| failure("Automation was removed"))?;
+                    let workflows = decode_json_text(raw)?;
+                    let workflow = workflows
+                        .as_array()
+                        .and_then(|rows| rows.iter().find(|row| row["id"] == workflow_id.as_ref()))
+                        .ok_or_else(|| failure("Automation was removed"))?
+                        .clone();
+                    if workflow["enabled"] != true {
+                        return Err(failure("Enable this automation before running it"));
+                    }
+                    if !workflow_configured(&workflow) {
+                        return Err(failure("Configure each automation step first"));
+                    }
+                    if already_processed(&workflow, &session.0) {
+                        return Err(failure(
+                            "This automation already processed the note; automatic replay is blocked",
+                        ));
+                    }
+                    let export = anlg_agent_access::get_meeting_export(
+                        services.db.pool(),
+                        session.0.to_string(),
+                    )
+                    .await
+                    .map_err(failure)?;
+                    Ok((workflow, export))
+                })?
+                .receive()
+                .await?
+        };
+        let steps = workflow["steps"]
+            .as_array()
+            .ok_or_else(|| failure("Invalid steps"))?;
+        if steps.len() > 32 {
+            return Err(failure("Automation exceeds 32 steps"));
+        }
+        let record = |status: &'static str, detail: String, reserve: bool| {
+            record_run(
+                &database,
+                workflow_id.clone(),
+                session.clone(),
+                status,
+                detail,
+                reserve,
+            )
+        };
+        let mut results = Vec::new();
+        if client.is_none() && steps.iter().any(|step| step["type"] != "markdown_export") {
+            record("error", "Sign in to run this automation".into(), false).await?;
+            return Err(failure("Sign in to run this automation"));
+        }
+        record(
+            "running",
+            "Dispatch started; verify destinations before retrying an interrupted run".into(),
+            true,
+        )
+        .await?;
+        for (index, step) in steps.iter().enumerate() {
+            match execute_step(step, &export, client.as_ref(), None).await {
+                Ok(detail) => results.push(detail),
+                Err(error) => {
+                    let detail = format!(
+                        "Step {}: {error}. Completed: {}. Verify destinations before allowing a retry.",
+                        index + 1,
+                        results.join(" · ")
+                    );
+                    record("error", detail.clone(), false).await?;
+                    return Err(failure(detail));
+                }
+            }
+        }
+        record("success", results.join(" · "), false).await?;
+        Ok(results.join(" · "))
+    })
+}
+
+/// Stores the workflow's last run, reserving the note against replay when `reserve` is set.
+fn record_run(
+    runtime: &RuntimeHandle,
+    id: Arc<str>,
+    session: SessionId,
+    status: &'static str,
+    detail: String,
+    reserve: bool,
+) -> impl Future<Output = Result<()>> + 'static {
+    let reply = runtime.submit(move |services| async move {
         let rows = services
             .executor
             .execute(
@@ -286,120 +392,43 @@ pub fn run(
         let raw = rows
             .first()
             .and_then(|row| row["value_json"].as_str())
-            .ok_or_else(|| failure("Automation was removed"))?;
-        let workflows = decode_json_text(raw)?;
+            .ok_or(ServiceError::Conflict)?;
+        let mut workflows = decode_json_text(raw)?;
         let workflow = workflows
-            .as_array()
-            .and_then(|rows| rows.iter().find(|row| row["id"] == workflow_id.as_ref()))
-            .ok_or_else(|| failure("Automation was removed"))?
-            .clone();
-        if workflow["enabled"] != true {
-            return Err(failure("Enable this automation before running it"));
+            .as_array_mut()
+            .and_then(|rows| rows.iter_mut().find(|row| row["id"] == id.as_ref()))
+            .ok_or(ServiceError::Conflict)?;
+        let date = services
+            .executor
+            .execute(format!("SELECT {NOW} AS value"), vec![])
+            .await
+            .map_err(failure)?;
+        if reserve && already_processed(workflow, &session.0) {
+            return Err(ServiceError::Conflict);
         }
-        if !workflow_configured(&workflow) {
-            return Err(failure("Configure each automation step first"));
-        }
-        if already_processed(&workflow, &session.0) {
-            return Err(failure(
-                "This automation already processed the note; automatic replay is blocked",
-            ));
-        }
-        let export =
-            anlg_agent_access::get_meeting_export(services.db.pool(), session.0.to_string())
-                .await
-                .map_err(failure)?;
-        let steps = workflow["steps"]
-            .as_array()
-            .ok_or_else(|| failure("Invalid steps"))?;
-        if steps.len() > 32 {
-            return Err(failure("Automation exceeds 32 steps"));
-        }
-        let mut results = Vec::new();
-        if client.is_none() && steps.iter().any(|step| step["type"] != "markdown_export") {
-            record(&services, &workflow_id, &session, "error", "Sign in to run this automation", false).await?;
-            return Err(failure("Sign in to run this automation"));
-        }
-        record(&services, &workflow_id, &session, "running", "Dispatch started; verify destinations before retrying an interrupted run", true).await?;
-        for (index, step) in steps.iter().enumerate() {
-            let result = execute_step(step, &export, client.as_ref()).await;
-            match result {
-                Ok(detail) => {
-                    results.push(detail);
-                }
-                Err(error) => {
-                    let detail = format!("Step {}: {error}. Completed: {}. Verify destinations before allowing a retry.", index + 1, results.join(" · "));
-                    record(
-                        &services,
-                        &workflow_id,
-                        &session,
-                        "error",
-                        &detail,
-                        false,
-                    )
-                    .await?;
-                    return Err(failure(detail));
-                }
+        workflow["lastRun"] =
+            json!({"at":date[0]["value"],"status":status,"detail":detail,"sessionId":session.0});
+        if reserve {
+            let mut ids = workflow["processedSessionIds"]
+                .as_array()
+                .cloned()
+                .unwrap_or_default();
+            ids.retain(|id| id.as_str() != Some(&session.0));
+            ids.push(json!(session.0));
+            if ids.len() > 50 {
+                ids.drain(..ids.len() - 50);
             }
+            workflow["processedSessionIds"] = json!(ids);
         }
-        record(&services, &workflow_id, &session, "success", &results.join(" · "), false).await?;
-        Ok(results.join(" · "))
-    })
-}
-
-async fn record(
-    services: &Services,
-    id: &str,
-    session: &SessionId,
-    status: &str,
-    detail: &str,
-    reserve: bool,
-) -> Result<()> {
-    let rows = services
-        .executor
-        .execute(
-            "SELECT value_json FROM app_settings WHERE id='automation_workflows'".into(),
-            vec![],
-        )
-        .await
-        .map_err(failure)?;
-    let raw = rows
-        .first()
-        .and_then(|row| row["value_json"].as_str())
-        .ok_or(ServiceError::Conflict)?;
-    let mut workflows = decode_json_text(raw)?;
-    let workflow = workflows
-        .as_array_mut()
-        .and_then(|rows| rows.iter_mut().find(|row| row["id"] == id))
-        .ok_or(ServiceError::Conflict)?;
-    let date = services
-        .executor
-        .execute(format!("SELECT {NOW} AS value"), vec![])
-        .await
-        .map_err(failure)?;
-    if reserve && already_processed(workflow, &session.0) {
-        return Err(ServiceError::Conflict);
-    }
-    workflow["lastRun"] =
-        json!({"at":date[0]["value"],"status":status,"detail":detail,"sessionId":session.0});
-    if reserve {
-        let mut ids = workflow["processedSessionIds"]
-            .as_array()
-            .cloned()
-            .unwrap_or_default();
-        ids.retain(|id| id.as_str() != Some(&session.0));
-        ids.push(json!(session.0));
-        if ids.len() > 50 {
-            ids.drain(..ids.len() - 50);
-        }
-        workflow["processedSessionIds"] = json!(ids);
-    }
-    let encoded = serde_json::to_string(&workflows).map_err(failure)?;
-    let encoded = if serde_json::from_str::<Value>(raw).is_ok_and(|value| value.is_string()) {
-        json!(encoded).to_string()
-    } else {
-        encoded
-    };
-    transaction(&services.executor,vec![statement(format!("UPDATE app_settings SET value_json=?,updated_at={NOW} WHERE id='automation_workflows' AND value_json=?"),vec![json!(encoded),json!(raw)],Some(1))]).await
+        let encoded = serde_json::to_string(&workflows).map_err(failure)?;
+        let encoded = if serde_json::from_str::<Value>(raw).is_ok_and(|value| value.is_string()) {
+            json!(encoded).to_string()
+        } else {
+            encoded
+        };
+        transaction(&services.executor,vec![statement(format!("UPDATE app_settings SET value_json=?,updated_at={NOW} WHERE id='automation_workflows' AND value_json=?"),vec![json!(encoded),json!(raw)],Some(1))]).await
+    });
+    async move { reply?.receive().await }
 }
 
 pub fn allow_retry(
@@ -420,15 +449,24 @@ pub fn allow_retry(
     })
 }
 
+/// Runs one step. `reserve` marks a starter's note delivered; it runs after every check that
+/// can fail without reaching the destination, so a signed-out or not-yet-ready run can retry.
 async fn execute_step(
     step: &Value,
     export: &MeetingExport,
     client: Option<&AutomationClient>,
+    reserve: Option<BoxFuture<'static, Result<()>>>,
 ) -> Result<String> {
     let kind = step["type"].as_str().unwrap_or("");
     if kind == "markdown_export" {
         return write_export(step, export);
     }
+    let reserve = async move {
+        match reserve {
+            Some(reserve) => reserve.await,
+            None => Ok(()),
+        }
+    };
     let client = client.ok_or_else(|| failure("Sign in to run this automation"))?;
     let target = step["target"]["id"]
         .as_str()
@@ -452,6 +490,7 @@ async fn execute_step(
             let suffix = format!("\n\n_Sent by {} via Anarlog_", client.sender);
             let budget = 40000usize.saturating_sub(prefix.chars().count() + suffix.chars().count());
             let body = summary.markdown.chars().take(budget).collect::<String>();
+            reserve.await?;
             client
                 .request(
                     Method::POST,
@@ -463,6 +502,7 @@ async fn execute_step(
         "notion_update" => {
             let summary = summary.ok_or_else(|| failure("No meeting summary is available yet"))?;
             let connection = client.connection("notion").await?;
+            reserve.await?;
             client.request(Method::POST,"/notion/append-update",Some(json!({"connection_id":connection,"page_id":target,"heading":format!("{date} — {}",export.meeting.title),"markdown":summary.markdown}))).await?;
         }
         "linear_issues" => {
@@ -481,6 +521,7 @@ async fn execute_step(
                 return Ok("no action items found for this meeting".into());
             }
             let connection = client.connection("linear").await?;
+            reserve.await?;
             for item in &items {
                 client.request(Method::POST,"/ticket/linear/create-issue",Some(json!({"connection_id":connection,"team_id":target,"title":item.text,"description":format!("Action item from the Anarlog meeting \"{}\" ({date}).",export.meeting.title)}))).await?;
             }
@@ -558,29 +599,24 @@ pub fn run_starters(
     session: SessionId,
     client: Option<AutomationClient>,
 ) -> Result<Reply<Vec<String>>> {
-    runtime.submit(move |services| async move {
-        let rows = services
-            .executor
-            .execute(
-                "SELECT id, value_json FROM app_settings WHERE id LIKE 'automation\\_%' ESCAPE '\\'"
-                    .into(),
-                vec![],
-            )
-            .await
-            .map_err(failure)?;
-        // Starter settings are booleans and strings; targets and lists are JSON strings.
-        let setting = |key: &str| {
-            rows.iter()
-                .find(|row| row["id"] == key)
-                .and_then(|row| serde_json::from_str(row["value_json"].as_str()?).ok())
-                .unwrap_or(Value::Null)
-        };
-        let nested = |key: &str| {
-            setting(key)
-                .as_str()
-                .and_then(|text| serde_json::from_str::<Value>(text).ok())
-                .unwrap_or(Value::Null)
-        };
+    let database = runtime.clone();
+    // Like `run`, destination requests stay off the database queue.
+    runtime.service(move |_| async move {
+        let rows = database
+            .submit(|services| async move {
+                services
+                    .executor
+                    .execute(
+                        "SELECT id, value_json FROM app_settings WHERE id LIKE 'automation\\_%' ESCAPE '\\'"
+                            .into(),
+                        vec![],
+                    )
+                    .await
+                    .map_err(failure)
+            })?
+            .receive()
+            .await?;
+        let setting = |key: &str| starter_setting(&rows, key);
         let mut export = None;
         let mut messages = Vec::new();
         for StarterRun {
@@ -600,44 +636,35 @@ pub fn run_starters(
                     json!({"type": kind, "directory": directory.trim()})
                 }
                 ("markdown_export", _) => continue,
-                _ => match nested(target) {
+                _ => match nested(setting(target)) {
                     target if target["id"].is_string() && target["name"].is_string() => {
                         json!({"type": kind, "target": target})
                     }
                     _ => continue,
                 },
             };
-            let mut seen = nested(processed.unwrap_or_default())
-                .as_array()
-                .cloned()
-                .unwrap_or_default();
-            if seen.iter().any(|id| id.as_str() == Some(&session.0)) {
+            if processed.is_some_and(|key| delivered(&setting(key), &session)) {
                 continue;
             }
             let _guard = RunGuard::acquire(kind, &session)?;
-            let mut updates = Vec::new();
-            if let Some(key) = processed {
-                seen.push(json!(session.0));
-                if seen.len() > 50 {
-                    seen.drain(..seen.len() - 50);
-                }
-                super::automations::set_settings(
-                    &services.executor,
-                    vec![(key, json!(Value::Array(seen).to_string()))],
-                )
-                .await?;
-            }
             if export.is_none() {
+                let session = session.clone();
                 export = Some(
-                    anlg_agent_access::get_meeting_export(
-                        services.db.pool(),
-                        session.0.to_string(),
-                    )
-                    .await
-                    .map_err(failure)?,
+                    database
+                        .submit(move |services| async move {
+                            anlg_agent_access::get_meeting_export(
+                                services.db.pool(),
+                                session.0.to_string(),
+                            )
+                            .await
+                            .map_err(failure)
+                        })?
+                        .receive()
+                        .await?,
                 );
             }
-            let result = execute_step(&step, export.as_ref().unwrap(), client.as_ref()).await;
+            let reserve = processed.map(|key| reserve_starter(&database, key, session.clone()));
+            let result = execute_step(&step, export.as_ref().unwrap(), client.as_ref(), reserve).await;
             let (status, detail) = match &result {
                 Ok(detail) => ("success", detail.clone()),
                 Err(error) => ("error", error.to_string()),
@@ -647,11 +674,79 @@ pub fn run_starters(
                 "status": status,
                 "detail": detail,
             });
-            updates.push((last_run, json!(record.to_string())));
-            super::automations::set_settings(&services.executor, updates).await?;
+            database
+                .submit(move |services| async move {
+                    super::automations::set_settings(
+                        &services.executor,
+                        vec![(last_run, json!(record.to_string()))],
+                    )
+                    .await
+                })?
+                .receive()
+                .await?;
             messages.push(detail);
         }
         Ok(messages)
+    })
+}
+
+/// A starter setting; booleans and strings, with targets and lists as JSON strings.
+fn starter_setting(rows: &[Value], key: &str) -> Value {
+    rows.iter()
+        .find(|row| row["id"] == key)
+        .and_then(|row| serde_json::from_str(row["value_json"].as_str()?).ok())
+        .unwrap_or(Value::Null)
+}
+
+fn nested(setting: Value) -> Value {
+    setting
+        .as_str()
+        .and_then(|text| serde_json::from_str::<Value>(text).ok())
+        .unwrap_or(Value::Null)
+}
+
+fn delivered(processed: &Value, session: &SessionId) -> bool {
+    nested(processed.clone())
+        .as_array()
+        .is_some_and(|ids| ids.iter().any(|id| id.as_str() == Some(&session.0)))
+}
+
+/// Adds the note to a starter's delivered list, re-read in the same job so concurrent runs for
+/// other notes keep their entries.
+fn reserve_starter(
+    runtime: &RuntimeHandle,
+    key: &'static str,
+    session: SessionId,
+) -> BoxFuture<'static, Result<()>> {
+    let runtime = runtime.clone();
+    Box::pin(async move {
+        runtime
+            .submit(move |services| async move {
+                let rows = services
+                    .executor
+                    .execute(
+                        "SELECT id, value_json FROM app_settings WHERE id=?".into(),
+                        vec![json!(key)],
+                    )
+                    .await
+                    .map_err(failure)?;
+                let processed = starter_setting(&rows, key);
+                if delivered(&processed, &session) {
+                    return Err(failure("This automation already ran for the note"));
+                }
+                let mut seen = nested(processed).as_array().cloned().unwrap_or_default();
+                seen.push(json!(session.0));
+                if seen.len() > 50 {
+                    seen.drain(..seen.len() - 50);
+                }
+                super::automations::set_settings(
+                    &services.executor,
+                    vec![(key, json!(Value::Array(seen).to_string()))],
+                )
+                .await
+            })?
+            .receive()
+            .await
     })
 }
 

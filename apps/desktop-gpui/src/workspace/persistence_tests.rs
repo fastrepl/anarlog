@@ -580,6 +580,121 @@ fn automation_provider_adapters_follow_openapi_and_durable_errors_never_claim_su
     });
 }
 
+async fn note_with_summary(runtime: &RuntimeHandle) -> SessionId {
+    let session = runtime
+        .create_note("Weekly sync".into())
+        .unwrap()
+        .receive()
+        .await
+        .unwrap()
+        .summary
+        .id;
+    execute(runtime,"INSERT INTO session_documents(id,session_id,kind,body_format,body) VALUES ('summary',?,'summary','markdown','Summary text')",vec![json!(session.0)]).await;
+    session
+}
+
+#[test]
+fn a_slow_automation_destination_does_not_hold_the_database_queue() {
+    block_on(async {
+        let (_directory, runtime) = start().await;
+        let session = note_with_summary(&runtime).await;
+        let mut workflow = Workflow::empty(None, None, "Recap");
+        workflow.enabled = true;
+        workflow.steps = vec![Step::Target {
+            id: "channel".into(),
+            kind: StepType::Slack,
+            target: Some(Target {
+                id: "channel".into(),
+                name: "Channel".into(),
+            }),
+        }];
+        let id = workflow.id.clone();
+        automations::save(&runtime, workflow)
+            .unwrap()
+            .receive()
+            .await
+            .unwrap();
+        // A destination that accepts the request and never answers.
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let address = format!("http://{}", listener.local_addr().unwrap());
+        let client = super::automation_runner::AutomationClient::new(
+            &address,
+            "fixture-token".into(),
+            "Fixture".into(),
+        )
+        .unwrap();
+        let run = super::automation_runner::run(&runtime, id, session, Some(client)).unwrap();
+        let started = std::time::Instant::now();
+        let stream = loop {
+            match listener.accept() {
+                Ok((stream, _)) => break stream,
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                    assert!(started.elapsed() < Duration::from_secs(15));
+                    std::thread::sleep(Duration::from_millis(5));
+                }
+                Err(error) => panic!("{error}"),
+            }
+        };
+        // Note opens and saves queue behind this barrier; it must not wait for the request.
+        let barrier = runtime.flush().unwrap();
+        let (sender, receiver) = std::sync::mpsc::channel();
+        std::thread::spawn(move || sender.send(block_on(barrier.receive())));
+        assert!(matches!(
+            receiver.recv_timeout(Duration::from_secs(5)),
+            Ok(Ok(()))
+        ));
+        drop(stream);
+        assert!(run.receive().await.is_err());
+        runtime.shutdown().await.unwrap();
+    });
+}
+
+#[test]
+fn a_signed_out_starter_run_leaves_the_note_for_a_later_delivery() {
+    block_on(async {
+        let (_directory, runtime) = start().await;
+        let session = note_with_summary(&runtime).await;
+        execute(
+            &runtime,
+            "INSERT INTO app_settings(id,value_json) VALUES ('automation_slack_recap_enabled','true'),('automation_slack_recap_channel',?)",
+            vec![json!(json!(r#"{"id":"C1","name":"eng"}"#).to_string())],
+        )
+        .await;
+        let run = |client| {
+            super::automation_runner::run_starters(
+                &runtime,
+                super::automation_runner::Trigger::NoteEnhanced,
+                session.clone(),
+                client,
+            )
+            .unwrap()
+            .receive()
+        };
+        let messages = run(None).await.unwrap();
+        assert!(
+            messages.len() == 1 && messages[0].contains("Sign in"),
+            "{messages:?}"
+        );
+        let (address, worker) = provider_fixture(vec![(
+            "/messenger/slack/messages",
+            200,
+            json!({"ok": true}),
+        )]);
+        let client = super::automation_runner::AutomationClient::new(
+            &address,
+            "fixture-token".into(),
+            "Fixture".into(),
+        )
+        .unwrap();
+        assert_eq!(run(Some(client)).await.unwrap(), ["#eng"]);
+        assert_eq!(worker.join().unwrap()[0]["channel"], "C1");
+        // Delivered once, so a later run skips the note.
+        assert!(run(None).await.unwrap().is_empty());
+        runtime.shutdown().await.unwrap();
+    });
+}
+
 #[test]
 fn selecting_a_template_for_a_note_keeps_its_memo() {
     block_on(async {
