@@ -988,6 +988,28 @@ async fn worker_flushes_corrections_and_runtime_shutdown_barrier() {
 }
 
 #[tokio::test]
+async fn audio_counts_as_persisted_only_once_every_channel_finalizes_it() {
+    let fixture = Fixture::new().await;
+    let persistence = Persistence::install(&fixture.runtime, fixture.transcript.clone())
+        .await
+        .unwrap();
+    let persist = async |id: &str, channel: i32, end_ms: i64| {
+        let mut words = delta(id, "word", end_ms - 100);
+        words.new_words[0].channel = channel;
+        persistence.push(words).await.unwrap();
+        persistence.flush().await.unwrap();
+        persistence.persisted_through()
+    };
+    // Channel 1 still owes the end of the first minute while channel 0 is past it.
+    assert_eq!(persist("a", 1, 55_000).await, 55_000);
+    assert_eq!(persist("b", 0, 61_000).await, 55_000);
+    assert_eq!(persist("c", 1, 62_000).await, 61_000);
+    // A channel that went quiet doesn't hold back every later chunk.
+    assert_eq!(persist("d", 0, 600_000).await, 510_000);
+    fixture.close().await;
+}
+
+#[tokio::test]
 async fn locked_sessions_accept_transcript_writes_only_once_revealed_and_deleted_ones_never() {
     let fixture = Fixture::new().await;
     fixture
