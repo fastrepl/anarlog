@@ -118,6 +118,11 @@ pub struct ChatView {
     draft_key: String,
     drafts: Drafts,
     entries: Vec<Entry>,
+    /// The chat's saved messages are loading; sending waits for them.
+    loading: bool,
+    /// A reply left running in the background finished while this chat ran another; its
+    /// history reloads once that one ends.
+    stale: bool,
     groups: Vec<ChatGroup>,
     history_open: bool,
     model_configured: Option<bool>,
@@ -127,6 +132,8 @@ pub struct ChatView {
     sent: SentHistory,
     phase: Phase,
     run: u64,
+    /// Stops the current reply, including while its chat is saved and its context loads.
+    cancel: CancellationToken,
     session: Option<Arc<ChatSession>>,
     queue: Vec<Queued>,
     next_queued: u64,
@@ -207,6 +214,8 @@ impl ChatView {
             draft_key: uuid::Uuid::new_v4().to_string(),
             drafts: Drafts::default(),
             entries: Vec::new(),
+            loading: false,
+            stale: false,
             groups: Vec::new(),
             history_open: false,
             model_configured: None,
@@ -215,6 +224,7 @@ impl ChatView {
             sent: SentHistory::default(),
             phase: Phase::Ready,
             run: 0,
+            cancel: CancellationToken::new(),
             session: None,
             queue: Vec::new(),
             next_queued: 0,
@@ -377,6 +387,8 @@ impl ChatView {
     pub fn new_chat(&mut self, cx: &mut Context<Self>) {
         self.dropped.clear();
         self.detach_run();
+        self.load.cancel();
+        self.loading = false;
         self.group = None;
         self.entries.clear();
         self.history_open = false;
@@ -391,15 +403,24 @@ impl ChatView {
         self.group = Some(group.clone());
         self.switch_draft(group.to_string(), cx);
         self.entries.clear();
+        self.load_history(group, cx);
+        cx.notify();
+    }
+
+    /// Shows the chat's saved messages. A newer load or another chat drops this one's result.
+    fn load_history(&mut self, group: Arc<str>, cx: &mut Context<Self>) {
         self.load.cancel();
         self.load = CancellationToken::new();
-        let reply = store::messages(&self.runtime, group.clone(), self.load.clone());
+        self.loading = true;
+        let load = self.load.clone();
+        let reply = store::messages(&self.runtime, group, load.clone());
         cx.spawn(async move |this, cx| {
             let result = async { reply?.receive().await }.await;
             let _ = this.update(cx, |this, cx| {
-                if this.group.as_ref() != Some(&group) {
+                if load.is_cancelled() {
                     return;
                 }
+                this.loading = false;
                 match result {
                     Ok(messages) => {
                         this.entries = messages.into_iter().map(Entry::new).collect();
@@ -408,11 +429,11 @@ impl ChatView {
                     Err(ServiceError::Cancelled) => {}
                     Err(error) => this.phase = Phase::Failed(error.to_string()),
                 }
+                this.send_queued(cx);
                 cx.notify();
             });
         })
         .detach();
-        cx.notify();
     }
 
     /// Opens or closes a reply's Activity disclosure.
@@ -470,8 +491,14 @@ impl ChatView {
     }
 
     fn open_settings(&mut self, cx: &mut Context<Self>) {
-        let _ = self.workspace.update(cx, |workspace, cx| {
-            workspace.open_route(Route::settings("intelligence"), true, cx)
+        self.open_route(Route::settings("intelligence"), cx);
+    }
+
+    /// Workspace navigation updates this chat, so it waits until the chat's own update ends.
+    fn open_route(&self, route: Route, cx: &mut Context<Self>) {
+        let workspace = self.workspace.clone();
+        cx.defer(move |cx| {
+            let _ = workspace.update(cx, |workspace, cx| workspace.open_route(route, true, cx));
         });
     }
 
@@ -514,7 +541,8 @@ impl ChatView {
     }
 
     fn submit(&mut self, text: String, refs: Vec<ContextRef>, cx: &mut Context<Self>) {
-        if self.busy() {
+        // Sending waits for the reply in progress and for the chat's history.
+        if self.busy() || self.loading {
             self.next_queued += 1;
             self.queue.push(Queued {
                 id: self.next_queued,
@@ -546,7 +574,7 @@ impl ChatView {
 
     /// Re-sends the last user message, replacing the last reply like shipping's regenerate.
     fn regenerate(&mut self, cx: &mut Context<Self>) {
-        if self.busy() {
+        if self.busy() || self.loading {
             return;
         }
         let Some(user) = self.entries.iter().rev().find(|entry| entry.message.user) else {
@@ -589,7 +617,8 @@ impl ChatView {
         };
         let (group, created) = match self.group.clone() {
             Some(group) => (group, false),
-            None => (Arc::from(uuid::Uuid::new_v4().to_string()), true),
+            // The draft's key names the new chat, so its unsent follow-ups stay with it.
+            None => (Arc::from(self.draft_key.as_str()), true),
         };
         let session = match services.ai.chat(SessionId(group.clone()), group.clone()) {
             Ok(session) => session,
@@ -604,6 +633,12 @@ impl ChatView {
         self.run += 1;
         self.phase = Phase::Busy;
         self.clear_stream();
+        // Each reply streams into its own buffers; one left running in the background keeps
+        // writing only to its own.
+        self.pending = Arc::default();
+        self.pending_tools = Arc::default();
+        self.cancel = CancellationToken::new();
+        let cancel = self.cancel.clone();
         let run = self.run;
         let request = user.to_request();
         let history = self
@@ -621,24 +656,31 @@ impl ChatView {
         self.scroll.scroll_to_bottom();
         self.poll(run, cx);
         cx.spawn(async move |this, cx| {
+            let mut saved = !created;
             let result = async {
                 if created {
                     store::create_group(&runtime, group.clone(), title)?
                         .receive()
                         .await?;
+                    saved = true;
                 }
-                let system = services
-                    .ai
-                    .enqueue(system_prompt(
-                        services.clone(),
-                        runtime.clone(),
-                        context,
-                        refs,
-                    ))?
+                let prompt = services.ai.enqueue(system_prompt(
+                    services.clone(),
+                    runtime.clone(),
+                    context,
+                    refs,
+                ))?;
+                let system = cancel
+                    .run_until_cancelled(prompt)
                     .await
+                    .ok_or(ServiceError::Cancelled)?
                     .map_err(failure)??;
                 let mut messages = vec![system];
                 messages.extend(history);
+                // Stop before the request exists never reaches the provider.
+                if cancel.is_cancelled() {
+                    return Err(ServiceError::Cancelled);
+                }
                 let sent =
                     session.queue_send_with(request, messages, previous, observer, tool_context)?;
                 // The user row exists once the session starts streaming; its metadata keeps
@@ -650,7 +692,7 @@ impl ChatView {
                 reply
             }
             .await;
-            let _ = this.update(cx, |this, cx| this.finish(run, created, result, cx));
+            let _ = this.update(cx, |this, cx| this.finish(run, group, saved, result, cx));
         })
         .detach();
         cx.notify();
@@ -663,12 +705,14 @@ impl ChatView {
             .context
             .as_ref()
             .filter(|session| self.route == Route::Session((*session).clone()))
-            .and_then(|_| {
-                self.workspace
+            .and_then(|_| match &self.note {
+                Some(note) => note.read_with(cx, |note, _| note.shown_summary()).ok(),
+                None => self
+                    .workspace
                     .read_with(cx, |workspace, cx| workspace.shown_summary(cx))
-                    .ok()
-                    .flatten()
-            });
+                    .ok(),
+            })
+            .flatten();
         let reviews = self.reviews.clone();
         ToolContext {
             call_id: String::new(),
@@ -687,9 +731,29 @@ impl ChatView {
         }
     }
 
-    fn finish(&mut self, run: u64, created: bool, result: Result<Message>, cx: &mut Context<Self>) {
+    /// `saved` says the reply's chat exists, so a retry reuses it.
+    fn finish(
+        &mut self,
+        run: u64,
+        group: Arc<str>,
+        saved: bool,
+        result: Result<Message>,
+        cx: &mut Context<Self>,
+    ) {
         if run != self.run {
+            // A reply left running in the background was saved to the chat shown again since.
+            if result.is_ok() && self.group.as_ref() == Some(&group) {
+                if self.busy() {
+                    self.stale = true;
+                } else {
+                    self.load_history(group, cx);
+                }
+            }
             return;
+        }
+        if !saved {
+            // The chat was never written, like shipping's failed-group rollback.
+            self.group = None;
         }
         self._poll = None;
         self.session = None;
@@ -731,23 +795,25 @@ impl ChatView {
                     self.entries.push(entry);
                 }
             }
-            Err(error) => {
-                if created && self.entries.len() <= 1 {
-                    // The group was never written, like shipping's failed-group rollback.
-                    self.group = None;
-                }
-                self.phase = Phase::Failed(error.to_string());
-            }
+            Err(error) => self.phase = Phase::Failed(error.to_string()),
         }
         self.clear_stream();
-        if self.phase == Phase::Ready && !self.queue.is_empty() {
-            let next = self.queue.remove(0);
-            self.send(next.text, next.refs, cx);
+        if std::mem::take(&mut self.stale) {
+            self.load_history(group, cx);
         }
+        self.send_queued(cx);
         cx.notify();
     }
 
+    fn send_queued(&mut self, cx: &mut Context<Self>) {
+        if self.phase == Phase::Ready && !self.loading && !self.queue.is_empty() {
+            let next = self.queue.remove(0);
+            self.send(next.text, next.refs, cx);
+        }
+    }
+
     fn stop(&mut self, cx: &mut Context<Self>) {
+        self.cancel.cancel();
         if let Some(session) = &self.session {
             let _ = session.cancel();
         }
@@ -757,6 +823,7 @@ impl ChatView {
     /// Leaves an in-flight reply running in the background; it is still saved to its chat.
     fn detach_run(&mut self) {
         self.run += 1;
+        self.stale = false;
         self._poll = None;
         self.session = None;
         self.queue.clear();
@@ -904,9 +971,10 @@ impl ChatView {
         self.stream_text = text.into();
         self.stream_blocks = markdown::parse(text);
         self.scroll.scroll_to_bottom();
+        let group = self.group.clone().unwrap_or_else(|| "".into());
         match outcome {
-            Some(Ok(())) => self.finish(self.run, false, Err(ServiceError::Cancelled), cx),
-            Some(Err(error)) => self.finish(self.run, false, Err(failure(error)), cx),
+            Some(Ok(())) => self.finish(self.run, group, true, Err(ServiceError::Cancelled), cx),
+            Some(Err(error)) => self.finish(self.run, group, true, Err(failure(error)), cx),
             None => {}
         }
         cx.notify();
@@ -1170,10 +1238,318 @@ fn system_prompt(
 
 #[cfg(test)]
 mod tests {
+    use std::sync::atomic::{AtomicBool, Ordering};
+
     use desktop_runtime::Profile;
+    use futures::{StreamExt, future::BoxFuture, stream::BoxStream};
     use gpui::{AppContext, TestAppContext, WeakEntity};
 
     use super::*;
+    use crate::meeting::ai::{AiServices, ProviderAdapter, ProviderEvent, Request};
+
+    fn start_runtime() -> (tempfile::TempDir, RuntimeHandle) {
+        let directory = tempfile::tempdir().unwrap();
+        let (runtime, ready) = RuntimeHandle::start(Profile {
+            database: directory.path().join("library.sqlite"),
+        })
+        .unwrap();
+        futures::executor::block_on(ready.receive()).unwrap();
+        (directory, runtime)
+    }
+
+    /// Answers "re: <message>". "fail" fails once; a message starting with "slow" streams its
+    /// answer, then " more" once released.
+    #[derive(Clone, Default)]
+    struct Model(Arc<ModelState>);
+
+    #[derive(Default)]
+    struct ModelState {
+        failed: AtomicBool,
+        streaming: Mutex<Vec<String>>,
+        released: Mutex<Vec<String>>,
+    }
+
+    impl Model {
+        fn streaming(&self, text: &str) -> bool {
+            self.0
+                .streaming
+                .lock()
+                .unwrap()
+                .iter()
+                .any(|item| item == text)
+        }
+
+        fn release(&self, text: &str) {
+            self.0.released.lock().unwrap().push(text.into());
+        }
+    }
+
+    impl ProviderAdapter for Model {
+        fn stream(
+            &self,
+            request: Request,
+        ) -> BoxFuture<'static, Result<BoxStream<'static, Result<ProviderEvent>>>> {
+            let state = self.0.clone();
+            let text = request
+                .messages
+                .iter()
+                .rev()
+                .find(|message| message.role == Role::User)
+                .map(message_text)
+                .unwrap_or_default();
+            Box::pin(async move {
+                if text == "fail" && !state.failed.swap(true, Ordering::SeqCst) {
+                    return Err(failure("The model is unavailable."));
+                }
+                let first = futures::stream::iter([Ok(ProviderEvent::Text(format!("re: {text}")))]);
+                if !text.starts_with("slow") {
+                    return Ok(first.boxed());
+                }
+                state.streaming.lock().unwrap().push(text.clone());
+                let rest = futures::stream::once(async move {
+                    while !state.released.lock().unwrap().contains(&text) {
+                        tokio::time::sleep(Duration::from_millis(5)).await;
+                    }
+                    Ok(ProviderEvent::Text(" more".into()))
+                });
+                Ok(first.chain(rest).boxed())
+            })
+        }
+    }
+
+    fn chat_with_model(
+        cx: &mut TestAppContext,
+    ) -> (tempfile::TempDir, RuntimeHandle, Model, Entity<ChatView>) {
+        cx.executor().allow_parking();
+        let (directory, runtime) = start_runtime();
+        let model = Model::default();
+        let provider = model.clone();
+        let approvals = crate::meeting::tools::Approvals::default();
+        let services = AiViewServices {
+            ai: Arc::new(
+                AiServices::new(
+                    runtime.clone(),
+                    Arc::new(move |_| {
+                        let provider = provider.clone();
+                        Box::pin(async move { Ok(Arc::new(provider) as Arc<dyn ProviderAdapter>) })
+                    }),
+                    crate::meeting::tools::executor(runtime.clone(), approvals.clone(), None),
+                    Arc::new(|_| false),
+                )
+                .unwrap(),
+            ),
+            context: crate::meeting::context::resolver(runtime.clone()),
+            approvals,
+        };
+        cx.update(|cx| cx.set_global(services));
+        let chat = cx.new(|cx| ChatView::new(runtime.clone(), WeakEntity::new_invalid(), cx));
+        (directory, runtime, model, chat)
+    }
+
+    fn wait(cx: &mut TestAppContext, mut done: impl FnMut(&mut TestAppContext) -> bool) {
+        for _ in 0..1000 {
+            cx.run_until_parked();
+            if done(cx) {
+                return;
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+    }
+
+    fn idle(cx: &mut TestAppContext, chat: &Entity<ChatView>) {
+        wait(cx, |cx| {
+            chat.read_with(cx, |chat, _| !chat.busy() && !chat.loading)
+        });
+    }
+
+    fn texts(cx: &mut TestAppContext, chat: &Entity<ChatView>) -> Vec<String> {
+        chat.read_with(cx, |chat, _| {
+            chat.entries
+                .iter()
+                .map(|entry| entry.message.text())
+                .collect()
+        })
+    }
+
+    fn send(cx: &mut TestAppContext, chat: &Entity<ChatView>, text: &str) {
+        chat.update(cx, |chat, cx| chat.submit(text.into(), Vec::new(), cx));
+    }
+
+    #[gpui::test]
+    fn a_background_reply_never_streams_into_the_next_chat(cx: &mut TestAppContext) {
+        let (_directory, runtime, model, chat) = chat_with_model(cx);
+        send(cx, &chat, "slow a");
+        wait(cx, |_| model.streaming("slow a"));
+        chat.update(cx, |chat, cx| chat.new_chat(cx));
+        send(cx, &chat, "slow b");
+        model.release("slow a");
+        wait(cx, |_| model.streaming("slow b"));
+        chat.update(cx, |chat, cx| chat.stop(cx));
+        idle(cx, &chat);
+        let shown = texts(cx, &chat);
+        assert!(!shown.iter().any(|text| text.contains("more")), "{shown:?}");
+        futures::executor::block_on(runtime.shutdown()).unwrap();
+    }
+
+    #[gpui::test]
+    fn retrying_a_failed_first_reply_reuses_its_saved_chat(cx: &mut TestAppContext) {
+        let (_directory, runtime, _, chat) = chat_with_model(cx);
+        send(cx, &chat, "fail");
+        idle(cx, &chat);
+        chat.update(cx, |chat, cx| {
+            assert!(matches!(chat.phase, Phase::Failed(_)));
+            chat.phase = Phase::Ready;
+            chat.regenerate(cx);
+        });
+        idle(cx, &chat);
+        chat.read_with(cx, |chat, _| assert_eq!(chat.phase, Phase::Ready));
+        assert_eq!(texts(cx, &chat), ["fail", "re: fail"]);
+        futures::executor::block_on(runtime.shutdown()).unwrap();
+    }
+
+    #[gpui::test]
+    fn a_new_chats_follow_up_draft_returns_with_it_from_history(cx: &mut TestAppContext) {
+        let (_directory, runtime, _, chat) = chat_with_model(cx);
+        send(cx, &chat, "hello");
+        idle(cx, &chat);
+        let group = chat.read_with(cx, |chat, _| chat.group.clone().unwrap());
+        let composer = chat.read_with(cx, |chat, _| chat.composer.clone());
+        composer.update(cx, |composer, cx| composer.insert_text("and then?", cx));
+        chat.update(cx, |chat, cx| chat.select_group("other".into(), cx));
+        chat.update(cx, |chat, cx| chat.select_group(group, cx));
+        composer.read_with(cx, |composer, _| assert_eq!(composer.text(), "and then?"));
+        futures::executor::block_on(runtime.shutdown()).unwrap();
+    }
+
+    #[gpui::test]
+    fn stopping_while_a_reply_prepares_never_sends_it(cx: &mut TestAppContext) {
+        let (_directory, runtime, _, chat) = chat_with_model(cx);
+        chat.update(cx, |chat, cx| {
+            chat.submit("hello".into(), Vec::new(), cx);
+            chat.stop(cx);
+        });
+        idle(cx, &chat);
+        assert_eq!(texts(cx, &chat), ["hello"]);
+        futures::executor::block_on(runtime.shutdown()).unwrap();
+    }
+
+    #[gpui::test]
+    fn a_message_sent_while_history_loads_follows_the_history(cx: &mut TestAppContext) {
+        let (_directory, runtime, _, chat) = chat_with_model(cx);
+        send(cx, &chat, "first");
+        idle(cx, &chat);
+        let group = chat.read_with(cx, |chat, _| chat.group.clone().unwrap());
+        chat.update(cx, |chat, cx| {
+            chat.new_chat(cx);
+            chat.select_group(group, cx);
+            chat.submit("second".into(), Vec::new(), cx);
+        });
+        idle(cx, &chat);
+        assert_eq!(
+            texts(cx, &chat),
+            ["first", "re: first", "second", "re: second"]
+        );
+        futures::executor::block_on(runtime.shutdown()).unwrap();
+    }
+
+    #[gpui::test]
+    fn returning_to_a_chat_shows_its_background_reply_once_done(cx: &mut TestAppContext) {
+        let (_directory, runtime, model, chat) = chat_with_model(cx);
+        send(cx, &chat, "slow a");
+        wait(cx, |_| model.streaming("slow a"));
+        let group = chat.read_with(cx, |chat, _| chat.group.clone().unwrap());
+        chat.update(cx, |chat, cx| {
+            chat.new_chat(cx);
+            chat.select_group(group, cx);
+        });
+        idle(cx, &chat);
+        model.release("slow a");
+        wait(cx, |cx| texts(cx, &chat).len() == 2);
+        assert_eq!(texts(cx, &chat), ["slow a", "re: slow a more"]);
+        futures::executor::block_on(runtime.shutdown()).unwrap();
+    }
+
+    #[gpui::test]
+    fn a_note_windows_chat_edits_the_summary_that_window_shows(cx: &mut TestAppContext) {
+        cx.executor().allow_parking();
+        let (_directory, runtime) = start_runtime();
+        let open = futures::executor::block_on(
+            runtime
+                .create_note("Design critique".into())
+                .unwrap()
+                .receive(),
+        )
+        .unwrap();
+        let session = open.summary.id.clone();
+        let id = session.clone();
+        let insert = runtime
+            .submit(move |services| async move {
+                services
+                    .executor
+                    .execute(
+                        "INSERT INTO session_documents (id, session_id, kind, title, body_format, body, sort_order)
+                         VALUES ('critique-summary', ?, 'summary', '', 'prosemirror_json', '{\"type\":\"doc\"}', 0)"
+                            .into(),
+                        vec![serde_json::json!(id)],
+                    )
+                    .await
+                    .map_err(failure)
+            })
+            .unwrap();
+        futures::executor::block_on(insert.receive()).unwrap();
+        cx.update(crate::ui::theme::UiFonts::init);
+        let (note, cx) = cx.add_window_view(|window, cx| {
+            crate::workspace::NoteView::new(runtime.clone(), window, cx)
+        });
+        note.update(cx, |note, cx| note.open(session.clone(), cx));
+        for _ in 0..400 {
+            cx.run_until_parked();
+            if note.read_with(cx, |note, _| note.shown_summary().is_some()) {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        let chat = cx.new(|cx| ChatView::new(runtime.clone(), WeakEntity::new_invalid(), cx));
+        let summary = chat.update(cx, |chat, cx| {
+            chat.set_note(note.downgrade());
+            chat.set_route(Route::Session(session), cx);
+            let user = ChatMessage {
+                id: "u".into(),
+                user: true,
+                parts: Vec::new(),
+                created_at: None,
+                refs: Vec::new(),
+            };
+            chat.tool_context(&user, cx).summary
+        });
+        assert_eq!(summary.as_deref(), Some("critique-summary"));
+        futures::executor::block_on(runtime.shutdown()).unwrap();
+    }
+
+    #[gpui::test]
+    fn opening_ai_settings_from_chat_navigates_after_the_click(cx: &mut TestAppContext) {
+        cx.executor().allow_parking();
+        let directory = tempfile::tempdir().unwrap();
+        let (runtime, ready) = RuntimeHandle::start(Profile {
+            database: directory.path().join("library.sqlite"),
+        })
+        .unwrap();
+        cx.update(crate::ui::theme::UiFonts::init);
+        let lane = crate::contracts::LaneContext {
+            runtime: runtime.clone(),
+        };
+        let (workspace, cx) =
+            cx.add_window_view(|window, cx| WorkspaceView::new(lane, ready, window, cx));
+        cx.run_until_parked();
+        let chat = workspace.read_with(cx, |workspace, _| workspace.chat().clone());
+        chat.update(cx, |chat, cx| chat.open_settings(cx));
+        cx.run_until_parked();
+        assert_eq!(
+            workspace.read_with(cx, |workspace, _| workspace.current_route()),
+            Route::settings("intelligence")
+        );
+        futures::executor::block_on(runtime.shutdown()).unwrap();
+    }
 
     #[gpui::test]
     fn a_note_dropped_on_chat_rides_with_the_next_message_only(cx: &mut TestAppContext) {
