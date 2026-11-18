@@ -193,6 +193,14 @@ impl ApplicationView {
 
     pub(super) fn schedule_preferences(&mut self, snapshot: Arc<Snapshot>, cx: &mut Context<Self>) {
         self.schedule.preferences = Some(snapshot);
+        // Turning automatic stop off withdraws a stop it already has under way.
+        if !self.schedule.flag("auto_stop_meetings", true) {
+            self.schedule.pending = None;
+            self.schedule.pending_task = None;
+            if let (_, Some(session)) = self.live_phase() {
+                self.schedule.prompts.cancel(&session);
+            }
+        }
         if self.schedule.started {
             self.schedule_tick(cx);
         }
@@ -422,7 +430,8 @@ impl ApplicationView {
         self.schedule.pending_task = Some(cx.spawn(async move |this, cx| {
             cx.background_executor().timer(delay).await;
             let current = |this: &Self, cx: &gpui::App| {
-                this.schedule.pending.as_ref() == Some(&pending)
+                this.schedule.flag("auto_stop_meetings", true)
+                    && this.schedule.pending.as_ref() == Some(&pending)
                     && this.live_phase() == (Phase::Listening, Some(pending.session.clone()))
                     && pending
                         .candidates
@@ -509,7 +518,13 @@ impl ApplicationView {
             return false;
         }
         // Clicking the banner only opens the app; Stop and the countdown stop listening.
-        if matches!(action, Action::Accept | Action::Timeout)
+        // The countdown stops only while automatic stop is still on.
+        let stops = match action {
+            Action::Accept => true,
+            Action::Timeout => self.schedule.flag("auto_stop_meetings", true),
+            _ => false,
+        };
+        if stops
             && let Some(session) = self.schedule.prompts.consume(key)
             && self.live_phase() == (Phase::Listening, Some(session))
         {
