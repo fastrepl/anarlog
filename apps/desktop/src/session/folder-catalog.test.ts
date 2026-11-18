@@ -135,7 +135,7 @@ describe("folder catalog", () => {
   });
 
   it("still moves notes whose path a parent rename made longer than new paths may be", async () => {
-    const nested = `Archived/${"x".repeat(195)}`;
+    const nested = `Archived/${["a", "b", "c"].map((c) => c.repeat(64)).join("/")}`;
     mocks.execute.mockResolvedValue([{ id: "nested", folder_path: nested }]);
 
     await deleteNamedFolder("Archived");

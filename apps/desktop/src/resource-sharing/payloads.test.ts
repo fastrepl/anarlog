@@ -116,6 +116,29 @@ describe("shared resource payloads", () => {
     ).toEqual(["Inside"]);
   });
 
+  it("keeps a renamed note's subfolder even when its full path is longer than new paths may be", async () => {
+    const relative = ["a", "b", "c"].map((c) => c.repeat(64)).join("/");
+    mocks.execute.mockImplementation(async (sql: string) =>
+      sql.includes("FROM folders")
+        ? [{ instructions: "" }]
+        : [
+            {
+              title: "Deep",
+              folder_path: `Archived/${relative}`,
+              body: "",
+              body_format: "markdown",
+            },
+          ],
+    );
+
+    const payload = await sharedFolderPayload("Archived");
+
+    expect(
+      (payload.notes as { relativeFolderPath: string }[])[0]
+        ?.relativeFolderPath,
+    ).toBe(relative);
+  });
+
   it("accepts nested folder copies but rejects path traversal", () => {
     expect(
       parseSharedFolderPayload({

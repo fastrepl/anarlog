@@ -303,11 +303,15 @@ function clearAutomationDestination(step: WorkflowStep): WorkflowStep {
   return { ...step, target: null };
 }
 
+// `child` is inside `root` (isInFolder). Only the part below the root is validated: a parent
+// rename can make the full stored path longer than new paths may be.
 function relativeFolderPath(root: string, child: string): string {
-  const normalized = normalizeFolderPath(child);
-  if (!normalized || normalized === root) return "";
-  const prefix = `${root}/`;
-  return normalized.startsWith(prefix) ? normalized.slice(prefix.length) : "";
+  if (child === root) return "";
+  const relative = normalizeFolderPath(child.slice(root.length + 1));
+  if (relative === null) {
+    throw new Error("A note in this folder has a path that can't be shared");
+  }
+  return relative;
 }
 
 function requireFolderPath(value: string): string {
