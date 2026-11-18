@@ -412,3 +412,32 @@ fn a_plain_click_on_a_github_chip_opens_its_task_tab_and_leaves_the_caret(cx: &m
         caret
     );
 }
+
+/// A rich paste into a code block once kept only the first copied block.
+#[gpui::test]
+fn a_rich_paste_into_code_keeps_every_copied_block(cx: &mut TestAppContext) {
+    let (fixture, cx) = fixture(
+        cx,
+        vec![json!({"type": "codeBlock", "content": [{"type": "text", "text": "code"}]})],
+    );
+    let editor = fixture.editor.clone();
+    let copied = Document::parse(
+        json!({"type": "doc", "content": [paragraph("one"), paragraph("two")]})
+            .to_string()
+            .into(),
+    )
+    .unwrap();
+    let everything = super::model::Selection {
+        anchor: 0,
+        head: copied.units(),
+    };
+    let payload = super::clipboard::copy(&copied, everything, "other").unwrap();
+    editor.update(cx, |editor, cx| {
+        let model = editor.model.as_mut().unwrap();
+        model.select(super::model::Selection::caret(
+            model.document.edge_caret(true),
+        ));
+        editor.paste(payload.text, Some(payload.metadata), true, cx);
+    });
+    assert_eq!(texts(&editor, cx), ["codeone\n\ntwo"]);
+}

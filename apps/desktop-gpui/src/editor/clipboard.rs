@@ -11,7 +11,8 @@ pub struct CopyPayload {
     pub metadata: String,
 }
 
-pub fn copy(document: &Document, selection: Selection) -> EditResult<CopyPayload> {
+/// `source` is the copied document's id, which a paste compares with its own.
+pub fn copy(document: &Document, selection: Selection, source: &str) -> EditResult<CopyPayload> {
     let range = selection.range();
     if range.start == 0 && range.end == document.units() {
         let mut blocks = Vec::new();
@@ -19,7 +20,7 @@ pub fn copy(document: &Document, selection: Selection) -> EditResult<CopyPayload
             .root
             .children
             .visit(&mut |node| blocks.push(node.clone()));
-        return payload(blocks, 0);
+        return payload(blocks, 0, source);
     }
     let from = document.resolve(range.start)?;
     let to = document.resolve(range.end)?;
@@ -31,10 +32,10 @@ pub fn copy(document: &Document, selection: Selection) -> EditResult<CopyPayload
     } else {
         super::transform::copy_range(document, range)?.visit(&mut |node| blocks.push(node.clone()));
     }
-    payload(blocks, 1)
+    payload(blocks, 1, source)
 }
 
-fn payload(blocks: Vec<NodeRef>, open: u8) -> EditResult<CopyPayload> {
+fn payload(blocks: Vec<NodeRef>, open: u8, source: &str) -> EditResult<CopyPayload> {
     let text = blocks
         .iter()
         .map(plain_block)
@@ -42,31 +43,51 @@ fn payload(blocks: Vec<NodeRef>, open: u8) -> EditResult<CopyPayload> {
         .join("\n\n");
     let metadata = json!({
         "anarlog-native-slice": 1,
-        "openStart": open, "openEnd": open,
+        "openStart": open, "openEnd": open, "source": source,
         "content": blocks.iter().map(|block| block.value()).collect::<Vec<_>>(),
     })
     .to_string();
     Ok(CopyPayload { text, metadata })
 }
 
-pub fn parse_slice(metadata: &str) -> EditResult<(Document, bool)> {
+/// A paste into `destination`: tasks copied from another document get identities of their
+/// own, so one task never belongs to two notes (pasted HTML tasks are always new).
+pub fn parse_slice(metadata: &str, destination: &str) -> EditResult<(Document, bool)> {
     if metadata.trim_start().starts_with('<') {
         return super::html::parse(metadata);
     }
     if metadata.len() > super::document::MAX_BYTES {
         return Err("Clipboard slice exceeds 16 MiB".into());
     }
-    let value: Value = serde_json::from_str(metadata).map_err(|error| error.to_string())?;
+    let mut value: Value = serde_json::from_str(metadata).map_err(|error| error.to_string())?;
     if value["anarlog-native-slice"] != 1 {
         return Err("Unsupported rich clipboard format. Use explicit plain-text paste.".into());
     }
     let open = value["openStart"] == 1 && value["openEnd"] == 1;
-    let document = Document::parse(
-        json!({"type":"doc", "content": value["content"]})
-            .to_string()
-            .into(),
-    )?;
+    let mut content = value["content"].take();
+    if value["source"] != destination {
+        fresh_task_ids(&mut content);
+    }
+    let document = Document::parse(json!({"type":"doc", "content": content}).to_string().into())?;
     Ok((document, open))
+}
+
+fn fresh_task_ids(value: &mut Value) {
+    match value {
+        Value::Array(nodes) => nodes.iter_mut().for_each(fresh_task_ids),
+        Value::Object(node) => {
+            if node.get("type").and_then(Value::as_str) == Some("taskItem")
+                && let Some(attrs) = node.get_mut("attrs").and_then(Value::as_object_mut)
+            {
+                attrs.insert("taskId".into(), json!(uuid::Uuid::new_v4().to_string()));
+                attrs.insert("taskItemId".into(), json!(uuid::Uuid::new_v4().to_string()));
+            }
+            if let Some(content) = node.get_mut("content") {
+                fresh_task_ids(content);
+            }
+        }
+        _ => {}
+    }
 }
 
 fn escape_image(text: &str) -> String {

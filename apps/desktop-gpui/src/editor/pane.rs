@@ -1495,11 +1495,12 @@ impl EditorPane {
         let document = model.document.clone();
         let selection = model.selection;
         let revision = model.revision;
+        let source = self.init.document.id.0.clone();
         self.clipboard_generation += 1;
         let generation = self.clipboard_generation;
         let job = cx
             .background_executor()
-            .spawn(async move { clipboard::copy(&document, selection) });
+            .spawn(async move { clipboard::copy(&document, selection, &source) });
         cx.spawn(async move |entity, cx| {
             let result = job.await;
             let _ = entity.update(cx, |this, cx| {
@@ -1538,20 +1539,29 @@ impl EditorPane {
         rich: bool,
         cx: &mut Context<Self>,
     ) {
-        let Some(model) = &self.model else {
+        let Some(model) = &mut self.model else {
             return;
         };
         let revision = model.revision;
         let selection = model.selection;
-        let code = model
-            .document
-            .resolve(selection.head)
-            .is_ok_and(|resolved| resolved.node.kind() == "codeBlock");
         self.clipboard_generation += 1;
         let generation = self.clipboard_generation;
+        // Like ProseMirror, code takes the clipboard's plain text, whatever rich content came
+        // with it.
+        if model
+            .document
+            .resolve(selection.head)
+            .is_ok_and(|resolved| resolved.node.kind() == "codeBlock")
+        {
+            let text = text.replace("\r\n", "\n").replace('\r', "\n");
+            let result = model.replace(selection.range(), &text);
+            self.edited(revision, result, cx);
+            return;
+        }
+        let destination = self.init.document.id.0.clone();
         let job = cx.background_executor().spawn(async move {
-            if let Some(metadata) = metadata { return clipboard::parse_slice(&metadata); }
-            if rich && !code
+            if let Some(metadata) = metadata { return clipboard::parse_slice(&metadata, &destination); }
+            if rich
                 && let Ok(mut clipboard) = arboard::Clipboard::new()
                 && clipboard.get_text().is_ok_and(|current| current == text)
                 && let Ok(html) = clipboard.get().html()
@@ -1559,8 +1569,7 @@ impl EditorPane {
                 return super::html::parse(&html);
             }
             if text.len() > 1024 * 1024 { return Err("Paste exceeds the 1 MiB transaction limit".into()); }
-            let paragraphs = if code { vec![text.as_str()] } else { text.split('\n').collect() };
-            let content: Vec<_> = paragraphs.into_iter().map(|line| serde_json::json!({
+            let content: Vec<_> = text.split('\n').map(|line| serde_json::json!({
                 "type": "paragraph", "content": if line.is_empty() { Vec::new() }
                 else { vec![serde_json::json!({"type": "text", "text": line.trim_end_matches('\r')})] }
             })).collect();
@@ -1575,12 +1584,7 @@ impl EditorPane {
                     this.message = "Selection changed while preparing paste. Paste again at the desired position.".into();
                     cx.notify(); return;
                 }
-                let result = fragment.and_then(|(fragment, open)| {
-                    if code {
-                        let text = super::document::inline_text(&fragment.root.children.get(0).expect("paragraph").children);
-                        model.replace(selection.range(), &text)
-                    } else { model.insert_slice(fragment, open) }
-                });
+                let result = fragment.and_then(|(fragment, open)| model.insert_slice(fragment, open));
                 this.edited(revision, result, cx);
             });
         }).detach();
