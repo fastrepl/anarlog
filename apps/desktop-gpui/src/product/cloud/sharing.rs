@@ -622,6 +622,8 @@ pub enum ShareCommand {
     KeepDesktop,
     /// Opens the shared note's web copy in the browser.
     OpenWebCopy,
+    /// Emails the published summary to each address (`deliverSessionShareRecapEmail`).
+    EmailRecap(Vec<String>),
 }
 
 impl CloudServices {
@@ -859,6 +861,9 @@ impl Core {
                 return Ok(());
             }
             ShareCommand::CopyLink => return self.copy_share_url(lease, share).await,
+            ShareCommand::EmailRecap(recipients) => {
+                return self.email_recap(services, lease, share, &recipients).await;
+            }
             ShareCommand::OpenWebCopy => {
                 let url = self.share_url(lease, share, "anarlog").await?;
                 let url = Url::parse(&url).map_err(|_| failure("Share URL is unavailable"))?;
@@ -956,6 +961,47 @@ impl Core {
             ),
         };
         self.share_action(services, lease, scope, &mutation).await
+    }
+
+    /// `deliverSessionShareRecapEmail`: the published title and summary, as Markdown, sent by
+    /// the API from the account's address.
+    async fn email_recap(
+        &self,
+        services: &Services,
+        lease: &AuthLease,
+        share: &str,
+        recipients: &[String],
+    ) -> Result<()> {
+        if recipients.is_empty() || recipients.len() > 20 {
+            return Err(failure("Email between 1 and 20 people at a time"));
+        }
+        let (title, body): (String, String) = sqlx::query_as(
+            "SELECT title, body_json FROM shared_session_cache WHERE viewer_user_id = ? AND share_id = ?",
+        )
+        .bind(account(lease)?)
+        .bind(share)
+        .fetch_optional(services.db.pool())
+        .await
+        .map_err(|_| failure("Cannot read the published note"))?
+        .ok_or_else(|| failure("Publish the note before emailing it"))?;
+        let body = serde_json::from_str(&body)
+            .ok()
+            .and_then(|body| anlg_tiptap::tiptap_json_to_md(&body).ok())
+            .ok_or_else(|| failure("The published note cannot be emailed"))?;
+        let body = body.trim();
+        if body.is_empty() || body.len() > 100 * 1024 {
+            return Err(failure("The published note cannot be emailed"));
+        }
+        self.api(
+            lease,
+            Method::POST,
+            &format!("/shared-notes/{share}/recap/email"),
+            Some(&json!({"recipients": recipients,
+                "senderName": lease.identity.email.as_deref().unwrap_or("An Anarlog user"),
+                "noteTitle": title, "noteBody": body, "deliveryId": uuid::Uuid::new_v4().to_string()})),
+        )
+        .await?;
+        Ok(())
     }
 
     /// `copySessionShareUrl`: the account URL people with access open.

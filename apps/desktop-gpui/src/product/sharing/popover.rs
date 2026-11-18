@@ -64,6 +64,7 @@ enum Menu {
 #[derive(Clone, PartialEq, Eq)]
 enum Pending {
     Invite,
+    Email,
     CopyLink,
     Access,
     Entry(Arc<str>),
@@ -359,6 +360,21 @@ impl SharePopover {
                             }
                             this.query.update(cx, |q, cx| q.set_text(String::new(), cx));
                         }
+                        if let ShareCommand::EmailRecap(emails) = &command {
+                            for email in emails {
+                                this.email.remove(email);
+                            }
+                            this.email_query
+                                .update(cx, |q, cx| q.set_text(String::new(), cx));
+                            crate::application::toasts::success(
+                                if emails.len() > 1 {
+                                    "Meeting notes sent."
+                                } else {
+                                    "Meeting note sent."
+                                },
+                                cx,
+                            );
+                        }
                         if let ShareCommand::Remove(entry) = &command
                             && let Some(email) = &entry.email
                         {
@@ -405,12 +421,23 @@ impl SharePopover {
         self.invite.commit(&typed);
         self.run(Pending::Invite, ShareCommand::Invite(emails), cx);
     }
+
+    fn submit_email(&mut self, cx: &mut Context<Self>) {
+        let typed = self.email_query.read(cx).buffer.text.clone();
+        let emails = self.email.emails(&typed);
+        if !self.email.can_submit(&typed) {
+            return;
+        }
+        self.email.commit(&typed);
+        self.run(Pending::Email, ShareCommand::EmailRecap(emails), cx);
+    }
 }
 
 fn failure_message(command: &ShareCommand) -> &'static str {
     match command {
         ShareCommand::Invite(emails) if emails.len() > 1 => "Could not create these invitations.",
         ShareCommand::Invite(_) => "Could not create this invitation.",
+        ShareCommand::EmailRecap(_) => "Could not email the meeting notes.",
         ShareCommand::CopyLink => "Could not copy the share link.",
         ShareCommand::Access(_) => "Could not update general access.",
         ShareCommand::OpenWebCopy => "Could not open the web copy.",
@@ -1572,13 +1599,10 @@ impl SharePopover {
                         &typed,
                         &self.email,
                         disabled,
-                        false,
+                        self.pending == Some(Pending::Email),
                         "Send",
                         colors,
-                        cx.listener(|this, _, _, cx| {
-                            this.error = Some("Could not email the meeting notes.".into());
-                            cx.notify();
-                        }),
+                        cx.listener(|this, _, _, cx| this.submit_email(cx)),
                     ))
                     .when(!suggestions.is_empty(), |view| {
                         view.child(self.suggestion_list(suggestions, true, colors, cx))

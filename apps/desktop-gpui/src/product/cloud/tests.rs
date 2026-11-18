@@ -1263,7 +1263,7 @@ async fn returning_from_checkout_renews_the_session_so_the_new_plan_shows() {
 }
 
 #[tokio::test]
-async fn share_popover_publishes_edits_made_after_sharing_before_widening_access() {
+async fn share_popover_publishes_later_edits_before_sharing_or_emailing_them() {
     let server = MockServer::start().await;
     let directory = tempfile::tempdir().unwrap();
     let (runtime, ready) = RuntimeHandle::start(Profile {
@@ -1375,6 +1375,24 @@ async fn share_popover_publishes_edits_made_after_sharing_before_widening_access
             .await
             .unwrap();
     }
+    // The recap email carries the published note as Markdown.
+    Mock::given(method("POST"))
+        .and(path(format!("/shared-notes/{SHARE}/recap/email")))
+        .and(body_partial_json(
+            json!({"recipients": ["lee@northwind.example"],
+            "noteTitle": "Web snapshot", "noteBody": "Revised decisions"}),
+        ))
+        .respond_with(ResponseTemplate::new(204))
+        .expect(1)
+        .mount(&server)
+        .await;
+    cloud
+        .share_command(
+            scope,
+            ShareCommand::EmailRecap(vec!["lee@northwind.example".into()]),
+        )
+        .await
+        .unwrap();
     runtime.shutdown().await.unwrap();
 }
 
