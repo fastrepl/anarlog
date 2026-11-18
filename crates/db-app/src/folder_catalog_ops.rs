@@ -425,7 +425,23 @@ mod tests {
             .execute(db.pool())
             .await
             .unwrap();
+        sqlx::query(
+            "INSERT INTO folder_attachments (id, folder_path) VALUES
+               ('child', 'Q1_2026/Notes'), ('lookalike', 'Q1-2026/Notes'), ('cased', 'q1_2026/Notes')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
         db
+    }
+
+    async fn live_attachments(db: &Db) -> Vec<(String, String)> {
+        sqlx::query_as(
+            "SELECT id, folder_path FROM folder_attachments WHERE deleted_at IS NULL ORDER BY id",
+        )
+        .fetch_all(db.pool())
+        .await
+        .unwrap()
     }
 
     async fn session_folders(db: &Db) -> Vec<(String, String)> {
@@ -450,6 +466,9 @@ mod tests {
         rewrite_session_folder_paths(&mut conn, "Q1_2026", "Archive")
             .await
             .unwrap();
+        rewrite_folder_attachment_paths(&mut conn, "Q1_2026", "Archive")
+            .await
+            .unwrap();
         drop(conn);
         assert_eq!(
             session_folders(&db).await,
@@ -461,10 +480,21 @@ mod tests {
                 ("percent", "Q1%2026/Notes"),
             ])
         );
+        assert_eq!(
+            live_attachments(&db).await,
+            pairs(&[
+                ("cased", "q1_2026/Notes"),
+                ("child", "Archive/Notes"),
+                ("lookalike", "Q1-2026/Notes"),
+            ])
+        );
 
         let db = test_db().await;
         let mut conn = db.pool().acquire().await.unwrap();
         tombstone_folders_under(&mut conn, "Q1_2026").await.unwrap();
+        tombstone_folder_attachments_under(&mut conn, "Q1_2026")
+            .await
+            .unwrap();
         clear_session_folder_paths(&mut conn, "Q1_2026")
             .await
             .unwrap();
@@ -475,6 +505,10 @@ mod tests {
                 .await
                 .unwrap();
         assert_eq!(live, ["lookalike"]);
+        assert_eq!(
+            live_attachments(&db).await,
+            pairs(&[("cased", "q1_2026/Notes"), ("lookalike", "Q1-2026/Notes")])
+        );
         assert_eq!(
             session_folders(&db).await,
             pairs(&[

@@ -3,7 +3,7 @@ import { commands } from "@anlg/plugin-session";
 
 import {
   ancestorFolderPaths,
-  folderPathMatchesFilter,
+  isInFolder,
   normalizeFolderPath,
 } from "./folders";
 
@@ -106,7 +106,7 @@ export async function deleteNamedFolder(folderPath: string): Promise<void> {
 
   // LIKE also matches look-alike folders (`_`/`%` wildcards, any case); move only this folder's notes.
   for (const session of sessions.filter((row) =>
-    folderPathMatchesFilter(row.folder_path, path),
+    isInFolder(row.folder_path, path),
   )) {
     const moved = await fsSyncCommands.moveSession(
       session.id,

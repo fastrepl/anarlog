@@ -134,6 +134,15 @@ describe("folder catalog", () => {
     );
   });
 
+  it("still moves notes whose path a parent rename made longer than new paths may be", async () => {
+    const nested = `Archived/${"x".repeat(195)}`;
+    mocks.execute.mockResolvedValue([{ id: "nested", folder_path: nested }]);
+
+    await deleteNamedFolder("Archived");
+
+    expect(mocks.moveSession).toHaveBeenCalledWith("nested", nested, "");
+  });
+
   it("does not update the catalog if creating a missing rename target fails", async () => {
     mocks.renameFolder.mockResolvedValue({
       status: "error",
