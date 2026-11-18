@@ -136,9 +136,10 @@ impl Core {
         let owner: String = row
             .try_get("owner_user_id")
             .map_err(|_| failure("Invalid meeting owner"))?;
+        // Workspace owners and admins share any note; other active members share their own.
         let local_access: bool = sqlx::query_scalar(
-            "SELECT EXISTS(SELECT 1 FROM workspace_memberships m JOIN workspaces w ON w.id = m.workspace_id WHERE m.workspace_id = ? AND m.user_id = ? AND m.role IN ('owner', 'admin') AND m.deleted_at IS NULL AND w.deleted_at IS NULL)")
-            .bind(&workspace).bind(account(lease)?).fetch_one(services.db.pool()).await
+            "SELECT EXISTS(SELECT 1 FROM workspace_memberships m JOIN workspaces w ON w.id = m.workspace_id WHERE m.workspace_id = ? AND m.user_id = ? AND (m.role IN ('owner', 'admin') OR (w.kind = 'shared' AND m.role <> '' AND ?)) AND m.deleted_at IS NULL AND w.deleted_at IS NULL)")
+            .bind(&workspace).bind(account(lease)?).bind(owner == account(lease)?).fetch_one(services.db.pool()).await
             .map_err(|_| failure("Cannot verify workspace membership"))?;
         let routed = anlg_db_app::local_library_remote_workspace(services.db.pool(), &workspace)
             .await

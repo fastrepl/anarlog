@@ -229,6 +229,72 @@ async fn share_action(
 }
 
 #[tokio::test]
+async fn workspace_members_can_share_their_own_notes_but_not_someone_elses() {
+    const TEAM: &str = "5b0f2a3c-9d7e-4a51-8f6b-2c1d0e9a8b7c";
+    let server = MockServer::start().await;
+    let directory = tempfile::tempdir().unwrap();
+    let (runtime, ready) = RuntimeHandle::start(Profile {
+        database: directory.path().join("cloud.sqlite"),
+    })
+    .unwrap();
+    ready.receive().await.unwrap();
+    let cloud = fixture_cloud(&runtime, &server, Arc::new(MemoryStore::default())).await;
+    let document = json!({"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Plan"}]}]});
+    let scope = seed_summary(&runtime, document.clone()).await;
+    let set_owner = |owner: &'static str| {
+        let session = scope.session_id.clone().unwrap();
+        runtime
+            .service(move |services| async move {
+                sqlx::query("UPDATE sessions SET workspace_id = ?, owner_user_id = ? WHERE id = ?")
+                    .bind(TEAM)
+                    .bind(owner)
+                    .bind(session.0.as_ref())
+                    .execute(services.db.pool())
+                    .await
+                    .unwrap();
+                Ok(())
+            })
+            .unwrap()
+            .receive()
+    };
+    runtime
+        .service(|services| async move {
+            sqlx::query("INSERT INTO workspaces (id, owner_user_id, kind) VALUES (?, 'someone-else', 'shared')")
+                .bind(TEAM).execute(services.db.pool()).await.unwrap();
+            sqlx::query("INSERT INTO workspace_memberships (id, workspace_id, user_id, role) VALUES ('m', ?, ?, 'member')")
+                .bind(TEAM).bind(ACCOUNT).execute(services.db.pool()).await.unwrap();
+            Ok(())
+        })
+        .unwrap()
+        .receive()
+        .await
+        .unwrap();
+    set_owner("someone-else").await.unwrap();
+    let error = share_action(&cloud, &scope, Action::CreateShare)
+        .await
+        .unwrap_err();
+    assert_eq!(error.to_string(), "This account does not own this meeting");
+    set_owner(ACCOUNT).await.unwrap();
+    Mock::given(method("POST"))
+        .and(path("/rest/v1/rpc/create_session_share"))
+        .and(body_partial_json(json!({"p_workspace_id": TEAM})))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([{"share_id": SHARE}])))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("PUT"))
+        .and(path(format!("/sync/shares/{SHARE}/snapshot")))
+        .respond_with(ResponseTemplate::new(200).set_body_json(snapshot(1, document)))
+        .expect(1)
+        .mount(&server)
+        .await;
+    share_action(&cloud, &scope, Action::CreateShare)
+        .await
+        .unwrap();
+    runtime.shutdown().await.unwrap();
+}
+
+#[tokio::test]
 async fn publication_conflicts_preserve_drafts_and_require_explicit_review_after_reopen() {
     let server = MockServer::start().await;
     let directory = tempfile::tempdir().unwrap();
