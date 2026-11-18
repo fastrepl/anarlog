@@ -56,7 +56,6 @@ struct Editor {
     instructions: Entity<TextInput>,
     saved_instructions: Arc<str>,
     materials: Vec<Material>,
-    access: Entity<crate::product::sharing::folder_access::FolderAccess>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -270,17 +269,12 @@ impl FoldersView {
                 this.commit_name(cx);
             }
         })];
-        let runtime = self.runtime.clone();
-        let access_path = path.clone();
         let editor = Editor {
             path: path.clone(),
             name,
             instructions,
             saved_instructions: "".into(),
             materials: Vec::new(),
-            access: cx.new(|cx| {
-                crate::product::sharing::folder_access::FolderAccess::new(runtime, access_path, cx)
-            }),
             _subscriptions: subscriptions,
         };
         let reply = folders::instructions(&self.runtime, path.clone());
@@ -807,9 +801,8 @@ impl FoldersView {
                             .flex()
                             .flex_col()
                             .gap_6()
-                            .when(crate::product::account::current(cx).signed_in(), |view| {
-                                view.child(editor.access.clone())
-                            })
+                            // The Default access row stays hidden until saved rules share new
+                            // notes, as shipping's `FolderDefaultAccessRunner` does.
                             .child(
                                 div()
                                     .flex()
