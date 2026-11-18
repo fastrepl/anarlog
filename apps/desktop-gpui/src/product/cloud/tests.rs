@@ -459,7 +459,7 @@ async fn paused_shares_still_open_the_web_copy_and_narrow_access_but_not_widen_i
 }
 
 #[tokio::test]
-async fn failed_publication_retries_the_identical_durable_mutation() {
+async fn failed_publication_retries_the_identical_mutation_then_publishes_later_edits() {
     let server = MockServer::start().await;
     let directory = tempfile::tempdir().unwrap();
     let profile = Profile {
@@ -502,7 +502,56 @@ async fn failed_publication_retries_the_identical_durable_mutation() {
         .expect(1)
         .mount(&server)
         .await;
-    share_action(&restored, &scope, Action::PublishShare)
+    // An edit saved after the failure is published next, so the recap carries it.
+    let edited = json!({"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Revised draft"}]}]});
+    let session = scope.session_id.clone().unwrap();
+    let body = edited.to_string();
+    runtime
+        .service(move |services| async move {
+            sqlx::query("UPDATE session_documents SET body = ? WHERE session_id = ?")
+                .bind(body)
+                .bind(session.0.as_ref())
+                .execute(services.db.pool())
+                .await
+                .unwrap();
+            Ok(())
+        })
+        .unwrap()
+        .receive()
+        .await
+        .unwrap();
+    Mock::given(method("PUT"))
+        .and(path(format!("/sync/shares/{SHARE}/snapshot")))
+        .and(body_partial_json(json!({"baseRevision":1,"body":edited})))
+        .respond_with(ResponseTemplate::new(200).set_body_json(snapshot(2, edited)))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path(format!("/shared-notes/{SHARE}/recap/email")))
+        .and(body_partial_json(json!({"noteBody": "Revised draft"})))
+        .respond_with(ResponseTemplate::new(204))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/rest/v1/rpc/get_session_share_management"))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(json!([{"share_id":SHARE,
+            "general_scope":"restricted","general_workspace_id":null,"has_active_link":false}])),
+        )
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/rest/v1/rpc/list_session_share_access"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([])))
+        .mount(&server)
+        .await;
+    restored
+        .share_command(
+            scope,
+            ShareCommand::EmailRecap(vec!["lee@northwind.example".into()]),
+        )
         .await
         .unwrap();
     runtime.shutdown().await.unwrap();

@@ -457,15 +457,34 @@ impl Core {
                 "The web copy changed. Review the saved remote snapshot before retrying; your local draft is intact",
             ));
         }
-        if state.pending.is_none() {
-            let pending = self.draft(services, lease, scope, &state).await?;
-            if state.source.as_deref() == Some(fingerprint(&pending).as_str()) {
+        // A mutation left pending by a failed attempt is retried as it was, then the note's
+        // current content is published if it changed since.
+        loop {
+            let retried = state.pending.is_some();
+            if !retried {
+                let pending = self.draft(services, lease, scope, &state).await?;
+                if state.source.as_deref() == Some(fingerprint(&pending).as_str()) {
+                    return Ok(());
+                }
+                state.pending = Some(pending);
+                self.save_share_state(services, lease, session, &state)
+                    .await?;
+            }
+            self.send_pending(services, lease, session, &mut state)
+                .await?;
+            if !retried {
                 return Ok(());
             }
-            state.pending = Some(pending);
-            self.save_share_state(services, lease, session, &state)
-                .await?;
         }
+    }
+
+    async fn send_pending(
+        &self,
+        services: &Services,
+        lease: &AuthLease,
+        session: &SessionId,
+        state: &mut Publication,
+    ) -> Result<()> {
         let url = self
             .auth
             .transport
@@ -491,7 +510,7 @@ impl Core {
             }
             validate_snapshot(&response.body["snapshot"], &state.share_id)?;
             state.conflict = Some(response.body["snapshot"].clone());
-            self.save_share_state(services, lease, session, &state)
+            self.save_share_state(services, lease, session, state)
                 .await?;
             return Err(desktop_runtime::ServiceError::Conflict);
         }
@@ -513,8 +532,7 @@ impl Core {
             .as_array()
             .cloned()
             .ok_or_else(|| failure("Invalid attachment list"))?;
-        self.save_share_state(services, lease, session, &state)
-            .await
+        self.save_share_state(services, lease, session, state).await
     }
 }
 
