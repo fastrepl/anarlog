@@ -147,14 +147,17 @@ fn follow(
             match async { subscribe(&runtime)?.receive().await }.await {
                 Ok(mut watch) => {
                     loop {
-                        if let Some(error) = watch.terminal_error() {
+                        // An error bumps the sequence without new rows. Read the snapshot first,
+                        // so the error behind its bump is already queued, and never apply a
+                        // failed read's rows: empty rows would open every locked note.
+                        let snapshot = watch.snapshots.borrow_and_update().clone();
+                        if let Some(error) = watch
+                            .terminal_error()
+                            .or_else(|| watch.errors.try_recv().ok())
+                        {
                             cx.update(|cx| apply(Err(error), cx));
                             break;
                         }
-                        if let Ok(error) = watch.errors.try_recv() {
-                            cx.update(|cx| apply(Err(error), cx));
-                        }
-                        let snapshot = watch.snapshots.borrow_and_update().clone();
                         if snapshot.sequence > 0 {
                             pause = RETRY;
                             cx.update(|cx| apply(Ok(&snapshot.rows), cx));

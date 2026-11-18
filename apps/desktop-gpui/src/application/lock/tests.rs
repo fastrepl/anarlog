@@ -173,3 +173,42 @@ fn the_lock_setting_loads_when_the_library_opens_after_the_window(cx: &mut TestA
     });
     block_on(runtime.shutdown()).unwrap();
 }
+
+/// A watch whose first read failed reported the error and then applied the empty rows as a
+/// read, so `locked_notes` became empty and every locked note opened without authentication.
+#[gpui::test]
+fn a_failed_locked_notes_read_is_never_applied_as_rows(cx: &mut TestAppContext) {
+    use std::{cell::RefCell, rc::Rc};
+
+    use desktop_runtime::Profile;
+    use futures::executor::block_on;
+
+    cx.executor().allow_parking();
+    let directory = tempfile::tempdir().unwrap();
+    let (runtime, ready) = RuntimeHandle::start(Profile {
+        database: directory.path().join("library.sqlite"),
+    })
+    .unwrap();
+    block_on(ready.receive()).unwrap();
+    // The subscription succeeds; its first read fails.
+    let results = Rc::new(RefCell::new(Vec::new()));
+    cx.update(|cx| {
+        let results = results.clone();
+        follow(
+            &runtime,
+            |runtime| runtime.watch_query("SELECT ids FROM missing_table".into(), vec![]),
+            cx,
+            move |rows, _| results.borrow_mut().push(rows.is_ok()),
+        );
+    });
+    for _ in 0..400 {
+        cx.run_until_parked();
+        if !results.borrow().is_empty() {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+    cx.run_until_parked();
+    assert_eq!(*results.borrow(), [false]);
+    block_on(runtime.shutdown()).unwrap();
+}
