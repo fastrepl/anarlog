@@ -7,6 +7,7 @@ use atspi::{
         editable_text::EditableTextProxy,
         text::TextProxy,
     },
+    zbus::proxy::CacheProperties,
 };
 use desktop_runtime::{Result, ServiceError};
 
@@ -122,6 +123,8 @@ async fn insert(target: ObjectRef, text: &str) -> Result<()> {
         .map_err(failed)?
         .path(target.path.clone())
         .map_err(failed)?
+        // Some AT-SPI bridges support individual properties but not GetAll.
+        .cache_properties(CacheProperties::No)
         .build()
         .await
         .map_err(failed)?;

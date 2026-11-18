@@ -927,6 +927,7 @@ dependencies = [
  "atspi-common",
  "atspi-connection",
  "atspi-proxies",
+ "zbus",
 ]
 
 [[package]]
