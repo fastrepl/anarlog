@@ -21,11 +21,28 @@ use sha2::{Digest, Sha256};
 
 const MAX_URL_BYTES: usize = 64 * 1024;
 const TIMEOUT: Duration = Duration::from_secs(2);
+const DELIVERY_TIMEOUT: Duration = Duration::from_secs(30);
 
 pub struct LaunchLinks {
-    pending: Receiver<Option<String>>,
+    pending: Receiver<LaunchRequest>,
     stopping: Arc<AtomicBool>,
     worker: Option<JoinHandle<()>>,
+}
+
+pub struct LaunchRequest {
+    url: Option<String>,
+    reply: Option<UnixStream>,
+}
+
+impl LaunchRequest {
+    pub fn deliver(self, dispatch: impl FnOnce(Option<String>) -> bool) {
+        let delivered = dispatch(self.url);
+        if let Some(mut reply) = self.reply
+            && let Err(error) = reply.write_all(&[u8::from(delivered)])
+        {
+            tracing::debug!(%error, "could not acknowledge protocol launch");
+        }
+    }
 }
 
 impl LaunchLinks {
@@ -58,7 +75,13 @@ impl LaunchLinks {
         listener.set_nonblocking(true)?;
         let (sender, pending) = mpsc::sync_channel(64);
         if let Some(link) = link {
-            enqueue(&sender, Some(link))?;
+            enqueue(
+                &sender,
+                LaunchRequest {
+                    url: Some(link),
+                    reply: None,
+                },
+            )?;
         }
         let stopping = Arc::new(AtomicBool::new(false));
         let stop = stopping.clone();
@@ -90,8 +113,8 @@ impl LaunchLinks {
         }))
     }
 
-    pub fn pending(&self) -> impl Iterator<Item = Option<String>> + '_ {
-        self.pending.try_iter()
+    pub fn next(&self) -> Option<LaunchRequest> {
+        self.pending.try_recv().ok()
     }
 }
 
@@ -124,8 +147,14 @@ fn forward(address: &SocketAddr, url: Option<&str>) -> io::Result<()> {
     configure(&stream)?;
     stream.write_all(url.unwrap_or_default().as_bytes())?;
     stream.shutdown(Shutdown::Write)?;
+    stream.set_read_timeout(Some(DELIVERY_TIMEOUT))?;
     let mut response = [0];
-    stream.read_exact(&mut response)?;
+    stream.read_exact(&mut response).map_err(|error| {
+        io::Error::new(
+            error.kind(),
+            "the running app did not confirm the protocol launch",
+        )
+    })?;
     if response == [1] {
         Ok(())
     } else {
@@ -135,21 +164,30 @@ fn forward(address: &SocketAddr, url: Option<&str>) -> io::Result<()> {
     }
 }
 
-fn enqueue(sender: &SyncSender<Option<String>>, link: Option<String>) -> io::Result<()> {
+fn enqueue(sender: &SyncSender<LaunchRequest>, request: LaunchRequest) -> io::Result<()> {
     sender
-        .try_send(link)
+        .try_send(request)
         .map_err(|_| io::Error::other("protocol launch queue is unavailable"))
 }
 
-fn receive(mut stream: UnixStream, sender: &SyncSender<Option<String>>) -> io::Result<()> {
+fn receive(mut stream: UnixStream, sender: &SyncSender<LaunchRequest>) -> io::Result<()> {
     configure(&stream)?;
     let mut url = String::new();
     (&stream)
         .take((MAX_URL_BYTES + 1) as u64)
         .read_to_string(&mut url)?;
-    let valid = url.is_empty() || valid_link(&url);
-    let accepted = valid && enqueue(sender, (!url.is_empty()).then_some(url)).is_ok();
-    stream.write_all(&[u8::from(accepted)])
+    if !url.is_empty() && !valid_link(&url) {
+        return stream.write_all(&[0]);
+    }
+    // The UI confirms receipt after dispatch. Dropping a queued request on exit closes its socket.
+    stream.set_nonblocking(true)?;
+    enqueue(
+        sender,
+        LaunchRequest {
+            url: (!url.is_empty()).then_some(url),
+            reply: Some(stream),
+        },
+    )
 }
 
 fn valid_link(url: &str) -> bool {
@@ -171,21 +209,31 @@ mod tests {
         let first = LaunchLinks::bind_or_forward(profile.path(), Some(auth.into()))
             .unwrap()
             .unwrap();
-        assert!(
-            LaunchLinks::bind_or_forward(&profile.path().join("."), Some(share.into()))
-                .unwrap()
-                .is_none()
-        );
-        assert!(
-            LaunchLinks::bind_or_forward(profile.path(), None)
-                .unwrap()
-                .is_none()
-        );
-        assert_eq!(
-            first.pending().collect::<Vec<_>>(),
-            [Some(auth.into()), Some(share.into()), None]
-        );
-        drop(first);
+        first.next().unwrap().deliver(|link| {
+            assert_eq!(link.as_deref(), Some(auth));
+            true
+        });
+        thread::scope(|scope| {
+            let sender = scope.spawn(|| {
+                LaunchLinks::bind_or_forward(&profile.path().join("."), Some(share.into()))
+                    .unwrap()
+                    .is_none()
+            });
+            let request = first.pending.recv_timeout(TIMEOUT).unwrap();
+            assert!(!sender.is_finished());
+            request.deliver(|link| {
+                assert_eq!(link.as_deref(), Some(share));
+                true
+            });
+            assert!(sender.join().unwrap());
+
+            // A request queued during shutdown receives no success acknowledgment.
+            let sender =
+                scope.spawn(|| LaunchLinks::bind_or_forward(profile.path(), None).is_err());
+            drop(first.pending.recv_timeout(TIMEOUT).unwrap());
+            drop(first);
+            assert!(sender.join().unwrap());
+        });
         assert!(
             LaunchLinks::bind_or_forward(profile.path(), None)
                 .unwrap()

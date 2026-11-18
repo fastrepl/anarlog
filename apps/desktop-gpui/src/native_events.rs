@@ -241,7 +241,7 @@ impl NativeEvents {
         events
     }
 
-    pub fn receive_deep_link(&self, raw: String) {
+    fn receive_deep_link(&self, raw: String) {
         match self.links.receive(&raw) {
             Ok(id) => {
                 if self
@@ -255,6 +255,29 @@ impl NativeEvents {
             }
             Err(error) => tracing::warn!("Deep link rejected: {error}"),
         }
+    }
+
+    #[cfg(target_os = "linux")]
+    pub fn dispatch_launch(
+        &self,
+        url: Option<String>,
+        view: &mut ApplicationView,
+        window: &mut gpui::Window,
+        cx: &mut gpui::Context<ApplicationView>,
+    ) -> bool {
+        view.native_event(NativeEvent::Action(TrayAction::Open), window, cx);
+        if let Some(raw) = url {
+            let id = match self.links.receive(&raw) {
+                Ok(id) => id,
+                Err(error) => {
+                    tracing::warn!("Deep link rejected: {error}");
+                    return false;
+                }
+            };
+            view.native_event(NativeEvent::DeepLink { id, raw }, window, cx);
+            let _ = self.links.acknowledge(id);
+        }
+        true
     }
 
     pub fn next(&self) -> Option<NativeEvent> {

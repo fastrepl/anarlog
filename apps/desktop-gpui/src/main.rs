@@ -77,6 +77,10 @@ fn main() -> anyhow::Result<()> {
     else {
         return Ok(());
     };
+    #[cfg(target_os = "linux")]
+    let launch_links = std::rc::Rc::new(launch_links);
+    #[cfg(target_os = "linux")]
+    let launch_poller = std::rc::Rc::downgrade(&launch_links);
     let (runtime, ready) = desktop_gpui::runtime_bridge::start(Profile {
         database: profile.join("library.sqlite"),
     })?;
@@ -134,19 +138,12 @@ fn main() -> anyhow::Result<()> {
                                 view.native_tick(cx);
                                 #[cfg(target_os = "linux")]
                                 if view.accepts_launch_links()
-                                    && let Some(link) = launch_links.pending().next()
+                                    && let Some(links) = launch_poller.upgrade()
+                                    && let Some(request) = links.next()
                                 {
-                                    use desktop_gpui::{
-                                        native_events::NativeEvent, platform::tray::TrayAction,
-                                    };
-                                    view.native_event(
-                                        NativeEvent::Action(TrayAction::Open),
-                                        _window,
-                                        cx,
-                                    );
-                                    if let Some(url) = link {
-                                        events.receive_deep_link(url);
-                                    }
+                                    request.deliver(|url| {
+                                        events.dispatch_launch(url, view, _window, cx)
+                                    });
                                 }
                                 (view.tray_model(), view.update_menu())
                             }) else {
@@ -185,6 +182,9 @@ fn main() -> anyhow::Result<()> {
         }
         cx.activate(true);
     });
+    // Release the listening socket before a replacement process tries to bind it.
+    #[cfg(target_os = "linux")]
+    drop(launch_links);
     if desktop_gpui::platform::windows::restart_requested() {
         let mut command = std::process::Command::new(std::env::current_exe()?);
         #[cfg(target_os = "linux")]
