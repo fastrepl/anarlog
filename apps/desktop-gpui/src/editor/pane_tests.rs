@@ -439,5 +439,33 @@ fn a_rich_paste_into_code_keeps_every_copied_block(cx: &mut TestAppContext) {
         ));
         editor.paste(payload.text, Some(payload.metadata), true, cx);
     });
+    cx.run_until_parked();
     assert_eq!(texts(&editor, cx), ["codeone\n\ntwo"]);
+}
+
+/// Code paste once normalized its text on the foreground thread, stalling the app on a large
+/// clipboard. Prepared off it, the paste lands only where the selection still is.
+#[gpui::test]
+fn a_code_paste_lands_only_if_the_selection_holds_while_it_is_prepared(cx: &mut TestAppContext) {
+    let (fixture, cx) = fixture(
+        cx,
+        vec![json!({"type": "codeBlock", "content": [{"type": "text", "text": "code"}]})],
+    );
+    let editor = fixture.editor.clone();
+    let end = editor.update(cx, |editor, cx| {
+        let model = editor.model.as_mut().unwrap();
+        let end = model.document.edge_caret(true);
+        model.select(super::model::Selection::caret(end));
+        editor.paste("\r\none\rtwo".into(), None, false, cx);
+        end
+    });
+    cx.run_until_parked();
+    assert_eq!(texts(&editor, cx), ["code\none\ntwo"]);
+    editor.update(cx, |editor, cx| {
+        editor.paste("three".into(), None, false, cx);
+        let model = editor.model.as_mut().unwrap();
+        model.select(super::model::Selection::caret(end - 1));
+    });
+    cx.run_until_parked();
+    assert_eq!(texts(&editor, cx), ["code\none\ntwo"]);
 }

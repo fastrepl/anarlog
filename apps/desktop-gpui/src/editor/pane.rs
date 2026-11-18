@@ -1565,44 +1565,50 @@ impl EditorPane {
         rich: bool,
         cx: &mut Context<Self>,
     ) {
-        let Some(model) = &mut self.model else {
+        enum Prepared {
+            Code(String),
+            Slice(Document, bool),
+        }
+        let Some(model) = &self.model else {
             return;
         };
         let revision = model.revision;
         let selection = model.selection;
         self.clipboard_generation += 1;
         let generation = self.clipboard_generation;
-        // Like ProseMirror, code takes the clipboard's plain text, whatever rich content came
-        // with it.
-        if model
+        let code = model
             .document
             .resolve(selection.head)
-            .is_ok_and(|resolved| resolved.node.kind() == "codeBlock")
-        {
-            let text = text.replace("\r\n", "\n").replace('\r', "\n");
-            let result = model.replace(selection.range(), &text);
-            self.edited(revision, result, cx);
-            return;
-        }
+            .is_ok_and(|resolved| resolved.node.kind() == "codeBlock");
         let destination = self.init.document.id.0.clone();
         let job = cx.background_executor().spawn(async move {
-            if let Some(metadata) = metadata { return clipboard::parse_slice(&metadata, &destination); }
-            if rich
-                && let Ok(mut clipboard) = arboard::Clipboard::new()
-                && clipboard.get_text().is_ok_and(|current| current == text)
-                && let Ok(html) = clipboard.get().html()
-            {
-                return super::html::parse(&html);
+            // Like ProseMirror, code takes the clipboard's plain text, whatever rich content came
+            // with it.
+            if code {
+                let text = text.replace("\r\n", "\n").replace('\r', "\n");
+                if text.len() > 1024 * 1024 { return Err("Paste exceeds the 1 MiB transaction limit".into()); }
+                return Ok(Prepared::Code(text));
             }
-            if text.len() > 1024 * 1024 { return Err("Paste exceeds the 1 MiB transaction limit".into()); }
-            let content: Vec<_> = text.split('\n').map(|line| serde_json::json!({
-                "type": "paragraph", "content": if line.is_empty() { Vec::new() }
-                else { vec![serde_json::json!({"type": "text", "text": line.trim_end_matches('\r')})] }
-            })).collect();
-            Document::parse(serde_json::json!({"type":"doc","content":content}).to_string().into()).map(|document| (document, true))
+            let slice = || {
+                if let Some(metadata) = metadata { return clipboard::parse_slice(&metadata, &destination); }
+                if rich
+                    && let Ok(mut clipboard) = arboard::Clipboard::new()
+                    && clipboard.get_text().is_ok_and(|current| current == text)
+                    && let Ok(html) = clipboard.get().html()
+                {
+                    return super::html::parse(&html);
+                }
+                if text.len() > 1024 * 1024 { return Err("Paste exceeds the 1 MiB transaction limit".into()); }
+                let content: Vec<_> = text.split('\n').map(|line| serde_json::json!({
+                    "type": "paragraph", "content": if line.is_empty() { Vec::new() }
+                    else { vec![serde_json::json!({"type": "text", "text": line.trim_end_matches('\r')})] }
+                })).collect();
+                Document::parse(serde_json::json!({"type":"doc","content":content}).to_string().into()).map(|document| (document, true))
+            };
+            slice().map(|(fragment, open)| Prepared::Slice(fragment, open))
         });
         cx.spawn(async move |entity, cx| {
-            let fragment = job.await;
+            let prepared = job.await;
             let _ = entity.update(cx, |this, cx| {
                 if this.clipboard_generation != generation { return; }
                 let Some(model) = &mut this.model else { return; };
@@ -1610,7 +1616,10 @@ impl EditorPane {
                     this.message = "Selection changed while preparing paste. Paste again at the desired position.".into();
                     cx.notify(); return;
                 }
-                let result = fragment.and_then(|(fragment, open)| model.insert_slice(fragment, open));
+                let result = prepared.and_then(|prepared| match prepared {
+                    Prepared::Code(text) => model.replace(selection.range(), &text),
+                    Prepared::Slice(fragment, open) => model.insert_slice(fragment, open),
+                });
                 this.edited(revision, result, cx);
             });
         }).detach();
