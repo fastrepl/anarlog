@@ -293,10 +293,16 @@ impl FoldersView {
                     .as_mut()
                     .filter(|editor| editor.path == for_instructions)
                 {
-                    editor.saved_instructions = text.clone();
-                    editor
-                        .instructions
-                        .update(cx, |input, cx| input.set_text(text.to_string(), cx));
+                    // Text typed before the first read arrives is kept; it saves on blur.
+                    let typed = editor.instructions.read(cx).buffer.text.as_str();
+                    if typed.is_empty() && editor.saved_instructions.is_empty() {
+                        editor.saved_instructions = text.clone();
+                        editor
+                            .instructions
+                            .update(cx, |input, cx| input.set_text(text.to_string(), cx));
+                    } else if typed != editor.saved_instructions.as_ref() {
+                        editor.saved_instructions = text;
+                    }
                 }
             },
             cx,
@@ -1097,5 +1103,75 @@ impl Render for FoldersView {
             .when_some(self.sharing.as_ref(), |view, (dialog, _)| {
                 view.child(list::modal(window, dialog.clone().into_any_element()))
             })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use desktop_runtime::Profile;
+    use futures::executor::block_on;
+
+    use super::*;
+
+    /// The first read of a folder's instructions once replaced text typed while it was pending.
+    #[gpui::test]
+    fn instructions_typed_before_the_first_read_are_not_overwritten(cx: &mut gpui::TestAppContext) {
+        cx.executor().allow_parking();
+        let directory = tempfile::tempdir().unwrap();
+        let (runtime, ready) = RuntimeHandle::start(Profile {
+            database: directory.path().join("library.sqlite"),
+        })
+        .unwrap();
+        block_on(ready.receive()).unwrap();
+        block_on(
+            folders::create(&runtime, "Clients".into())
+                .unwrap()
+                .receive(),
+        )
+        .unwrap();
+        let stored = Update::Instructions("Stored context".into());
+        block_on(
+            folders::update(&runtime, "Clients".into(), stored)
+                .unwrap()
+                .receive(),
+        )
+        .unwrap();
+        // Hold the database queue so the instructions read is still pending while typing.
+        let (release, held) = futures::channel::oneshot::channel::<()>();
+        let hold = runtime
+            .submit(|_| async move {
+                let _ = held.await;
+                Ok(())
+            })
+            .unwrap();
+        let view = cx.new(|cx| FoldersView::new(runtime.clone(), cx));
+        view.update(cx, |view, cx| {
+            let editor = view.build_editor("Clients".into(), cx);
+            editor
+                .instructions
+                .update(cx, |input, cx| input.set_text("Typed context".into(), cx));
+            view.editor = Some(editor);
+        });
+        release.send(()).unwrap();
+        block_on(hold.receive()).unwrap();
+        block_on(runtime.flush().unwrap().receive()).unwrap();
+        cx.run_until_parked();
+        view.update(cx, |view, cx| {
+            let editor = view.editor.as_ref().unwrap();
+            assert_eq!(
+                editor.instructions.read(cx).buffer.text.as_str(),
+                "Typed context"
+            );
+            view.commit_instructions(cx);
+        });
+        block_on(runtime.flush().unwrap().receive()).unwrap();
+        let saved = block_on(
+            folders::instructions(&runtime, "Clients".into())
+                .unwrap()
+                .receive(),
+        )
+        .unwrap();
+        assert_eq!(saved.as_ref(), "Typed context");
+        block_on(runtime.shutdown()).unwrap();
     }
 }
