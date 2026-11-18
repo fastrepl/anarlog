@@ -109,6 +109,17 @@ pub struct RuntimeHandle {
     shutdown_requested: CancellationToken,
     state: state::Receiver<RuntimeState>,
     metrics: Arc<metrics::Metrics>,
+    _owner: Arc<Owner>,
+}
+
+/// Requests shutdown once the last handle is dropped. `Services` keeps its own database sender so
+/// draining service jobs can still record, so the channel no longer closes when handles go away.
+struct Owner(CancellationToken);
+
+impl Drop for Owner {
+    fn drop(&mut self) {
+        self.0.cancel();
+    }
 }
 
 impl RuntimeHandle {
@@ -125,6 +136,7 @@ impl RuntimeHandle {
             shutdown_requested: shutdown_requested.clone(),
             state,
             metrics: Arc::new(metrics::Metrics::default()),
+            _owner: Arc::new(Owner(shutdown_requested.clone())),
         };
         let worker_metrics = handle.metrics.clone();
         let database = handle.sender.clone();

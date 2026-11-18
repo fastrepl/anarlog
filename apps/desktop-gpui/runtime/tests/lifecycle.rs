@@ -72,6 +72,43 @@ async fn incompatible_schema_and_cloudsync_are_rejected_before_bootstrap() {
     }
 }
 
+// Service jobs hold their own database sender, so dropping the last handle has to request
+// shutdown itself, or the runtime keeps running and its profile stays locked.
+#[tokio::test]
+async fn dropping_the_last_handle_releases_the_profile_while_a_service_waits() {
+    let dir = tempfile::tempdir().unwrap();
+    let profile = Profile {
+        database: dir.path().join("library.sqlite"),
+    };
+    let runtime = open(&profile).await;
+    let (started, ready) = oneshot::channel();
+    let service = runtime
+        .service(move |services| async move {
+            let _ = started.send(());
+            services.shutdown_requested.cancelled().await;
+            Ok(())
+        })
+        .unwrap();
+    ready.await.unwrap();
+    drop(runtime);
+    tokio::time::timeout(Duration::from_secs(5), service.receive())
+        .await
+        .expect("the waiting service ends")
+        .unwrap();
+    let reopened = tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            let (runtime, ready) = RuntimeHandle::start(profile.clone()).unwrap();
+            if ready.receive().await.is_ok() {
+                return runtime;
+            }
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+    })
+    .await
+    .expect("the profile is released");
+    reopened.shutdown().await.unwrap();
+}
+
 #[tokio::test]
 async fn service_jobs_do_not_block_database_and_finish_before_flush() {
     let dir = tempfile::tempdir().unwrap();
