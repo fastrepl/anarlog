@@ -257,14 +257,25 @@ export async function importSharedFolder(
   userId: string,
 ): Promise<string> {
   const root = await availableFolderPath(payload.path);
+  // Session creation files an invalid path (such as one now over the length limit) as unfiled,
+  // so check every destination before creating anything.
+  const folderPaths = payload.notes.map((note) => {
+    const folderPath = note.relativeFolderPath
+      ? `${root}/${note.relativeFolderPath}`
+      : root;
+    if (normalizeFolderPath(folderPath) !== folderPath) {
+      throw new Error(
+        "A note in this shared folder is nested too deeply to import",
+      );
+    }
+    return folderPath;
+  });
   await createNamedFolder(root);
   if (payload.instructions) {
     await updateFolderInstructions(root, payload.instructions);
   }
-  for (const note of payload.notes) {
-    const folderPath = note.relativeFolderPath
-      ? `${root}/${note.relativeFolderPath}`
-      : root;
+  for (const [index, note] of payload.notes.entries()) {
+    const folderPath = folderPaths[index];
     await createSession(note.title, userId, {
       folder_id: folderPath,
       raw_md: JSON.stringify(note.body),

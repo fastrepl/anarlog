@@ -1,10 +1,23 @@
 import { describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ execute: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  createNamedFolder: vi.fn(),
+  createSession: vi.fn(),
+  execute: vi.fn(),
+}));
 
 vi.mock("~/db", () => ({
   liveQueryClient: { execute: mocks.execute },
   useLiveQuery: () => ({ data: [] }),
+}));
+
+vi.mock("~/session/folder-catalog", () => ({
+  createNamedFolder: mocks.createNamedFolder,
+  updateFolderInstructions: vi.fn(),
+}));
+
+vi.mock("~/session/queries/creation", () => ({
+  createSession: mocks.createSession,
 }));
 
 import {
@@ -12,6 +25,7 @@ import {
   parseSharedFolderPayload,
   parseSharedTemplatePayload,
   sharedAutomationPayload,
+  importSharedFolder,
   sharedFolderPayload,
   sharedTemplatePayload,
 } from "./payloads";
@@ -137,6 +151,25 @@ describe("shared resource payloads", () => {
       (payload.notes as { relativeFolderPath: string }[])[0]
         ?.relativeFolderPath,
     ).toBe(relative);
+  });
+
+  it("refuses to import a copy whose nested folder no longer fits, before creating anything", async () => {
+    mocks.execute.mockResolvedValue([]);
+    const relative = ["a", "b", "c"].map((c) => c.repeat(64)).join("/");
+
+    await expect(
+      importSharedFolder(
+        {
+          version: 1,
+          path: "Archived",
+          instructions: "",
+          notes: [{ title: "Deep", relativeFolderPath: relative, body: {} }],
+        },
+        "user-1",
+      ),
+    ).rejects.toThrow("nested too deeply");
+    expect(mocks.createNamedFolder).not.toHaveBeenCalled();
+    expect(mocks.createSession).not.toHaveBeenCalled();
   });
 
   it("accepts nested folder copies but rejects path traversal", () => {
