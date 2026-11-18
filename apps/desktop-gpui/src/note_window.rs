@@ -255,6 +255,14 @@ impl NoteWindow {
 impl Render for NoteWindow {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let colors = theme(window);
+        // Shipping wraps every window in `AppLockGate`; the note and its chat hide with the app.
+        if let Some(gate) = crate::application::lock::gate(window, cx) {
+            return div()
+                .id("note-window")
+                .size_full()
+                .font_family(system_font(cx))
+                .child(gate);
+        }
         let route = Route::Session(self.id.clone());
         div()
             .id("note-window")

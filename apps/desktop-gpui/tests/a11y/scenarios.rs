@@ -489,3 +489,82 @@ fn transcript_segments_read_as_speaker_and_text() {
     }
     assert_named(&tree, "transcript");
 }
+
+#[test]
+fn a_standalone_note_window_locks_with_the_app() {
+    use desktop_gpui::{application::lock, platform::device_auth, product::settings};
+
+    struct Approve;
+
+    impl device_auth::DeviceAuth for Approve {
+        fn available(&self) -> bool {
+            true
+        }
+
+        fn authenticate(&self, _: &str) -> futures::channel::oneshot::Receiver<bool> {
+            let (sender, receiver) = futures::channel::oneshot::channel();
+            let _ = sender.send(true);
+            receiver
+        }
+    }
+
+    let app = Harness::start();
+    app.app.update(|cx| {
+        cx.set_global(device_auth::Installed(std::sync::Arc::new(Approve)));
+        lock::refresh_availability(cx);
+    });
+    let stored = futures::executor::block_on(async {
+        let watch = settings::watch(&app.runtime)
+            .unwrap()
+            .receive()
+            .await
+            .unwrap();
+        let snapshot = settings::decode(&watch.snapshots.borrow().rows).unwrap();
+        watch.unsubscribe().await.unwrap();
+        snapshot
+    });
+    let base = stored["lock_app"].clone();
+    futures::executor::block_on(
+        settings::save(&app.runtime, "lock_app".into(), base, true.into())
+            .unwrap()
+            .receive(),
+    )
+    .unwrap();
+    // The launch prompt unlocks the app; then the note opens in its own window.
+    app.settle();
+    app.app.update(|cx| {
+        app.window
+            .update(cx, |root, _, cx| {
+                root.workspace().clone().update(cx, |_, cx| {
+                    cx.emit(desktop_gpui::workspace::WorkspaceAction::OpenNoteWindow(
+                        SessionId("s-sync".into()),
+                    ))
+                })
+            })
+            .unwrap()
+    });
+    app.settle();
+    let main: gpui::AnyWindowHandle = app.window.into();
+    let note = app
+        .app
+        .update(|cx| cx.windows().into_iter().find(|window| *window != main))
+        .expect("the note window");
+    let title = |tree: &crate::tree::Tree| {
+        tree.root()
+            .items(Role::TextInput)
+            .iter()
+            .any(|input| input.value() == Some("Weekly product sync"))
+    };
+    assert!(
+        title(&app.window_tree(note)),
+        "{}",
+        app.window_tree(note).outline()
+    );
+
+    // Closing the main window locks the app, and the note window with it.
+    app.app.update(lock::main_hidden);
+    app.settle();
+    let tree = app.window_tree(note);
+    tree.find(Role::Heading, "Anarlog is Locked");
+    assert!(!title(&tree), "{}", tree.outline());
+}
