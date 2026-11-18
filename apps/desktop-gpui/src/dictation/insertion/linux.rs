@@ -4,6 +4,7 @@ use atspi::{
     AccessibilityConnection, Interface, ObjectRef, Role, State, StateSet,
     proxy::{
         accessible::{AccessibleProxy, ObjectRefExt},
+        application::ApplicationProxy,
         editable_text::EditableTextProxy,
         text::TextProxy,
     },
@@ -23,6 +24,7 @@ impl Insertion for NativeInsertion {
         run(async {
             let connection = AccessibilityConnection::new().await.map_err(failed)?;
             let target = focused_field(&connection).await?;
+            check_toolkit(&target, &connection).await?;
             serde_json::to_string(&target).map_err(failed)
         })
     }
@@ -113,6 +115,33 @@ async fn editable(proxy: &AccessibleProxy<'_>, states: StateSet) -> Result<bool>
     Ok(interfaces.contains(Interface::EditableText) && interfaces.contains(Interface::Text))
 }
 
+async fn check_toolkit(target: &ObjectRef, connection: &AccessibilityConnection) -> Result<()> {
+    let accessible = target
+        .as_accessible_proxy(connection.connection())
+        .await
+        .map_err(failed)?;
+    let app = accessible.get_application().await.map_err(failed)?;
+    let toolkit = ApplicationProxy::builder(connection.connection())
+        .destination(app.name)
+        .map_err(failed)?
+        .path(app.path)
+        .map_err(failed)?
+        .cache_properties(CacheProperties::No)
+        .build()
+        .await
+        .map_err(failed)?
+        .toolkit_name()
+        .await
+        .map_err(failed)?;
+    // Qt can resize the transcript and rewrite the entire field when inserting via AT-SPI.
+    if toolkit.eq_ignore_ascii_case("Qt") {
+        return Err(failed(
+            "Dictation insertion is unavailable in Qt text fields.",
+        ));
+    }
+    Ok(())
+}
+
 async fn insert(target: ObjectRef, text: &str) -> Result<()> {
     let connection = AccessibilityConnection::new().await.map_err(failed)?;
     if focused_field(&connection)
@@ -122,6 +151,7 @@ async fn insert(target: ObjectRef, text: &str) -> Result<()> {
     {
         return Err(failed(FIELD_CHANGED));
     }
+    check_toolkit(&target, &connection).await?;
     let accessible = target
         .as_accessible_proxy(connection.connection())
         .await
