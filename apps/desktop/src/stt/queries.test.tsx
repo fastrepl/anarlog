@@ -336,6 +336,38 @@ describe("transcript SQLite queries", () => {
     );
   });
 
+  it("keeps the remote participant query valid SQLite so speaker context and participant lookups do not fail with a syntax error", async () => {
+    const db = new DatabaseSync(":memory:");
+    try {
+      db.exec(`
+        CREATE TABLE sessions (id TEXT PRIMARY KEY, owner_user_id TEXT);
+        CREATE TABLE humans (id TEXT PRIMARY KEY, email TEXT, metadata_json TEXT, deleted_at TEXT);
+        CREATE TABLE session_participants (session_id TEXT, human_id TEXT, email TEXT, source TEXT, deleted_at TEXT);
+      `);
+      db.prepare("INSERT INTO sessions VALUES (?, ?)").run("session-1", "me");
+      const human = db.prepare("INSERT INTO humans VALUES (?, ?, ?, NULL)");
+      human.run("me", "me@example.com", '{"additionalEmails":["me@work.com"]}');
+      human.run("me-calendar", "me@example.com", "{}");
+      human.run("me-work", "me@work.com", "{}");
+      human.run("bob", "bob@example.com", "{}");
+      const participant = db.prepare(
+        "INSERT INTO session_participants VALUES ('session-1', ?, '', 'manual', NULL)",
+      );
+      for (const id of ["me", "me-calendar", "me-work", "bob"]) {
+        participant.run(id);
+      }
+      mocks.execute.mockImplementationOnce((sql: string, params: string[]) =>
+        Promise.resolve(db.prepare(sql).all(...params)),
+      );
+
+      await expect(getSessionParticipantHumanIds("session-1")).resolves.toEqual(
+        ["bob"],
+      );
+    } finally {
+      db.close();
+    }
+  });
+
   it("returns no named humans without querying when there are no ids", async () => {
     await expect(getTranscriptHumans([])).resolves.toEqual([]);
     expect(mocks.execute).not.toHaveBeenCalled();
