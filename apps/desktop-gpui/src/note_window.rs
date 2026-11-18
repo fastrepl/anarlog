@@ -209,6 +209,10 @@ impl NoteWindow {
         self.flush(true, cx)
     }
 
+    pub fn note(&self) -> Entity<NoteView> {
+        self.note.clone()
+    }
+
     pub fn resume(&mut self, cx: &mut Context<Self>) {
         self.paused = false;
         cx.notify();

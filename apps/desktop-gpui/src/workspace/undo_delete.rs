@@ -20,6 +20,8 @@ use super::{
 use crate::{
     application::toasts,
     contracts::{MeetingIntent, WorkspaceEvent},
+    editor::persistence::Flush,
+    note_window::NoteWindow,
     product::sharing::SharingCloud,
 };
 
@@ -176,10 +178,40 @@ impl Pending {
 }
 
 impl WorkspaceView {
-    /// Shipping's single delete: no confirmation, an Undo toast instead.
+    /// Shipping's single delete: no confirmation, an Undo toast instead. Edits still waiting
+    /// on the save debounce are saved first: the tombstone rejects later saves, and Undo would
+    /// restore the older body.
     pub(super) fn delete_notes(&mut self, ids: &[SessionId], batch: bool, cx: &mut Context<Self>) {
-        let ids = ids
-            .iter()
+        let ids = self.not_deleting(ids);
+        if ids.is_empty() {
+            return;
+        }
+        let flushes = self.flush_drafts(&ids, cx);
+        if flushes.is_empty() {
+            self.tombstone(&ids, batch, cx);
+            return;
+        }
+        cx.spawn(async move |this, cx| {
+            let mut saved = true;
+            for flush in flushes {
+                saved &= matches!(flush.await, Ok(Ok(())));
+            }
+            let _ = this.update(cx, |this, cx| {
+                if saved {
+                    this.tombstone(&ids, batch, cx);
+                } else {
+                    toasts::error(
+                        "Could not save this note's latest edits, so it was not deleted.",
+                        cx,
+                    );
+                }
+            });
+        })
+        .detach();
+    }
+
+    fn not_deleting(&self, ids: &[SessionId]) -> Vec<SessionId> {
+        ids.iter()
             .filter(|id| {
                 !self
                     .deletions
@@ -187,7 +219,26 @@ impl WorkspaceView {
                     .any(|pending| pending.notes.iter().any(|(pending, _)| pending == *id))
             })
             .cloned()
-            .collect::<Vec<_>>();
+            .collect()
+    }
+
+    /// Starts saving the notes' drafts in this window and in their note windows.
+    fn flush_drafts(&mut self, ids: &[SessionId], cx: &mut Context<Self>) -> Vec<Flush> {
+        let mut flushes = self.note.update(cx, |note, cx| note.flush_drafts(ids, cx));
+        for window in cx.windows() {
+            if let Some(note) = window
+                .downcast::<NoteWindow>()
+                .and_then(|window| window.read(cx).ok().map(|view| view.note()))
+            {
+                flushes.extend(note.update(cx, |note, cx| note.flush_drafts(ids, cx)));
+            }
+        }
+        flushes
+    }
+
+    fn tombstone(&mut self, ids: &[SessionId], batch: bool, cx: &mut Context<Self>) {
+        // A repeat delete may have started while the drafts saved.
+        let ids = self.not_deleting(ids);
         if ids.is_empty() {
             return;
         }
@@ -478,5 +529,121 @@ impl WorkspaceView {
         self.library
             .update(cx, |library, cx| library.clear_selection(cx));
         cx.notify();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use desktop_runtime::{CancellationToken, Profile};
+    use futures::executor::block_on;
+    use gpui::{AppContext as _, VisualTestContext};
+    use serde_json::json;
+
+    use super::*;
+    use crate::{
+        contracts::{EditorInit, LaneContext},
+        editor::EditorPane,
+    };
+
+    // Saves and the tombstone run on the runtime's threads; allow for a loaded CI machine.
+    fn settle(cx: &mut VisualTestContext, done: impl Fn(&mut VisualTestContext) -> bool) {
+        for _ in 0..2000 {
+            cx.run_until_parked();
+            if done(cx) {
+                return;
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        panic!("timed out");
+    }
+
+    fn deleted(runtime: &RuntimeHandle, id: &SessionId) -> bool {
+        let id = id.clone();
+        let reply = runtime
+            .submit(move |services| async move {
+                let rows = services
+                    .executor
+                    .execute(
+                        "SELECT deleted_at FROM sessions WHERE id = ?".into(),
+                        vec![json!(id.0)],
+                    )
+                    .await
+                    .map_err(failure)?;
+                Ok(!rows[0]["deleted_at"].is_null())
+            })
+            .unwrap();
+        block_on(reply.receive()).unwrap()
+    }
+
+    /// Deleting a note within the save debounce of an edit lost the edit: its save ran after
+    /// the tombstone and was rejected, so Undo restored the older body.
+    #[gpui::test]
+    fn deleting_a_note_saves_its_pending_edit_first(cx: &mut gpui::TestAppContext) {
+        cx.executor().allow_parking();
+        let directory = tempfile::tempdir().unwrap();
+        let (runtime, ready) = RuntimeHandle::start(Profile {
+            database: directory.path().join("library.sqlite"),
+        })
+        .unwrap();
+        let cx = cx.add_empty_window();
+        let context = || LaneContext {
+            runtime: runtime.clone(),
+        };
+        let workspace =
+            cx.update(|window, cx| cx.new(|cx| WorkspaceView::new(context(), ready, window, cx)));
+        settle(cx, |_| {
+            matches!(
+                *runtime.state().borrow(),
+                desktop_runtime::RuntimeState::Ready
+            )
+        });
+        let open = block_on(runtime.create_note("Draft".into()).unwrap().receive()).unwrap();
+        let session = open.summary.id.clone();
+        workspace.update(cx, |workspace, cx| {
+            workspace.open_session(session.clone(), cx)
+        });
+        settle(cx, |cx| {
+            workspace.read_with(cx, |workspace, cx| {
+                workspace.note.read(cx).session_id() == Some(&session)
+            })
+        });
+        let editor = cx.update(|window, cx| {
+            let init = EditorInit {
+                session_id: session.clone(),
+                document: open.note.clone().unwrap(),
+                return_focus: cx.focus_handle(),
+            };
+            cx.new(|cx| EditorPane::new(context(), init, window, cx))
+        });
+        workspace.update(cx, |workspace, cx| {
+            workspace.set_editor_content(&session, editor.clone().into(), cx)
+        });
+        settle(cx, |cx| {
+            editor.read_with(cx, |editor, _| editor.is_pristine())
+        });
+        let body = json!({"type": "doc", "content": [
+            {"type": "paragraph", "content": [{"type": "text", "text": "Typed just now"}]}
+        ]});
+        editor.update(cx, |editor, cx| {
+            editor.replace_content(&body.to_string(), cx)
+        });
+        workspace.update(cx, |workspace, cx| {
+            workspace.delete_notes(std::slice::from_ref(&session), false, cx)
+        });
+        settle(cx, |_| deleted(&runtime, &session));
+        workspace.update(cx, |workspace, cx| workspace.undo_deletion(&session.0, cx));
+        settle(cx, |_| !deleted(&runtime, &session));
+        let restored = block_on(
+            runtime
+                .open_session(session.clone(), CancellationToken::new())
+                .unwrap()
+                .receive(),
+        )
+        .unwrap();
+        assert!(restored.note.unwrap().body.contains("Typed just now"));
+        drop(editor);
+        block_on(runtime.shutdown()).unwrap();
     }
 }

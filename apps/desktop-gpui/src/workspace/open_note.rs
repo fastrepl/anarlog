@@ -1011,6 +1011,36 @@ impl NoteView {
         self.current.as_ref().map(|session| &session.summary.id)
     }
 
+    /// The shown note's memo and summary editors.
+    fn editors(&self) -> Vec<Entity<EditorPane>> {
+        self.content
+            .clone()
+            .and_then(|content| content.downcast::<EditorPane>().ok())
+            .into_iter()
+            .chain(
+                self.summary_editors
+                    .values()
+                    .map(|summary| summary.editor.clone()),
+            )
+            .collect()
+    }
+
+    /// When the shown note is one of `ids`, starts saving its title and unsaved editor drafts,
+    /// so they land before a deletion's tombstone, which rejects later saves.
+    pub fn flush_drafts(&mut self, ids: &[SessionId], cx: &mut Context<Self>) -> Vec<Flush> {
+        if !self.session_id().is_some_and(|id| ids.contains(id)) {
+            return Vec::new();
+        }
+        self.rename(cx);
+        let mut flushes = Vec::new();
+        for editor in self.editors() {
+            if editor.read(cx).is_dirty() {
+                flushes.push(editor.update(cx, |editor, _| editor.flush()));
+            }
+        }
+        flushes
+    }
+
     /// The summary the note shows, which chat edits and corrections target by default.
     pub fn shown_summary(&self) -> Option<Arc<str>> {
         self.current.as_ref()?;
@@ -1262,15 +1292,8 @@ impl NoteView {
         };
         let runtime = self.runtime.clone();
         let editors = self
-            .content
-            .clone()
-            .and_then(|content| content.downcast::<EditorPane>().ok())
-            .into_iter()
-            .chain(
-                self.summary_editors
-                    .values()
-                    .map(|summary| summary.editor.clone()),
-            )
+            .editors()
+            .iter()
             .map(|editor| editor.downgrade())
             .collect();
         let modal = cx.new(|cx| {
