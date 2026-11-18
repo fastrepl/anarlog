@@ -35,7 +35,7 @@ use crate::{
         capture::{CaptureService, Phase},
         host::{self, MeetingHost},
         playback::{self, Playback},
-        recovery,
+        recovery, retention,
     },
     product::{
         OpenWorkspaceSection, ProductPane,
@@ -351,6 +351,7 @@ impl ApplicationView {
                         cx.set_global(voice);
                     }
                     let vault = services.vault.clone();
+                    this.start_retention(vault.clone(), services.capture.activities.clone(), cx);
                     this.services = Some(services);
                     let calendar = crate::workspace::calendar_accounts::HostCalendarAccounts::new(
                         this.runtime.clone(),
@@ -924,6 +925,35 @@ impl ApplicationView {
                     }
                 }
             });
+        })
+        .detach();
+    }
+
+    /// Shipping's audio retention sweep: once after startup recovery, then every minute.
+    fn start_retention(
+        &self,
+        vault: PathBuf,
+        activities: retention::Activities,
+        cx: &mut Context<Self>,
+    ) {
+        let runtime = self.runtime.clone();
+        cx.spawn(async move |this, cx| {
+            loop {
+                let (work, vault, activities) =
+                    (runtime.clone(), vault.clone(), activities.clone());
+                let reply = runtime.service(move |_| async move {
+                    retention::sweep(&work, vault, activities).await
+                });
+                match async { reply?.receive().await }.await {
+                    Err(ServiceError::Closed) => break,
+                    Err(error) => tracing::warn!(%error, "audio retention sweep failed"),
+                    Ok(()) => {}
+                }
+                cx.background_executor().timer(retention::SWEEP_EVERY).await;
+                if this.update(cx, |_, _| ()).is_err() {
+                    break;
+                }
+            }
         })
         .detach();
     }

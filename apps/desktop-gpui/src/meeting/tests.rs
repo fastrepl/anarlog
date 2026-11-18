@@ -1261,7 +1261,7 @@ async fn retention_honors_activity_and_preserves_non_audio_data() {
             &fixture.runtime,
             fixture.directory.clone(),
             activities.clone(),
-            Retention::Never,
+            Retention::Days(1),
             i64::MAX
         )
         .await
@@ -1275,7 +1275,7 @@ async fn retention_honors_activity_and_preserves_non_audio_data() {
             &fixture.runtime,
             fixture.directory.clone(),
             activities,
-            Retention::Never,
+            Retention::Days(1),
             i64::MAX
         )
         .await
@@ -1305,6 +1305,46 @@ async fn retention_honors_activity_and_preserves_non_audio_data() {
             .await
             .is_ok()
     );
+    fixture.close().await;
+}
+
+#[tokio::test]
+async fn retention_sweep_deletes_recordings_older_than_the_chosen_policy() {
+    let fixture = Fixture::new().await;
+    let fresh = fixture
+        .runtime
+        .create_note("Fresh meeting".into())
+        .unwrap()
+        .receive()
+        .await
+        .unwrap()
+        .summary
+        .id;
+    fixture
+        .sql(
+            "UPDATE sessions SET created_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-2 days') WHERE id = ?",
+            vec![json!(fixture.session)],
+        )
+        .await;
+    let audio = |session: &SessionId| {
+        let directory = super::retention::session_directory(&fixture.directory, session).unwrap();
+        std::fs::create_dir_all(&directory).unwrap();
+        std::fs::write(directory.join("audio.mp3"), b"audio").unwrap();
+        directory.join("audio.mp3")
+    };
+    let (old, new) = (audio(&fixture.session), audio(&fresh));
+    for (policy, kept) in [("oneDay", [false, true]), ("none", [false, true])] {
+        fixture.setting("audio_retention", json!(policy)).await;
+        super::retention::sweep(
+            &fixture.runtime,
+            fixture.directory.clone(),
+            Activities::default(),
+        )
+        .await
+        .unwrap();
+        // "Don't save" never deletes audio that hasn't been transcribed yet.
+        assert_eq!([old.exists(), new.exists()], kept, "{policy}");
+    }
     fixture.close().await;
 }
 
