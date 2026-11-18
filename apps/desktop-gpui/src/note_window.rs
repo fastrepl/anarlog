@@ -112,6 +112,13 @@ impl NoteWindow {
                     _ => {}
                 },
             ),
+            // Summary editors' links and chips go where the memo's do.
+            cx.subscribe(&note, |_, _, event: &EditorEvent, cx| {
+                cx.emit(event.clone())
+            }),
+            cx.subscribe(&note, |_, _, event: &EditorRequest, cx| {
+                cx.emit(event.clone())
+            }),
         ];
         note.update(cx, |note, cx| note.show(session, cx));
         Self {
@@ -179,14 +186,21 @@ impl NoteWindow {
         if self.note.read(cx).has_unsaved_title(cx) {
             return Box::pin(async { Err(ServiceError::Busy) });
         }
-        let Some(editor) = &self.editor else {
-            return Box::pin(async { Ok(()) });
-        };
-        let flush = editor.update(cx, |editor, cx| {
-            editor.set_read_only(read_only, cx);
-            editor.flush()
-        });
-        Box::pin(async move { flush.await.map_err(|_| ServiceError::Closed)? })
+        let mut flushes = self
+            .note
+            .update(cx, |note, cx| note.flush_summaries(read_only, cx));
+        if let Some(editor) = &self.editor {
+            flushes.push(editor.update(cx, |editor, cx| {
+                editor.set_read_only(read_only, cx);
+                editor.flush()
+            }));
+        }
+        Box::pin(async move {
+            for flush in flushes {
+                flush.await.map_err(|_| ServiceError::Closed)??;
+            }
+            Ok(())
+        })
     }
 
     pub fn pause(&mut self, cx: &mut Context<Self>) -> BoxFuture<'static, Result<()>> {
@@ -201,6 +215,7 @@ impl NoteWindow {
         if let Some(editor) = &self.editor {
             editor.update(cx, |editor, cx| editor.set_read_only(false, cx));
         }
+        self.note.update(cx, |note, cx| note.resume_summaries(cx));
     }
 
     fn close(&mut self, window: &mut Window, cx: &mut Context<Self>) {

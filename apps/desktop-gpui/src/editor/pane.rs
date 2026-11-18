@@ -1031,10 +1031,21 @@ impl EditorPane {
     }
 
     pub fn configure_attachments(&mut self, vault: std::path::PathBuf, cx: &mut Context<Self>) {
-        self.attachment_service = Some(super::AttachmentService::new(
-            self.context.runtime.clone(),
-            vault,
-        ));
+        let service = super::AttachmentService::new(self.context.runtime.clone(), vault);
+        self.set_attachment_service(service, cx);
+    }
+
+    /// The note's attachments, which its summary editors share with the memo.
+    pub fn attachment_service(&self) -> Option<super::AttachmentService> {
+        self.attachment_service.clone()
+    }
+
+    pub fn set_attachment_service(
+        &mut self,
+        service: super::AttachmentService,
+        cx: &mut Context<Self>,
+    ) {
+        self.attachment_service = Some(service);
         self.attachment_previews.clear();
         cx.notify();
     }
@@ -1593,21 +1604,17 @@ impl EditorPane {
     fn fetch_conflict(&mut self, cx: &mut Context<Self>) {
         self.external_generation += 1;
         let generation = self.external_generation;
-        let reply = self
-            .context
-            .runtime
-            .open_session(self.init.session_id.clone(), CancellationToken::new());
+        // This editor's own document: a summary's conflict is never the session's memo.
+        let load =
+            super::services::stored(self.context.runtime.clone(), self.init.document.clone());
         cx.spawn(async move |entity, cx| {
-            let result = match reply {
-                Ok(reply) => reply.receive().await,
-                Err(error) => Err(error),
-            };
+            let result = load.await;
             let _ = entity.update(cx, |this, cx| {
                 if this.external_generation != generation {
                     return;
                 }
                 match result {
-                    Ok(session) => this.external = session.note,
+                    Ok(snapshot) => this.external = snapshot,
                     Err(error) => {
                         this.message =
                             format!("Draft retained. Cannot load the conflicting revision: {error}")

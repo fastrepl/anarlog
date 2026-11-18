@@ -1352,6 +1352,8 @@ impl ApplicationView {
             .as_ref()
             .filter(|editor| editor.read(cx).is_dirty())
             .map(|editor| editor.update(cx, |editor, _| editor.flush()));
+        let note = self.workspace.read(cx).note().clone();
+        let summaries = note.update(cx, |note, cx| note.flush_summaries(true, cx));
         let notes = self
             .note_windows
             .values()
@@ -1372,6 +1374,7 @@ impl ApplicationView {
         cx.spawn(async move |this, cx| {
             let result: desktop_runtime::Result<()> = async {
                 if let Some(flush) = flush { flush.await.map_err(|_| ServiceError::Closed)??; }
+                for flush in summaries { flush.await.map_err(|_| ServiceError::Closed)??; }
                 for flush in notes { flush.await?; }
                 if let Some(services) = services {
                     services.playback.send(playback::Command::Pause)?;
@@ -1411,6 +1414,7 @@ impl ApplicationView {
                     // A storage move holds its pause until the relaunch.
                     if !this.writers_paused {
                         if let Some(editor) = &this.editor { editor.update(cx, |editor, cx| editor.set_read_only(false, cx)); }
+                        note.update(cx, |note, cx| note.resume_summaries(cx));
                         for window in this.note_windows.values() { let _ = window.update(cx, |view, _, cx| view.resume(cx)); }
                     }
                     toasts::dismiss("quit", cx);

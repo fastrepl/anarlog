@@ -65,7 +65,8 @@ struct Entry {
 pub(super) struct Versions {
     conflicts: Vec<Conflict>,
     cancel: CancellationToken,
-    /// The memo's save conflict, mirrored so the banner re-renders only when it changes.
+    /// The memo's save conflict, mirrored so the banner re-renders only when it changes (summary
+    /// editors mirror theirs in `SummaryEditor`).
     memo_conflict: bool,
     memo_observer: Option<Subscription>,
     busy: bool,
@@ -128,8 +129,21 @@ impl NoteView {
         }));
     }
 
-    fn memo(&self) -> Option<Entity<EditorPane>> {
+    pub(super) fn memo(&self) -> Option<Entity<EditorPane>> {
         self.content.clone()?.downcast::<EditorPane>().ok()
+    }
+
+    /// The note's editors whose save lost to another revision: the memo, then its summaries.
+    pub(super) fn conflicted_editors(&self, cx: &gpui::App) -> Vec<Entity<EditorPane>> {
+        self.memo()
+            .into_iter()
+            .chain(
+                self.summary_editors
+                    .values()
+                    .map(|summary| summary.editor.clone()),
+            )
+            .filter(|editor| editor.read(cx).save_conflict())
+            .collect()
     }
 
     pub(super) fn open_history(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -191,12 +205,12 @@ impl NoteView {
     }
 
     /// "Keep this version": the shown note stays; its open conflicts are dismissed.
-    fn keep_this_version(&mut self, cx: &mut Context<Self>) {
+    pub(super) fn keep_this_version(&mut self, cx: &mut Context<Self>) {
         let Some(session) = &self.current else {
             return;
         };
-        if let Some(memo) = self.memo().filter(|memo| memo.read(cx).save_conflict()) {
-            memo.update(cx, |memo, cx| memo.keep_draft(cx));
+        for editor in self.conflicted_editors(cx) {
+            editor.update(cx, |editor, cx| editor.keep_draft(cx));
         }
         if self.versions.conflicts.is_empty() {
             return;
@@ -207,8 +221,8 @@ impl NoteView {
 
     /// "Use the other version": the newest conflicting value replaces the shown one.
     fn use_other_version(&mut self, cx: &mut Context<Self>) {
-        if let Some(memo) = self.memo().filter(|memo| memo.read(cx).save_conflict()) {
-            memo.update(cx, |memo, cx| memo.use_external(cx));
+        if let Some(editor) = self.conflicted_editors(cx).into_iter().next() {
+            editor.update(cx, |editor, cx| editor.use_external(cx));
             return;
         }
         let (Some(session), Some(conflict)) = (&self.current, self.versions.conflicts.first())
@@ -345,7 +359,7 @@ impl NoteView {
         cx: &mut Context<Self>,
     ) -> Option<AnyElement> {
         let synced = !self.versions.conflicts.is_empty();
-        if !synced && !self.versions.memo_conflict {
+        if !synced && self.conflicted_editors(cx).is_empty() {
             return None;
         }
         let dark = is_dark(colors);
