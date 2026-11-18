@@ -365,6 +365,26 @@ fn onboarding_steps_have_headings_and_named_actions() {
         assert!(!tree.root().items(Role::Heading).is_empty(), "{step:?}");
     }
     app.tree().find(Role::Button, "Open Anarlog");
+    // A freshly connected account's calendars start disabled; onboarding lists them to enable.
+    preview(
+        Step::Calendar,
+        State {
+            enabled_calendars: 0,
+            calendars: vec![desktop_gpui::workspace::calendar_sidebar::CalendarRow {
+                id: "work".into(),
+                name: "Work".into(),
+                enabled: false,
+                provider: "google".into(),
+                source: "ada@example.com".into(),
+                color: "".into(),
+                connection: "google-1".into(),
+            }],
+            google_connected: true,
+            ..granted.clone()
+        },
+    );
+    app.settle();
+    app.tree().find(Role::CheckBox, "Work");
 }
 
 #[test]

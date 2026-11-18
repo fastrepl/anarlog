@@ -190,7 +190,7 @@ pub(crate) fn parse_instant(value: &str) -> Option<DateTime<Utc>> {
         })
 }
 
-pub(super) fn parse_color(value: &str) -> Option<Hsla> {
+pub(crate) fn parse_color(value: &str) -> Option<Hsla> {
     let hex = value.trim().strip_prefix('#')?;
     let expanded = match hex.len() {
         3 => hex.chars().flat_map(|c| [c, c]).collect::<String>(),
