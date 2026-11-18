@@ -1317,7 +1317,13 @@ impl ApplicationView {
         if self.closing {
             return;
         }
-        if self.drained {
+        // A runtime that closed (or never started) has nothing left to drain.
+        if self.drained
+            || matches!(
+                *self.runtime.state().borrow(),
+                desktop_runtime::RuntimeState::Closed(_)
+            )
+        {
             cx.quit();
             return;
         }
