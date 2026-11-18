@@ -118,9 +118,13 @@ pub fn app_menus(state: &MenuState) -> Vec<Menu> {
         menu(
             "View",
             vec![
+                #[cfg(not(target_os = "windows"))]
                 MenuItem::action("Actual Size", ActualSize),
+                #[cfg(not(target_os = "windows"))]
                 MenuItem::action("Zoom In", ZoomIn),
+                #[cfg(not(target_os = "windows"))]
                 MenuItem::action("Zoom Out", ZoomOut),
+                #[cfg(not(target_os = "windows"))]
                 MenuItem::separator(),
                 MenuItem::action(
                     if state.fullscreen {
@@ -172,6 +176,7 @@ fn menu_bindings() -> Vec<KeyBinding> {
 
 /// Shipping's zoom keys work in every window and also take Control. Unlike the menu-only keys,
 /// GPUI matches these itself; the menu shows the first binding of each action.
+#[cfg(not(target_os = "windows"))]
 fn zoom_bindings() -> Vec<KeyBinding> {
     vec![
         KeyBinding::new("cmd-+", ZoomIn, None),
@@ -377,6 +382,7 @@ impl NativeEvents {
         cx.on_action(|_: &ReportBug, cx| cx.open_url(FEEDBACK_URL));
         cx.on_action(|_: &SuggestFeature, cx| cx.open_url(FEEDBACK_URL));
         cx.bind_keys(menu_bindings());
+        #[cfg(not(target_os = "windows"))]
         cx.bind_keys(zoom_bindings());
     }
 
