@@ -9,25 +9,43 @@ use desktop_gpui::{
 use desktop_runtime::Profile;
 use gpui::AppContext;
 
+#[cfg(target_os = "windows")]
+mod link_instance;
+
 fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "warn".into()),
         )
         .init();
-    let mut args = std::env::args_os().skip(1);
-    let profile = match args.next() {
-        Some(argument) if argument == "--help" => {
-            println!(
-                "Anarlog native preview\nUsage: desktop-gpui [--profile DIRECTORY]\nDefault: $HOME/.anarlog-gpui-sandbox/library.sqlite\nUse only an isolated profile or a backup copy, never the shipping app's live profile."
-            );
-            return Ok(());
-        }
-        Some(argument) if argument == "--profile" => PathBuf::from(
-            args.next()
-                .ok_or_else(|| anyhow::anyhow!("--profile requires a directory"))?,
-        ),
-        Some(_) => anyhow::bail!("Unknown option. Use --help."),
+    let mut args = std::env::args_os().skip(1).peekable();
+    if args.peek().is_some_and(|argument| argument == "--help") {
+        let url_usage = if cfg!(target_os = "windows") {
+            " [URL]"
+        } else {
+            ""
+        };
+        println!(
+            "Anarlog native preview\nUsage: desktop-gpui [--profile DIRECTORY]{url_usage}\nDefault: $HOME/.anarlog-gpui-sandbox/library.sqlite\nUse only an isolated profile or a backup copy, never the shipping app's live profile."
+        );
+        return Ok(());
+    }
+    let explicit_profile = args.next_if(|argument| argument == "--profile").is_some();
+    let profile = if explicit_profile {
+        Some(PathBuf::from(args.next().ok_or_else(|| {
+            anyhow::anyhow!("--profile requires a directory")
+        })?))
+    } else {
+        None
+    };
+    #[cfg(target_os = "windows")]
+    let url = args.next().map(link_instance::parse_argument).transpose()?;
+    #[cfg(not(target_os = "windows"))]
+    if !explicit_profile && args.peek().is_some() {
+        anyhow::bail!("Unknown option. Use --help.");
+    }
+    let profile = match profile {
+        Some(path) => path,
         None => PathBuf::from(
             std::env::var_os("HOME")
                 .or_else(|| std::env::var_os("USERPROFILE"))
@@ -47,12 +65,22 @@ fn main() -> anyhow::Result<()> {
     } else {
         profile
     };
+    let events = NativeEvents::default();
+    #[cfg(target_os = "windows")]
+    let link_instance = match link_instance::start(&profile, url.as_deref(), events.clone())? {
+        Some(instance) => instance,
+        None => return Ok(()),
+    };
+    #[cfg(target_os = "windows")]
+    if let Some(url) = url {
+        events.receive_deep_link(url)?;
+    }
     let (runtime, ready) = desktop_gpui::runtime_bridge::start(Profile {
         database: profile.join("library.sqlite"),
     })?;
     let zoom = desktop_gpui::zoom::Zoom::load(profile.join("zoom.json"));
     let application = zoom.application().with_assets(Assets);
-    let events = NativeEvents::install(&application);
+    events.install(&application);
     application.run(move |cx| {
         cx.set_global(zoom);
         UiFonts::init(cx);
@@ -139,9 +167,15 @@ fn main() -> anyhow::Result<()> {
         }
         cx.activate(true);
     });
+    #[cfg(target_os = "windows")]
+    drop(link_instance);
     if desktop_gpui::platform::windows::restart_requested() {
         std::process::Command::new(std::env::current_exe()?)
-            .args(std::env::args_os().skip(1))
+            .args(
+                std::env::args_os()
+                    .skip(1)
+                    .take(if explicit_profile { 2 } else { 0 }),
+            )
             .spawn()?;
     }
     Ok(())

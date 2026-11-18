@@ -222,3 +222,4 @@ swift-rs = { workspace = true, features = ["build"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 anlg-notification-windows = { path = "../../crates/notification-windows", package = "notification-windows" }
+tokio = { workspace = true, features = ["io-util", "net"] }

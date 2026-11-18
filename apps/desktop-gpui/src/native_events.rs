@@ -218,39 +218,46 @@ pub struct NativeHandles {
     menus: Option<MenuState>,
 }
 
-impl NativeEvents {
-    pub fn install(application: &Application) -> Self {
+impl Default for NativeEvents {
+    fn default() -> Self {
         let (sender, receiver) = mpsc::sync_channel(64);
-        let events = Self {
+        Self {
             sender,
             receiver: Arc::new(Mutex::new(receiver)),
             links: NativeDeepLinks::default(),
-        };
-        let links = events.clone();
+        }
+    }
+}
+
+impl NativeEvents {
+    pub fn install(&self, application: &Application) {
+        let links = self.clone();
         application.on_open_urls(move |urls| {
             for url in urls.into_iter().take(64) {
-                match links.links.receive(&url) {
-                    Ok(id) => {
-                        if links
-                            .sender
-                            .try_send(NativeEvent::DeepLink { id, raw: url })
-                            .is_err()
-                        {
-                            let _ = links.links.acknowledge(id);
-                            tracing::warn!("Native event queue is full");
-                        }
-                    }
-                    Err(error) => tracing::warn!("Deep link rejected: {error}"),
+                if let Err(error) = links.receive_deep_link(url) {
+                    tracing::warn!("Deep link rejected: {error}");
                 }
             }
         });
-        let reopen = events.clone();
+        let reopen = self.clone();
         application.on_reopen(move |_| {
             let _ = reopen
                 .sender
                 .try_send(NativeEvent::Action(TrayAction::Open));
         });
-        events
+    }
+
+    pub fn receive_deep_link(&self, raw: String) -> Result<()> {
+        let id = self.links.receive(&raw)?;
+        if self
+            .sender
+            .try_send(NativeEvent::DeepLink { id, raw })
+            .is_err()
+        {
+            let _ = self.links.acknowledge(id);
+            return Err(desktop_runtime::ServiceError::Busy);
+        }
+        Ok(())
     }
 
     pub fn next(&self) -> Option<NativeEvent> {
