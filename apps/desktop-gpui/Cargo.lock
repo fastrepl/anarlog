@@ -3070,6 +3070,7 @@ dependencies = [
  "apple-calendar",
  "apple-todo",
  "arboard",
+ "atspi",
  "audio",
  "audio-actual",
  "audio-mock",
