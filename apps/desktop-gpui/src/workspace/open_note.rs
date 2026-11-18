@@ -1199,9 +1199,35 @@ impl NoteView {
                 cx.emit(NoteEvent::Open(Route::Human(human.clone())));
                 cx.notify();
             }
+            MeetingInfoEvent::DateChanged => this.refresh_session(cx),
         });
         self.meeting_info = Some((info, subscription));
         cx.notify();
+    }
+
+    /// Takes the stored session after a write that moved its revision, so the next rename's
+    /// conditional update does not report a conflict.
+    fn refresh_session(&mut self, cx: &mut Context<Self>) {
+        let Some(id) = self.session_id().cloned() else {
+            return;
+        };
+        let reply = self
+            .runtime
+            .open_session(id.clone(), CancellationToken::new());
+        cx.spawn(async move |this, cx| {
+            let Ok(session) = async { reply?.receive().await }.await else {
+                return;
+            };
+            let _ = this.update(cx, |this, cx| {
+                // A rename in flight brings its own session back.
+                if this.busy || this.session_id() != Some(&id) {
+                    return;
+                }
+                this.current = Some(Arc::new(session));
+                cx.notify();
+            });
+        })
+        .detach();
     }
 
     fn toggle_always_on_top(&mut self, window: &mut Window, cx: &mut Context<Self>) {
