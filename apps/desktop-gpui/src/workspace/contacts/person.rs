@@ -1052,6 +1052,7 @@ impl Contacts {
             linkedin: human.linkedin.to_string(),
         };
         let id = person.id.clone();
+        let before = person.clone();
         let owner = self.owner().to_string();
         let runtime = self.runtime.clone();
         self.crm.pending = Some(id.clone());
@@ -1067,15 +1068,21 @@ impl Contacts {
                 ) = (&result, &this.page)
                     && page.id.as_ref() == id
                 {
-                    for (field, value) in [
-                        (Field::Name, &changes.name),
-                        (Field::Email, &changes.email),
-                        (Field::JobTitle, &changes.job_title),
-                        (Field::Phone, &changes.phone),
-                        (Field::LinkedIn, &changes.linkedin_username),
+                    for (field, value, original) in [
+                        (Field::Name, &changes.name, &before.name),
+                        (Field::Email, &changes.email, &before.email),
+                        (Field::JobTitle, &changes.job_title, &before.job_title),
+                        (Field::Phone, &changes.phone, &before.phone),
+                        (
+                            Field::LinkedIn,
+                            &changes.linkedin_username,
+                            &before.linkedin,
+                        ),
                     ] {
+                        // An input edited while the lookup ran keeps what was typed.
                         if let (Some(value), Some((_, input))) =
                             (value, page.fields.iter().find(|(f, _)| *f == field))
+                            && input.read(cx).buffer.text == *original
                         {
                             input.update(cx, |input, cx| input.set_text(value.clone(), cx));
                         }
