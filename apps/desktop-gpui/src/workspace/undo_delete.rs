@@ -20,6 +20,7 @@ use super::{
 use crate::{
     application::toasts,
     contracts::{MeetingIntent, WorkspaceEvent},
+    product::sharing::SharingCloud,
 };
 
 /// `UNDO_TIMEOUT_MS`.
@@ -401,18 +402,43 @@ impl WorkspaceView {
         let Some(pending) = self.take_deletion(key, cx) else {
             return;
         };
-        for (id, _) in pending.notes {
-            // Like shipping, a leftover folder is only logged.
-            if let Ok(reply) = finalize(&self.runtime, id) {
-                cx.background_executor()
-                    .spawn(async move {
-                        if let Err(error) = reply.receive().await {
-                            tracing::warn!(%error, "deleted note folder was not removed");
-                        }
-                    })
-                    .detach();
+        let ids = pending
+            .notes
+            .into_iter()
+            .map(|(id, _)| id)
+            .collect::<Vec<_>>();
+        let finalized = ids
+            .iter()
+            .map(|id| finalize(&self.runtime, id.clone()))
+            .collect::<Vec<_>>();
+        // After the folders, like shipping; a failure never undoes the local deletion.
+        let revoked = cx
+            .try_global::<SharingCloud>()
+            .map(|cloud| cloud.0.revoke_deleted_shares(ids));
+        cx.spawn(async move |_, cx| {
+            for reply in finalized {
+                // Like shipping, a leftover folder is only logged.
+                if let Err(error) = async { reply?.receive().await }.await {
+                    tracing::warn!(%error, "deleted note folder was not removed");
+                }
             }
-        }
+            if let Some(revoked) = revoked
+                && let Err(error) = async { revoked?.receive().await }.await
+            {
+                tracing::warn!(%error, "deleted note's shared link was not removed");
+                cx.update(|cx| {
+                    toasts::show(
+                        toasts::Toast::warning(
+                            "Note deleted, but its shared link could not be removed.",
+                        )
+                        .id("shared-link-removal-failed")
+                        .sticky(),
+                        cx,
+                    )
+                });
+            }
+        })
+        .detach();
     }
 
     /// Quitting ends every undo window so no deleted note keeps its folder.

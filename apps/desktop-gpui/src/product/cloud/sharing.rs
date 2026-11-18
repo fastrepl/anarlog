@@ -654,6 +654,67 @@ impl CloudServices {
     }
 }
 
+impl CloudServices {
+    /// Shipping's `revokeManagedShare`: deletes the published shares and cached copies of
+    /// deleted notes, once their undo window has ended. Admitted now, behind the notes' queued
+    /// database work, so quitting still waits for it. Nothing is revoked while signed out, for a
+    /// note that was never shared, or for one that is no longer deleted. Every note is tried;
+    /// the first failure is returned.
+    pub fn revoke_deleted_shares(
+        &self,
+        sessions: Vec<SessionId>,
+    ) -> Result<desktop_runtime::Reply<()>> {
+        let deleted = self.runtime.flush()?;
+        let this = self.clone();
+        self.runtime.service(move |services| async move {
+            deleted.receive().await?;
+            if this.scope().account_id.is_none() {
+                return Ok(());
+            }
+            let mut result = Ok(());
+            for session in sessions {
+                let revoked = this.revoke_deleted_share(&services, session).await;
+                result = result.and(revoked);
+            }
+            result
+        })
+    }
+
+    async fn revoke_deleted_share(&self, services: &Services, session: SessionId) -> Result<()> {
+        let deleted: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM sessions WHERE id = ? AND deleted_at IS NOT NULL)",
+        )
+        .bind(session.0.as_ref())
+        .fetch_one(services.db.pool())
+        .await
+        .map_err(|_| failure("Cannot read the deleted note"))?;
+        if !deleted {
+            return Ok(());
+        }
+        let scope = Scope {
+            session_id: Some(session.clone()),
+            ..self.scope()
+        };
+        let _guard = self.core.mutations.lock().await;
+        let lease = self.core.lease(&scope).await?;
+        if self
+            .core
+            .share_state(services, &lease, &session)
+            .await?
+            .is_none()
+        {
+            return Ok(());
+        }
+        let delete = Mutation {
+            operation: super::panels::operation(Action::DeleteShare, "Delete share"),
+            fields: Arc::from([]),
+        };
+        self.core
+            .share_action(services, &lease, &scope, &delete)
+            .await
+    }
+}
+
 impl Core {
     async fn managed_share(
         &self,

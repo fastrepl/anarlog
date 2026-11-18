@@ -734,6 +734,85 @@ async fn publication_projects_participant_names_and_meeting_time() {
 }
 
 #[tokio::test]
+async fn deleting_a_shared_note_revokes_its_share_and_clears_the_cache() {
+    let server = MockServer::start().await;
+    let directory = tempfile::tempdir().unwrap();
+    let (runtime, ready) = RuntimeHandle::start(Profile {
+        database: directory.path().join("cloud.sqlite"),
+    })
+    .unwrap();
+    ready.receive().await.unwrap();
+    let cloud = fixture_cloud(&runtime, &server, Arc::new(MemoryStore::default())).await;
+    let document = json!({"type":"doc","content":[{"type":"paragraph"}]});
+    let scope = seed_summary(&runtime, document.clone()).await;
+    let session = scope.session_id.clone().unwrap();
+    create_share_rpc(&server).await;
+    Mock::given(method("PUT"))
+        .and(path(format!("/sync/shares/{SHARE}/snapshot")))
+        .respond_with(ResponseTemplate::new(200).set_body_json(snapshot(1, document)))
+        .mount(&server)
+        .await;
+    share_action(&cloud, &scope, Action::CreateShare)
+        .await
+        .unwrap();
+    Mock::given(method("POST"))
+        .and(path("/rest/v1/rpc/delete_session_share_by_session"))
+        .and(body_partial_json(json!({"p_session_id": session.0.as_ref()})))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([{"share_id": SHARE, "access_version": 2, "deleted_at": "2026-01-01T00:00:00Z", "was_deleted": true}])))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let local_copies = || {
+        runtime
+            .service(|services| async move {
+                let pool = services.db.pool();
+                let count = |sql| async move {
+                    sqlx::query_scalar::<_, i64>(sql)
+                        .bind(SHARE)
+                        .fetch_one(pool)
+                        .await
+                        .unwrap()
+                };
+                let journal = count("SELECT COUNT(*) FROM app_settings WHERE id LIKE 'gpui.share.%' AND json_extract(value_json, '$.share_id') = ?").await;
+                let cache = count("SELECT COUNT(*) FROM shared_session_cache WHERE share_id = ?").await;
+                Ok((journal, cache))
+            })
+            .unwrap()
+            .receive()
+    };
+    // A live note keeps its share.
+    cloud
+        .revoke_deleted_shares(vec![session.clone()])
+        .unwrap()
+        .receive()
+        .await
+        .unwrap();
+    assert_eq!(local_copies().await.unwrap(), (1, 1));
+    let id = session.clone();
+    runtime
+        .service(move |services| async move {
+            sqlx::query("UPDATE sessions SET deleted_at = '2026-01-01T00:00:00.000Z' WHERE id = ?")
+                .bind(id.0.as_ref())
+                .execute(services.db.pool())
+                .await
+                .unwrap();
+            Ok(())
+        })
+        .unwrap()
+        .receive()
+        .await
+        .unwrap();
+    cloud
+        .revoke_deleted_shares(vec![session])
+        .unwrap()
+        .receive()
+        .await
+        .unwrap();
+    assert_eq!(local_copies().await.unwrap(), (0, 0));
+    runtime.shutdown().await.unwrap();
+}
+
+#[tokio::test]
 async fn publication_preserves_existing_attachment_ids_and_cache_metadata() {
     let server = MockServer::start().await;
     let directory = tempfile::tempdir().unwrap();
