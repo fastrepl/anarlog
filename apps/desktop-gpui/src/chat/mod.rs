@@ -348,7 +348,7 @@ impl ChatView {
     fn switch_draft(&mut self, key: String, cx: &mut Context<Self>) {
         let composer = self.composer.read(cx);
         let draft = composer.doc();
-        if composer.has_text() || !composer.context_refs().is_empty() {
+        if composer.has_content() {
             self.drafts
                 .put(std::mem::replace(&mut self.draft_key, key), draft);
         } else {
@@ -1466,6 +1466,25 @@ mod tests {
         model.release("slow a");
         wait(cx, |cx| texts(cx, &chat).len() == 2);
         assert_eq!(texts(cx, &chat), ["slow a", "re: slow a more"]);
+        futures::executor::block_on(runtime.shutdown()).unwrap();
+    }
+
+    #[gpui::test]
+    fn an_attachment_only_draft_survives_a_chat_switch(cx: &mut TestAppContext) {
+        cx.executor().allow_parking();
+        let (_directory, runtime) = start_runtime();
+        let chat = cx.new(|cx| ChatView::new(runtime.clone(), WeakEntity::new_invalid(), cx));
+        let draft = serde_json::json!({"type": "doc", "content": [{"type": "paragraph", "content": [
+            {"type": "attachment", "attrs": {"id": "a1", "name": "notes.txt", "mimeType": "text/plain", "url": null, "size": 6}}
+        ]}]});
+        chat.update(cx, |chat, cx| {
+            chat.select_group("one".into(), cx);
+            chat.composer
+                .update(cx, |composer, cx| composer.set_doc(&draft, false, cx));
+            chat.select_group("two".into(), cx);
+            chat.select_group("one".into(), cx);
+            assert!(chat.composer.read(cx).has_content());
+        });
         futures::executor::block_on(runtime.shutdown()).unwrap();
     }
 
