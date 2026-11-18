@@ -220,6 +220,8 @@ fn relative_path(path: &Path) -> bool {
     depth > 0
 }
 
+/// Keeps the replaced version as the one rollback copy; older copies, whose versions ran
+/// well enough to install this update, are removed.
 fn replace_with_backup(package: &Path, installation: &Path) -> Result<PathBuf> {
     let backup = installation.with_extension(format!("previous-{}", uuid::Uuid::new_v4()));
     fs::rename(installation, &backup).map_err(failure)?;
@@ -227,7 +229,36 @@ fn replace_with_backup(package: &Path, installation: &Path) -> Result<PathBuf> {
         fs::rename(&backup, installation).map_err(failure)?;
         return Err(failure(error));
     }
+    for old in older_backups(installation, &backup) {
+        let removed = if old.is_dir() {
+            fs::remove_dir_all(&old)
+        } else {
+            fs::remove_file(&old)
+        };
+        if let Err(error) = removed {
+            tracing::warn!(%error, path = %old.display(), "old update backup was not removed");
+        }
+    }
     Ok(backup)
+}
+
+fn older_backups(installation: &Path, keep: &Path) -> Vec<PathBuf> {
+    let (Some(parent), Some(stem)) = (installation.parent(), installation.file_stem()) else {
+        return Vec::new();
+    };
+    let prefix = format!("{}.previous-", stem.to_string_lossy());
+    let Ok(entries) = fs::read_dir(parent) else {
+        return Vec::new();
+    };
+    entries
+        .filter_map(|entry| entry.ok().map(|entry| entry.path()))
+        .filter(|path| path != keep)
+        .filter(|path| {
+            path.file_name()
+                .and_then(|name| name.to_str()?.strip_prefix(&prefix))
+                .is_some_and(|id| uuid::Uuid::parse_str(id).is_ok())
+        })
+        .collect()
 }
 
 fn failure(error: impl std::fmt::Display) -> ServiceError {
@@ -239,19 +270,34 @@ mod tests {
     use super::*;
 
     #[test]
-    fn replacement_retains_rollback_and_rejects_unsafe_archive_paths() {
+    fn replacement_retains_one_rollback_and_rejects_unsafe_archive_paths() {
         let root = tempfile::tempdir().unwrap();
-        let old = root.path().join("app");
-        let new = root.path().join("new");
-        fs::write(&old, b"old").unwrap();
-        fs::write(&new, b"new").unwrap();
-        let backup = replace_with_backup(&new, &old).unwrap();
-        assert_eq!(fs::read(&old).unwrap(), b"new");
-        assert_eq!(fs::read(backup).unwrap(), b"old");
+        let old = root.path().join("Anarlog.app");
+        fs::create_dir(&old).unwrap();
+        fs::write(old.join("version"), b"1").unwrap();
+        let unrelated = root.path().join("Anarlog.previous-notes");
+        fs::write(&unrelated, b"keep").unwrap();
+        let mut backup = PathBuf::new();
+        for version in [b"2", b"3"] {
+            let new = root.path().join("new");
+            fs::create_dir(&new).unwrap();
+            fs::write(new.join("version"), version).unwrap();
+            backup = replace_with_backup(&new, &old).unwrap();
+        }
+        assert_eq!(fs::read(old.join("version")).unwrap(), b"3");
+        assert_eq!(fs::read(backup.join("version")).unwrap(), b"2");
+        let mut left = fs::read_dir(root.path())
+            .unwrap()
+            .map(|entry| entry.unwrap().path())
+            .collect::<Vec<_>>();
+        left.sort();
+        let mut expected = vec![old.clone(), backup, unrelated];
+        expected.sort();
+        assert_eq!(left, expected, "only the latest rollback copy remains");
         assert!(!relative_path(Path::new("../outside")));
         assert!(!relative_path(Path::new("/absolute")));
         assert!(relative_path(Path::new("App.app/Contents/Resources")));
         assert!(replace_with_backup(&root.path().join("missing"), &old).is_err());
-        assert_eq!(fs::read(&old).unwrap(), b"new");
+        assert_eq!(fs::read(old.join("version")).unwrap(), b"3");
     }
 }
