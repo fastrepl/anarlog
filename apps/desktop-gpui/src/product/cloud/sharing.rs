@@ -825,14 +825,20 @@ impl Core {
             .await?
             .ok_or_else(|| failure("Create a share first"))?;
         // Like shipping's `publishLatest`: whoever gains access sees the note as it is now.
-        let narrows = matches!(
-            command,
+        // Narrowing access and opening the web copy skip it, so they still work while a web
+        // edit conflict pauses publishing.
+        let publishes = match &command {
             ShareCommand::Remove(_)
-                | ShareCommand::Review(_, false)
-                | ShareCommand::Access(GeneralAccess::Restricted | GeneralAccess::Public)
-                | ShareCommand::KeepDesktop
-        );
-        if !narrows {
+            | ShareCommand::Review(_, false)
+            | ShareCommand::Access(GeneralAccess::Restricted | GeneralAccess::Public)
+            | ShareCommand::KeepDesktop
+            | ShareCommand::OpenWebCopy => false,
+            ShareCommand::SetCapability(entry, capability) => {
+                entry.kind != EntryKind::Grant || *capability > entry.capability
+            }
+            _ => true,
+        };
+        if publishes {
             self.publish(services, lease, scope, publication).await?;
             publication = self
                 .share_state(services, lease, session)

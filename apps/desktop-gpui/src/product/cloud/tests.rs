@@ -368,6 +368,97 @@ async fn publication_conflicts_preserve_drafts_and_require_explicit_review_after
 }
 
 #[tokio::test]
+async fn paused_shares_still_open_the_web_copy_and_narrow_access_but_not_widen_it() {
+    use crate::product::sharing::Capability;
+    let server = MockServer::start().await;
+    let directory = tempfile::tempdir().unwrap();
+    let (runtime, ready) = RuntimeHandle::start(Profile {
+        database: directory.path().join("cloud.sqlite"),
+    })
+    .unwrap();
+    ready.receive().await.unwrap();
+    let cloud = fixture_cloud(&runtime, &server, Arc::new(MemoryStore::default())).await;
+    let document = json!({"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Desktop edit"}]}]});
+    let scope = seed_summary(&runtime, document.clone()).await;
+    create_share_rpc(&server).await;
+    Mock::given(method("PUT"))
+        .and(path(format!("/sync/shares/{SHARE}/snapshot")))
+        .respond_with(
+            ResponseTemplate::new(409)
+                .set_body_json(json!({"code":"snapshot_conflict","snapshot":snapshot(2,document)})),
+        )
+        .expect(1)
+        .mount(&server)
+        .await;
+    assert!(matches!(
+        share_action(&cloud, &scope, Action::CreateShare).await,
+        Err(ServiceError::Conflict)
+    ));
+    let grant = uuid::Uuid::new_v4().to_string();
+    Mock::given(method("POST"))
+        .and(path("/rest/v1/rpc/get_session_share_management"))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(json!([{"share_id":SHARE,
+            "general_scope":"restricted","general_workspace_id":null,"has_active_link":false}])),
+        )
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/rest/v1/rpc/list_session_share_access"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([{"entry_type":"grant",
+            "entry_id":grant,"user_id":uuid::Uuid::new_v4().to_string(),"user_email":"maya@northwind.example","capability":"editor"}])))
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/rest/v1/rpc/get_session_share_workspace_slug"))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(json!([{"workspace_share_slug":null}])),
+        )
+        .mount(&server)
+        .await;
+    for (capability, calls) in [("viewer", 1), ("editor", 0)] {
+        Mock::given(method("POST"))
+            .and(path("/rest/v1/rpc/update_session_access_grant"))
+            .and(body_json(
+                json!({"p_grant_id":grant,"p_capability":capability}),
+            ))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!([])))
+            .expect(calls)
+            .mount(&server)
+            .await;
+    }
+
+    let share = cloud
+        .share_command(scope.clone(), ShareCommand::OpenWebCopy)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(share.conflict);
+    let editor = share.access[0].clone();
+    cloud
+        .share_command(
+            scope.clone(),
+            ShareCommand::SetCapability(editor.clone(), Capability::Viewer),
+        )
+        .await
+        .unwrap();
+    let viewer = crate::product::sharing::AccessEntry {
+        capability: Capability::Viewer,
+        ..editor
+    };
+    assert!(
+        cloud
+            .share_command(
+                scope,
+                ShareCommand::SetCapability(viewer, Capability::Editor)
+            )
+            .await
+            .is_err()
+    );
+    runtime.shutdown().await.unwrap();
+}
+
+#[tokio::test]
 async fn failed_publication_retries_the_identical_durable_mutation() {
     let server = MockServer::start().await;
     let directory = tempfile::tempdir().unwrap();
