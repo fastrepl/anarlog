@@ -90,7 +90,12 @@ pub async fn recover_startup(
                 }
             }
             // "Don't save" audio goes only once every chunk is transcribed.
-            if !retained && !delete_transcribed(directory).await? {
+            let unresolved = if retained {
+                unreadable_partial(directory).await?
+            } else {
+                !delete_transcribed(directory).await?
+            };
+            if unresolved {
                 return Err(failure("Unreadable audio from the interrupted recording is kept until you discard it."));
             }
             acknowledge_finalization(runtime, session.clone(), transcript.clone()).await
@@ -116,14 +121,52 @@ pub async fn discard(
     retained: bool,
 ) -> Result<()> {
     let directory = session_directory(vault, &session)?;
-    if retained {
-        page(&directory, u64::MAX).await?;
-    } else {
-        tokio::task::spawn_blocking(move || delete_capture_audio(&directory).map_err(failure))
-            .await
-            .map_err(failure)??;
-    }
+    tokio::task::spawn_blocking(move || {
+        if !retained {
+            return delete_capture_audio(&directory);
+        }
+        // A retained capture keeps its recording; only its recovery chunks and partials go.
+        match std::fs::remove_dir_all(directory.join(RECOVERY_DIR)) {
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            result => result,
+        }
+    })
+    .await
+    .map_err(failure)?
+    .map_err(failure)?;
     acknowledge_finalization(runtime, session, transcript).await
+}
+
+/// The recorder's chunk directory, where it leaves a partial chunk it can't decode in place.
+const RECOVERY_DIR: &str = "audio-recovery";
+
+/// Whether a nonempty partial chunk the recorder couldn't decode is still waiting; recovery
+/// can't transcribe it, so it isn't finished.
+async fn unreadable_partial(directory: PathBuf) -> Result<bool> {
+    tokio::task::spawn_blocking(move || -> std::io::Result<bool> {
+        let entries = match std::fs::read_dir(directory.join(RECOVERY_DIR)) {
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+            entries => entries?,
+        };
+        for entry in entries {
+            let entry = entry?;
+            let path = entry.path();
+            let metadata = entry.metadata()?;
+            if path
+                .extension()
+                .is_some_and(|extension| extension == "part")
+                && metadata.is_file()
+                && metadata.len() > 0
+                && anlg_audio_utils::source_from_path(&path).is_err()
+            {
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    })
+    .await
+    .map_err(failure)?
+    .map_err(failure)
 }
 
 /// The oldest page of a session's recovery chunks from captures that started at `started` or

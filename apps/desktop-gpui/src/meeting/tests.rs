@@ -1461,6 +1461,62 @@ async fn dont_save_startup_recovery_transcribes_every_chunk_page_before_deleting
 }
 
 #[tokio::test]
+async fn retained_startup_recovery_keeps_unreadable_partial_audio_until_discarded() {
+    let fixture = Fixture::new().await;
+    let directory =
+        super::retention::session_directory(&fixture.directory, &fixture.session).unwrap();
+    std::fs::create_dir_all(directory.join("audio-recovery")).unwrap();
+    let key = format!("capture_lifecycle_pending:{}", fixture.session.0);
+    let marker = json!({"version":1, "sessionId":fixture.session, "transcriptId":fixture.transcript, "retainAudio":true, "startedAt":1000});
+    let markers = async || {
+        fixture
+            .sql(
+                "SELECT id FROM app_settings WHERE id GLOB 'capture_lifecycle_pending:*'",
+                vec![],
+            )
+            .await
+            .len()
+    };
+    let resolver: super::recovery::RecoveryResolver =
+        Arc::new(|_, _| Box::pin(async { Err(super::model::failure("Nothing to transcribe.")) }));
+    let recover = async || {
+        super::recovery::recover_startup(
+            &fixture.runtime,
+            fixture.directory.clone(),
+            Activities::default(),
+            resolver.clone(),
+        )
+        .await
+        .unwrap()
+        .remove(0)
+    };
+    // An empty chunk page with nothing left over is a finished recovery.
+    fixture.setting(&key, marker.clone()).await;
+    recover().await.result.unwrap();
+    assert_eq!(markers().await, 0);
+    // A partial chunk the recorder couldn't decode is not.
+    let partial = directory.join("audio-recovery").join("1000-0-0.part");
+    std::fs::write(&partial, b"not audio").unwrap();
+    fixture.setting(&key, marker).await;
+    let interrupted = recover().await;
+    assert!(interrupted.result.is_err());
+    assert_eq!(markers().await, 1);
+    assert!(partial.exists());
+    super::recovery::discard(
+        &fixture.runtime,
+        &fixture.directory,
+        interrupted.session,
+        interrupted.transcript,
+        interrupted.retained,
+    )
+    .await
+    .unwrap();
+    assert_eq!(markers().await, 0);
+    assert!(!partial.exists());
+    fixture.close().await;
+}
+
+#[tokio::test]
 async fn cleanup_preserves_audio_owned_by_durable_finalization_marker() {
     let fixture = Fixture::new().await;
     let directory =
