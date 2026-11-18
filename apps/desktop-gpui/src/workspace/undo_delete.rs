@@ -21,7 +21,7 @@ use super::{
 use crate::{
     application::toasts,
     contracts::{MeetingIntent, WorkspaceEvent},
-    editor::persistence::Flush,
+    editor::{holds::NoteHolds, persistence::Flush},
     note_window::NoteWindow,
     product::sharing::SharingCloud,
 };
@@ -180,8 +180,8 @@ impl Pending {
 
 impl WorkspaceView {
     /// Shipping's single delete: no confirmation, an Undo toast instead. Edits still waiting
-    /// on the save debounce are saved first, with the note read-only meanwhile: the tombstone
-    /// rejects later saves, and Undo would restore the older body.
+    /// on the save debounce are saved first, with every note in the deletion read-only
+    /// meanwhile: the tombstone rejects later saves, and Undo would restore the older body.
     pub(super) fn delete_notes(&mut self, ids: &[SessionId], batch: bool, cx: &mut Context<Self>) {
         let ids = self.not_deleting(ids);
         if ids.is_empty() {
@@ -192,6 +192,7 @@ impl WorkspaceView {
             self.tombstone(&ids, batch, cx);
             return;
         }
+        let hold = NoteHolds::hold(ids.clone(), cx);
         cx.spawn(async move |this, cx| {
             let mut saved = true;
             for flush in flushes {
@@ -206,9 +207,9 @@ impl WorkspaceView {
                         cx,
                     );
                 }
-                // After the tombstone, so an edit typed from here on cannot land before it.
-                this.thaw_drafts(cx);
             });
+            // After the tombstone, so an edit typed from here on cannot land before it.
+            cx.update(|cx| hold.release(cx));
         })
         .detach();
     }
@@ -232,12 +233,6 @@ impl WorkspaceView {
             flushes.extend(note.update(cx, |note, cx| note.flush_drafts(ids, cx)));
         }
         flushes
-    }
-
-    fn thaw_drafts(&mut self, cx: &mut Context<Self>) {
-        for note in self.notes(cx) {
-            note.update(cx, |note, cx| note.thaw_drafts(cx));
-        }
     }
 
     /// The note in this window and those in note windows.
@@ -550,7 +545,7 @@ impl WorkspaceView {
 mod tests {
     use std::time::Duration;
 
-    use desktop_runtime::{CancellationToken, Profile};
+    use desktop_runtime::{CancellationToken, OpenSession, Profile};
     use futures::executor::block_on;
     use gpui::{AppContext as _, VisualTestContext};
     use serde_json::json;
@@ -591,10 +586,15 @@ mod tests {
         block_on(reply.receive()).unwrap()
     }
 
-    /// Deleting a note within the save debounce of an edit lost the edit: its save ran after
-    /// the tombstone and was rejected, so Undo restored the older body.
-    #[gpui::test]
-    fn deleting_a_note_saves_its_pending_edit_first(cx: &mut gpui::TestAppContext) {
+    /// A ready runtime and the main window's workspace.
+    fn workspace(
+        cx: &mut gpui::TestAppContext,
+    ) -> (
+        tempfile::TempDir,
+        RuntimeHandle,
+        Entity<WorkspaceView>,
+        &mut VisualTestContext,
+    ) {
         cx.executor().allow_parking();
         let directory = tempfile::tempdir().unwrap();
         let (runtime, ready) = RuntimeHandle::start(Profile {
@@ -602,18 +602,58 @@ mod tests {
         })
         .unwrap();
         let cx = cx.add_empty_window();
-        let context = || LaneContext {
+        let context = LaneContext {
             runtime: runtime.clone(),
         };
         let workspace =
-            cx.update(|window, cx| cx.new(|cx| WorkspaceView::new(context(), ready, window, cx)));
+            cx.update(|window, cx| cx.new(|cx| WorkspaceView::new(context, ready, window, cx)));
         settle(cx, |_| {
             matches!(
                 *runtime.state().borrow(),
                 desktop_runtime::RuntimeState::Ready
             )
         });
-        let open = block_on(runtime.create_note("Draft".into()).unwrap().receive()).unwrap();
+        (directory, runtime, workspace, cx)
+    }
+
+    /// The note's memo editor, once its document has loaded.
+    fn memo(
+        runtime: &RuntimeHandle,
+        open: &OpenSession,
+        cx: &mut VisualTestContext,
+    ) -> Entity<EditorPane> {
+        let editor = cx.update(|window, cx| {
+            let init = EditorInit {
+                session_id: open.summary.id.clone(),
+                document: open.note.clone().unwrap(),
+                return_focus: cx.focus_handle(),
+            };
+            let context = LaneContext {
+                runtime: runtime.clone(),
+            };
+            cx.new(|cx| EditorPane::new(context, init, window, cx))
+        });
+        settle(cx, |cx| {
+            editor.read_with(cx, |editor, _| editor.is_pristine())
+        });
+        editor
+    }
+
+    /// Types into the editor and reports whether it took the edit.
+    fn type_into(editor: &Entity<EditorPane>, cx: &mut VisualTestContext) -> bool {
+        editor.update_in(cx, |editor, window, cx| {
+            gpui::EntityInputHandler::replace_text_in_range(editor, None, " and more", window, cx)
+        });
+        editor.read_with(cx, |editor, _| editor.is_dirty())
+    }
+
+    /// Opens the note in the main window with an unsaved edit.
+    fn edit_open_note(
+        runtime: &RuntimeHandle,
+        workspace: &Entity<WorkspaceView>,
+        open: &OpenSession,
+        cx: &mut VisualTestContext,
+    ) -> Entity<EditorPane> {
         let session = open.summary.id.clone();
         workspace.update(cx, |workspace, cx| {
             workspace.open_session(session.clone(), cx)
@@ -623,19 +663,9 @@ mod tests {
                 workspace.note.read(cx).session_id() == Some(&session)
             })
         });
-        let editor = cx.update(|window, cx| {
-            let init = EditorInit {
-                session_id: session.clone(),
-                document: open.note.clone().unwrap(),
-                return_focus: cx.focus_handle(),
-            };
-            cx.new(|cx| EditorPane::new(context(), init, window, cx))
-        });
+        let editor = memo(runtime, open, cx);
         workspace.update(cx, |workspace, cx| {
             workspace.set_editor_content(&session, editor.clone().into(), cx)
-        });
-        settle(cx, |cx| {
-            editor.read_with(cx, |editor, _| editor.is_pristine())
         });
         let body = json!({"type": "doc", "content": [
             {"type": "paragraph", "content": [{"type": "text", "text": "Typed just now"}]}
@@ -643,13 +673,22 @@ mod tests {
         editor.update(cx, |editor, cx| {
             editor.replace_content(&body.to_string(), cx)
         });
+        editor
+    }
+
+    /// Deleting a note within the save debounce of an edit lost the edit: its save ran after
+    /// the tombstone and was rejected, so Undo restored the older body.
+    #[gpui::test]
+    fn deleting_a_note_saves_its_pending_edit_first(cx: &mut gpui::TestAppContext) {
+        let (_directory, runtime, workspace, cx) = workspace(cx);
+        let open = block_on(runtime.create_note("Draft".into()).unwrap().receive()).unwrap();
+        let session = open.summary.id.clone();
+        let editor = edit_open_note(&runtime, &workspace, &open, cx);
         workspace.update(cx, |workspace, cx| {
             workspace.delete_notes(std::slice::from_ref(&session), false, cx)
         });
         // Typing while that edit saves once slipped in and then missed the tombstone.
-        editor.update_in(cx, |editor, window, cx| {
-            gpui::EntityInputHandler::replace_text_in_range(editor, None, " and more", window, cx)
-        });
+        type_into(&editor, cx);
         settle(cx, |_| deleted(&runtime, &session));
         assert!(
             !editor.read_with(cx, |editor, _| editor.is_dirty()),
@@ -666,6 +705,65 @@ mod tests {
         .unwrap();
         assert!(restored.note.unwrap().body.contains("Typed just now"));
         drop(editor);
+        block_on(runtime.shutdown()).unwrap();
+    }
+
+    /// A batch deletion held only its notes with unsaved edits: a clean one took an edit while
+    /// another's saved, and the tombstone then rejected that edit's save.
+    #[gpui::test]
+    fn a_batch_deletion_holds_its_clean_notes_too(cx: &mut gpui::TestAppContext) {
+        let (_directory, runtime, workspace, cx) = workspace(cx);
+        let edited = block_on(runtime.create_note("Draft".into()).unwrap().receive()).unwrap();
+        let clean = block_on(runtime.create_note("Clean".into()).unwrap().receive()).unwrap();
+        let editor = edit_open_note(&runtime, &workspace, &edited, cx);
+        // The clean note is open elsewhere, as in a note window.
+        let other = memo(&runtime, &clean, cx);
+        let ids = [edited.summary.id.clone(), clean.summary.id.clone()];
+        workspace.update(cx, |workspace, cx| workspace.delete_notes(&ids, true, cx));
+        assert!(
+            !type_into(&other, cx),
+            "a note in the deletion takes no edit while the deletion saves"
+        );
+        settle(cx, |_| ids.iter().all(|id| deleted(&runtime, id)));
+        drop((editor, other));
+        block_on(runtime.shutdown()).unwrap();
+    }
+
+    /// An editor created during a deletion's save, such as a summary shown meanwhile, was not
+    /// held, so its edits missed the deletion's flushes.
+    #[gpui::test]
+    fn an_editor_opened_while_its_note_is_held_takes_no_edits(cx: &mut gpui::TestAppContext) {
+        let (_directory, runtime, _workspace, cx) = workspace(cx);
+        let open = block_on(runtime.create_note("Draft".into()).unwrap().receive()).unwrap();
+        let hold = cx.update(|_, cx| NoteHolds::hold(vec![open.summary.id.clone()], cx));
+        let editor = memo(&runtime, &open, cx);
+        assert!(!type_into(&editor, cx));
+        cx.update(|_, cx| hold.release(cx));
+        assert!(type_into(&editor, cx), "the note is editable once released");
+        block_on(editor.update(cx, |editor, _| editor.flush()))
+            .unwrap()
+            .unwrap();
+        block_on(runtime.shutdown()).unwrap();
+    }
+
+    /// When deletions overlapped, the first to finish thawed the other's notes while that one
+    /// still saved their drafts.
+    #[gpui::test]
+    fn a_note_held_by_two_deletions_stays_held_until_both_end(cx: &mut gpui::TestAppContext) {
+        let (_directory, runtime, _workspace, cx) = workspace(cx);
+        let open = block_on(runtime.create_note("Draft".into()).unwrap().receive()).unwrap();
+        let other = block_on(runtime.create_note("Other".into()).unwrap().receive()).unwrap();
+        let editor = memo(&runtime, &open, cx);
+        let id = open.summary.id.clone();
+        let batch = cx.update(|_, cx| NoteHolds::hold(vec![other.summary.id, id.clone()], cx));
+        let single = cx.update(|_, cx| NoteHolds::hold(vec![id], cx));
+        cx.update(|_, cx| batch.release(cx));
+        assert!(!type_into(&editor, cx));
+        cx.update(|_, cx| single.release(cx));
+        assert!(type_into(&editor, cx), "the note is editable once both end");
+        block_on(editor.update(cx, |editor, _| editor.flush()))
+            .unwrap()
+            .unwrap();
         block_on(runtime.shutdown()).unwrap();
     }
 }

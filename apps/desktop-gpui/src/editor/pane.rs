@@ -17,6 +17,7 @@ use super::{
     clipboard,
     document::{Document, EditResult},
     find::FindOptions,
+    holds::NoteHolds,
     menu::{
         BlockCommand, EditorRequest, MentionCandidate, MentionMenu, MentionResults, MentionTarget,
         SlashMenu,
@@ -58,7 +59,10 @@ pub struct EditorPane {
     external_mention_provider: bool,
     mention_cancel: Option<CancellationToken>,
     focused: bool,
+    /// Whether edits are refused: while `locked` or while a deletion holds the note.
     read_only: bool,
+    /// Set by `set_read_only`, for a quit, a closing window or a brief being written.
+    locked: bool,
     dragging: bool,
     drag_position: Option<Point<Pixels>>,
     drag_scroll: Option<gpui::Task<()>>,
@@ -156,6 +160,11 @@ impl EditorPane {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
+        // An editor opened while its note is held, such as a summary shown during a deletion's
+        // save, starts read-only too.
+        let read_only = NoteHolds::held(cx, &init.session_id);
+        cx.observe_global::<NoteHolds>(|this, cx| this.apply_read_only(cx))
+            .detach();
         let focus = cx.focus_handle();
         cx.on_focus(&focus, window, |this, _, _| this.focused = true)
             .detach();
@@ -313,7 +322,8 @@ impl EditorPane {
             mention_cancel: None,
             focused: true,
             caret,
-            read_only: false,
+            read_only,
+            locked: false,
             dragging: false,
             drag_position: None,
             drag_scroll: None,
@@ -688,10 +698,6 @@ impl EditorPane {
         self.dirty
     }
 
-    pub fn is_read_only(&self) -> bool {
-        self.read_only
-    }
-
     /// Shipping's `isPristineNoteDoc`: nothing but one empty paragraph.
     pub fn is_pristine(&self) -> bool {
         self.model
@@ -735,9 +741,14 @@ impl EditorPane {
     }
 
     pub fn set_read_only(&mut self, read_only: bool, cx: &mut Context<Self>) {
-        self.read_only = read_only;
+        self.locked = read_only;
+        self.apply_read_only(cx);
+    }
+
+    fn apply_read_only(&mut self, cx: &mut Context<Self>) {
+        self.read_only = self.locked || NoteHolds::held(cx, &self.init.session_id);
         if let Some(model) = &mut self.model {
-            model.read_only = read_only;
+            model.read_only = self.read_only;
         }
         cx.notify();
     }
