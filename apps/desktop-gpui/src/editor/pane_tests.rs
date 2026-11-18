@@ -137,6 +137,34 @@ fn texts(editor: &Entity<EditorPane>, cx: &mut VisualTestContext) -> Vec<String>
     })
 }
 
+#[cfg(not(target_os = "macos"))]
+#[gpui::test]
+fn control_moves_and_deletes_one_word_in_notes(cx: &mut TestAppContext) {
+    let (fixture, cx) = fixture(cx, vec![paragraph("one two three")]);
+    let editor = fixture.editor;
+    editor.update(cx, |editor, _| {
+        editor
+            .model
+            .as_mut()
+            .unwrap()
+            .move_document_boundary(false, false);
+    });
+    cx.update(|window, cx| {
+        editor.read(cx).focus_handle(cx).focus(window, cx);
+        window.draw(cx).clear(cx);
+    });
+    for key in ["ctrl-right", "ctrl-right", "ctrl-left", "ctrl-delete"] {
+        cx.update(|window, cx| {
+            window.dispatch_keystroke(gpui::Keystroke::parse(key).unwrap(), cx);
+        });
+    }
+    assert_eq!(texts(&editor, cx), ["one  three"]);
+    cx.update(|window, cx| {
+        window.dispatch_keystroke(gpui::Keystroke::parse("ctrl-backspace").unwrap(), cx);
+    });
+    assert_eq!(texts(&editor, cx), [" three"]);
+}
+
 #[gpui::test]
 fn replace_moves_to_the_next_match_and_replace_all_is_one_undo(cx: &mut TestAppContext) {
     let (fixture, cx) = fixture(
