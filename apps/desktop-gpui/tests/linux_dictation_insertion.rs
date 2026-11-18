@@ -6,7 +6,7 @@ use desktop_gpui::dictation::insertion::{Insertion, NativeInsertion};
 use gtk::prelude::*;
 
 #[test]
-#[ignore = "requires an isolated X11 display and an AT-SPI session bus"]
+#[ignore = "requires an isolated X11 display and AT-SPI session bus (https://linear.app/fastrepl-inc/issue/ANLG-320/replace-the-taurireact-desktop-with-rust-and-gpui-on-macos-windows-and)"]
 fn inserts_into_the_focused_field_and_preserves_unsafe_targets() {
     gtk::init().unwrap();
     let window = gtk::Window::new(gtk::WindowType::Toplevel);
