@@ -3154,6 +3154,7 @@ dependencies = [
  "unicode-width",
  "url",
  "uuid",
+ "windows 0.62.2",
  "wiremock",
  "zeroize",
 ]
