@@ -63,28 +63,44 @@ async fn focused_field(connection: &AccessibilityConnection) -> Result<ObjectRef
         if !visited.insert(object.clone()) {
             continue;
         }
-        let Ok(proxy) = object.as_accessible_proxy(connection.connection()).await else {
-            continue;
-        };
-        let Ok(states) = proxy.get_state().await else {
-            continue;
-        };
-        if states.contains(State::Focused) && editable(&proxy, states).await? {
-            return Ok(object);
-        }
-        if !states.contains(State::Active)
-            && matches!(
-                proxy.get_role().await,
-                Ok(Role::Frame | Role::Window | Role::Dialog)
-            )
-        {
-            continue;
-        }
-        if let Ok(children) = proxy.get_children().await {
-            pending.extend(children);
+        // A stalled background application should not consume the whole search deadline.
+        match tokio::time::timeout(Duration::from_millis(250), inspect(&object, connection)).await {
+            Ok(Ok(AccessibleNode::FocusedField)) => return Ok(object),
+            Ok(Ok(AccessibleNode::Children(children))) => pending.extend(children),
+            _ => {}
         }
     }
     Err(failed(FOCUS_ERROR))
+}
+
+enum AccessibleNode {
+    FocusedField,
+    Children(Vec<ObjectRef>),
+}
+
+async fn inspect(
+    object: &ObjectRef,
+    connection: &AccessibilityConnection,
+) -> Result<AccessibleNode> {
+    let proxy = object
+        .as_accessible_proxy(connection.connection())
+        .await
+        .map_err(failed)?;
+    let states = proxy.get_state().await.map_err(failed)?;
+    if states.contains(State::Focused) && editable(&proxy, states).await? {
+        return Ok(AccessibleNode::FocusedField);
+    }
+    if !states.contains(State::Active)
+        && matches!(
+            proxy.get_role().await,
+            Ok(Role::Frame | Role::Window | Role::Dialog)
+        )
+    {
+        return Ok(AccessibleNode::Children(Vec::new()));
+    }
+    Ok(AccessibleNode::Children(
+        proxy.get_children().await.map_err(failed)?,
+    ))
 }
 
 async fn editable(proxy: &AccessibleProxy<'_>, states: StateSet) -> Result<bool> {
