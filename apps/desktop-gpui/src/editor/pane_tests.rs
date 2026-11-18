@@ -444,7 +444,8 @@ fn a_rich_paste_into_code_keeps_every_copied_block(cx: &mut TestAppContext) {
 }
 
 /// Code paste once normalized its text on the foreground thread, stalling the app on a large
-/// clipboard. Prepared off it, the paste lands only where the selection still is.
+/// clipboard. Prepared off it, the paste lands only where the selection still is, in the same
+/// document.
 #[gpui::test]
 fn a_code_paste_lands_only_if_the_selection_holds_while_it_is_prepared(cx: &mut TestAppContext) {
     let (fixture, cx) = fixture(
@@ -468,4 +469,20 @@ fn a_code_paste_lands_only_if_the_selection_holds_while_it_is_prepared(cx: &mut 
     });
     cx.run_until_parked();
     assert_eq!(texts(&editor, cx), ["code\none\ntwo"]);
+    // A remote revision loaded meanwhile is a new model that can match the revision and caret.
+    editor.update(cx, |editor, cx| {
+        editor.paste("three".into(), None, false, cx);
+        let model = editor.model.as_ref().unwrap();
+        let (revision, selection) = (model.revision, model.selection);
+        let remote = json!({"type": "doc", "content": [
+            {"type": "codeBlock", "content": [{"type": "text", "text": "edit\none\ntwo"}]}
+        ]});
+        let mut model =
+            super::model::EditorModel::new(Document::parse(remote.to_string().into()).unwrap());
+        model.revision = revision;
+        model.select(selection);
+        editor.model = Some(model);
+    });
+    cx.run_until_parked();
+    assert_eq!(texts(&editor, cx), ["edit\none\ntwo"]);
 }

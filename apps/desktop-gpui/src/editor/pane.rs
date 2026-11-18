@@ -1574,6 +1574,9 @@ impl EditorPane {
         };
         let revision = model.revision;
         let selection = model.selection;
+        // The parsed source outlives edits, so it tells a loaded remote revision (a new model
+        // back at revision 0) from this document.
+        let source = model.document.original.clone();
         self.clipboard_generation += 1;
         let generation = self.clipboard_generation;
         let code = model
@@ -1612,7 +1615,7 @@ impl EditorPane {
             let _ = entity.update(cx, |this, cx| {
                 if this.clipboard_generation != generation { return; }
                 let Some(model) = &mut this.model else { return; };
-                if model.revision != revision || model.selection != selection {
+                if model.revision != revision || model.selection != selection || !Arc::ptr_eq(&model.document.original, &source) {
                     this.message = "Selection changed while preparing paste. Paste again at the desired position.".into();
                     cx.notify(); return;
                 }
