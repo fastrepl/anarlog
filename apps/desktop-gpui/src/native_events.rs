@@ -229,19 +229,7 @@ impl NativeEvents {
         let links = events.clone();
         application.on_open_urls(move |urls| {
             for url in urls.into_iter().take(64) {
-                match links.links.receive(&url) {
-                    Ok(id) => {
-                        if links
-                            .sender
-                            .try_send(NativeEvent::DeepLink { id, raw: url })
-                            .is_err()
-                        {
-                            let _ = links.links.acknowledge(id);
-                            tracing::warn!("Native event queue is full");
-                        }
-                    }
-                    Err(error) => tracing::warn!("Deep link rejected: {error}"),
-                }
+                links.receive_deep_link(url);
             }
         });
         let reopen = events.clone();
@@ -251,6 +239,22 @@ impl NativeEvents {
                 .try_send(NativeEvent::Action(TrayAction::Open));
         });
         events
+    }
+
+    pub fn receive_deep_link(&self, raw: String) {
+        match self.links.receive(&raw) {
+            Ok(id) => {
+                if self
+                    .sender
+                    .try_send(NativeEvent::DeepLink { id, raw })
+                    .is_err()
+                {
+                    let _ = self.links.acknowledge(id);
+                    tracing::warn!("Native event queue is full");
+                }
+            }
+            Err(error) => tracing::warn!("Deep link rejected: {error}"),
+        }
     }
 
     pub fn next(&self) -> Option<NativeEvent> {

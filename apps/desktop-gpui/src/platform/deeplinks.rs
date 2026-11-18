@@ -10,6 +10,9 @@ use desktop_runtime::{
 };
 use gpui::Application;
 
+#[cfg(target_os = "linux")]
+pub mod instance;
+
 #[derive(Clone, Default)]
 pub struct NativeDeepLinks {
     inbox: Arc<Mutex<DeepLinkInbox>>,
@@ -26,8 +29,7 @@ impl NativeDeepLinks {
     }
 
     pub fn receive(&self, raw: &str) -> Result<u64> {
-        let scheme = raw.split_once(':').map(|(scheme, _)| scheme).unwrap_or("");
-        if !SCHEMES.contains(&scheme) {
+        if !has_registered_scheme(raw) {
             return Err(failure("Unknown deep-link scheme"));
         }
         self.inbox
@@ -53,6 +55,11 @@ impl NativeDeepLinks {
             .map_err(|_| ServiceError::Closed)?
             .acknowledge(id))
     }
+}
+
+pub fn has_registered_scheme(raw: &str) -> bool {
+    raw.split_once(':')
+        .is_some_and(|(scheme, _)| SCHEMES.contains(&scheme))
 }
 
 pub const SCHEMES: &[&str] = &[

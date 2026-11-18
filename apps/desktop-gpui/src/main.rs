@@ -16,26 +16,48 @@ fn main() -> anyhow::Result<()> {
         )
         .init();
     let mut args = std::env::args_os().skip(1);
-    let profile = match args.next() {
-        Some(argument) if argument == "--help" => {
-            println!(
-                "Anarlog native preview\nUsage: desktop-gpui [--profile DIRECTORY]\nDefault: $HOME/.anarlog-gpui-sandbox/library.sqlite\nUse only an isolated profile or a backup copy, never the shipping app's live profile."
-            );
-            return Ok(());
-        }
-        Some(argument) if argument == "--profile" => PathBuf::from(
-            args.next()
-                .ok_or_else(|| anyhow::anyhow!("--profile requires a directory"))?,
-        ),
-        Some(_) => anyhow::bail!("Unknown option. Use --help."),
-        None => PathBuf::from(
+    let first = args.next();
+    if first.as_deref() == Some(std::ffi::OsStr::new("--help")) {
+        #[cfg(target_os = "linux")]
+        let url = " [URL]";
+        #[cfg(not(target_os = "linux"))]
+        let url = "";
+        println!(
+            "Anarlog native preview\nUsage: desktop-gpui [--profile DIRECTORY]{url}\nDefault: $HOME/.anarlog-gpui-sandbox/library.sqlite\nUse only an isolated profile or a backup copy, never the shipping app's live profile."
+        );
+        return Ok(());
+    }
+    let (profile, next) = if first.as_deref() == Some(std::ffi::OsStr::new("--profile")) {
+        let profile = args
+            .next()
+            .ok_or_else(|| anyhow::anyhow!("--profile requires a directory"))?;
+        (PathBuf::from(profile), args.next())
+    } else {
+        #[cfg(not(target_os = "linux"))]
+        anyhow::ensure!(first.is_none(), "Unknown option. Use --help.");
+        let profile = PathBuf::from(
             std::env::var_os("HOME")
                 .or_else(|| std::env::var_os("USERPROFILE"))
                 .ok_or_else(|| anyhow::anyhow!("No home directory; pass --profile DIRECTORY"))?,
         )
-        .join(".anarlog-gpui-sandbox"),
+        .join(".anarlog-gpui-sandbox");
+        (profile, first)
     };
+    #[cfg(target_os = "linux")]
+    let launch_url = next
+        .map(|argument| {
+            argument
+                .into_string()
+                .ok()
+                .filter(|url| desktop_gpui::platform::deeplinks::has_registered_scheme(url))
+                .ok_or_else(|| anyhow::anyhow!("Unknown option. Use --help."))
+        })
+        .transpose()?;
+    #[cfg(not(target_os = "linux"))]
+    anyhow::ensure!(next.is_none(), "Unexpected extra arguments");
     anyhow::ensure!(args.next().is_none(), "Unexpected extra arguments");
+    #[cfg(target_os = "linux")]
+    let restart_profile = profile.clone();
     let pointer = profile.with_extension("storage.json");
     let profile = if pointer.exists() {
         let path: PathBuf = serde_json::from_slice(&std::fs::read(&pointer)?)?;
@@ -46,6 +68,14 @@ fn main() -> anyhow::Result<()> {
         path
     } else {
         profile
+    };
+    #[cfg(target_os = "linux")]
+    let Some(launch_links) =
+        desktop_gpui::platform::deeplinks::instance::LaunchLinks::bind_or_forward(
+            &profile, launch_url,
+        )?
+    else {
+        return Ok(());
     };
     let (runtime, ready) = desktop_gpui::runtime_bridge::start(Profile {
         database: profile.join("library.sqlite"),
@@ -100,8 +130,24 @@ fn main() -> anyhow::Result<()> {
                             .timer(std::time::Duration::from_millis(100))
                             .await;
                         let done = cx.update(|cx| {
-                            let Ok((tray, update)) = main.update(cx, |view, _, cx| {
+                            let Ok((tray, update)) = main.update(cx, |view, _window, cx| {
                                 view.native_tick(cx);
+                                #[cfg(target_os = "linux")]
+                                if view.accepts_launch_links()
+                                    && let Some(link) = launch_links.pending().next()
+                                {
+                                    use desktop_gpui::{
+                                        native_events::NativeEvent, platform::tray::TrayAction,
+                                    };
+                                    view.native_event(
+                                        NativeEvent::Action(TrayAction::Open),
+                                        _window,
+                                        cx,
+                                    );
+                                    if let Some(url) = link {
+                                        events.receive_deep_link(url);
+                                    }
+                                }
                                 (view.tray_model(), view.update_menu())
                             }) else {
                                 return true;
@@ -140,9 +186,12 @@ fn main() -> anyhow::Result<()> {
         cx.activate(true);
     });
     if desktop_gpui::platform::windows::restart_requested() {
-        std::process::Command::new(std::env::current_exe()?)
-            .args(std::env::args_os().skip(1))
-            .spawn()?;
+        let mut command = std::process::Command::new(std::env::current_exe()?);
+        #[cfg(target_os = "linux")]
+        command.arg("--profile").arg(restart_profile);
+        #[cfg(not(target_os = "linux"))]
+        command.args(std::env::args_os().skip(1));
+        command.spawn()?;
     }
     Ok(())
 }

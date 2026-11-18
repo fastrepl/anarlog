@@ -75,6 +75,8 @@ pub struct ApplicationView {
     instruction: Entity<instruction::Instruction>,
     services: Option<MeetingServices>,
     native: Option<NativeServices>,
+    #[cfg(target_os = "linux")]
+    native_starting: bool,
     editor_vault: PathBuf,
     writers_paused: bool,
     lifecycle: lifecycle::Lifecycle,
@@ -98,6 +100,11 @@ pub struct ApplicationView {
 impl ApplicationView {
     pub fn native_ready(&self) -> bool {
         self.native.is_some()
+    }
+
+    #[cfg(target_os = "linux")]
+    pub fn accepts_launch_links(&self) -> bool {
+        !self.native_starting && !self.closing
     }
 
     pub fn workspace(&self) -> &Entity<WorkspaceView> {
@@ -336,6 +343,8 @@ impl ApplicationView {
         });
         cx.spawn(async move |this, cx| {
             let result = startup.await;
+            #[cfg(target_os = "linux")]
+            let _ = this.update(cx, |this, _| this.native_starting = false);
             let _ = this.update(cx, |this, cx| match result {
                 Ok((services, native, ai, warnings)) => {
                     cx.set_global(services.clone());
@@ -406,6 +415,8 @@ impl ApplicationView {
             instruction,
             services: None,
             native: None,
+            #[cfg(target_os = "linux")]
+            native_starting: true,
             editor_vault,
             writers_paused: false,
             lifecycle: lifecycle::Lifecycle::new(tray_settings),

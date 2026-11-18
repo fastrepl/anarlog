@@ -3111,6 +3111,7 @@ dependencies = [
  "meeting-import",
  "mime_guess",
  "model-downloader",
+ "nix",
  "notification-interface",
  "notification-linux",
  "notification-macos",
@@ -3215,6 +3216,7 @@ dependencies = [
  "xcap",
  "zbus",
 ]
+
 [[package]]
 name = "deunicode"
 version = "1.6.2"
@@ -7322,6 +7324,7 @@ dependencies = [
  "cfg-if",
  "cfg_aliases",
  "libc",
+ "memoffset",
 ]
 
 [[package]]
