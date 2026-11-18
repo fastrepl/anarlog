@@ -1697,6 +1697,65 @@ async fn team_calls_show_the_servers_seat_limit_reason() {
     runtime.shutdown().await.unwrap();
 }
 #[tokio::test]
+async fn workspace_keys_are_granted_to_members_with_an_identity_without_waiting_for_the_rest() {
+    const WORKSPACE: &str = "5b0f2a3c-9d7e-4a51-8f6b-2c1d0e9a8b7c";
+    const PENDING: &str = "9c3e7d1a-4b2f-4e8a-b6c5-0d1f2e3a4b5c";
+    let server = MockServer::start().await;
+    let directory = tempfile::tempdir().unwrap();
+    let (runtime, ready) = RuntimeHandle::start(Profile {
+        database: directory.path().join("cloud.sqlite"),
+    })
+    .unwrap();
+    ready.receive().await.unwrap();
+    let cloud = fixture_cloud(&runtime, &server, Arc::new(MemoryStore::default())).await;
+    let recovery = anlg_e2ee::RecoveryKey::generate().unwrap();
+    let identity = recovery.member_identity_key().unwrap();
+    Mock::given(method("GET"))
+        .and(path(format!(
+            "/sync/e2ee/workspaces/{WORKSPACE}/recipients"
+        )))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([
+            {"userId": ACCOUNT, "publicKey": identity.public_key(), "grantedKeyIds": []},
+            {"userId": PENDING, "publicKey": null, "grantedKeyIds": []},
+        ])))
+        .mount(&server)
+        .await;
+    Mock::given(method("PUT"))
+        .and(path(format!("/sync/e2ee/workspaces/{WORKSPACE}/key")))
+        .respond_with(|request: &wiremock::Request| {
+            let body = request.body_json::<Value>().unwrap();
+            ResponseTemplate::new(200).set_body_json(json!({"keyId": body["keyId"]}))
+        })
+        .mount(&server)
+        .await;
+    let credentials = json!({"workspaces": [{"kind": "shared", "role": "owner", "id": WORKSPACE}],
+        "workspaceKeyGrants": []});
+    let lease = cloud.core.auth.lease(ACCOUNT, false).await.unwrap();
+    let published = cloud
+        .core
+        .sync
+        .provision_keys(&cloud.core, &lease, &recovery, &credentials)
+        .await
+        .unwrap();
+    assert!(published);
+    let requests = server.received_requests().await.unwrap();
+    let key = requests
+        .iter()
+        .find(|request| request.method.as_str() == "PUT")
+        .unwrap()
+        .body_json::<Value>()
+        .unwrap();
+    let granted = key["grants"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|grant| grant["userId"].clone())
+        .collect::<Vec<_>>();
+    assert_eq!(granted, [json!(ACCOUNT)]);
+    runtime.shutdown().await.unwrap();
+}
+
+#[tokio::test]
 async fn sync_setup_claims_the_recovery_key_it_showed_and_enabling_without_one_asks_for_setup() {
     use super::calls::{CloudCalls, SyncBlock, SyncCommand};
     let server = MockServer::start().await;

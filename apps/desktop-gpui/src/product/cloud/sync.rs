@@ -276,7 +276,7 @@ impl Sync {
         }
     }
 
-    async fn provision_keys(
+    pub(super) async fn provision_keys(
         &self,
         core: &Core,
         lease: &AuthLease,
@@ -315,15 +315,8 @@ impl Sync {
                 .into_iter()
                 .flatten()
                 .find(|grant| grant["workspaceId"] == id && grant["isActive"] == true);
-            if active.is_none()
-                && recipients
-                    .iter()
-                    .any(|recipient| recipient["publicKey"].is_null())
-            {
-                return Err(failure(
-                    "Waiting for workspace members to set up encryption",
-                ));
-            }
+            // Members without an encryption identity are skipped; a later pass wraps the active
+            // key for them once they publish one, so they never stall everyone else's sync.
             if let Some(active) = active
                 && recipients
                     .iter()
