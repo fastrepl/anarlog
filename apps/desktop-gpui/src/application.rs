@@ -71,6 +71,10 @@ pub struct ApplicationView {
     automation: Entity<crate::meeting::automation::MeetingAutomation>,
     dictation: Option<Entity<crate::dictation::Dictation>>,
     product: Option<Entity<ProductPane>>,
+    #[cfg(target_os = "windows")]
+    onboarding_checked: bool,
+    #[cfg(target_os = "windows")]
+    pending_share: Option<(String, bool)>,
     trial_dialogs: Entity<crate::product::trial::TrialDialogs>,
     instruction: Entity<instruction::Instruction>,
     services: Option<MeetingServices>,
@@ -402,6 +406,10 @@ impl ApplicationView {
             automation,
             dictation,
             product: None,
+            #[cfg(target_os = "windows")]
+            onboarding_checked: false,
+            #[cfg(target_os = "windows")]
+            pending_share: None,
             trial_dialogs,
             instruction,
             services: None,
@@ -454,14 +462,10 @@ impl ApplicationView {
                 }
                 match desktop_runtime::deeplink::DeepLink::parse(&raw) {
                     Ok(desktop_runtime::deeplink::DeepLink::ShareAccount { share_id }) => {
-                        #[cfg(target_os = "windows")]
-                        self.show_main(window, cx);
-                        self.open_shared(share_id, false, cx)
+                        self.route_share(share_id, false, window, cx)
                     }
                     Ok(desktop_runtime::deeplink::DeepLink::ShareHandoff { request_id }) => {
-                        #[cfg(target_os = "windows")]
-                        self.show_main(window, cx);
-                        self.open_shared(request_id, true, cx)
+                        self.route_share(request_id, true, window, cx)
                     }
                     Ok(desktop_runtime::deeplink::DeepLink::OnboardingComplete) => {
                         let Some(services) = self.services.clone() else {
@@ -559,6 +563,30 @@ impl ApplicationView {
                 }
             }
         }
+    }
+
+    fn route_share(
+        &mut self,
+        id: String,
+        handoff: bool,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        #[cfg(target_os = "windows")]
+        {
+            self.show_main(_window, cx);
+            // A Windows shell launch can deliver the share before the first-run check completes.
+            if !self.onboarding_checked
+                || self
+                    .product
+                    .as_ref()
+                    .is_some_and(|product| product.read(cx).is_onboarding())
+            {
+                self.pending_share = Some((id, handoff));
+                return;
+            }
+        }
+        self.open_shared(id, handoff, cx);
     }
 
     /// `share/open` links: an account link refreshes the cached copy, then opens the shared
@@ -1236,9 +1264,18 @@ impl ApplicationView {
         }
         self.product_subscriptions = vec![
             cx.observe(&product, |_, _, cx| cx.notify()),
-            cx.subscribe(&product, |this, _, event, cx| match event {
+            cx.subscribe(&product, |this, _product, event, cx| match event {
                 ProductEvent::NavigateWorkspace => this.leave_product(Route::Empty, cx),
-                ProductEvent::OpenSession(id) => this.leave_product(Route::Session(id.clone()), cx),
+                ProductEvent::OpenSession(id) => {
+                    #[cfg(target_os = "windows")]
+                    if _product.read(cx).is_onboarding()
+                        && let Some((id, handoff)) = this.pending_share.take()
+                    {
+                        this.open_shared(id, handoff, cx);
+                        return;
+                    }
+                    this.leave_product(Route::Session(id.clone()), cx);
+                }
                 ProductEvent::Failed(error) => this.status(&error.to_string(), cx),
             }),
             cx.subscribe(&product, |this, _, event: &OpenWorkspaceSection, cx| {
@@ -1274,6 +1311,18 @@ impl ApplicationView {
                     })
                 });
             }
+            #[cfg(target_os = "windows")]
+            let _ = this.update(cx, |this, cx| {
+                this.onboarding_checked = true;
+                if !this
+                    .product
+                    .as_ref()
+                    .is_some_and(|product| product.read(cx).is_onboarding())
+                    && let Some((id, handoff)) = this.pending_share.take()
+                {
+                    this.open_shared(id, handoff, cx);
+                }
+            });
         })
         .detach();
     }

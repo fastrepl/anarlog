@@ -183,6 +183,11 @@ impl ProductPane {
         }
     }
 
+    #[cfg(target_os = "windows")]
+    pub(crate) fn is_onboarding(&self) -> bool {
+        self.onboarding.is_some()
+    }
+
     pub fn can_close(&mut self, cx: &mut Context<Self>) -> bool {
         if self
             .providers
