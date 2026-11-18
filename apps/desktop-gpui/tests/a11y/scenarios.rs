@@ -568,3 +568,58 @@ fn a_standalone_note_window_locks_with_the_app() {
     tree.find(Role::Heading, "Anarlog is Locked");
     assert!(!title(&tree), "{}", tree.outline());
 }
+
+#[test]
+fn notes_stay_read_only_while_a_slow_quit_drain_finishes() {
+    let app = Harness::start();
+    app.open(Route::Session(SessionId("s-sync".into())));
+    let note = |app: &Harness| {
+        app.tree()
+            .root()
+            .items(Role::MultilineTextInput)
+            .first()
+            .and_then(|editor| editor.value())
+            .map(str::to_owned)
+    };
+    let before = note(&app).expect("the note editor");
+    // A shutdown participant that outlasts the 12-second quit deadline.
+    let (release, held) = futures::channel::oneshot::channel::<()>();
+    futures::executor::block_on(
+        app.runtime
+            .register_flush(Box::new(move || {
+                Box::pin(async move {
+                    let _ = held.await;
+                    Ok(())
+                })
+            }))
+            .unwrap()
+            .receive(),
+    )
+    .unwrap();
+    app.app.update(|cx| {
+        app.window
+            .update(cx, |root, _, cx| root.request_quit(cx))
+            .unwrap()
+    });
+    app.settle();
+    app.platform
+        .dispatcher
+        .advance_clock(std::time::Duration::from_secs(13));
+    app.settle();
+    assert!(!app.platform.quit.get());
+
+    app.keys(&["x"]);
+    let after = note(&app);
+    assert!(
+        after.is_none_or(|text| text == before),
+        "typing must not reach a note that can no longer save"
+    );
+    release.send(()).unwrap();
+    for _ in 0..50 {
+        if app.platform.quit.get() {
+            break;
+        }
+        app.settle();
+    }
+    assert!(app.platform.quit.get(), "the app quits once the drain ends");
+}

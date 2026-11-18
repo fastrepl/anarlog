@@ -1393,19 +1393,55 @@ impl ApplicationView {
                 let drain = cx.update(|cx| runtime_bridge::drain_before_quit(runtime, cx));
                 drain.await
             }.await;
-            let _ = this.update(cx, |this, cx| {
-                this.closing = false;
-                match result {
-                    Ok(()) => { this.drained = true; cx.quit(); }
-                    Err(error) => {
+            let _ = this.update(cx, |this, cx| match result {
+                Ok(()) => {
+                    this.closing = false;
+                    this.drained = true;
+                    cx.quit();
+                }
+                Err(error) if this.shutdown_begun() => this.finish_drain(error, cx),
+                Err(error) => {
+                    this.closing = false;
+                    // A storage move holds its pause until the relaunch.
+                    if !this.writers_paused {
                         if let Some(editor) = &this.editor { editor.update(cx, |editor, cx| editor.set_read_only(false, cx)); }
                         for window in this.note_windows.values() { let _ = window.update(cx, |view, _, cx| view.resume(cx)); }
+                    }
+                    toasts::dismiss("quit", cx);
+                    this.status(&format!("Quit paused: {error}"), cx);
+                }
+            });
+        }).detach();
+    }
+
+    /// The runtime stopped admitting work, so nothing can save again in this process.
+    fn shutdown_begun(&self) -> bool {
+        !matches!(
+            *self.runtime.state().borrow(),
+            desktop_runtime::RuntimeState::Starting | desktop_runtime::RuntimeState::Ready
+        )
+    }
+
+    /// Notes stay read-only once the runtime began shutting down. The drain keeps running and
+    /// the app quits when it finishes; if it fails, the next quit request does not wait again.
+    fn finish_drain(&mut self, error: ServiceError, cx: &mut Context<Self>) {
+        self.status(&format!("Quit paused: {error}"), cx);
+        let runtime = self.runtime.clone();
+        cx.spawn(async move |this, cx| {
+            let result = runtime.shutdown().await;
+            let _ = this.update(cx, |this, cx| {
+                this.closing = false;
+                this.drained = true;
+                match result {
+                    Ok(()) => cx.quit(),
+                    Err(error) => {
                         toasts::dismiss("quit", cx);
                         this.status(&format!("Quit paused: {error}"), cx);
                     }
                 }
             });
-        }).detach();
+        })
+        .detach();
     }
 }
 

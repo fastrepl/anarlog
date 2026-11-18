@@ -35,7 +35,7 @@ pub fn drain_before_quit(
         match select(runtime.shutdown().boxed(), deadline.boxed()).await {
             Either::Left((result, _)) => result,
             Either::Right(_) => Err(desktop_runtime::ServiceError::Failed(
-                "Shutdown is still draining after 12 seconds. Accepted writes remain active; wait and retry before quitting.".into()
+                "Shutdown is still draining after 12 seconds; Anarlog quits once accepted writes finish.".into()
             )),
         }
     })
