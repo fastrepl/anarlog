@@ -383,17 +383,18 @@ impl TemplatesView {
         cx.notify();
     }
 
-    /// Saves the form's pending edits now. Quitting awaits it; a failed save keeps the edits
-    /// for the next one.
+    /// Saves the form's pending edits now, with those still saving. Quitting awaits it; a
+    /// failed save keeps the edits for the next one.
     pub(super) fn flush(&mut self, cx: &mut Context<Self>) -> Task<desktop_runtime::Result<()>> {
         let Some(form) = &mut self.form else {
             return Task::ready(Ok(()));
         };
-        if form.pending.is_empty() {
+        if form.pending.is_empty() && form.saving.is_empty() {
             return Task::ready(Ok(()));
         }
         // Each save repeats the fields still in flight, so only the newest save puts its edits
-        // back on failure: an older one restoring its values would overwrite newer edits.
+        // back on failure: an older one restoring its values would overwrite newer edits. With
+        // nothing new pending, the repeat still makes the result cover the saves in flight.
         let mut changes = form.saving.clone();
         changes.merge(std::mem::take(&mut form.pending));
         self.saves += 1;
@@ -2089,6 +2090,30 @@ mod tests {
             sql("SELECT title FROM templates WHERE id=?")[0]["title"],
             "Final"
         );
+
+        // With the debounce's save in flight nothing was pending, so a quit's flush reported
+        // success before that save failed, and the quit dropped the edit it put back.
+        sql("DELETE FROM templates WHERE id=?");
+        let debounced = save_title("Shipped", cx);
+        let quit = view.update(cx, |view, cx| view.flush(cx));
+        block_on(runtime.flush().unwrap().receive()).unwrap();
+        cx.run_until_parked();
+        assert!(
+            debounced
+                .now_or_never()
+                .expect("the save finished")
+                .is_err()
+        );
+        assert!(quit.now_or_never().expect("the save finished").is_err());
+        block_on(restore().receive()).unwrap();
+        assert!(flush(cx).is_ok());
+        assert_eq!(
+            sql("SELECT title FROM templates WHERE id=?")[0]["title"],
+            "Shipped"
+        );
+        // With nothing pending or in flight, a flush stays immediate.
+        let idle = view.update(cx, |view, cx| view.flush(cx));
+        assert!(idle.now_or_never().expect("nothing to save").is_ok());
         block_on(runtime.shutdown()).unwrap();
     }
 }
