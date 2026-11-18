@@ -333,7 +333,7 @@ impl LocalServices {
                     let enabled = calendar["enabled"].as_bool().unwrap_or(false);
                     if enabled {
                         self.calendar
-                            .refresh(&self.runtime, key.into(), request.cancel.clone())
+                            .refresh(&self.runtime, key.into(), None, request.cancel.clone())
                             .await?;
                     }
                     rows.push(row(
