@@ -7,8 +7,8 @@ use tokio::{
 };
 
 use crate::{
-    Command, FlushParticipant, QUEUE_CAPACITY, Result, RuntimeState, ServiceError, Services,
-    ShutdownPhase, Work, types::failure,
+    Command, QUEUE_CAPACITY, Result, RuntimeState, ServiceError, Services, ShutdownPhase, Work,
+    shutdown::Participant, types::failure,
 };
 
 pub(crate) async fn run(
@@ -26,7 +26,7 @@ pub(crate) async fn run(
     if let Err(error) = jobs {
         errors.push(error.to_string());
     }
-    participants.sort_by_key(|(phase, _)| *phase);
+    participants.sort_by_key(|participant| participant.phase);
     for phase in [
         ShutdownPhase::PendingDeletions,
         ShutdownPhase::ApplicationState,
@@ -34,8 +34,11 @@ pub(crate) async fn run(
         ShutdownPhase::StopServices,
     ] {
         let mut pending = Vec::new();
-        while participants.first().is_some_and(|(next, _)| *next == phase) {
-            let (_, participant) = participants.remove(0);
+        while participants
+            .first()
+            .is_some_and(|participant| participant.phase == phase)
+        {
+            let participant = participants.remove(0).run;
             pending.push(AssertUnwindSafe(async move { participant().await }).catch_unwind());
         }
         let all = futures::future::join_all(pending);
@@ -68,7 +71,7 @@ async fn database_queue(
     mut receiver: mpsc::Receiver<Command>,
     services: Services,
     state: &watch::Sender<RuntimeState>,
-) -> Vec<(ShutdownPhase, FlushParticipant)> {
+) -> Vec<Participant> {
     let mut participants = Vec::new();
     let mut draining = false;
     loop {
@@ -84,11 +87,12 @@ async fn database_queue(
         };
         match command {
             Some(Command::Work(work)) => work(services.clone()).await,
-            Some(Command::Register(phase, participant, reply)) => {
+            Some(Command::Register(participant, reply)) => {
+                participants.retain(Participant::live);
                 if participants.len() == QUEUE_CAPACITY {
                     let _ = reply.send(Err(ServiceError::Busy));
                 } else {
-                    participants.push((phase, participant));
+                    participants.push(participant);
                     let _ = reply.send(Ok(()));
                 }
             }

@@ -67,7 +67,7 @@ pub type FlushParticipant = Box<dyn FnOnce() -> BoxFuture<'static, Result<()>> +
 
 enum Command {
     Work(Work),
-    Register(ShutdownPhase, FlushParticipant, oneshot::Sender<Result<()>>),
+    Register(shutdown::Participant, oneshot::Sender<Result<()>>),
 }
 
 pub struct Reply<T>(oneshot::Receiver<Result<T>>);
