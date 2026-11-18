@@ -156,6 +156,7 @@ async fn insert(target: ObjectRef, text: &str) -> Result<()> {
         ));
     }
     let caret = text_proxy.caret_offset().await.map_err(failed)?;
+    let original_length = text_proxy.character_count().await.map_err(failed)?;
     let states = accessible.get_state().await.map_err(failed)?;
     if caret < 0 || !states.contains(State::Focused) || !editable(&accessible, states).await? {
         return Err(failed(FIELD_CHANGED));
@@ -170,8 +171,17 @@ async fn insert(target: ObjectRef, text: &str) -> Result<()> {
             "This app could not insert text. Copy your last dictation from Settings > Dictation.",
         ));
     }
+    let inserted_length = text.chars().count() as i32;
+    let updated_length = text_proxy.character_count().await.map_err(|_| {
+        failed("Could not verify the inserted dictation. Review the field or copy the transcript from Settings > Dictation.")
+    })?;
+    if updated_length.checked_sub(original_length) != Some(inserted_length) {
+        return Err(failed(
+            "The app did not insert the full dictation. Review the field or copy the transcript from Settings > Dictation.",
+        ));
+    }
     if let Err(error) = text_proxy
-        .set_caret_offset(caret.saturating_add(text.chars().count() as i32))
+        .set_caret_offset(caret.saturating_add(inserted_length))
         .await
     {
         tracing::debug!(%error, "could not move caret after dictation");
