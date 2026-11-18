@@ -88,11 +88,15 @@ impl NativePermissions {
         match permission {
             #[cfg(target_os = "macos")]
             Permission::Microphone => request_microphone(),
+            // Shipping's `request_system_audio`: opening the speaker tap while something plays
+            // is what shows the system audio prompt. The silence stops even if the probe fails.
             Permission::SystemAudio => {
                 let stop = self.audio.play_silence();
-                let status = self.check(permission);
+                if let Err(error) = self.audio.probe_speaker() {
+                    tracing::warn!(%error, "system audio probe failed");
+                }
                 let _ = stop.send(());
-                status
+                self.check(permission)
             }
             Permission::Accessibility => accessibility(true),
             Permission::Calendar => calendar(true),
