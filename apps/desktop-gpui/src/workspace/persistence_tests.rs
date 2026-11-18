@@ -764,7 +764,7 @@ fn undoing_a_delete_restores_only_its_tombstoned_rows_and_keeps_the_event_hidden
 }
 
 #[test]
-fn folder_route_creates_renames_updates_and_deletes_paths() {
+fn folder_route_creates_renames_updates_and_deletes_paths_with_their_series_rules() {
     block_on(async {
         let (directory, runtime) = start().await;
         for _ in 0..2 {
@@ -787,6 +787,32 @@ fn folder_route_creates_renames_updates_and_deletes_paths() {
             folders::decode_library(&rows).paths.as_slice(),
             [Arc::<str>::from("Clients"), Arc::from("Clients/Sub")]
         );
+        // Recurring meetings filed into a renamed folder (or below it) follow it; deleting the
+        // folder drops their rules so a new folder of the old name does not inherit them.
+        execute(
+            &runtime,
+            "INSERT INTO app_settings(id,value_json) VALUES ('auto_add_series_folders',?)",
+            vec![json!(
+                json!([
+                    {"series_id": "sub", "folder_path": "Clients/Sub"},
+                    {"series_id": "deep", "folder_path": "Clients/Sub/Deep"},
+                    {"series_id": "sibling", "folder_path": "Clients/Subway"},
+                    {"series_id": "other", "folder_path": "Other"},
+                ])
+                .to_string()
+            )],
+        )
+        .await;
+        let series_rules = || async {
+            let rows = execute(&runtime, super::calendar_rules::QUERY, vec![]).await;
+            let mut rules = super::calendar_rules::SeriesRules::from_rows(&rows)
+                .folders
+                .into_iter()
+                .map(|(series, folder)| (series.to_string(), folder.to_string()))
+                .collect::<Vec<_>>();
+            rules.sort();
+            rules
+        };
         // A path only notes reference gains catalog rows when renamed.
         let renamed = folders::rename(&runtime, "Clients/Sub".into(), "Clients/Renamed".into())
             .unwrap()
@@ -802,6 +828,16 @@ fn folder_route_creates_renames_updates_and_deletes_paths() {
             )
             .await[0]["folder_path"],
             "Clients/Renamed"
+        );
+        let pair = |series: &str, folder: &str| (series.to_owned(), folder.to_owned());
+        assert_eq!(
+            series_rules().await,
+            [
+                pair("deep", "Clients/Renamed/Deep"),
+                pair("other", "Other"),
+                pair("sibling", "Clients/Subway"),
+                pair("sub", "Clients/Renamed"),
+            ]
         );
         folders::create(&runtime, "Other".into())
             .unwrap()
@@ -859,6 +895,7 @@ fn folder_route_creates_renames_updates_and_deletes_paths() {
         .await[0];
         assert_eq!(note["folder_path"], "");
         assert!(note["deleted_at"].is_null());
+        assert_eq!(series_rules().await, [pair("other", "Other")]);
         runtime.shutdown().await.unwrap();
     });
 }
