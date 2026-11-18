@@ -1,8 +1,8 @@
 use std::{
     io::{self, Read, Write},
     net::Shutdown,
-    os::linux::net::SocketAddrExt,
     os::unix::net::{SocketAddr, UnixListener, UnixStream},
+    os::{fd::AsFd, linux::net::SocketAddrExt},
     path::Path,
     sync::{
         Arc,
@@ -14,6 +14,7 @@ use std::{
 };
 
 use nix::{
+    poll::{PollFd, PollFlags, PollTimeout, poll},
     sys::socket::{getsockopt, sockopt::PeerCredentials},
     unistd::geteuid,
 };
@@ -36,6 +37,19 @@ pub struct LaunchRequest {
 
 impl LaunchRequest {
     pub fn deliver(self, dispatch: impl FnOnce(Option<String>) -> bool) {
+        if let Some(reply) = &self.reply {
+            // The sender half-closes its write side after the URL. POLLHUP means
+            // it also closed its read side and no longer waits for delivery.
+            let mut fds = [PollFd::new(reply.as_fd(), PollFlags::empty())];
+            match poll(&mut fds, PollTimeout::ZERO) {
+                Ok(0) => {}
+                Ok(_) => return,
+                Err(error) => {
+                    tracing::warn!(%error, "could not check protocol launcher connection");
+                    return;
+                }
+            }
+        }
         let delivered = dispatch(self.url);
         if let Some(mut reply) = self.reply
             && let Err(error) = reply.write_all(&[u8::from(delivered)])
@@ -226,18 +240,44 @@ mod tests {
                 true
             });
             assert!(sender.join().unwrap());
-
-            // A request queued during shutdown receives no success acknowledgment.
-            let sender =
-                scope.spawn(|| LaunchLinks::bind_or_forward(profile.path(), None).is_err());
-            drop(first.pending.recv_timeout(TIMEOUT).unwrap());
-            drop(first);
-            assert!(sender.join().unwrap());
         });
+        drop(first);
         assert!(
             LaunchLinks::bind_or_forward(profile.path(), None)
                 .unwrap()
                 .is_some()
         );
+    }
+
+    #[test]
+    fn skips_a_queued_launch_when_the_sender_has_disconnected() {
+        let (sender, pending) = mpsc::sync_channel(1);
+        let (mut client, server) = UnixStream::pair().unwrap();
+        client
+            .write_all(b"anarlog://auth/callback?code=not-a-real-code")
+            .unwrap();
+        client.shutdown(Shutdown::Write).unwrap();
+        receive(server, &sender).unwrap();
+        drop(client);
+        pending
+            .try_recv()
+            .unwrap()
+            .deliver(|_| panic!("an abandoned launch must not be dispatched"));
+    }
+
+    #[test]
+    fn shutting_down_closes_the_queued_launch_connection() {
+        let (sender, pending) = mpsc::sync_channel(1);
+        let links = LaunchLinks {
+            pending,
+            stopping: Arc::new(AtomicBool::new(false)),
+            worker: None,
+        };
+        let (mut client, server) = UnixStream::pair().unwrap();
+        client.set_read_timeout(Some(TIMEOUT)).unwrap();
+        client.shutdown(Shutdown::Write).unwrap();
+        receive(server, &sender).unwrap();
+        drop(links);
+        assert_eq!(client.read(&mut [0]).unwrap(), 0);
     }
 }
