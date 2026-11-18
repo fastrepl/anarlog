@@ -1534,6 +1534,81 @@ async fn cloud_api_enable_uploads_existing_meetings_and_surfaces_api_errors() {
 }
 
 #[tokio::test]
+async fn cloud_api_uploads_an_edit_saved_while_the_previous_upload_was_in_flight() {
+    use super::cloud_api::{CloudApi, Revision};
+    let server = MockServer::start().await;
+    let directory = tempfile::tempdir().unwrap();
+    let (runtime, ready) = RuntimeHandle::start(Profile {
+        database: directory.path().join("cloud-api.sqlite"),
+    })
+    .unwrap();
+    ready.receive().await.unwrap();
+    let note = runtime
+        .create_note("Draft".into())
+        .unwrap()
+        .receive()
+        .await
+        .unwrap();
+    let id = note.summary.id.0.to_string();
+    let cloud = fixture_cloud(&runtime, &server, Arc::new(MemoryStore::default())).await;
+    let api = CloudApi::new(cloud, directory.path().join("cloud-api.json"));
+    Mock::given(method("GET"))
+        .and(path("/v1/cloud-api/settings"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "enabled": true })))
+        .mount(&server)
+        .await;
+    let snapshot = format!("/v1/sync-snapshots/{id}");
+    Mock::given(method("PUT"))
+        .and(path(snapshot.as_str()))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(json!({}))
+                .set_delay(std::time::Duration::from_millis(300)),
+        )
+        .mount(&server)
+        .await;
+    let revision = |revision: &str| {
+        [Revision {
+            id: id.clone(),
+            deleted_at: None,
+            revision: revision.into(),
+        }]
+    };
+    let uploaded_titles = async || {
+        let requests = server.received_requests().await.unwrap();
+        requests
+            .iter()
+            .filter(|request| request.method.as_str() == "PUT" && request.url.path() == snapshot)
+            .map(|request| request.body_json::<Value>().unwrap()["title"].clone())
+            .collect::<Vec<_>>()
+    };
+    api.observe(ACCOUNT, &revision("1"));
+    let first = tokio::spawn(api.sync(ACCOUNT.into(), false));
+    while uploaded_titles().await.is_empty() {
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    }
+    let renamed = id.clone();
+    runtime
+        .service(move |services| async move {
+            sqlx::query("UPDATE sessions SET title = 'Final' WHERE id = ?")
+                .bind(renamed)
+                .execute(services.db.pool())
+                .await
+                .unwrap();
+            Ok(())
+        })
+        .unwrap()
+        .receive()
+        .await
+        .unwrap();
+    api.observe(ACCOUNT, &revision("2"));
+    first.await.unwrap().unwrap();
+    api.sync(ACCOUNT.into(), false).await.unwrap();
+    assert_eq!(uploaded_titles().await, [json!("Draft"), json!("Final")]);
+    runtime.shutdown().await.unwrap();
+}
+
+#[tokio::test]
 async fn team_calls_show_the_servers_seat_limit_reason() {
     use super::calls::CloudCalls;
     let server = MockServer::start().await;
