@@ -1080,6 +1080,72 @@ async fn deleting_a_shared_note_revokes_its_share_and_clears_the_cache() {
     runtime.shutdown().await.unwrap();
 }
 
+/// Only the publishing device keeps a share's journal, so deleting the note on another device
+/// once left its share live.
+#[tokio::test]
+async fn deleting_a_note_shared_from_another_device_revokes_its_share() {
+    let server = MockServer::start().await;
+    let directory = tempfile::tempdir().unwrap();
+    let (runtime, ready) = RuntimeHandle::start(Profile {
+        database: directory.path().join("cloud.sqlite"),
+    })
+    .unwrap();
+    ready.receive().await.unwrap();
+    let cloud = fixture_cloud(&runtime, &server, Arc::new(MemoryStore::default())).await;
+    let scope = seed_summary(
+        &runtime,
+        json!({"type":"doc","content":[{"type":"paragraph"}]}),
+    )
+    .await;
+    let session = scope.session_id.clone().unwrap();
+    Mock::given(method("POST"))
+        .and(path("/rest/v1/rpc/delete_session_share_by_session"))
+        .and(body_json(json!({"p_workspace_id": ACCOUNT, "p_session_id": session.0.as_ref()})))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([{"share_id": SHARE, "access_version": 2, "deleted_at": "2026-01-01T00:00:00Z", "was_deleted": true}])))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let id = session.clone();
+    runtime
+        .service(move |services| async move {
+            // The share's cached copy, as opening its link here leaves it.
+            sqlx::query("INSERT INTO shared_session_cache (share_id, viewer_user_id, workspace_id, session_id, content_revision, access_version, published_at) VALUES (?, ?, ?, ?, 1, 1, '2026-01-01T00:00:00Z')")
+                .bind(SHARE).bind(ACCOUNT).bind(ACCOUNT).bind(id.0.as_ref())
+                .execute(services.db.pool()).await.unwrap();
+            sqlx::query("UPDATE sessions SET deleted_at = '2026-01-01T00:00:00.000Z' WHERE id = ?")
+                .bind(id.0.as_ref())
+                .execute(services.db.pool())
+                .await
+                .unwrap();
+            Ok(())
+        })
+        .unwrap()
+        .receive()
+        .await
+        .unwrap();
+    cloud
+        .revoke_deleted_shares(vec![session])
+        .unwrap()
+        .receive()
+        .await
+        .unwrap();
+    let cached = runtime
+        .service(|services| async move {
+            Ok(
+                sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM shared_session_cache")
+                    .fetch_one(services.db.pool())
+                    .await
+                    .unwrap(),
+            )
+        })
+        .unwrap()
+        .receive()
+        .await
+        .unwrap();
+    assert_eq!(cached, 0);
+    runtime.shutdown().await.unwrap();
+}
+
 #[tokio::test]
 async fn publication_preserves_existing_attachment_ids_and_cache_metadata() {
     let server = MockServer::start().await;

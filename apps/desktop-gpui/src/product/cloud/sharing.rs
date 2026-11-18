@@ -714,9 +714,8 @@ impl CloudServices {
 impl CloudServices {
     /// Shipping's `revokeManagedShare`: deletes the published shares and cached copies of
     /// deleted notes, once their undo window has ended. Admitted now, behind the notes' queued
-    /// database work, so quitting still waits for it. Nothing is revoked while signed out, for a
-    /// note that was never shared, or for one that is no longer deleted. Every note is tried;
-    /// the first failure is returned.
+    /// database work, so quitting still waits for it. Nothing is revoked while signed out or for
+    /// a note that is no longer deleted. Every note is tried; the first failure is returned.
     pub fn revoke_deleted_shares(
         &self,
         sessions: Vec<SessionId>,
@@ -738,16 +737,16 @@ impl CloudServices {
     }
 
     async fn revoke_deleted_share(&self, services: &Services, session: SessionId) -> Result<()> {
-        let deleted: bool = sqlx::query_scalar(
-            "SELECT EXISTS(SELECT 1 FROM sessions WHERE id = ? AND deleted_at IS NOT NULL)",
+        let workspace: Option<String> = sqlx::query_scalar(
+            "SELECT workspace_id FROM sessions WHERE id = ? AND deleted_at IS NOT NULL",
         )
         .bind(session.0.as_ref())
-        .fetch_one(services.db.pool())
+        .fetch_optional(services.db.pool())
         .await
         .map_err(|_| failure("Cannot read the deleted note"))?;
-        if !deleted {
+        let Some(workspace) = workspace else {
             return Ok(());
-        }
+        };
         let scope = Scope {
             session_id: Some(session.clone()),
             ..self.scope()
@@ -758,17 +757,47 @@ impl CloudServices {
             .core
             .share_state(services, &lease, &session)
             .await?
-            .is_none()
+            .is_some()
         {
+            let delete = Mutation {
+                operation: super::panels::operation(Action::DeleteShare, "Delete share"),
+                fields: Arc::from([]),
+            };
+            return self
+                .core
+                .share_action(services, &lease, &scope, &delete)
+                .await;
+        }
+        // Only the publishing device keeps a journal, so the server finds a share published from
+        // another device by its note. A note outside a cloud workspace was never shared.
+        let workspace = anlg_db_app::local_library_remote_workspace(services.db.pool(), &workspace)
+            .await
+            .map_err(|_| failure("Cannot verify local library routing"))?;
+        if uuid(&workspace).is_err() {
             return Ok(());
         }
-        let delete = Mutation {
-            operation: super::panels::operation(Action::DeleteShare, "Delete share"),
-            fields: Arc::from([]),
-        };
-        self.core
-            .share_action(services, &lease, &scope, &delete)
+        // Best effort: without a journal this device doesn't know the note was ever shared (shipping
+        // wouldn't ask the server at all), so a failure, such as being offline, is only logged
+        // rather than warning on every deletion.
+        if let Err(error) = self
+            .core
+            .rpc(
+                &lease,
+                "delete_session_share_by_session",
+                json!({"p_workspace_id": workspace, "p_session_id": session.0.as_ref()}),
+            )
             .await
+        {
+            tracing::warn!(%error, "a deleted note's share could not be revoked by its note");
+            return Ok(());
+        }
+        sqlx::query("DELETE FROM shared_session_cache WHERE viewer_user_id = ? AND session_id = ?")
+            .bind(account(&lease)?)
+            .bind(session.0.as_ref())
+            .execute(services.db.pool())
+            .await
+            .map_err(|_| failure("Share deleted remotely; local cache cleanup needs retry"))?;
+        Ok(())
     }
 }
 
