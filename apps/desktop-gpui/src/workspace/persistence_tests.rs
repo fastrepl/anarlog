@@ -1015,6 +1015,36 @@ fn folder_route_creates_renames_updates_and_deletes_paths_with_their_series_rule
     });
 }
 
+/// A rename whose series-rules read failed returned after the files moved but before the
+/// rollback, so the folder sat at the new path while the catalog kept the old one.
+#[test]
+fn a_folder_rename_that_fails_before_its_transaction_leaves_the_files_in_place() {
+    block_on(async {
+        let (directory, runtime) = start().await;
+        folders::create(&runtime, "Clients".into())
+            .unwrap()
+            .receive()
+            .await
+            .unwrap();
+        execute(
+            &runtime,
+            "ALTER TABLE app_settings RENAME TO app_settings_hidden",
+            vec![],
+        )
+        .await;
+        assert!(
+            folders::rename(&runtime, "Clients".into(), "Renamed".into())
+                .unwrap()
+                .receive()
+                .await
+                .is_err()
+        );
+        assert!(directory.path().join("vault/sessions/Clients").exists());
+        assert!(!directory.path().join("vault/sessions/Renamed").exists());
+        runtime.shutdown().await.unwrap();
+    });
+}
+
 #[test]
 fn template_route_writes_keep_stored_json_and_settings_consistent() {
     block_on(async {
