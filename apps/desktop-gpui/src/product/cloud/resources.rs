@@ -292,12 +292,11 @@ pub(super) async fn folder_payload(services: &Services, path: &str) -> Result<Va
              AND c.kind = 'note' AND c.deleted_at IS NULL
            ORDER BY c.sort_order, c.id LIMIT 1)
          WHERE s.deleted_at IS NULL
-           AND (s.folder_path = ? OR s.folder_path LIKE ? OR s.folder_path LIKE ?)
+           AND (s.folder_path = ?1
+             OR substr(s.folder_path, 1, length(?1) + 1) IN (?1 || '/', ?1 || '\\'))
          ORDER BY s.created_at, s.id",
     )
     .bind(path)
-    .bind(format!("{path}/%"))
-    .bind(format!("{path}\\%"))
     .fetch_all(services.db.pool())
     .await
     .map_err(error)?;

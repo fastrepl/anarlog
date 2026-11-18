@@ -1292,6 +1292,50 @@ async fn folder_shares_publish_the_folder_payload_then_grant_a_guest() {
 }
 
 #[tokio::test]
+async fn folder_shares_treat_underscore_and_percent_in_folder_names_literally() {
+    let directory = tempfile::tempdir().unwrap();
+    let (runtime, ready) = RuntimeHandle::start(Profile {
+        database: directory.path().join("cloud.sqlite"),
+    })
+    .unwrap();
+    ready.receive().await.unwrap();
+    let titles = |folder: &'static str| {
+        runtime
+            .service(move |services| async move {
+                let payload = super::resources::folder_payload(&services, folder).await?;
+                Ok(payload["notes"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|note| note["title"].as_str().unwrap().to_owned())
+                    .collect::<Vec<_>>())
+            })
+            .unwrap()
+            .receive()
+    };
+    runtime
+        .service(|services| async move {
+            sqlx::query(
+                "INSERT INTO sessions (id, title, folder_path, created_at) VALUES
+            ('1', 'Shared', 'Client_', '2026-01-01'), ('2', 'Nested', 'Client_/Sub', '2026-01-02'),
+            ('3', 'Private', 'ClientA/private', '2026-01-03'), ('4', 'Quota', '100%', '2026-01-04'),
+            ('5', 'Hidden', '100 days/plan', '2026-01-05')",
+            )
+            .execute(services.db.pool())
+            .await
+            .unwrap();
+            Ok(())
+        })
+        .unwrap()
+        .receive()
+        .await
+        .unwrap();
+    assert_eq!(titles("Client_").await.unwrap(), ["Shared", "Nested"]);
+    assert_eq!(titles("100%").await.unwrap(), ["Quota"]);
+    runtime.shutdown().await.unwrap();
+}
+
+#[tokio::test]
 async fn template_shares_publish_the_editable_template_fields() {
     let directory = tempfile::tempdir().unwrap();
     let (runtime, ready) = RuntimeHandle::start(Profile {
