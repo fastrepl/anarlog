@@ -28,6 +28,10 @@ pub(super) struct Publication {
     pub conflict: Option<Value>,
     #[serde(default)]
     pub attachments: Vec<Value>,
+    /// Fingerprint of the local content last published or kept, so sharing actions republish
+    /// only after the note changes.
+    #[serde(default)]
+    pub source: Option<String>,
 }
 
 pub(super) struct ShareSource {
@@ -251,6 +255,7 @@ impl Core {
                 pending: None,
                 conflict: None,
                 attachments: Vec::new(),
+                source: None,
             });
             self.save_share_state(services, lease, session, &publication)
                 .await?;
@@ -416,6 +421,25 @@ impl Core {
         Ok(url.to_string())
     }
 
+    /// The snapshot `publish` would send for the note's current local content.
+    pub(super) async fn draft(
+        &self,
+        services: &Services,
+        lease: &AuthLease,
+        scope: &Scope,
+        state: &Publication,
+    ) -> Result<Value> {
+        let source = self.share_source(services, lease, scope).await?;
+        let ids = state
+            .attachments
+            .iter()
+            .map(|attachment| text(attachment, "id").and_then(uuid))
+            .collect::<Result<Vec<_>>>()?;
+        Ok(
+            json!({"baseRevision": state.revision, "mutationId": uuid::Uuid::new_v4().to_string(), "title": source.title, "body": source.body, "attachmentIds": ids, "participants": source.participants, "meetingAt": source.meeting_at}),
+        )
+    }
+
     pub(super) async fn publish(
         &self,
         services: &Services,
@@ -433,15 +457,11 @@ impl Core {
             ));
         }
         if state.pending.is_none() {
-            let source = self.share_source(services, lease, scope).await?;
-            let ids = state
-                .attachments
-                .iter()
-                .map(|attachment| text(attachment, "id").and_then(uuid))
-                .collect::<Result<Vec<_>>>()?;
-            state.pending = Some(
-                json!({"baseRevision": state.revision, "mutationId": uuid::Uuid::new_v4().to_string(), "title": source.title, "body": source.body, "attachmentIds": ids, "participants": source.participants, "meetingAt": source.meeting_at}),
-            );
+            let pending = self.draft(services, lease, scope, &state).await?;
+            if state.source.as_deref() == Some(fingerprint(&pending).as_str()) {
+                return Ok(());
+            }
+            state.pending = Some(pending);
             self.save_share_state(services, lease, session, &state)
                 .await?;
         }
@@ -487,7 +507,7 @@ impl Core {
         state.revision = snapshot["contentRevision"]
             .as_u64()
             .ok_or_else(|| failure("Invalid published revision"))?;
-        state.pending = None;
+        state.source = state.pending.take().as_ref().map(fingerprint);
         state.attachments = snapshot["attachments"]
             .as_array()
             .cloned()
@@ -495,6 +515,22 @@ impl Core {
         self.save_share_state(services, lease, session, &state)
             .await
     }
+}
+
+/// The published fields of a pending snapshot, without its revision base or mutation id.
+pub(super) fn fingerprint(pending: &Value) -> String {
+    use sha2::{Digest, Sha256};
+    let fields = json!([
+        pending["title"],
+        pending["body"],
+        pending["attachmentIds"],
+        pending["participants"],
+        pending["meetingAt"]
+    ]);
+    Sha256::digest(fields.to_string())
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
 }
 
 fn journal_id(account: &str, session: &SessionId) -> String {
@@ -781,10 +817,25 @@ impl Core {
             self.share_action(services, lease, scope, &run(Action::CreateShare, None, &[]))
                 .await?;
         }
-        let publication = self
+        let mut publication = self
             .share_state(services, lease, session)
             .await?
             .ok_or_else(|| failure("Create a share first"))?;
+        // Like shipping's `publishLatest`: whoever gains access sees the note as it is now.
+        let narrows = matches!(
+            command,
+            ShareCommand::Remove(_)
+                | ShareCommand::Review(_, false)
+                | ShareCommand::Access(GeneralAccess::Restricted | GeneralAccess::Public)
+                | ShareCommand::KeepDesktop
+        );
+        if !narrows {
+            self.publish(services, lease, scope, publication).await?;
+            publication = self
+                .share_state(services, lease, session)
+                .await?
+                .ok_or_else(|| failure("Create a share first"))?;
+        }
         let share = publication.share_id.as_str();
         let mutation = match command {
             ShareCommand::Invite(emails) => {

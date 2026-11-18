@@ -1170,7 +1170,7 @@ async fn account_counts_a_paid_workspace_seat_as_pro_without_offering_a_trial() 
 }
 
 #[tokio::test]
-async fn share_popover_publishes_before_its_first_invite_and_reads_back_access() {
+async fn share_popover_publishes_edits_made_after_sharing_before_widening_access() {
     let server = MockServer::start().await;
     let directory = tempfile::tempdir().unwrap();
     let (runtime, ready) = RuntimeHandle::start(Profile {
@@ -1241,9 +1241,47 @@ async fn share_popover_publishes_before_its_first_invite_and_reads_back_access()
         .mount(&server)
         .await;
     cloud
-        .share_command(scope, ShareCommand::Remove(entry))
+        .share_command(scope.clone(), ShareCommand::Remove(entry))
         .await
         .unwrap();
+    // An edit made after sharing is published before the link is copied, once.
+    let edited = json!({"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Revised decisions"}]}]});
+    let session = scope.session_id.clone().unwrap();
+    let body = edited.to_string();
+    runtime
+        .service(move |services| async move {
+            sqlx::query("UPDATE session_documents SET body = ? WHERE session_id = ?")
+                .bind(body)
+                .bind(session.0.as_ref())
+                .execute(services.db.pool())
+                .await
+                .unwrap();
+            Ok(())
+        })
+        .unwrap()
+        .receive()
+        .await
+        .unwrap();
+    Mock::given(method("PUT"))
+        .and(path(format!("/sync/shares/{SHARE}/snapshot")))
+        .and(body_partial_json(json!({"baseRevision":1,"body":edited})))
+        .respond_with(ResponseTemplate::new(200).set_body_json(snapshot(2, edited.clone())))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/rest/v1/rpc/get_session_share_workspace_slug"))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(json!([{"workspace_share_slug":null}])),
+        )
+        .mount(&server)
+        .await;
+    for _ in 0..2 {
+        cloud
+            .share_command(scope.clone(), ShareCommand::CopyLink)
+            .await
+            .unwrap();
+    }
     runtime.shutdown().await.unwrap();
 }
 
