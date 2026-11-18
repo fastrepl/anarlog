@@ -33,7 +33,7 @@ pub fn parse_argument(arg: OsString) -> anyhow::Result<String> {
 /// returns `None` after the running app has accepted the callback into its inbox.
 pub fn start(
     profile: &Path,
-    url: Option<&str>,
+    url: Option<String>,
     events: NativeEvents,
 ) -> anyhow::Result<Option<Runtime>> {
     std::fs::create_dir_all(profile)?;
@@ -47,15 +47,18 @@ pub fn start(
         .worker_threads(1)
         .enable_all()
         .build()?;
-    let primary = runtime.block_on(timeout_start(&name, url))?;
-    Ok(primary.map(|server| {
-        runtime.spawn(async move {
-            if let Err(error) = serve(&name, server, events).await {
-                tracing::warn!(%error, "Windows deep-link listener stopped");
-            }
-        });
-        runtime
-    }))
+    let Some(server) = runtime.block_on(timeout_start(&name, url.as_deref()))? else {
+        return Ok(None);
+    };
+    if let Some(url) = url {
+        events.receive_deep_link(url)?;
+    }
+    runtime.spawn(async move {
+        if let Err(error) = serve(&name, server, events).await {
+            tracing::warn!(%error, "Windows deep-link listener stopped");
+        }
+    });
+    Ok(Some(runtime))
 }
 
 async fn timeout_start(name: &str, url: Option<&str>) -> anyhow::Result<Option<NamedPipeServer>> {
@@ -134,23 +137,31 @@ mod tests {
     use super::*;
 
     #[test]
-    fn running_instance_accepts_links_from_later_launches() {
+    fn accepts_the_cold_launch_link_then_forwards_later_links() {
         let profile = tempfile::tempdir().unwrap();
         let events = NativeEvents::default();
-        let primary = start(profile.path(), None, events.clone())
-            .unwrap()
-            .unwrap();
+        let cold = "anarlog://auth/callback?code=test-code&state=test-state";
+        let primary = start(
+            profile.path(),
+            Some(parse_argument(cold.into()).unwrap()),
+            events.clone(),
+        )
+        .unwrap()
+        .unwrap();
+        assert!(matches!(events.next(), Some(NativeEvent::DeepLink { raw, .. }) if raw == cold));
         for raw in [
             "anarlog://onboarding-demo/complete",
             "anarlog://billing/refresh",
         ] {
             let url = parse_argument(raw.into()).unwrap();
             assert!(
-                start(profile.path(), Some(&url), NativeEvents::default())
+                start(profile.path(), Some(url), NativeEvents::default())
                     .unwrap()
                     .is_none()
             );
-            assert!(matches!(events.next(), Some(NativeEvent::DeepLink { raw, .. }) if raw == url));
+            assert!(
+                matches!(events.next(), Some(NativeEvent::DeepLink { raw: delivered, .. }) if delivered == raw)
+            );
         }
         drop(primary);
         assert!(start(profile.path(), None, events).unwrap().is_some());

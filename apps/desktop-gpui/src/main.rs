@@ -67,14 +67,10 @@ fn main() -> anyhow::Result<()> {
     };
     let events = NativeEvents::default();
     #[cfg(target_os = "windows")]
-    let link_instance = match link_instance::start(&profile, url.as_deref(), events.clone())? {
+    let link_instance = match link_instance::start(&profile, url, events.clone())? {
         Some(instance) => instance,
         None => return Ok(()),
     };
-    #[cfg(target_os = "windows")]
-    if let Some(url) = url {
-        events.receive_deep_link(url)?;
-    }
     let (runtime, ready) = desktop_gpui::runtime_bridge::start(Profile {
         database: profile.join("library.sqlite"),
     })?;
