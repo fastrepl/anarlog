@@ -1539,3 +1539,77 @@ impl Render for ApplicationView {
             .child(self.trial_dialogs.clone())
     }
 }
+
+#[cfg(all(test, target_os = "windows"))]
+mod tests {
+    use super::*;
+    use crate::{native_events::NativeEvent, product::onboarding::OnboardingPreview};
+
+    #[gpui::test]
+    fn first_run_share_opens_after_onboarding(cx: &mut gpui::TestAppContext) {
+        cx.executor().allow_parking();
+        cx.update(|cx| {
+            crate::ui::theme::UiFonts::init(cx);
+            cx.set_global(OnboardingPreview::default());
+        });
+        let directory = tempfile::tempdir().unwrap();
+        let profile = directory.path();
+        let (runtime, ready) = runtime_bridge::start(desktop_runtime::Profile {
+            database: profile.join("library.sqlite"),
+        })
+        .unwrap();
+        let (app, cx) = cx.add_window_view(|window, cx| {
+            ApplicationView::new(
+                runtime.clone(),
+                ready,
+                profile.to_path_buf(),
+                profile.with_extension("storage.json"),
+                window,
+                cx,
+            )
+        });
+        let deadline = std::time::Instant::now() + Duration::from_secs(60);
+        let onboarding = loop {
+            cx.run_until_parked();
+            if let Some(product) = app.read_with(cx, |app, _| app.product.clone()) {
+                break product;
+            }
+            assert!(
+                std::time::Instant::now() < deadline,
+                "a fresh profile should open onboarding"
+            );
+            std::thread::sleep(Duration::from_millis(5));
+        };
+        assert!(onboarding.read_with(cx, |pane, _| pane.is_onboarding()));
+
+        let share_id = "de77daad-d411-47de-88b4-d890e347f011";
+        cx.update(|window, cx| {
+            app.update(cx, |app, cx| {
+                app.native_event(
+                    NativeEvent::DeepLink {
+                        id: 1,
+                        raw: format!("anarlog://share/open?mode=account&share_id={share_id}"),
+                    },
+                    window,
+                    cx,
+                );
+            });
+        });
+        assert_eq!(
+            app.read_with(cx, |app, _| app.product.clone()),
+            Some(onboarding.clone())
+        );
+
+        // Onboarding emits this event once the completion write succeeds.
+        onboarding.update(cx, |_, cx| {
+            cx.emit(ProductEvent::OpenSession(SessionId("welcome".into())));
+        });
+        app.read_with(cx, |app, cx| {
+            assert_eq!(
+                app.workspace.read(cx).current_route(),
+                Route::SharedSession(share_id.into())
+            );
+        });
+        futures::executor::block_on(runtime.shutdown()).unwrap();
+    }
+}
