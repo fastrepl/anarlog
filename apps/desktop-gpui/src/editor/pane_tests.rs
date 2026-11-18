@@ -140,6 +140,8 @@ fn texts(editor: &Entity<EditorPane>, cx: &mut VisualTestContext) -> Vec<String>
 #[cfg(not(target_os = "macos"))]
 #[gpui::test]
 fn control_moves_and_deletes_one_word_in_notes(cx: &mut TestAppContext) {
+    use gpui::Focusable;
+
     let (fixture, cx) = fixture(cx, vec![paragraph("one two three")]);
     let editor = fixture.editor;
     editor.update(cx, |editor, _| {
