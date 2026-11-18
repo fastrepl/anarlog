@@ -548,7 +548,13 @@ impl ApplicationView {
                                 {
                                     cloud.handle_deep_link(url).await.map(|_| ())
                                 }
-                                Ok(_) => cloud.refresh().await,
+                                Ok(_) => {
+                                    let billing = matches!(
+                                        link,
+                                        desktop_runtime::deeplink::DeepLink::BillingRefresh
+                                    );
+                                    cloud.refresh(billing).await
+                                }
                                 Err(_) => Err(ServiceError::Failed("Invalid deep link".into())),
                             };
                             let _ = this.update(cx, |this, cx| match result {
@@ -872,7 +878,7 @@ impl ApplicationView {
                     .update(cx, |this, _| this.writers_paused || this.closing)
                     .unwrap_or(true);
                 if !paused {
-                    let result = cloud.refresh().await;
+                    let result = cloud.refresh(false).await;
                     let _ = this.update(cx, |_, cx| cloud.publish_account(cx));
                     if let Err(error) = result {
                         let _ = this.update(cx, |this, cx| {

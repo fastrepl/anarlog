@@ -1236,6 +1236,33 @@ async fn account_counts_a_paid_workspace_seat_as_pro_without_offering_a_trial() 
 }
 
 #[tokio::test]
+async fn returning_from_checkout_renews_the_session_so_the_new_plan_shows() {
+    use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
+    let server = MockServer::start().await;
+    let directory = tempfile::tempdir().unwrap();
+    let (runtime, ready) = RuntimeHandle::start(Profile {
+        database: directory.path().join("account.sqlite"),
+    })
+    .unwrap();
+    ready.receive().await.unwrap();
+    let cloud = fixture_cloud(&runtime, &server, Arc::new(MemoryStore::default())).await;
+    let pro = format!(
+        "header.{}.signature",
+        URL_SAFE_NO_PAD.encode(json!({"entitlements": ["hyprnote_pro"]}).to_string())
+    );
+    Mock::given(method("POST"))
+        .and(path("/auth/v1/token"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(session(now() + 3600, &pro)))
+        .expect(1)
+        .mount(&server)
+        .await;
+    cloud.refresh(true).await.unwrap();
+    let account = cloud.account().await.unwrap();
+    assert!(account.is_pro(crate::product::account::now()));
+    runtime.shutdown().await.unwrap();
+}
+
+#[tokio::test]
 async fn share_popover_publishes_edits_made_after_sharing_before_widening_access() {
     let server = MockServer::start().await;
     let directory = tempfile::tempdir().unwrap();
@@ -1892,7 +1919,7 @@ async fn devices_waiting_for_approval_keep_waiting_and_syncing_devices_approve_t
         .expect(1)
         .mount(&server)
         .await;
-    assert!(cloud.refresh().await.is_err());
+    assert!(cloud.refresh(false).await.is_err());
     assert_eq!(
         cloud.sync_state().await.unwrap().block,
         Some(SyncBlock::ApprovalPending)
