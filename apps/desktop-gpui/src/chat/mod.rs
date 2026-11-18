@@ -162,7 +162,10 @@ pub struct ChatView {
     /// undrawn loses focus to the workspace.
     focus_composer: bool,
     voice: voice::VoicePhase,
-    /// Bumped when chat closes, so a late recording result is dropped like shipping's.
+    /// Dropping it cancels the recording, even one still starting.
+    recording: Option<Box<dyn voice::VoiceRecording>>,
+    /// Bumped when chat closes or changes conversation, so a late recording result is
+    /// dropped like shipping's.
     voice_generation: u64,
     toast: Option<(voice::Tone, &'static str, u64)>,
     focus: FocusHandle,
@@ -246,6 +249,7 @@ impl ChatView {
             panel_height: Default::default(),
             focus_composer: false,
             voice: voice::VoicePhase::Idle,
+            recording: None,
             voice_generation: 0,
             toast: None,
             focus: cx.focus_handle(),
@@ -387,6 +391,7 @@ impl ChatView {
     pub fn new_chat(&mut self, cx: &mut Context<Self>) {
         self.dropped.clear();
         self.detach_run();
+        self.cancel_voice(cx);
         self.load.cancel();
         self.loading = false;
         self.group = None;
@@ -399,6 +404,7 @@ impl ChatView {
     pub fn select_group(&mut self, group: Arc<str>, cx: &mut Context<Self>) {
         self.dropped.clear();
         self.detach_run();
+        self.cancel_voice(cx);
         self.history_open = false;
         self.group = Some(group.clone());
         self.switch_draft(group.to_string(), cx);
@@ -1018,12 +1024,13 @@ impl ChatView {
         };
         self.voice = voice::VoicePhase::Starting;
         let generation = self.voice_generation;
-        let started = backend.0.start();
+        let (recording, started) = backend.0.start();
+        self.recording = Some(recording);
         cx.spawn(async move |this, cx| {
             let result = started.await;
             let _ = this.update(cx, |this, cx| {
+                // A cancelled recording was released when it was dropped.
                 if this.voice_generation != generation {
-                    backend.0.cancel();
                     return;
                 }
                 match result {
@@ -1032,6 +1039,7 @@ impl ChatView {
                         this.tick_voice(generation, cx);
                     }
                     Err(_) => {
+                        this.recording = None;
                         this.voice = voice::VoicePhase::Idle;
                         this.show_toast(voice::Tone::Error, "Could not start voice input", cx);
                     }
@@ -1076,13 +1084,13 @@ impl ChatView {
         let voice::VoicePhase::Recording(_) = self.voice else {
             return;
         };
-        let Some(backend) = cx.try_global::<voice::Voice>().cloned() else {
+        let Some(recording) = self.recording.take() else {
             self.voice = voice::VoicePhase::Idle;
             return;
         };
         self.voice = voice::VoicePhase::Transcribing;
         let generation = self.voice_generation;
-        let stopped = backend.0.stop();
+        let stopped = recording.stop();
         cx.spawn(async move |this, cx| {
             let result = stopped.await;
             let _ = this.update(cx, |this, cx| {
@@ -1111,16 +1119,11 @@ impl ChatView {
 
     fn cancel_voice(&mut self, cx: &mut Context<Self>) {
         self.voice_generation += 1;
-        if matches!(
-            self.voice,
-            voice::VoicePhase::Starting | voice::VoicePhase::Recording(_)
-        ) && let Some(backend) = cx.try_global::<voice::Voice>()
-        {
-            backend.0.cancel();
-        }
+        self.recording = None;
         if self.voice != voice::VoicePhase::Transcribing {
             self.voice = voice::VoicePhase::Idle;
         }
+        cx.notify();
     }
 
     /// A copy control shows its check for two seconds, like Streamdown's.
@@ -1466,6 +1469,52 @@ mod tests {
         model.release("slow a");
         wait(cx, |cx| texts(cx, &chat).len() == 2);
         assert_eq!(texts(cx, &chat), ["slow a", "re: slow a more"]);
+        futures::executor::block_on(runtime.shutdown()).unwrap();
+    }
+
+    /// Records until stopped, then transcribes when `transcript` answers.
+    #[derive(Clone, Default)]
+    struct Voice(Arc<Mutex<Option<futures::channel::oneshot::Sender<Result<String>>>>>);
+
+    impl voice::VoiceInput for Voice {
+        fn start(
+            &self,
+        ) -> (
+            Box<dyn voice::VoiceRecording>,
+            BoxFuture<'static, Result<()>>,
+        ) {
+            (Box::new(self.clone()), Box::pin(async { Ok(()) }))
+        }
+    }
+
+    impl voice::VoiceRecording for Voice {
+        fn stop(self: Box<Self>) -> BoxFuture<'static, Result<String>> {
+            let (sender, transcript) = futures::channel::oneshot::channel();
+            *self.0.lock().unwrap() = Some(sender);
+            Box::pin(async move { transcript.await.unwrap_or(Err(ServiceError::Cancelled)) })
+        }
+    }
+
+    #[gpui::test]
+    fn dictation_finishing_after_a_chat_switch_stays_out_of_the_new_draft(cx: &mut TestAppContext) {
+        cx.executor().allow_parking();
+        let (_directory, runtime) = start_runtime();
+        let input = Voice::default();
+        cx.update(|cx| cx.set_global(voice::Voice(Arc::new(input.clone()))));
+        let chat = cx.new(|cx| ChatView::new(runtime.clone(), WeakEntity::new_invalid(), cx));
+        chat.update(cx, |chat, cx| chat.start_voice(cx));
+        cx.run_until_parked();
+        chat.update(cx, |chat, cx| {
+            chat.stop_voice(cx);
+            chat.new_chat(cx);
+        });
+        cx.run_until_parked();
+        let transcript = input.0.lock().unwrap().take().unwrap();
+        let _ = transcript.send(Ok("hello there".into()));
+        cx.run_until_parked();
+        chat.read_with(cx, |chat, cx| {
+            assert!(!chat.composer.read(cx).has_content())
+        });
         futures::executor::block_on(runtime.shutdown()).unwrap();
     }
 

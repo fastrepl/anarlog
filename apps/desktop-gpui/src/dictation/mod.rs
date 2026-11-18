@@ -17,7 +17,7 @@ use std::{path::PathBuf, sync::Arc};
 
 use anlg_audio::AudioProvider;
 use desktop_runtime::{CancellationToken, Result, RuntimeHandle, ServiceError};
-use futures::{StreamExt, channel::mpsc::UnboundedReceiver};
+use futures::{StreamExt, channel::mpsc::UnboundedReceiver, future::BoxFuture};
 use gpui::{
     App, AppContext, Context, Entity, EventEmitter, Global, SharedString, Subscription, Task,
     WindowHandle,
@@ -56,6 +56,13 @@ impl DictationStatus {
     pub fn global(cx: &App) -> Option<Entity<Self>> {
         cx.try_global::<StatusGlobal>()
             .map(|global| global.0.clone())
+    }
+
+    /// Makes a fresh status the one dictation and the settings page share.
+    pub fn install(cx: &mut App) -> Entity<Self> {
+        let status = cx.new(|_| Self::default());
+        cx.set_global(StatusGlobal(status.clone()));
+        status
     }
 
     /// The shortcut recorder pauses dictation while it listens for keys.
@@ -168,8 +175,7 @@ impl Dictation {
             audio: Arc::new(anlg_audio_actual::ActualAudio),
             insertion: Arc::new(insertion::NativeInsertion),
         });
-        let status = cx.new(|_| DictationStatus::default());
-        cx.set_global(StatusGlobal(status.clone()));
+        let status = DictationStatus::install(cx);
         Ok(cx.new(|cx| Self::new(runtime, services, shortcuts, events, status, cx)))
     }
 
@@ -634,6 +640,7 @@ impl Dictation {
         };
         self.timer = None;
         let owner = run.owner.clone();
+        let run_owner = owner.clone();
         let cancellation = run.cancellation.clone();
         let target = started.target.clone();
         let request = started.request.clone();
@@ -687,7 +694,10 @@ impl Dictation {
                         this.update_status(cx, |status| {
                             status.last_transcript = text.clone().into()
                         });
-                        this.armed.is_some().then(|| {
+                        // Escape can land after the text is ready; only the live run inserts it.
+                        let live = this.run.as_ref().is_some_and(|run| run.owner == run_owner)
+                            && !this.controller.cancelled();
+                        (this.armed.is_some() && live).then(|| {
                             let insertion = this.services.insertion.clone();
                             this.services
                                 .runtime
@@ -772,44 +782,110 @@ impl Dictation {
         crate::chat::voice::Voice(Arc::new(ChatVoice {
             services: self.services.clone(),
             providers,
+            releasing: Arc::new(tokio::sync::watch::channel(0).0),
         }))
     }
 }
 
-const CHAT_OWNER: &str = "chat";
-
-/// Shipping's chat `useDictation`: the dictation recorder under the composer's own owner,
-/// transcribed in one batch by the selected provider when it stops.
+/// Shipping's chat `useDictation`: the dictation recorder under an owner of its own for each
+/// recording, transcribed in one batch by the selected provider when it stops.
 struct ChatVoice {
     services: Arc<Services>,
     providers: ProviderServices,
+    /// Dropped chat recordings still letting go of the microphone; the next one waits for them.
+    releasing: Arc<tokio::sync::watch::Sender<usize>>,
+}
+
+impl ChatVoice {
+    fn record(
+        &self,
+        microphone: BoxFuture<'static, Result<Option<String>>>,
+    ) -> (ChatRecording, BoxFuture<'static, Result<()>>) {
+        let owner = format!("chat:{}", uuid::Uuid::new_v4());
+        let cancellation = CancellationToken::new();
+        let (sender, receiver) = futures::channel::oneshot::channel();
+        let opening = {
+            let (services, owner, cancellation) =
+                (self.services.clone(), owner.clone(), cancellation.clone());
+            let mut releasing = self.releasing.subscribe();
+            self.services.runtime.spawn(async move {
+                let result = async {
+                    let released = async { releasing.wait_for(|count| *count == 0).await.is_ok() };
+                    cancellation
+                        .run_until_cancelled(released)
+                        .await
+                        .ok_or(ServiceError::Cancelled)?;
+                    let microphone = cancellation
+                        .run_until_cancelled(microphone)
+                        .await
+                        .ok_or(ServiceError::Cancelled)??;
+                    let (recorder, audio) = (services.recorder.clone(), services.audio.clone());
+                    tokio::task::spawn_blocking(move || {
+                        recorder.start(audio, microphone, owner, None, None)
+                    })
+                    .await
+                    .map_err(|error| failed(error.to_string()))?
+                }
+                .await;
+                let _ = sender.send(result);
+            })
+        };
+        let recording = ChatRecording {
+            services: self.services.clone(),
+            providers: self.providers.clone(),
+            releasing: self.releasing.clone(),
+            owner,
+            cancellation,
+            opening: Some(opening),
+        };
+        let started =
+            Box::pin(async move { receiver.await.unwrap_or(Err(ServiceError::Cancelled)) });
+        (recording, started)
+    }
 }
 
 impl crate::chat::voice::VoiceInput for ChatVoice {
-    fn start(&self) -> futures::future::BoxFuture<'static, Result<()>> {
-        let services = self.services.clone();
+    fn start(
+        &self,
+    ) -> (
+        Box<dyn crate::chat::voice::VoiceRecording>,
+        BoxFuture<'static, Result<()>>,
+    ) {
         let runtime = self.providers.runtime.clone();
-        let task = self.services.runtime.spawn(async move {
+        let (recording, started) = self.record(Box::pin(async move {
             microphone_authorized()?;
             let preferences = crate::meeting::config::preferences(&runtime).await?;
-            let microphone =
-                Some(preferences.text("microphone_device")).filter(|name| !name.is_empty());
-            let recorder = services.recorder.clone();
-            let audio = services.audio.clone();
-            tokio::task::spawn_blocking(move || {
-                recorder.start(audio, microphone, CHAT_OWNER.into(), None, None)
-            })
-            .await
-            .map_err(|error| failed(error.to_string()))?
-        });
-        Box::pin(async move { task.await.map_err(|error| failed(error.to_string()))? })
+            Ok(Some(preferences.text("microphone_device")).filter(|name| !name.is_empty()))
+        }));
+        (Box::new(recording), started)
     }
+}
 
-    fn stop(&self) -> futures::future::BoxFuture<'static, Result<String>> {
-        let services = self.services.clone();
-        let providers = self.providers.clone();
+/// One chat recording. Dropped before it stops, it waits for its start and then closes the
+/// microphone and deletes the audio.
+struct ChatRecording {
+    services: Arc<Services>,
+    providers: ProviderServices,
+    releasing: Arc<tokio::sync::watch::Sender<usize>>,
+    owner: String,
+    cancellation: CancellationToken,
+    /// The start, until the recording stops.
+    opening: Option<tokio::task::JoinHandle<()>>,
+}
+
+impl crate::chat::voice::VoiceRecording for ChatRecording {
+    fn stop(mut self: Box<Self>) -> BoxFuture<'static, Result<String>> {
+        let opening = self.opening.take();
+        let (services, providers, owner) = (
+            self.services.clone(),
+            self.providers.clone(),
+            self.owner.clone(),
+        );
         let task = self.services.runtime.spawn(async move {
-            let recorded = services.recorder.stop(CHAT_OWNER).await?;
+            if let Some(opening) = opening {
+                let _ = opening.await;
+            }
+            let recorded = services.recorder.stop(&owner).await?;
             let result = async {
                 let request = transcribe::Request {
                     preferences: crate::meeting::config::preferences(&providers.runtime).await?,
@@ -817,7 +893,7 @@ impl crate::chat::voice::VoiceInput for ChatVoice {
                 transcribe::transcribe(
                     &providers,
                     &request,
-                    CHAT_OWNER,
+                    &owner,
                     &recorded.path,
                     CancellationToken::new(),
                 )
@@ -829,11 +905,26 @@ impl crate::chat::voice::VoiceInput for ChatVoice {
         });
         Box::pin(async move { task.await.map_err(|error| failed(error.to_string()))? })
     }
+}
 
-    fn cancel(&self) {
-        let services = self.services.clone();
+impl Drop for ChatRecording {
+    fn drop(&mut self) {
+        let Some(opening) = self.opening.take() else {
+            return;
+        };
+        self.cancellation.cancel();
+        self.releasing.send_modify(|count| *count += 1);
+        let (recorder, owner, releasing) = (
+            self.services.recorder.clone(),
+            std::mem::take(&mut self.owner),
+            self.releasing.clone(),
+        );
         self.services.runtime.spawn(async move {
-            let _ = services.recorder.cancel(CHAT_OWNER).await;
+            let _ = opening.await;
+            if let Err(error) = recorder.cancel(&owner).await {
+                tracing::warn!(%error, "chat voice recording could not be released");
+            }
+            releasing.send_modify(|count| *count -= 1);
         });
     }
 }
@@ -858,7 +949,69 @@ fn microphone_authorized() -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::armed;
+    use super::*;
+
+    struct NoInsertion;
+
+    impl Insertion for NoInsertion {
+        fn capture(&self) -> Result<String> {
+            Ok(String::new())
+        }
+
+        fn insert(&self, _: &str, _: &str) -> Result<()> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn a_dropped_chat_recording_frees_the_microphone_for_the_next_one() {
+        let directory = tempfile::tempdir().unwrap();
+        let (runtime, ready) = RuntimeHandle::start(desktop_runtime::Profile {
+            database: directory.path().join("library.sqlite"),
+        })
+        .unwrap();
+        futures::executor::block_on(ready.receive()).unwrap();
+        let tokio = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(2)
+            .enable_all()
+            .build()
+            .unwrap();
+        let services = Arc::new(Services {
+            recorder: Arc::new(Recorder::new(tokio.handle().clone())),
+            runtime: tokio,
+            audio: Arc::new(anlg_audio_mock::MockAudio::new(1)),
+            insertion: Arc::new(NoInsertion),
+        });
+        let offline = || failed("offline in tests");
+        let voice = ChatVoice {
+            services,
+            providers: ProviderServices {
+                runtime: runtime.clone(),
+                api_url: String::new(),
+                cloud: Arc::new(move || Box::pin(async move { Err(offline()) })),
+                local: Arc::new(move |_| Box::pin(async move { Err(offline()) })),
+                secret: Arc::new(|_, _| Box::pin(async { Ok(None) })),
+                secret_write: Arc::new(|_, _, _| Box::pin(async { Ok(()) })),
+            },
+            releasing: Arc::new(tokio::sync::watch::channel(0).0),
+        };
+        let default_microphone =
+            || -> BoxFuture<'static, Result<Option<String>>> { Box::pin(async { Ok(None) }) };
+        // Closed while its microphone opens, like a note window shut mid-start.
+        let (recording, _) = voice.record(default_microphone());
+        drop(recording);
+        // Closed while recording; the next one waits for the microphone instead of failing.
+        let (recording, started) = voice.record(default_microphone());
+        futures::executor::block_on(started).unwrap();
+        drop(recording);
+        let (recording, started) = voice.record(default_microphone());
+        futures::executor::block_on(started).unwrap();
+        drop(recording);
+        let mut releasing = voice.releasing.subscribe();
+        futures::executor::block_on(releasing.wait_for(|count| *count == 0)).unwrap();
+        drop(voice);
+        futures::executor::block_on(runtime.shutdown()).unwrap();
+    }
 
     #[test]
     fn dictation_listens_only_for_enabled_pro_accounts_outside_meetings() {
