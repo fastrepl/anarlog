@@ -13,7 +13,11 @@ import {
   createNamedFolder,
   updateFolderInstructions,
 } from "~/session/folder-catalog";
-import { folderDisplayName, normalizeFolderPath } from "~/session/folders";
+import {
+  folderDisplayName,
+  folderPathMatchesFilter,
+  normalizeFolderPath,
+} from "~/session/folders";
 import { createSession } from "~/session/queries/creation";
 import { getStoredSettingValues } from "~/settings/queries";
 import {
@@ -117,14 +121,18 @@ export async function sharedFolderPayload(
     version: 1,
     path: folderDisplayName(path),
     instructions: folderRow[0]?.instructions ?? "",
-    notes: notes.map((note) => ({
-      title: note.title,
-      relativeFolderPath: relativeFolderPath(path, note.folder_path),
-      body:
-        note.body_format === "markdown"
-          ? md2json(note.body)
-          : parseJsonContent(note.body),
-    })),
+    // SQL LIKE treats `_` and `%` as wildcards and ignores case, so it can also return notes
+    // from look-alike folders; only notes literally inside this folder may be shared.
+    notes: notes
+      .filter((note) => folderPathMatchesFilter(note.folder_path, path))
+      .map((note) => ({
+        title: note.title,
+        relativeFolderPath: relativeFolderPath(path, note.folder_path),
+        body:
+          note.body_format === "markdown"
+            ? md2json(note.body)
+            : parseJsonContent(note.body),
+      })),
   };
   assertPayloadSize(payload);
   return payload as unknown as Record<string, unknown>;

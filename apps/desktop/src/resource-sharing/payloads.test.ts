@@ -1,10 +1,18 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({ execute: vi.fn() }));
+
+vi.mock("~/db", () => ({
+  liveQueryClient: { execute: mocks.execute },
+  useLiveQuery: () => ({ data: [] }),
+}));
 
 import {
   parseSharedAutomationPayload,
   parseSharedFolderPayload,
   parseSharedTemplatePayload,
   sharedAutomationPayload,
+  sharedFolderPayload,
   sharedTemplatePayload,
 } from "./payloads";
 
@@ -79,6 +87,33 @@ describe("shared resource payloads", () => {
       targets: ["engineering"],
       sections: [{ title: "Blockers", description: "What is blocked?" }],
     });
+  });
+
+  it("shares only notes literally inside the shared folder", async () => {
+    mocks.execute.mockImplementation(async (sql: string) =>
+      sql.includes("FROM folders")
+        ? [{ instructions: "" }]
+        : [
+            {
+              title: "Inside",
+              folder_path: "Q1_2026/Notes",
+              body: "",
+              body_format: "markdown",
+            },
+            {
+              title: "Look-alike",
+              folder_path: "Q1-2026/Notes",
+              body: "",
+              body_format: "markdown",
+            },
+          ],
+    );
+
+    const payload = await sharedFolderPayload("Q1_2026");
+
+    expect(
+      (payload.notes as { title: string }[]).map((note) => note.title),
+    ).toEqual(["Inside"]);
   });
 
   it("accepts nested folder copies but rejects path traversal", () => {

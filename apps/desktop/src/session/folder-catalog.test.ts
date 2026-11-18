@@ -117,6 +117,23 @@ describe("folder catalog", () => {
     expect(mocks.deleteFolder).not.toHaveBeenCalled();
   });
 
+  it("moves only notes literally inside the deleted folder", async () => {
+    mocks.execute.mockResolvedValue([
+      { id: "inside", folder_path: "Q1_2026/Notes" },
+      { id: "look-alike", folder_path: "Q1-2026/Notes" },
+      { id: "other-case", folder_path: "q1_2026" },
+    ]);
+
+    await deleteNamedFolder("Q1_2026");
+
+    expect(mocks.moveSession).toHaveBeenCalledTimes(1);
+    expect(mocks.moveSession).toHaveBeenCalledWith(
+      "inside",
+      "Q1_2026/Notes",
+      "",
+    );
+  });
+
   it("does not update the catalog if creating a missing rename target fails", async () => {
     mocks.renameFolder.mockResolvedValue({
       status: "error",
