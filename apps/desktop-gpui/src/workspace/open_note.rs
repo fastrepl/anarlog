@@ -128,6 +128,8 @@ pub struct NoteView {
     /// The open note's pre-meeting brief sources, and a brief being written.
     brief: Option<Arc<brief::Brief>>,
     brief_job: Option<brief::BriefJob>,
+    /// The editors a deletion's draft flush made read-only, with the title; `None` when none.
+    frozen: Option<Vec<Entity<EditorPane>>>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -489,6 +491,7 @@ impl NoteView {
             find: cx.new(FindBar::new),
             brief: None,
             brief_job: None,
+            frozen: None,
             _subscriptions: subscriptions,
         }
     }
@@ -1026,19 +1029,43 @@ impl NoteView {
     }
 
     /// When the shown note is one of `ids`, starts saving its title and unsaved editor drafts,
-    /// so they land before a deletion's tombstone, which rejects later saves.
+    /// so they land before a deletion's tombstone, which rejects later saves. The note stays
+    /// read-only until `thaw_drafts`, so no newer edit can miss the tombstone.
     pub fn flush_drafts(&mut self, ids: &[SessionId], cx: &mut Context<Self>) -> Vec<Flush> {
         if !self.session_id().is_some_and(|id| ids.contains(id)) {
             return Vec::new();
         }
         self.rename(cx);
+        let editors = self.editors();
+        if !editors.iter().any(|editor| editor.read(cx).is_dirty()) {
+            return Vec::new();
+        }
+        self.title
+            .update(cx, |title, cx| title.set_read_only(true, cx));
+        let frozen = self.frozen.get_or_insert_default();
         let mut flushes = Vec::new();
-        for editor in self.editors() {
+        for editor in editors {
+            if !editor.read(cx).is_read_only() {
+                editor.update(cx, |editor, cx| editor.set_read_only(true, cx));
+                frozen.push(editor.clone());
+            }
             if editor.read(cx).is_dirty() {
                 flushes.push(editor.update(cx, |editor, _| editor.flush()));
             }
         }
         flushes
+    }
+
+    /// Ends `flush_drafts`' read-only hold once the deletion went through or was refused.
+    pub fn thaw_drafts(&mut self, cx: &mut Context<Self>) {
+        let Some(frozen) = self.frozen.take() else {
+            return;
+        };
+        self.title
+            .update(cx, |title, cx| title.set_read_only(false, cx));
+        for editor in frozen {
+            editor.update(cx, |editor, cx| editor.set_read_only(false, cx));
+        }
     }
 
     /// The summary the note shows, which chat edits and corrections target by default.

@@ -9,12 +9,13 @@ use std::{
 
 use anlg_db_app::IgnoredCalendarItemKind;
 use desktop_runtime::{Reply, Result, RuntimeHandle, SessionId};
-use gpui::{Context, Task};
+use gpui::{App, Context, Entity, Task};
 use serde_json::json;
 
 use super::{
     mutations::failure,
     navigation::Route,
+    open_note::NoteView,
     shell::{WorkspaceAction, WorkspaceView},
 };
 use crate::{
@@ -179,8 +180,8 @@ impl Pending {
 
 impl WorkspaceView {
     /// Shipping's single delete: no confirmation, an Undo toast instead. Edits still waiting
-    /// on the save debounce are saved first: the tombstone rejects later saves, and Undo would
-    /// restore the older body.
+    /// on the save debounce are saved first, with the note read-only meanwhile: the tombstone
+    /// rejects later saves, and Undo would restore the older body.
     pub(super) fn delete_notes(&mut self, ids: &[SessionId], batch: bool, cx: &mut Context<Self>) {
         let ids = self.not_deleting(ids);
         if ids.is_empty() {
@@ -205,6 +206,8 @@ impl WorkspaceView {
                         cx,
                     );
                 }
+                // After the tombstone, so an edit typed from here on cannot land before it.
+                this.thaw_drafts(cx);
             });
         })
         .detach();
@@ -224,16 +227,27 @@ impl WorkspaceView {
 
     /// Starts saving the notes' drafts in this window and in their note windows.
     fn flush_drafts(&mut self, ids: &[SessionId], cx: &mut Context<Self>) -> Vec<Flush> {
-        let mut flushes = self.note.update(cx, |note, cx| note.flush_drafts(ids, cx));
-        for window in cx.windows() {
-            if let Some(note) = window
-                .downcast::<NoteWindow>()
-                .and_then(|window| window.read(cx).ok().map(|view| view.note()))
-            {
-                flushes.extend(note.update(cx, |note, cx| note.flush_drafts(ids, cx)));
-            }
+        let mut flushes = Vec::new();
+        for note in self.notes(cx) {
+            flushes.extend(note.update(cx, |note, cx| note.flush_drafts(ids, cx)));
         }
         flushes
+    }
+
+    fn thaw_drafts(&mut self, cx: &mut Context<Self>) {
+        for note in self.notes(cx) {
+            note.update(cx, |note, cx| note.thaw_drafts(cx));
+        }
+    }
+
+    /// The note in this window and those in note windows.
+    fn notes(&self, cx: &App) -> Vec<Entity<NoteView>> {
+        let windows = cx.windows().into_iter().filter_map(|window| {
+            window
+                .downcast::<NoteWindow>()
+                .and_then(|window| window.read(cx).ok().map(|view| view.note()))
+        });
+        std::iter::once(self.note.clone()).chain(windows).collect()
     }
 
     fn tombstone(&mut self, ids: &[SessionId], batch: bool, cx: &mut Context<Self>) {
@@ -632,7 +646,15 @@ mod tests {
         workspace.update(cx, |workspace, cx| {
             workspace.delete_notes(std::slice::from_ref(&session), false, cx)
         });
+        // Typing while that edit saves once slipped in and then missed the tombstone.
+        editor.update_in(cx, |editor, window, cx| {
+            gpui::EntityInputHandler::replace_text_in_range(editor, None, " and more", window, cx)
+        });
         settle(cx, |_| deleted(&runtime, &session));
+        assert!(
+            !editor.read_with(cx, |editor, _| editor.is_dirty()),
+            "no edit may be left behind the tombstone"
+        );
         workspace.update(cx, |workspace, cx| workspace.undo_deletion(&session.0, cx));
         settle(cx, |_| !deleted(&runtime, &session));
         let restored = block_on(

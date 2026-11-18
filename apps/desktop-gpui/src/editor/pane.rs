@@ -688,6 +688,10 @@ impl EditorPane {
         self.dirty
     }
 
+    pub fn is_read_only(&self) -> bool {
+        self.read_only
+    }
+
     /// Shipping's `isPristineNoteDoc`: nothing but one empty paragraph.
     pub fn is_pristine(&self) -> bool {
         self.model
