@@ -99,9 +99,14 @@ impl ApplicationView {
             return;
         }
         self.schedule.started = true;
-        let reply = self
-            .runtime
-            .watch_query(auto_start::MEETINGS_SQL.into(), vec![]);
+        // Every meeting in the calendars' history outgrows a watch's 1,000 rows, so a small
+        // watch signals changes and each change reads the meetings in full.
+        let reply = self.runtime.watch_changes(
+            "SELECT EXISTS(SELECT 1 FROM events) AS events, EXISTS(SELECT 1 FROM app_settings) AS settings"
+                .into(),
+            vec![],
+        );
+        let runtime = self.runtime.clone();
         self.schedule.tasks.push(cx.spawn(async move |this, cx| {
             let Ok(mut watch) = async { reply?.receive().await }.await else {
                 return;
@@ -110,16 +115,28 @@ impl ApplicationView {
                 if watch.terminal_error().is_some() || watch.errors.try_recv().is_ok() {
                     break;
                 }
-                let rows = watch.snapshots.borrow_and_update().rows.clone();
-                let meetings = rows.iter().map(Meeting::from_row).collect();
-                if this
-                    .update(cx, |this, cx| {
-                        this.schedule.scheduler.replace(meetings);
-                        this.schedule_tick(cx);
-                    })
-                    .is_err()
-                    || watch.snapshots.changed().await.is_err()
-                {
+                watch.snapshots.borrow_and_update();
+                let read = async {
+                    runtime
+                        .read_rows(auto_start::MEETINGS_SQL.into(), vec![])?
+                        .receive()
+                        .await
+                };
+                match read.await {
+                    Ok(rows) => {
+                        let meetings = rows.iter().map(Meeting::from_row).collect();
+                        let updated = this.update(cx, |this, cx| {
+                            this.schedule.scheduler.replace(meetings);
+                            this.schedule_tick(cx);
+                        });
+                        if updated.is_err() {
+                            break;
+                        }
+                    }
+                    // The last schedule stays until the next change reads it again.
+                    Err(error) => tracing::warn!(%error, "scheduled meetings could not be read"),
+                }
+                if watch.snapshots.changed().await.is_err() {
                     break;
                 }
             }

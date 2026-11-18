@@ -29,6 +29,15 @@ use crate::{
     },
 };
 
+/// Reads the tables `REVISIONS_SQL` reads, so it notifies on every change to them. The
+/// revisions themselves are read in full: a library outgrows one watch's 1,000 rows.
+const CHANGES_SQL: &str = "SELECT EXISTS(SELECT 1 FROM sessions) AS sessions,
+    EXISTS(SELECT 1 FROM session_documents) AS documents,
+    EXISTS(SELECT 1 FROM transcripts) AS transcripts,
+    EXISTS(SELECT 1 FROM session_participants) AS participants,
+    EXISTS(SELECT 1 FROM humans) AS humans,
+    EXISTS(SELECT 1 FROM organizations) AS organizations,
+    EXISTS(SELECT 1 FROM action_items) AS action_items";
 const UPLOAD_DELAY: Duration = Duration::from_millis(1500);
 /// Shipping retries a snapshot the API rejected as invalid after these delays.
 const INVALID_RETRIES: [u64; 2] = [5, 15];
@@ -48,7 +57,7 @@ pub(super) fn start(native: &NativeServices, cx: &mut Context<ApplicationView>) 
     );
     cx.set_global(api.clone());
     let mut identities = cloud.identities();
-    let reply = runtime.watch_query(REVISIONS_SQL.into(), vec![]);
+    let reply = runtime.watch_changes(CHANGES_SQL.into(), vec![]);
     let executor = cx.background_executor().clone();
     cx.spawn(async move |_, _| {
         let mut watch = match async { reply?.receive().await }.await {
@@ -76,10 +85,27 @@ pub(super) fn start(native: &NativeServices, cx: &mut Context<ApplicationView>) 
             while watch.errors.try_recv().is_ok() {
                 failed = true;
             }
-            let snapshot = watch.snapshots.borrow_and_update().clone();
+            let sequence = watch.snapshots.borrow_and_update().sequence;
             // Sequence 0 is the placeholder before the first result; it is not an empty library.
-            if let Some(user) = user.as_ref().filter(|_| !failed && snapshot.sequence > 0) {
-                let changes = api.observe(user, &revisions(&snapshot.rows));
+            let rows = match user.as_ref().filter(|_| !failed && sequence > 0) {
+                Some(_) => match async {
+                    runtime
+                        .read_rows(REVISIONS_SQL.into(), vec![])?
+                        .receive()
+                        .await
+                }
+                .await
+                {
+                    Ok(rows) => Some(rows),
+                    Err(error) => {
+                        tracing::warn!(%error, "Cloud API revisions could not be read");
+                        None
+                    }
+                },
+                None => None,
+            };
+            if let (Some(user), Some(rows)) = (user.as_ref(), rows) {
+                let changes = api.observe(user, &revisions(&rows));
                 if !changes.deletes.is_empty() {
                     executor.spawn(api.sync(user.clone(), true)).detach();
                 }
