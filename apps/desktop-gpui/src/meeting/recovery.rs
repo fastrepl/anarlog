@@ -1,11 +1,11 @@
 use std::collections::BTreeMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use anlg_listener_core::actors::recorder::{
-    RecoveryAudioChunk, acknowledge_recovery_chunk, delete_capture_audio, list_recovery_chunks,
-    recover_interrupted_captures,
+    RecoveryAudioChunk, acknowledge_recovery_chunk, delete_capture_audio,
+    delete_transcribed_capture_audio, list_recovery_chunks, recover_interrupted_captures,
 };
 use anlg_listener2_core::{BatchEvent, BatchParams, BatchRuntime, run_batch};
 use desktop_runtime::{CancellationToken, Result, RuntimeHandle, ServiceError, SessionId};
@@ -24,6 +24,9 @@ pub type RecoveryResolver =
 pub struct InterruptedCapture {
     pub session: SessionId,
     pub transcript: Arc<str>,
+    pub title: Arc<str>,
+    /// Whether the capture keeps its recording; discarding a "Don't save" capture deletes it.
+    pub retained: bool,
     pub result: Result<()>,
 }
 
@@ -39,7 +42,7 @@ pub async fn recover_startup(
         .await
         .map_err(failure)??;
     let rows = runtime.submit(move |services| async move {
-        services.executor.execute("SELECT id, value_json FROM app_settings WHERE id GLOB 'capture_lifecycle_pending:*' ORDER BY id LIMIT 1001".into(), Vec::new()).await.map_err(failure)
+        services.executor.execute("SELECT a.id, a.value_json, COALESCE(s.title, '') AS title FROM app_settings a LEFT JOIN sessions s ON s.id = substr(a.id, 27) WHERE a.id GLOB 'capture_lifecycle_pending:*' ORDER BY a.id LIMIT 1001".into(), Vec::new()).await.map_err(failure)
     })?.receive().await?;
     if rows.len() > 1000 {
         return Err(failure(
@@ -61,32 +64,102 @@ pub async fn recover_startup(
         }
         let started = integer(&marker, "startedAt")?;
         let retained = marker["retainAudio"].as_bool().unwrap_or(true);
+        // Shipping's markers can inherit earlier captures, whose chunks belong to their own
+        // transcripts; anything older is left over from finished captures.
+        let earliest = marker["inheritedCaptures"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|capture| capture["startedAt"].as_i64())
+            .map(|at| at.saturating_sub(5_000))
+            .fold(started, i64::min);
         let result = async {
             let directory = session_directory(&vault, &session)?;
             let store = TranscriptStore(runtime.clone());
             store.fold(transcript.clone())?.receive().await?;
-            if !retained {
-                tokio::task::spawn_blocking(move || delete_capture_audio(&directory).map_err(failure)).await.map_err(failure)??;
-                return Err(failure("Interrupted recording: Don't save audio was deleted. Transcript may be incomplete; acknowledge this before starting again."));
-            }
             let recovery = Recovery::default();
-            let chunks = Recovery::chunks(directory).await?;
-            let mut repaired = false;
-            for chunk in chunks.into_iter().filter(|chunk| chunk.capture_started_at as i64 >= started) {
-                let gap = chunk_interval(&chunk, started);
-                recovery.repair(&store, session.clone(), transcript.clone(), chunk, vec![gap], &resolver).await?;
-                repaired = true;
+            loop {
+                let chunks = page(&directory, earliest.max(0) as u64).await?;
+                if chunks.is_empty() { break; }
+                for chunk in chunks {
+                    if (chunk.capture_started_at as i64) < started {
+                        return Err(failure("Audio from an earlier interrupted recording in this note can't be recovered here."));
+                    }
+                    let gap = chunk_interval(&chunk, started);
+                    recovery.repair(&store, session.clone(), transcript.clone(), chunk, vec![gap], &resolver).await?;
+                }
             }
-            if !repaired { return Err(failure("Interrupted capture has no recoverable chunks; marker retained for review.")); }
+            // "Don't save" audio goes only once every chunk is transcribed.
+            if !retained && !delete_transcribed(directory).await? {
+                return Err(failure("Unreadable audio from the interrupted recording is kept until you discard it."));
+            }
             acknowledge_finalization(runtime, session.clone(), transcript.clone()).await
         }.await;
         reports.push(InterruptedCapture {
             session,
             transcript,
+            title: string(&row, "title")?.to_owned().into(),
+            retained,
             result,
         });
     }
     Ok(reports)
+}
+
+/// Gives up on an interrupted capture whose recovery can't succeed: its unrecovered chunks go
+/// (all audio for "Don't save"), and the marker is finalized so the note can record again.
+pub async fn discard(
+    runtime: &RuntimeHandle,
+    vault: &Path,
+    session: SessionId,
+    transcript: Arc<str>,
+    retained: bool,
+) -> Result<()> {
+    let directory = session_directory(vault, &session)?;
+    if retained {
+        page(&directory, u64::MAX).await?;
+    } else {
+        tokio::task::spawn_blocking(move || delete_capture_audio(&directory).map_err(failure))
+            .await
+            .map_err(failure)??;
+    }
+    acknowledge_finalization(runtime, session, transcript).await
+}
+
+/// The oldest page of a session's recovery chunks from captures that started at `started` or
+/// later. Older chunks belong to finished captures and are released on the way, so they never
+/// fill the recorder's 128-chunk page. Callers release what they settle and ask again until a
+/// page comes back empty.
+pub async fn page(directory: &Path, started: u64) -> Result<Vec<RecoveryAudioChunk>> {
+    loop {
+        let (stale, current): (Vec<_>, Vec<_>) = Recovery::chunks(directory.to_path_buf())
+            .await?
+            .into_iter()
+            .partition(|chunk| chunk.capture_started_at < started);
+        let more = !stale.is_empty() && current.is_empty();
+        for chunk in stale {
+            release(directory, chunk.id).await?;
+        }
+        if !more {
+            return Ok(current);
+        }
+    }
+}
+
+pub async fn release(directory: &Path, chunk: String) -> Result<()> {
+    let directory = directory.to_path_buf();
+    tokio::task::spawn_blocking(move || acknowledge_recovery_chunk(&directory, &chunk))
+        .await
+        .map_err(failure)?
+        .map_err(failure)
+}
+
+/// Deletes "Don't save" audio once no chunk awaits transcription; false while one still does.
+pub async fn delete_transcribed(directory: PathBuf) -> Result<bool> {
+    tokio::task::spawn_blocking(move || delete_transcribed_capture_audio(&directory))
+        .await
+        .map_err(failure)?
+        .map_err(failure)
 }
 
 pub async fn acknowledge_finalization(
@@ -244,12 +317,8 @@ impl Recovery {
         let directory = path
             .parent()
             .and_then(|path| path.parent())
-            .ok_or_else(|| failure("Invalid recovery chunk path."))?
-            .to_path_buf();
-        tokio::task::spawn_blocking(move || acknowledge_recovery_chunk(&directory, &chunk.id))
-            .await
-            .map_err(failure)?
-            .map_err(failure)
+            .ok_or_else(|| failure("Invalid recovery chunk path."))?;
+        release(directory, chunk.id).await
     }
 
     fn check(&self, generation: u64) -> Result<()> {

@@ -18,7 +18,9 @@ use tokio::sync::{mpsc, oneshot};
 
 use super::model::{Retention, failure};
 use super::persistence::{Persistence, PersistenceGroup};
-use super::recovery::{Recovery, RecoveryResolver};
+use super::recovery::{
+    Recovery, RecoveryResolver, chunk_interval, delete_transcribed, page, release,
+};
 use super::retention::{Activities, Activity, session_directory};
 use super::store::{TranscriptStore, statement, string};
 
@@ -74,7 +76,8 @@ pub struct CaptureUpdate {
 #[derive(Clone)]
 struct RepairContext {
     recovery: Recovery,
-    resolver: RecoveryResolver,
+    /// Without one, an incomplete transcript can't be repaired, but chunks are still released.
+    resolver: Option<RecoveryResolver>,
     directory: PathBuf,
     started: u64,
     job: Arc<tokio::sync::Mutex<()>>,
@@ -529,11 +532,6 @@ impl CaptureService {
                                 let _ = reply.send(result);
                             }
                             Some(Command::Stop(reply)) => {
-                                let recovery = {
-                                    let state = shared.lock().unwrap_or_else(|poison| poison.into_inner());
-                                    if state.retention == Retention::Never { state.repair.clone() } else { None }
-                                };
-                                if let Some(repair) = recovery { repair.recovery.stop().await; }
                                 let mut result = root.call(RootMsg::StopSession, Some(Duration::from_secs(30))).await
                                     .map_err(failure).and_then(|reply| reply.success_or_else(|| failure("Capture stop timed out; finalization is still pending.")));
                                 while let Ok(event) = lifecycle.try_recv() {
@@ -773,9 +771,9 @@ async fn start(
         state.provider = config.provider.as_str().into();
         state.capture_start = Instant::now();
         state.activity = Some(activity);
-        state.repair = config.recovery.map(|resolver| RepairContext {
+        state.repair = Some(RepairContext {
             recovery: Recovery::default(),
-            resolver,
+            resolver: config.recovery,
             directory,
             started,
             job: Arc::new(tokio::sync::Mutex::new(())),
@@ -801,7 +799,11 @@ async fn start(
                     break;
                 }
             }
-            if let Err(error) = repair_once(&background_runtime, &background_state).await
+            let result = match repair_once(&background_runtime, &background_state).await {
+                Ok(()) => release_chunks(&background_state, false).await,
+                error => error,
+            };
+            if let Err(error) = result
                 && !matches!(error, ServiceError::Cancelled)
             {
                 let mut state = background_state
@@ -926,24 +928,35 @@ async fn handle_lifecycle(
             if let Some(error) = error {
                 return Err(failure(error));
             }
-            if retained {
-                repair_once(runtime, shared).await?;
-            }
+            repair_once(runtime, shared).await?;
             let (incomplete, recovery) = {
                 let state = shared.lock().unwrap_or_else(|poison| poison.into_inner());
                 (state.incomplete, state.repair.clone())
             };
-            if let Some(repair) = recovery {
+            if let Some(repair) = &recovery {
                 repair.recovery.stop().await;
             }
-            if incomplete {
+            let failed = |message: &str| {
                 shared
                     .lock()
                     .unwrap_or_else(|poison| poison.into_inner())
                     .phase = Phase::Failed;
-                return Err(failure(
-                    "Recording stopped with an incomplete transcript. Recovery marker retained; Don’t save audio is deleted by the recorder.",
-                ));
+                Err(failure(message))
+            };
+            if incomplete {
+                return failed(
+                    "Recording stopped with an incomplete transcript; its audio is kept for recovery.",
+                );
+            }
+            release_chunks(shared, true).await?;
+            // "Don't save" counts as saved only once its audio is gone.
+            if !retained
+                && let Some(repair) = recovery
+                && !delete_transcribed(repair.directory).await?
+            {
+                return failed(
+                    "Don’t save audio is still waiting for transcription; it is kept for recovery.",
+                );
             }
             if let Some(transcript) = transcript {
                 runtime.submit(move |services| async move {
@@ -967,7 +980,7 @@ async fn handle_lifecycle(
 }
 
 async fn repair_once(runtime: &RuntimeHandle, shared: &Arc<Mutex<State>>) -> Result<()> {
-    let (repair, session, transcript, persistence, through) = {
+    let (repair, resolver, session, transcript, persistence, through) = {
         let mut state = shared.lock().unwrap_or_else(|poison| poison.into_inner());
         let stalled = state.phase == Phase::Listening
             && state.audible.elapsed() < Duration::from_secs(45)
@@ -993,8 +1006,14 @@ async fn repair_once(runtime: &RuntimeHandle, shared: &Arc<Mutex<State>>) -> Res
                 "Transcript is incomplete and this provider has no batch recovery adapter.",
             ));
         };
+        let Some(resolver) = repair.resolver.clone() else {
+            return Err(failure(
+                "Transcript is incomplete and this provider has no batch recovery adapter.",
+            ));
+        };
         (
             repair,
+            resolver,
             session,
             transcript,
             persistence,
@@ -1009,27 +1028,30 @@ async fn repair_once(runtime: &RuntimeHandle, shared: &Arc<Mutex<State>>) -> Res
         }
     }
     let generation = repair.recovery.generation();
-    let chunks = Recovery::chunks(repair.directory.clone()).await?;
+    let store = TranscriptStore(runtime.clone());
     let mut recovered_through = 0;
-    for chunk in chunks
-        .into_iter()
-        .filter(|chunk| chunk.capture_started_at >= repair.started)
-    {
-        let gap = super::recovery::chunk_interval(&chunk, repair.started as i64);
-        let end = gap.end.max(0) as u64;
-        persistence.flush().await?;
-        repair
-            .recovery
-            .repair(
-                &TranscriptStore(runtime.clone()),
-                session.clone(),
-                transcript.clone(),
-                chunk,
-                vec![gap],
-                &repair.resolver,
-            )
-            .await?;
-        recovered_through = recovered_through.max(end);
+    loop {
+        let chunks = page(&repair.directory, repair.started).await?;
+        if chunks.is_empty() {
+            break;
+        }
+        for chunk in chunks {
+            let gap = chunk_interval(&chunk, repair.started as i64);
+            let end = gap.end.max(0) as u64;
+            persistence.flush().await?;
+            repair
+                .recovery
+                .repair(
+                    &store,
+                    session.clone(),
+                    transcript.clone(),
+                    chunk,
+                    vec![gap],
+                    &resolver,
+                )
+                .await?;
+            recovered_through = recovered_through.max(end);
+        }
     }
     let mut state = shared.lock().unwrap_or_else(|poison| poison.into_inner());
     if recovered_through > through && repair.recovery.generation() == generation {
@@ -1038,4 +1060,35 @@ async fn repair_once(runtime: &RuntimeHandle, shared: &Arc<Mutex<State>>) -> Res
         state.revision += 1;
     }
     Ok(())
+}
+
+/// Shipping's `createCaptureAudioRecovery`: a complete capture releases each recovery chunk once
+/// its speech is persisted, and the rest after its final flush (`settled`). Incomplete captures
+/// keep theirs for `repair_once`.
+async fn release_chunks(shared: &Arc<Mutex<State>>, settled: bool) -> Result<()> {
+    let (repair, persistence) = {
+        let state = shared.lock().unwrap_or_else(|poison| poison.into_inner());
+        if state.incomplete || state.batch {
+            return Ok(());
+        }
+        let (Some(repair), Some(persistence)) = (state.repair.clone(), state.persistence.clone())
+        else {
+            return Ok(());
+        };
+        (repair, persistence)
+    };
+    let _job = repair.job.lock().await;
+    let through = persistence.persisted_through();
+    loop {
+        let chunks = page(&repair.directory, repair.started).await?;
+        if chunks.is_empty() {
+            return Ok(());
+        }
+        for chunk in chunks {
+            if !settled && chunk_interval(&chunk, repair.started as i64).end > through {
+                return Ok(());
+            }
+            release(&repair.directory, chunk.id).await?;
+        }
+    }
 }

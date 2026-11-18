@@ -538,7 +538,7 @@ async fn provider_admission_failure_exits_preparing_and_allows_retry() {
 }
 
 #[tokio::test]
-async fn native_streaming_capture_stops_and_reopens_durable_transcript() {
+async fn native_streaming_capture_saves_transcript_and_releases_dont_save_audio() {
     let _ = tracing_subscriber::fmt()
         .with_env_filter("listener_core=debug,owhisper_client=debug")
         .with_test_writer()
@@ -554,6 +554,19 @@ async fn native_streaming_capture_stops_and_reopens_durable_transcript() {
         .setting("ai_provider:stt:deepgram", json!({"base_url":server.url}))
         .await;
     fixture.setting("audio_retention", json!("none")).await;
+    // Chunks left by finished captures must not fill the recovery page.
+    let directory =
+        super::retention::session_directory(&fixture.directory, &fixture.session).unwrap();
+    std::fs::create_dir_all(directory.join("audio-recovery")).unwrap();
+    for index in 0..130 {
+        std::fs::write(
+            directory
+                .join("audio-recovery")
+                .join(format!("1-{index}-{}-{index}.mp3", index + 1)),
+            b"",
+        )
+        .unwrap();
+    }
     let services = fixture.providers(&server.url);
     let capture = super::capture::CaptureService::spawn(
         fixture.runtime.clone(),
@@ -616,6 +629,8 @@ async fn native_streaming_capture_stops_and_reopens_durable_transcript() {
             .await
             .is_empty()
     );
+    assert!(!directory.join("audio-recovery").exists());
+    assert!(!directory.join(".delete-audio-on-stop").exists());
     let reopened = fixture
         .runtime
         .open_session(fixture.session.clone(), CancellationToken::new())
@@ -1293,57 +1308,95 @@ async fn retention_honors_activity_and_preserves_non_audio_data() {
     fixture.close().await;
 }
 
+/// A tenth of a second of silence; recovery chunks keep their `.mp3` name, decoders probe content.
+fn silent_chunk(path: &std::path::Path) {
+    let spec = hound::WavSpec {
+        channels: 2,
+        sample_rate: 16_000,
+        bits_per_sample: 16,
+        sample_format: hound::SampleFormat::Int,
+    };
+    let mut writer = hound::WavWriter::create(path, spec).unwrap();
+    for _ in 0..3_200 {
+        writer.write_sample(0i16).unwrap();
+    }
+    writer.finalize().unwrap();
+}
+
 #[tokio::test]
-async fn startup_never_deletes_audio_but_preserves_failed_finalization_marker() {
+async fn dont_save_startup_recovery_transcribes_every_chunk_page_before_deleting_audio() {
     let fixture = Fixture::new().await;
+    let server = provider_fixture().await;
+    fixture
+        .setting("current_stt_provider", json!("deepgram"))
+        .await;
+    fixture.setting("current_stt_model", json!("nova-3")).await;
+    fixture.setting("spoken_languages", json!("[\"en\"]")).await;
+    fixture
+        .setting("ai_provider:stt:deepgram", json!({"base_url":server.url}))
+        .await;
     let directory =
         super::retention::session_directory(&fixture.directory, &fixture.session).unwrap();
-    std::fs::create_dir_all(&directory).unwrap();
-    std::fs::write(directory.join("audio.wav"), b"audio").unwrap();
+    let chunks = directory.join("audio-recovery");
+    std::fs::create_dir_all(&chunks).unwrap();
     std::fs::write(directory.join(".delete-audio-on-stop"), b"").unwrap();
-    let marker = json!({"version":1, "sessionId":fixture.session, "transcriptId":fixture.transcript, "retainAudio":false, "startedAt":1});
+    // More chunks than the recorder lists in one page.
+    for index in 0..130 {
+        let start = index * 1_000;
+        silent_chunk(&chunks.join(format!("1000-{start}-{}-{start}.mp3", start + 1_000)));
+    }
+    let marker = json!({"version":1, "sessionId":fixture.session, "transcriptId":fixture.transcript, "retainAudio":false, "startedAt":1000});
     fixture
-        .sql(
-            "INSERT INTO app_settings (id, value_json) VALUES (?, ?)",
-            vec![
-                json!(format!("capture_lifecycle_pending:{}", fixture.session.0)),
-                json!(marker.to_string()),
-            ],
+        .setting(
+            &format!("capture_lifecycle_pending:{}", fixture.session.0),
+            marker,
         )
         .await;
-    let reports = super::recovery::recover_startup(
-        &fixture.runtime,
-        fixture.directory.clone(),
-        Activities::default(),
-        Arc::new(|_, _| {
-            Box::pin(async {
-                Err(super::model::failure(
-                    "Never must not invoke batch provider",
-                ))
-            })
-        }),
-    )
-    .await
-    .unwrap();
-    assert_eq!(reports.len(), 1);
-    assert!(
-        reports[0]
-            .result
-            .as_ref()
-            .unwrap_err()
-            .to_string()
-            .contains("incomplete")
-    );
-    assert!(!directory.join("audio.wav").exists());
-    assert_eq!(
+    let markers = async || {
         fixture
             .sql(
-                "SELECT * FROM app_settings WHERE id GLOB 'capture_lifecycle_pending:*'",
-                vec![]
+                "SELECT id FROM app_settings WHERE id GLOB 'capture_lifecycle_pending:*'",
+                vec![],
             )
             .await
-            .len(),
-        1
+            .len()
+    };
+    let offline: super::recovery::RecoveryResolver =
+        Arc::new(|_, _| Box::pin(async { Err(super::model::failure("Provider is offline.")) }));
+    for (resolver, recovered) in [
+        (offline, false),
+        (fixture.providers(&server.url).recovery_resolver(), true),
+    ] {
+        let reports = super::recovery::recover_startup(
+            &fixture.runtime,
+            fixture.directory.clone(),
+            Activities::default(),
+            resolver,
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            reports[0].result.is_ok(),
+            recovered,
+            "{:?}",
+            reports[0].result
+        );
+        // Audio survives until its speech is transcribed; the marker until recovery finishes.
+        assert_eq!(chunks.exists(), !recovered);
+        assert_eq!(directory.join(".delete-audio-on-stop").exists(), !recovered);
+        assert_eq!(markers().await, usize::from(!recovered));
+    }
+    assert!(
+        fixture
+            .store
+            .snapshot(fixture.transcript.clone())
+            .unwrap()
+            .receive()
+            .await
+            .unwrap()
+            .words
+            .iter()
+            .any(|word| word.start_ms >= 129_000)
     );
     fixture.close().await;
 }

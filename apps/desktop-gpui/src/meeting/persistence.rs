@@ -1,9 +1,10 @@
 use std::collections::{BTreeMap, BTreeSet};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use anlg_listener_core::LiveTranscriptDelta;
+use anlg_transcript::WordState;
 use desktop_runtime::{Result, RuntimeHandle, ServiceError, Services};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore, mpsc, oneshot, watch};
 
@@ -33,6 +34,7 @@ pub struct Persistence {
     pub error: watch::Receiver<Option<ServiceError>>,
     retired: Arc<AtomicBool>,
     admission: Arc<tokio::sync::Mutex<()>>,
+    persisted_through: Arc<AtomicI64>,
 }
 
 impl Persistence {
@@ -41,7 +43,14 @@ impl Persistence {
             .submit(move |services| async move {
                 let (sender, receiver) = mpsc::channel(16);
                 let (error, state) = watch::channel(None);
-                tokio::spawn(run(services, transcript, receiver, error));
+                let persisted_through = Arc::new(AtomicI64::new(i64::MIN));
+                tokio::spawn(run(
+                    services,
+                    transcript,
+                    receiver,
+                    error,
+                    persisted_through.clone(),
+                ));
                 Ok(Self {
                     sender,
                     words: Arc::new(Semaphore::new(MAX_WORDS)),
@@ -50,6 +59,7 @@ impl Persistence {
                     error: state,
                     retired: Arc::new(AtomicBool::new(false)),
                     admission: Arc::new(tokio::sync::Mutex::new(())),
+                    persisted_through,
                 })
             })?
             .receive()
@@ -147,6 +157,11 @@ impl Persistence {
             })
     }
 
+    /// The end of the latest final word durably journaled (shipping's `persisted_through_ms`).
+    pub fn persisted_through(&self) -> i64 {
+        self.persisted_through.load(Ordering::Acquire)
+    }
+
     pub async fn retire(&self) -> Result<()> {
         let _admission = self.admission.lock().await;
         self.flush().await?;
@@ -237,6 +252,7 @@ async fn run(
     transcript: Arc<str>,
     mut receiver: mpsc::Receiver<Command>,
     errors: watch::Sender<Option<ServiceError>>,
+    persisted_through: Arc<AtomicI64>,
 ) {
     while let Some(first) = receiver.recv().await {
         let mut entries = Vec::new();
@@ -281,6 +297,15 @@ async fn run(
                 match result {
                     Ok(()) => {
                         errors.send_replace(None);
+                        if let Some(end) = delta
+                            .new_words
+                            .iter()
+                            .filter(|word| word.state == WordState::Final)
+                            .map(|word| word.end_ms)
+                            .max()
+                        {
+                            persisted_through.fetch_max(end, Ordering::AcqRel);
+                        }
                         break;
                     }
                     Err(error) => {

@@ -323,14 +323,9 @@ impl ApplicationView {
                 })?
                 .receive()
                 .await?;
-            let warnings = reports
+            let interrupted = reports
                 .into_iter()
-                .filter_map(|report| {
-                    report
-                        .result
-                        .err()
-                        .map(|error| format!("{}: {error}", report.session.0))
-                })
+                .filter(|report| report.result.is_err())
                 .collect::<Vec<_>>();
             let services = MeetingServices {
                 capture,
@@ -342,12 +337,12 @@ impl ApplicationView {
             let ai = native
                 .providers
                 .ai_services(Arc::new(move |session| capture.is_active(session)))?;
-            Ok((services, native, ai, warnings))
+            Ok((services, native, ai, interrupted))
         });
         cx.spawn(async move |this, cx| {
             let result = startup.await;
             let _ = this.update(cx, |this, cx| match result {
-                Ok((services, native, ai, warnings)) => {
+                Ok((services, native, ai, interrupted)) => {
                     cx.set_global(services.clone());
                     cx.set_global(ai);
                     cx.set_global(native.providers.clone());
@@ -355,6 +350,7 @@ impl ApplicationView {
                         let voice = dictation.read(cx).voice(native.providers.clone());
                         cx.set_global(voice);
                     }
+                    let vault = services.vault.clone();
                     this.services = Some(services);
                     let calendar = crate::workspace::calendar_accounts::HostCalendarAccounts::new(
                         this.runtime.clone(),
@@ -374,14 +370,8 @@ impl ApplicationView {
                     this.start_lifecycle(cx);
                     this.watch_updates(cx);
                     this.open_onboarding_if_needed(cx);
-                    if !warnings.is_empty() {
-                        toasts::show(
-                            toasts::Toast::warning(format!(
-                                "Interrupted capture recovery needs attention: {}",
-                                warnings.join("; ")
-                            )),
-                            cx,
-                        );
+                    for capture in interrupted {
+                        this.offer_discard(capture, vault.clone(), cx);
                     }
                 }
                 Err(error) => this.status(&format!("Meeting startup failed: {error}"), cx),
@@ -936,6 +926,59 @@ impl ApplicationView {
             });
         })
         .detach();
+    }
+
+    /// An interrupted recording that recovery couldn't finish blocks new recordings in its note
+    /// until a later launch recovers it or the user discards it here.
+    fn offer_discard(
+        &self,
+        capture: recovery::InterruptedCapture,
+        vault: PathBuf,
+        cx: &mut Context<Self>,
+    ) {
+        let error = capture
+            .result
+            .err()
+            .map(|error| error.to_string())
+            .unwrap_or_default();
+        let title = if capture.title.is_empty() {
+            "Untitled"
+        } else {
+            &capture.title
+        };
+        let runtime = self.runtime.clone();
+        let (session, transcript, retained) =
+            (capture.session, capture.transcript, capture.retained);
+        toasts::show(
+            toasts::Toast::warning(format!(
+                "The interrupted recording in “{title}” could not be recovered"
+            ))
+            .id(format!("capture-recovery-{}", session.0))
+            .description(format!(
+                "{error} Anarlog retries at the next launch, or you can discard its unrecovered audio."
+            ))
+            .sticky()
+            .action("Discard", move |_, cx| {
+                let work = runtime.clone();
+                let (vault, session, transcript) =
+                    (vault.clone(), session.clone(), transcript.clone());
+                let reply = runtime.service(move |_| async move {
+                    recovery::discard(&work, &vault, session, transcript, retained).await
+                });
+                cx.spawn(async move |cx| {
+                    if let Err(error) = async { reply?.receive().await }.await {
+                        cx.update(|cx| {
+                            toasts::error(
+                                format!("The interrupted recording could not be discarded: {error}"),
+                                cx,
+                            )
+                        });
+                    }
+                })
+                .detach();
+            }),
+            cx,
+        );
     }
 
     /// App errors appear as shipping's error toasts.
