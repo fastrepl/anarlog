@@ -485,6 +485,8 @@ impl Composer {
         let key = event.keystroke.key.as_str();
         let modifiers = event.keystroke.modifiers;
         let secondary = modifiers.secondary(cx);
+        let line_modifier = cfg!(target_os = "macos") && secondary;
+        let word_modifier = modifiers.alt || (!cfg!(target_os = "macos") && modifiers.control);
         if let Some(caret) = &self.caret {
             Caret::reset_entity(caret, cx);
         }
@@ -554,7 +556,7 @@ impl Composer {
                 self.refresh(cx);
                 true
             }
-            "left" | "right" if secondary => {
+            "left" | "right" if line_modifier => {
                 if let Some(target) = self.line_edge(key == "right") {
                     self.move_to(target, shift, cx);
                 }
@@ -566,7 +568,7 @@ impl Composer {
                 }
                 true
             }
-            "left" | "right" if modifiers.alt => {
+            "left" | "right" if word_modifier => {
                 self.apply(|model| model.move_word(key == "right", shift), cx);
                 true
             }
@@ -574,7 +576,7 @@ impl Composer {
                 self.apply(|model| model.move_grapheme(key == "right", shift), cx);
                 true
             }
-            "backspace" if secondary => {
+            "backspace" if line_modifier => {
                 if self.model.selection.is_empty()
                     && let Some(start) = self.line_edge(false)
                 {
@@ -587,7 +589,7 @@ impl Composer {
                 self.apply(|model| model.replace(model.selection.range(), ""), cx);
                 true
             }
-            "backspace" | "delete" if modifiers.alt => {
+            "backspace" | "delete" if word_modifier => {
                 self.apply(
                     |model| {
                         if model.selection.is_empty() {
@@ -1683,6 +1685,45 @@ mod tests {
         assert_eq!(string_hash("Maya Chen"), 1_658_687_022);
         assert_eq!(string_hash("Ana"), 65_972);
         assert_eq!(string_hash(""), 0);
+    }
+
+    #[gpui::test]
+    #[cfg(not(target_os = "macos"))]
+    fn ctrl_arrows_and_delete_edit_one_word_at_a_time(cx: &mut gpui::TestAppContext) {
+        let directory = tempfile::tempdir().unwrap();
+        let (runtime, _) = RuntimeHandle::start(desktop_runtime::Profile {
+            database: directory.path().join("library.sqlite"),
+        })
+        .unwrap();
+        let (composer, cx) =
+            cx.add_window_view(|_, cx| Composer::new(runtime.clone(), SearchIndex::default(), cx));
+        composer.update_in(cx, |composer, window, cx| {
+            let draft = doc(json!([{"type": "paragraph", "content": [
+                {"type": "text", "text": "alpha beta gamma"}
+            ]}]));
+            let press = |composer: &mut Composer,
+                         shortcut: &'static str,
+                         window: &mut Window,
+                         cx: &mut Context<Composer>| {
+                composer.key(
+                    &KeyDownEvent {
+                        keystroke: gpui::Keystroke::parse(shortcut).unwrap(),
+                        is_held: false,
+                        prefer_character_input: false,
+                    },
+                    window,
+                    cx,
+                );
+            };
+            composer.set_doc(&draft, false, cx);
+            press(composer, "ctrl-left", window, cx);
+            press(composer, "ctrl-delete", window, cx);
+            assert_eq!(composer.text(), "alpha beta ");
+            composer.set_doc(&draft, true, cx);
+            press(composer, "ctrl-right", window, cx);
+            press(composer, "ctrl-backspace", window, cx);
+            assert_eq!(composer.text(), " beta gamma");
+        });
     }
 
     #[gpui::test]
