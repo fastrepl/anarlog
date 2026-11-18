@@ -505,6 +505,7 @@ impl Contacts {
             if let Page::Person(page) = &mut self.page
                 && let Some(human) = self.data.human(&page.id)
             {
+                page.sync_fields(human, window, cx);
                 page.sync_emails(human, window, cx);
             }
             return;
