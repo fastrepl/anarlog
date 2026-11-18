@@ -5,6 +5,7 @@ use tokio::{
     sync::{mpsc, watch},
     task::JoinSet,
 };
+use tokio_util::sync::CancellationToken;
 
 use crate::{
     Command, QUEUE_CAPACITY, Result, RuntimeState, ServiceError, Services, ShutdownPhase, Work,
@@ -17,9 +18,14 @@ pub(crate) async fn run(
     services: Services,
     state: &watch::Sender<RuntimeState>,
 ) -> Result<()> {
+    let services_ended = CancellationToken::new();
     let (mut participants, jobs) = tokio::join!(
-        database_queue(receiver, services.clone(), state),
-        service_queue(service_receiver, services.clone()),
+        database_queue(receiver, services.clone(), services_ended.clone(), state),
+        async {
+            let jobs = service_queue(service_receiver, services.clone()).await;
+            services_ended.cancel();
+            jobs
+        },
     );
     state.send_replace(RuntimeState::Flushing);
     let mut errors = Vec::new();
@@ -67,20 +73,28 @@ pub(crate) async fn run(
     }
 }
 
+/// Shutdown stops admitting handle work at once, but the queue closes only after the service
+/// jobs ended: they may still record their outcomes through `Services::submit`.
 async fn database_queue(
     mut receiver: mpsc::Receiver<Command>,
     services: Services,
+    services_ended: CancellationToken,
     state: &watch::Sender<RuntimeState>,
 ) -> Vec<Participant> {
     let mut participants = Vec::new();
     let mut draining = false;
+    let mut closed = false;
     loop {
         let command = tokio::select! {
             biased;
             _ = services.shutdown_requested.cancelled(), if !draining => {
                 draining = true;
-                receiver.close();
                 state.send_replace(RuntimeState::Draining);
+                continue;
+            }
+            _ = services_ended.cancelled(), if !closed => {
+                closed = true;
+                receiver.close();
                 continue;
             }
             command = receiver.recv() => command,

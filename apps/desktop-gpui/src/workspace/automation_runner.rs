@@ -7,7 +7,7 @@ use std::{
 };
 
 use anlg_agent_access::MeetingExport;
-use desktop_runtime::{Reply, Result, RuntimeHandle, ServiceError, SessionId};
+use desktop_runtime::{Reply, Result, RuntimeHandle, ServiceError, Services, SessionId};
 use futures::future::BoxFuture;
 use reqwest::{Client, Method, Url};
 use serde_json::{Value, json};
@@ -270,15 +270,14 @@ pub enum TargetList {
 
 /// Runs one workflow for the note. Orchestration and destination requests run on the service
 /// executor and every read or write is its own short database job, so a slow integration never
-/// holds up note opens and saves.
+/// holds up note opens and saves. Quitting starts no further step; the run still records.
 pub fn run(
     runtime: &RuntimeHandle,
     workflow_id: Arc<str>,
     session: SessionId,
     client: Option<AutomationClient>,
 ) -> Result<Reply<String>> {
-    let database = runtime.clone();
-    runtime.service(move |_| async move {
+    runtime.service(move |database| async move {
         let _guard = RunGuard::acquire(&workflow_id, &session)?;
         let (workflow, export) = {
             let (workflow_id, session) = (workflow_id.clone(), session.clone());
@@ -346,6 +345,10 @@ pub fn run(
             record("error", "Sign in to run this automation".into(), false).await?;
             return Err(failure("Sign in to run this automation"));
         }
+        let quitting = || database.shutdown_requested.is_cancelled();
+        if quitting() {
+            return Err(failure("Anarlog is quitting; run the automation again later"));
+        }
         record(
             "running",
             "Dispatch started; verify destinations before retrying an interrupted run".into(),
@@ -353,7 +356,12 @@ pub fn run(
         )
         .await?;
         for (index, step) in steps.iter().enumerate() {
-            match execute_step(step, &export, client.as_ref(), None).await {
+            let result = if quitting() {
+                Err(failure("Anarlog quit before this step"))
+            } else {
+                execute_step(step, &export, client.as_ref(), None).await
+            };
+            match result {
                 Ok(detail) => results.push(detail),
                 Err(error) => {
                     let detail = format!(
@@ -373,7 +381,7 @@ pub fn run(
 
 /// Stores the workflow's last run, reserving the note against replay when `reserve` is set.
 fn record_run(
-    runtime: &RuntimeHandle,
+    runtime: &Services,
     id: Arc<str>,
     session: SessionId,
     status: &'static str,
@@ -599,9 +607,8 @@ pub fn run_starters(
     session: SessionId,
     client: Option<AutomationClient>,
 ) -> Result<Reply<Vec<String>>> {
-    let database = runtime.clone();
     // Like `run`, destination requests stay off the database queue.
-    runtime.service(move |_| async move {
+    runtime.service(move |database| async move {
         let rows = database
             .submit(|services| async move {
                 services
@@ -628,6 +635,10 @@ pub fn run_starters(
             processed,
         } in STARTERS
         {
+            // Quitting starts no further delivery; the note stays unreserved for them.
+            if database.shutdown_requested.is_cancelled() {
+                break;
+            }
             if when != trigger || setting(enabled) != true {
                 continue;
             }
@@ -714,7 +725,7 @@ fn delivered(processed: &Value, session: &SessionId) -> bool {
 /// Adds the note to a starter's delivered list, re-read in the same job so concurrent runs for
 /// other notes keep their entries.
 fn reserve_starter(
-    runtime: &RuntimeHandle,
+    runtime: &Services,
     key: &'static str,
     session: SessionId,
 ) -> BoxFuture<'static, Result<()>> {

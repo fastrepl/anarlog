@@ -650,6 +650,109 @@ fn a_slow_automation_destination_does_not_hold_the_database_queue() {
     });
 }
 
+/// Quitting closed the database queue before an accepted run finished, so a Slack request that
+/// completed during the drain could not record itself and the workflow stayed "running".
+#[test]
+fn an_automation_that_finishes_while_quitting_records_its_run() {
+    block_on(async {
+        let (directory, runtime) = start().await;
+        let session = note_with_summary(&runtime).await;
+        let mut workflow = Workflow::empty(None, None, "Recap");
+        workflow.enabled = true;
+        workflow.steps = vec![Step::Target {
+            id: "channel".into(),
+            kind: StepType::Slack,
+            target: Some(Target {
+                id: "channel".into(),
+                name: "Channel".into(),
+            }),
+        }];
+        let id = workflow.id.clone();
+        automations::save(&runtime, workflow)
+            .unwrap()
+            .receive()
+            .await
+            .unwrap();
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let client = super::automation_runner::AutomationClient::new(
+            &format!("http://{}", listener.local_addr().unwrap()),
+            "fixture-token".into(),
+            "Fixture".into(),
+        )
+        .unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let run = super::automation_runner::run(&runtime, id, session, Some(client)).unwrap();
+        let started = std::time::Instant::now();
+        let mut stream = loop {
+            match listener.accept() {
+                Ok((stream, _)) => break stream,
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                    assert!(started.elapsed() < Duration::from_secs(15));
+                    std::thread::sleep(Duration::from_millis(5));
+                }
+                Err(error) => panic!("{error}"),
+            }
+        };
+        stream.set_nonblocking(false).unwrap();
+        stream
+            .set_read_timeout(Some(Duration::from_secs(5)))
+            .unwrap();
+        // Read the whole request, so answering it cannot reset the connection.
+        let mut request = Vec::new();
+        let mut buffer = [0; 4096];
+        loop {
+            let size = stream.read(&mut buffer).unwrap();
+            assert!(size > 0);
+            request.extend_from_slice(&buffer[..size]);
+            let Some(end) = request.windows(4).position(|bytes| bytes == b"\r\n\r\n") else {
+                continue;
+            };
+            let length = std::str::from_utf8(&request[..end])
+                .unwrap()
+                .lines()
+                .find_map(|line| {
+                    line.to_ascii_lowercase()
+                        .strip_prefix("content-length:")
+                        .map(|value| value.trim().parse::<usize>().unwrap())
+                })
+                .unwrap_or(0);
+            if request.len() >= end + 4 + length {
+                break;
+            }
+        }
+        // The destination answers only once quitting has begun.
+        let quitting = {
+            let runtime = runtime.clone();
+            std::thread::spawn(move || block_on(runtime.shutdown()))
+        };
+        let mut state = runtime.state();
+        while !matches!(
+            *state.borrow_and_update(),
+            desktop_runtime::RuntimeState::Draining
+        ) {
+            state.changed().await.unwrap();
+        }
+        write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 11\r\nConnection: close\r\n\r\n{{\"ok\":true}}").unwrap();
+        assert_eq!(run.receive().await.unwrap(), "#Channel");
+        quitting.join().unwrap().unwrap();
+        let (runtime, ready) = RuntimeHandle::start(Profile {
+            database: directory.path().join("workspace.sqlite"),
+        })
+        .unwrap();
+        ready.receive().await.unwrap();
+        let stored = execute(
+            &runtime,
+            "SELECT value_json FROM app_settings WHERE id='automation_workflows'",
+            vec![],
+        )
+        .await;
+        let workflows =
+            super::mutations::decode_json_text(stored[0]["value_json"].as_str().unwrap()).unwrap();
+        assert_eq!(workflows[0]["lastRun"]["status"], "success");
+        runtime.shutdown().await.unwrap();
+    });
+}
+
 #[test]
 fn a_signed_out_starter_run_leaves_the_note_for_a_later_delivery() {
     block_on(async {
