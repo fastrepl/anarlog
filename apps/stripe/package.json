@@ -15,11 +15,11 @@
     "@supabase/supabase-js": "^2.103.0",
     "@t3-oss/env-core": "^0.13.11",
     "effect": "^3.21.0",
-    "hono": "^4.13.13",
+    "hono": "^4.13.16",
     "pg": "^8.20.0",
     "posthog-node": "^5.29.2",
     "stripe": "^20.4.1",
-    "zod": "^4.6.6"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@dotenvx/dotenvx": "^1.61.0",
