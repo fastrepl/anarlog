@@ -267,6 +267,25 @@ impl Waiting {
 }
 
 impl NativeEvents {
+    /// Queues deep links, from the OS or from launch arguments on Windows and Linux.
+    pub fn open_urls(&self, urls: Vec<String>) {
+        for url in urls.into_iter().take(64) {
+            match self.links.receive(&url) {
+                Ok(id) => {
+                    if self
+                        .sender
+                        .try_send(NativeEvent::DeepLink { id, raw: url })
+                        .is_err()
+                    {
+                        let _ = self.links.acknowledge(id);
+                        tracing::warn!("Native event queue is full");
+                    }
+                }
+                Err(error) => tracing::warn!("Deep link rejected: {error}"),
+            }
+        }
+    }
+
     pub fn install(application: &Application) -> Self {
         let (sender, receiver) = mpsc::sync_channel(64);
         let events = Self {
@@ -275,23 +294,7 @@ impl NativeEvents {
             links: NativeDeepLinks::default(),
         };
         let links = events.clone();
-        application.on_open_urls(move |urls| {
-            for url in urls.into_iter().take(64) {
-                match links.links.receive(&url) {
-                    Ok(id) => {
-                        if links
-                            .sender
-                            .try_send(NativeEvent::DeepLink { id, raw: url })
-                            .is_err()
-                        {
-                            let _ = links.links.acknowledge(id);
-                            tracing::warn!("Native event queue is full");
-                        }
-                    }
-                    Err(error) => tracing::warn!("Deep link rejected: {error}"),
-                }
-            }
-        });
+        application.on_open_urls(move |urls| links.open_urls(urls));
         let reopen = events.clone();
         application.on_reopen(move |_| {
             let _ = reopen

@@ -93,6 +93,7 @@ anlg-bundle = { workspace = true }
 anlg-db-app = { workspace = true }
 anlg-db-core = { workspace = true }
 anlg-db-sync = { workspace = true }
+anlg-desktop-identity = { workspace = true }
 anlg-host = { workspace = true }
 anlg-intercept = { workspace = true }
 anlg-storage = { workspace = true }

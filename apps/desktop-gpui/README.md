@@ -18,10 +18,22 @@ cargo run --locked -- --profile /absolute/path/to/sandbox
 ```
 
 The default is `$HOME/.anarlog-gpui-sandbox/library.sqlite` (Windows:
-`%USERPROFILE%\.anarlog-gpui-sandbox\library.sqlite`). There is no automatic
-discovery or migration of the shipping application's live profile. `--profile`
+`%USERPROFILE%\.anarlog-gpui-sandbox\library.sqlite`). `--profile`
 is a directory, not a database filename. Only use an isolated directory or a
 consistent SQLite backup; do not copy a live WAL database's main file alone.
+
+Packaged builds will instead run in channel mode: CD compiles in
+`ANARLOG_CHANNEL=stable|staging|nightly|dev`, and the app finds that channel's
+shipping data through `crates/desktop-identity` (`src/launch.rs`). Unset builds,
+`cargo run` and tests stay in the sandbox, `--profile` always selects the sandbox,
+and a build kind that would resolve different folders than the shipping channel
+refuses to start (stable and nightly need release, dev needs debug). Channel mode
+already opens the channel's shipping `app.db`, but it is incomplete: opening it the
+way shipping does (the sqlite-sync extension, the reset marker, waiting for shipping's
+locks), the vault folders, the secure store and sign-in still use the sandbox's code.
+Don't compile a channel in yet. Launch arguments the shipping app
+receives (`--background`, `--onboarding`, `--updater2-*`, deep-link URLs) are
+accepted, and unknown ones are logged and ignored.
 The canonical schema is prepared with `db-app`. CloudSync starts disabled and
 requires account sign-in, encryption setup and explicit enablement.
 
@@ -73,7 +85,8 @@ move ahead. The repository workspace and its lockfile are unchanged.
 
 ## Architecture
 
-- `main.rs` owns CLI/profile selection and the native window.
+- `launch.rs` owns launch arguments and sandbox or channel selection; `main.rs`
+  resolves the data locations and opens the native window.
 - `application.rs`, `application_services.rs`, `native_events.rs` and
   `note_window.rs` own service construction, pane/window routing, shared
   capture/playback, recovery, persisted pins, menus/tray/shortcuts/deep links,

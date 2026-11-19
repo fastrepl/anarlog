@@ -13,6 +13,7 @@ use futures::{
 use serde_json::json;
 
 use crate::{
+    launch::Storage,
     meeting::{
         MeetingServices,
         capture::Phase,
@@ -229,13 +230,13 @@ pub struct NativeServices {
 impl NativeServices {
     pub async fn new(
         runtime: RuntimeHandle,
-        profile: PathBuf,
-        pointer: PathBuf,
+        storage: Storage,
         effects: Arc<Effects>,
         host: Arc<NativeHost>,
     ) -> Result<Self> {
         let api = std::env::var("VITE_API_URL").unwrap_or_else(|_| "https://api.anarlog.so".into());
-        let cloud_config = config(&runtime, profile.clone(), &api).await;
+        let cloud_config = config(&runtime, &storage, &api).await;
+        let profile = storage.root;
         let cloud = match cloud_config {
             Ok(config) => match CloudServices::new(
                 runtime.clone(),
@@ -363,7 +364,7 @@ impl NativeServices {
                 version: env!("CARGO_PKG_VERSION"),
             },
             storage_root: profile,
-            storage_pointer: pointer,
+            storage_pointer: storage.pointer,
         });
         Ok(Self {
             local,
@@ -373,7 +374,7 @@ impl NativeServices {
     }
 }
 
-async fn config(runtime: &RuntimeHandle, profile: PathBuf, api: &str) -> Result<CloudConfig> {
+async fn config(runtime: &RuntimeHandle, storage: &Storage, api: &str) -> Result<CloudConfig> {
     let supabase = std::env::var("VITE_SUPABASE_URL").or_else(|_| option_env!("VITE_SUPABASE_URL").map(str::to_owned).ok_or(std::env::VarError::NotPresent))
         .map_err(|_| failure("Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY for native cloud sign-in, then restart"))?;
     let anon_key = std::env::var("VITE_SUPABASE_ANON_KEY")
@@ -385,16 +386,26 @@ async fn config(runtime: &RuntimeHandle, profile: PathBuf, api: &str) -> Result<
         .map_err(|_| {
             failure("Set VITE_SUPABASE_ANON_KEY for native cloud sign-in, then restart")
         })?;
-    let fingerprint = runtime
+    let channel = storage.channel;
+    let profile = storage.root.clone();
+    let (fingerprint, device_name) = runtime
         .service(move |_| async move {
             tokio::task::spawn_blocking(move || {
+                let device_name = anlg_desktop_identity::device::device_name()
+                    .unwrap_or_else(|| "Anarlog native desktop".into());
+                // Shipping's machine-derived fingerprint keeps this device's sync slot. A
+                // sandbox profile is a separate device.
+                if channel.is_some() {
+                    return Ok((anlg_desktop_identity::device::fingerprint(), device_name));
+                }
                 let path = profile.join("device-id");
                 if path.exists() {
-                    return std::fs::read_to_string(path).map_err(failure);
+                    let id = std::fs::read_to_string(path).map_err(failure)?;
+                    return Ok((id, device_name));
                 }
                 let id = uuid::Uuid::new_v4().to_string();
                 anlg_storage::fs::atomic_write(&path, &id).map_err(failure)?;
-                Ok(id)
+                Ok((id, device_name))
             })
             .await
             .map_err(failure)?
@@ -412,6 +423,28 @@ async fn config(runtime: &RuntimeHandle, profile: PathBuf, api: &str) -> Result<
         callback: "anarlog-dev://auth/callback".parse().map_err(failure)?,
         credential_namespace: format!("gpui-{fingerprint}"),
         device_fingerprint: fingerprint,
-        device_name: std::env::var("HOSTNAME").unwrap_or_else(|_| "Anarlog native desktop".into()),
+        device_name,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    /// `crates/desktop-identity` pins the same values on the shipping toolchain; a
+    /// `DefaultHasher` change would make every user a new sync device.
+    #[test]
+    fn fingerprint_matches_the_shipping_toolchain() {
+        for (machine_uid, expected) in [
+            ("", "30406ea523c53def"),
+            ("00000000-0000-0000-0000-000000000000", "c104447f85eea341"),
+            ("6F8E2A0C-3B1D-4E5F-9A7B-1C2D3E4F5A6B", "5681594ddfa3a7"),
+            ("{6F8E2A0C-3B1D-4E5F-9A7B-1C2D3E4F5A6B}", "8136fff4c7357ff5"),
+            ("0123456789abcdef0123456789abcdef", "b7fc4b7cafcbcea0"),
+        ] {
+            assert_eq!(
+                anlg_desktop_identity::device::fingerprint_from(machine_uid),
+                expected,
+                "{machine_uid:?}"
+            );
+        }
+    }
 }

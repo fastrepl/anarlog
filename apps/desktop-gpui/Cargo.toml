@@ -25,6 +25,7 @@ anlg-db-core = { path = "../../crates/db-core", package = "db-core" }
 anlg-db-execute = { path = "../../crates/db-execute", package = "db-execute" }
 anlg-db-reactive = { path = "../../crates/db-reactive", package = "db-reactive" }
 anlg-db-sync = { path = "../../crates/db-sync", package = "db-sync" }
+anlg-desktop-identity = { path = "../../crates/desktop-identity", package = "desktop-identity" }
 anlg-detect = { path = "../../crates/detect", package = "detect" }
 anlg-dictation-ui-macos = { path = "../../crates/dictation-ui-macos", package = "dictation-ui-macos" }
 anlg-e2ee = { path = "../../crates/e2ee", package = "e2ee" }
@@ -116,6 +117,7 @@ anlg-calendar-interface = { workspace = true }
 anlg-db-app = { workspace = true }
 anlg-db-execute = { workspace = true }
 anlg-db-sync = { workspace = true }
+anlg-desktop-identity = { workspace = true }
 anlg-detect = { workspace = true, features = ["list", "mic", "screen", "sleep"] }
 anlg-e2ee = { workspace = true }
 anlg-export-core = { workspace = true }

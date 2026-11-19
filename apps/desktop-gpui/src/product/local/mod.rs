@@ -56,7 +56,8 @@ pub struct LocalServices {
     pub calendar: calendar::CalendarService,
     pub developers: developers::DeveloperTools,
     pub storage_root: PathBuf,
-    pub storage_pointer: PathBuf,
+    /// `None` when the data is the shipping app's, which must stay where it expects it.
+    pub storage_pointer: Option<PathBuf>,
 }
 
 impl ProductServices for LocalServices {
@@ -388,8 +389,10 @@ impl LocalServices {
                     "Where your notes and recordings are stored",
                     &self.storage_root.display().to_string(),
                 ));
-                rows.push(row("safe-copy","Change storage location","Copies and validates your data before switching. Original files remain available for rollback."));
-                actions.push(operation("move", "Change", Action::MoveStorage, None));
+                if self.storage_pointer.is_some() {
+                    rows.push(row("safe-copy","Change storage location","Copies and validates your data before switching. Original files remain available for rollback."));
+                    actions.push(operation("move", "Change", Action::MoveStorage, None));
+                }
             }
             _ => return Err(ServiceError::Conflict),
         }
@@ -579,6 +582,7 @@ impl LocalServices {
                     .set_page(request.scope.clone(), target.parse().map_err(failure)?)?;
             }
             (Surface::Storage, Action::MoveStorage) => {
+                let pointer = self.storage_pointer.clone().ok_or(ServiceError::Conflict)?;
                 let target = crate::platform::os::dialog(|| {
                     rfd::AsyncFileDialog::new()
                         .set_title("Choose empty storage location")
@@ -591,7 +595,6 @@ impl LocalServices {
                 self.host.flush_drafts().await?;
                 self.host.pause_writers().await?;
                 let root = self.storage_root.clone();
-                let pointer = self.storage_pointer.clone();
                 let cancel = request.cancel;
                 let result = tokio::task::spawn_blocking(move || {
                     let prepared = storage::PreparedMove::prepare(&root, &target, &cancel)?;
