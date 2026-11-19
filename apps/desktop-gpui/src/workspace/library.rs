@@ -20,6 +20,9 @@ use crate::meeting::{
 use crate::ui::theme::{Theme, monospace_font, theme};
 
 const HEADING_HEIGHT: f32 = 28.;
+const NOTE_ROW_HEIGHT: f32 = 54.;
+/// More new rows than this replace the list with height estimates instead of splicing them in.
+const BULK_ROWS: usize = 64;
 const RED_500: u32 = 0xfb2c36;
 
 pub struct LibraryView {
@@ -293,21 +296,41 @@ impl LibraryView {
             self.timezone,
         );
         let keys = row_keys(&timeline, &self.page, &events);
-        if self.timeline.rows.is_empty() {
-            self.scroll.reset(keys.len());
+        let old = &self.keys;
+        let prefix = old.iter().zip(&keys).take_while(|(a, b)| a == b).count();
+        let suffix = old[prefix..]
+            .iter()
+            .rev()
+            .zip(keys[prefix..].iter().rev())
+            .take_while(|(a, b)| a == b)
+            .count();
+        let (replaced, inserted) = (prefix..old.len() - suffix, keys.len() - prefix - suffix);
+        if self.timeline.rows.is_empty() || inserted > BULK_ROWS {
+            // GPUI counts a row it hasn't drawn as zero height and stops each scroll at the
+            // drawn rows, so one multi-notch wheel event moved about a screen. Rows that arrive
+            // in bulk get an estimated height instead, and the top row stays where it was.
+            let top = self.scroll.logical_scroll_top();
+            self.scroll
+                .reset_with_uniform_height(keys.len(), px(NOTE_ROW_HEIGHT));
+            if !old.is_empty() {
+                self.scroll.scroll_to(if top.item_ix < replaced.start {
+                    top
+                } else if top.item_ix >= replaced.end {
+                    ListOffset {
+                        item_ix: top.item_ix - replaced.len() + inserted,
+                        ..top
+                    }
+                } else {
+                    ListOffset {
+                        item_ix: replaced.start,
+                        offset_in_item: px(0.),
+                    }
+                });
+            }
         } else {
             // Splice only the rows that changed, so refreshes keep the scroll position.
-            let old = &self.keys;
-            let prefix = old.iter().zip(&keys).take_while(|(a, b)| a == b).count();
-            let suffix = old[prefix..]
-                .iter()
-                .rev()
-                .zip(keys[prefix..].iter().rev())
-                .take_while(|(a, b)| a == b)
-                .count();
-            if prefix + suffix != old.len() || old.len() != keys.len() {
-                self.scroll
-                    .splice(prefix..old.len() - suffix, keys.len() - prefix - suffix);
+            if !replaced.is_empty() || inserted > 0 {
+                self.scroll.splice(replaced, inserted);
             }
             if remeasure {
                 self.scroll.remeasure_items(0..keys.len());
@@ -715,7 +738,7 @@ impl LibraryView {
             .when(cursor, |view| view.aria_active_descendant())
             .w_full()
             .min_w_0()
-            .h(px(54. + 18. * extra_rows as f32))
+            .h(px(NOTE_ROW_HEIGHT + 18. * extra_rows as f32))
             .flex()
             .flex_col()
             .gap(px(2.))
@@ -1419,6 +1442,68 @@ mod tests {
         library.update(cx, |library, cx| library.set_page(page(60), cx));
         cx.run_until_parked();
         assert_shown("note-59", cx);
+    }
+
+    #[gpui::test]
+    fn one_wheel_event_scrolls_its_whole_distance_past_rows_not_drawn_yet(
+        cx: &mut gpui::TestAppContext,
+    ) {
+        let items: Vec<desktop_runtime::SessionSummary> = (0..700)
+            .map(|day| {
+                let at: Arc<str> = (Utc::now() - chrono::Duration::days(day + 1))
+                    .to_rfc3339()
+                    .into();
+                desktop_runtime::SessionSummary {
+                    id: SessionId(format!("note-{day}").into()),
+                    title: format!("Note {day}").into(),
+                    updated_at: at.clone(),
+                    created_at: at,
+                    folder_path: "".into(),
+                    tag_line: "".into(),
+                    event_start: "".into(),
+                    event_end: "".into(),
+                }
+            })
+            .collect();
+        cx.update(crate::ui::theme::UiFonts::init);
+        let (library, cx) = cx.add_window_view(|_, cx| LibraryView::new(cx));
+        cx.simulate_resize(gpui::size(px(280.), px(400.)));
+        let set_page = |count: usize, cx: &mut gpui::VisualTestContext| {
+            library.update(cx, |library, cx| {
+                library.set_page(
+                    Arc::new(LibraryPage {
+                        items: items[..count].to_vec().into(),
+                        offset: 0,
+                        has_more: false,
+                    }),
+                    cx,
+                )
+            });
+            cx.run_until_parked();
+        };
+        // Startup shows an empty page before the library query returns.
+        set_page(0, cx);
+        set_page(500, cx);
+        // One Windows wheel event for 32 notches at three lines each.
+        cx.simulate_event(gpui::ScrollEvent {
+            position: gpui::point(px(140.), px(200.)),
+            delta: gpui::ScrollDelta::Lines(gpui::point(0., -96.)),
+            ..Default::default()
+        });
+        cx.run_until_parked();
+        let top = |cx: &mut gpui::VisualTestContext| {
+            library.read_with(cx, |library, _| library.scroll.logical_scroll_top())
+        };
+        let scrolled = top(cx);
+        // 1,920 px passes roughly 23 rows of 54 px notes and 28 px headings.
+        assert!(
+            scrolled.item_ix >= 18,
+            "the list stopped at row {}",
+            scrolled.item_ix
+        );
+        // Older notes arriving in bulk below the viewport leave the visible rows in place.
+        set_page(700, cx);
+        assert_eq!(top(cx), scrolled);
     }
 
     #[test]
