@@ -4,6 +4,7 @@ pub mod chat;
 pub mod contracts;
 pub mod dictation;
 pub mod editor;
+pub mod launch;
 pub mod meeting;
 pub mod native_events;
 mod note_window;

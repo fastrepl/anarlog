@@ -113,11 +113,11 @@ impl ApplicationView {
     pub fn new(
         runtime: RuntimeHandle,
         ready: Reply<()>,
-        profile: PathBuf,
-        storage_pointer: PathBuf,
+        storage: crate::launch::Storage,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
+        let profile = storage.root.clone();
         // Installed first: the note and transcript views read the live meeting from it.
         let meeting_host = MeetingHost::install(cx);
         let toasts = toasts::install(cx);
@@ -297,14 +297,9 @@ impl ApplicationView {
                 }
                 state.changed().await.map_err(|_| ServiceError::Closed)?;
             }
-            let native = NativeServices::new(
-                startup_runtime.clone(),
-                profile.clone(),
-                storage_pointer,
-                effects.clone(),
-                host,
-            )
-            .await?;
+            let native =
+                NativeServices::new(startup_runtime.clone(), storage, effects.clone(), host)
+                    .await?;
             let storage = Arc::new(ProfileStorage(profile));
             let vault = storage.0.join("vault");
             let audio_vault = vault.clone();

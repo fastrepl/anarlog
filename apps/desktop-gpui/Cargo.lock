@@ -3084,6 +3084,7 @@ dependencies = [
  "db-app",
  "db-execute",
  "db-sync",
+ "desktop-identity",
  "desktop-runtime",
  "detect",
  "dictation-ui-macos",
@@ -3156,6 +3157,21 @@ dependencies = [
  "uuid",
  "wiremock",
  "zeroize",
+]
+
+[[package]]
+name = "desktop-identity"
+version = "0.1.0"
+dependencies = [
+ "dirs",
+ "gethostname",
+ "host",
+ "keyring",
+ "security-framework",
+ "serde_json",
+ "storage",
+ "tracing",
+ "uuid",
 ]
 
 [[package]]

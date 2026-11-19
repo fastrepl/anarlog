@@ -74,8 +74,11 @@ impl Harness {
                         ApplicationView::new(
                             runtime,
                             ready,
-                            profile.clone(),
-                            profile.with_extension("storage.json"),
+                            desktop_gpui::launch::Storage {
+                                channel: None,
+                                root: profile.clone(),
+                                pointer: Some(profile.with_extension("storage.json")),
+                            },
                             window,
                             cx,
                         )
