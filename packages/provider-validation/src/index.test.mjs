@@ -171,19 +171,14 @@ test("accepts a keyless endpoint without probing it", async () => {
   }
 });
 
-test("requires a key where the provider asks for one, with or without HTTP", async () => {
-  for (const baseUrl of [
-    "https://api.openai.com/v1",
-    "http://192.168.1.2:11435/v1",
-  ]) {
-    await assert.rejects(
-      verifyProviderCredentials(
-        { ...credential, apiKey: "", baseUrl },
-        async () => assert.fail("Missing keys must not send requests"),
-      ),
-      /valid API key/,
-    );
-  }
+test("still requires a key for a private endpoint when the provider asks for one", async () => {
+  await assert.rejects(
+    verifyProviderCredentials(
+      { ...credential, apiKey: "", baseUrl: "http://192.168.1.2:11435/v1" },
+      async () => assert.fail("Missing keys must not send requests"),
+    ),
+    /valid API key/,
+  );
 });
 
 test("rejects malformed optional keys instead of silently accepting them", async () => {

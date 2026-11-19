@@ -53,6 +53,8 @@ vi.mock("~/db/write-queue", () => ({
     operation(),
 }));
 
+import { aiProviderSchema } from "@anlg/store";
+
 import {
   clearAiProvider,
   getStoredAiProvider,
@@ -325,6 +327,22 @@ describe("SQLite AI providers", () => {
       base_url: "https://direct.example",
       api_key: "direct-key",
     });
+  });
+
+  it("keeps a keyless HTTPS Custom endpoint readable", () => {
+    const value = {
+      type: "llm",
+      base_url: "https://gateway.example/v1",
+      api_key: "",
+    };
+
+    expect(aiProviderSchema.safeParse(value).success).toBe(true);
+    expect(
+      parseAiProviders(
+        [{ id: "ai_provider:llm:custom", value_json: JSON.stringify(value) }],
+        "llm",
+      )["llm:custom"],
+    ).toMatchObject({ base_url: "https://gateway.example/v1", api_key: "" });
   });
 
   it("promotes legacy provider fields on the first partial write", async () => {
