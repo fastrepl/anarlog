@@ -15,7 +15,7 @@ mod pages;
 mod preferences_view;
 mod profile;
 pub(crate) mod provider_catalog;
-mod providers;
+pub(crate) mod providers;
 mod service_view;
 pub mod services;
 pub mod settings;

@@ -1050,7 +1050,6 @@ impl NoteView {
                 .flex()
                 .items_center()
                 .gap_2()
-                .overflow_hidden()
                 .text_color(colors.muted_foreground)
                 .cursor_pointer()
                 .hover(move |style| style.bg(colors.accent).text_color(colors.foreground))
@@ -1059,8 +1058,7 @@ impl NoteView {
                 .child(
                     div()
                         .min_w_0()
-                        .whitespace_nowrap()
-                        .overflow_hidden()
+                        .truncate()
                         .text_sm()
                         .line_height(px(20.))
                         .font_weight(crate::ui::theme::MEDIUM)

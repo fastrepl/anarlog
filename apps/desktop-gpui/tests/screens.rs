@@ -276,6 +276,7 @@ fn main() {
     app_links_and_transcript_selection(&mut cx, window, &out);
     ai_features(&mut cx, window, &runtime, profile.path(), &out);
     zoom(&mut cx, window, &out);
+    memo_templates_narrow(&mut cx, window, &runtime, &out);
     capture_onboarding(&mut cx, window, &out);
 }
 
@@ -1691,6 +1692,43 @@ fn note_depth(
     open(cx, window, Route::Session(SessionId("s-intro".into())));
     capture(cx, window, out, "memo-templates");
 }
+
+/// The memo's templates in a narrow window: short titles still show in full, and a long one
+/// ends in an ellipsis. Late, because the narrow window collapses the sidebar.
+fn memo_templates_narrow(
+    cx: &mut HeadlessAppContext,
+    window: WindowHandle<ApplicationView>,
+    runtime: &RuntimeHandle,
+    out: &std::path::Path,
+) {
+    let resize = |cx: &mut HeadlessAppContext, width: f32| {
+        cx.update_window(window.into(), |_, window, cx| {
+            window.resize(size(px(width), px(WINDOW.1)));
+            window.bounds_changed(cx);
+        })
+        .unwrap();
+        settle(cx);
+    };
+    // Zoom ends in Settings; its back arrow returns to the workspace.
+    click(cx, window, 94., 23.);
+    open(cx, window, Route::Session(SessionId("s-intro".into())));
+    resize(cx, 420.);
+    capture(cx, window, out, "memo-templates-narrow");
+    sql(
+        runtime,
+        "UPDATE templates SET title = 'Weekly team sync with design, research, platform and customer success' WHERE id = 't-1-sync'",
+    );
+    settle(cx);
+    capture(cx, window, out, "memo-templates-narrow-long");
+    sql(
+        runtime,
+        "UPDATE templates SET title = 'Weekly team sync' WHERE id = 't-1-sync'",
+    );
+    resize(cx, WINDOW.0);
+    // Reopens the sidebar the narrow window collapsed.
+    click(cx, window, 94., 23.);
+}
+
 /// The note header's folder picker, Meeting info, Export modal and the summary tab's menu.
 fn note_header(
     cx: &mut HeadlessAppContext,

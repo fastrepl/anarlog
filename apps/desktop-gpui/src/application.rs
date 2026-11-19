@@ -346,6 +346,11 @@ impl ApplicationView {
                     cx.set_global(services.clone());
                     cx.set_global(ai);
                     cx.set_global(native.providers.clone());
+                    this.subscriptions
+                        .push(crate::product::providers::configure_when_paid(
+                            native.providers.clone(),
+                            cx,
+                        ));
                     if let Some(dictation) = &this.dictation {
                         let voice = dictation.read(cx).voice(native.providers.clone());
                         cx.set_global(voice);

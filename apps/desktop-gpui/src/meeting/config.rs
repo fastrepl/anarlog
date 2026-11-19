@@ -108,7 +108,7 @@ impl Preferences {
         Ok(languages)
     }
 
-    fn provider(&self, kind: ProviderKind, provider: &str) -> &Value {
+    pub(crate) fn provider(&self, kind: ProviderKind, provider: &str) -> &Value {
         self.providers
             .get(&format!("ai_provider:{}:{provider}", kind.key()))
             .unwrap_or(&self.legacy["ai"][kind.key()][provider])
