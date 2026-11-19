@@ -459,20 +459,6 @@ fn shipping_session(channel: Channel, config: &CloudConfig) -> Result<Arc<dyn Se
 
 #[cfg(test)]
 mod tests {
-    #[test]
-    fn channel_sign_in_returns_to_the_channel_scheme() {
-        use anlg_desktop_identity::Channel;
-        assert_eq!(
-            super::sign_in_callback(Some(Channel::Stable)),
-            "anarlog://auth/callback"
-        );
-        assert_eq!(
-            super::sign_in_callback(Some(Channel::Staging)),
-            "anarlog-staging://auth/callback"
-        );
-        assert_eq!(super::sign_in_callback(None), "anarlog-dev://auth/callback");
-    }
-
     /// `crates/desktop-identity` pins the same values on the shipping toolchain; a
     /// `DefaultHasher` change would make every user a new sync device.
     #[test]

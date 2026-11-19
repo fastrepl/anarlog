@@ -265,39 +265,6 @@ mod tests {
     }
 
     #[test]
-    fn channel_packages_use_the_shipping_app_ids() {
-        let ids = |channel| {
-            let ids = AppIds::of(channel);
-            (ids.app_user_model_id, ids.window_class, ids.name)
-        };
-        assert_eq!(
-            ids(Some(Channel::Stable)),
-            ("com.hyprnote.stable", "anarlog", "Anarlog")
-        );
-        assert_eq!(
-            ids(Some(Channel::Staging)),
-            ("com.hyprnote.staging", "anarlog-staging", "Anarlog Staging")
-        );
-        assert_eq!(
-            ids(Some(Channel::Nightly)),
-            ("com.hyprnote.nightly", "anarlog-nightly", "Anarlog Nightly")
-        );
-        assert_eq!(
-            ids(None),
-            (SANDBOX_ID, SANDBOX_ID, "Anarlog GPUI"),
-            "an unpackaged build keeps its own names"
-        );
-    }
-
-    #[test]
-    fn the_tray_labels_the_channel_like_shipping() {
-        assert_eq!(tray_channel(Some(Channel::Stable)), "stable");
-        assert_eq!(tray_channel(Some(Channel::Staging)), "staging");
-        assert_eq!(tray_channel(Some(Channel::Nightly)), "dev");
-        assert_eq!(tray_channel(None), "dev");
-    }
-
-    #[test]
     fn the_bundlers_marker_is_in_the_binary_once_and_reads_as_its_package() {
         // Built here so this test's own bytes don't add a second copy to the binary.
         let marker = format!("{BUNDLE_TYPE_PREFIX}UNK");

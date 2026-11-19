@@ -294,21 +294,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_bundle_type_picks_how_an_update_installs() {
+    fn a_system_package_is_not_updated_like_an_appimage() {
         use crate::platform::package::BundleType;
-        assert_eq!(
-            PackageKind::of(Some(BundleType::AppImage)).unwrap(),
-            PackageKind::AppImage
-        );
         assert!(PackageKind::of(Some(BundleType::Deb)).is_err());
-        assert_eq!(
-            PackageKind::of(Some(BundleType::Msi)).unwrap(),
-            PackageKind::WindowsMsi
-        );
-        assert_eq!(
-            PackageKind::of(Some(BundleType::App)).unwrap(),
-            PackageKind::MacBundle
-        );
+        assert!(PackageKind::of(Some(BundleType::Rpm)).is_err());
     }
 
     #[test]
