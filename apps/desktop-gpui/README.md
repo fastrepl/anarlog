@@ -107,6 +107,41 @@ The app's lockfile started from the repository lockfile so shared crates resolve
 the same versions; only GPUI's own requirements (for example the ICU 2.3 line)
 move ahead. The repository workspace and its lockfile are unchanged.
 
+## Package
+
+`packaging/bundle.py` runs Tauri's bundler (`tauri bundle`, the `@tauri-apps/cli`
+in `apps/desktop`) over a prebuilt release binary. The Tauri project is still
+`apps/desktop/src-tauri`, with the same `--config` files as `desktop_cd.yaml`, so the
+bundle ID, executable name, Info.plist, entitlements, resources, sidecars, DMG/NSIS/deb/
+AppImage layout, signing, notarization and updater artifacts come from shipping's
+configuration. `packaging/tauri.gpui.json` holds the only differences: GPUI's Linux
+runtime dependencies and no WebView2 installer on Windows.
+
+```sh
+# Stage the sidecars as desktop_cd.yaml does: `cargo xtask prepare-binaries` for the
+# CLI and Chrome host; on macOS also check-permissions (built by shipping's build.rs).
+cargo build --locked --release
+python3 packaging/bundle.py bundle --channel staging --target aarch64-apple-darwin \
+  --binary target/release/desktop-gpui --version 1.5.0-dev.1+abc1234 --bundles app,dmg
+# CI-runnable check of a built or downloaded bundle:
+python3 packaging/bundle.py verify --channel staging --target aarch64-apple-darwin \
+  --version 1.5.0-dev.1+abc1234 target/packaging.noindex/aarch64-apple-darwin/release/bundle
+```
+
+Signing follows the bundler's environment, as in shipping's CD: `APPLE_SIGNING_IDENTITY`
+(`-` signs ad hoc), the `APPLE_ID`/`APPLE_PASSWORD`/`APPLE_TEAM_ID` notarization trio and
+`TAURI_SIGNING_PRIVATE_KEY` for updater signatures. Pass `--team-id` to `verify` to
+require shipping's Developer ID designated requirement. `CI` defaults to `true`, which
+skips the DMG's Finder layout script; shipping's CD sets `CI=false` to get it.
+
+The release build resolves resources beside its executable. On macOS the bundle keeps
+shipping's layout and adds two symlinks: `Contents/MacOS/resources → ../Resources` and
+`Contents/Resources/anarlog → ../MacOS/anarlog-cli`. Strict code-sign verification
+accepts both, and the updater archive keeps them. Linux and Windows have no such bridge.
+The deb puts resources in `/usr/lib/<product>/` and the CLI in `/usr/bin/anarlog-cli`;
+NSIS puts both beside the executable. GPUI must resolve them the Tauri way before those
+packages can find their icons, notification icons and CLI.
+
 ## Architecture
 
 - `launch.rs` owns launch arguments and sandbox or channel selection; `main.rs`
