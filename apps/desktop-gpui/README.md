@@ -126,9 +126,11 @@ runtime dependencies and no WebView2 installer on Windows.
 # Stage the sidecars as desktop_cd.yaml does: `cargo xtask prepare-binaries` for the
 # CLI and Chrome host; on macOS also check-permissions (built by shipping's build.rs).
 # The channel is compiled in; keep it the one you bundle, which verify checks.
-ANARLOG_CHANNEL=staging APP_VERSION=1.5.0-dev.1+abc1234 cargo build --locked --release
+ANARLOG_CHANNEL=staging APP_VERSION=1.5.0-dev.1+abc1234 cargo build --locked --release \
+  --target aarch64-apple-darwin
 python3 packaging/bundle.py bundle --channel staging --target aarch64-apple-darwin \
-  --binary target/release/desktop-gpui --version 1.5.0-dev.1+abc1234 --bundles app,dmg
+  --binary target/aarch64-apple-darwin/release/desktop-gpui \
+  --version 1.5.0-dev.1+abc1234 --bundles app,dmg
 # CI-runnable check of a bundle built here or by this repository's CI; it runs the binary:
 python3 packaging/bundle.py verify --channel staging --target aarch64-apple-darwin \
   --version 1.5.0-dev.1+abc1234 target/packaging.noindex/aarch64-apple-darwin/release/bundle
