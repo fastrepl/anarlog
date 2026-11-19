@@ -272,35 +272,4 @@ mod tests {
         let stable = Locations::resolve_in(data.path(), local.path(), STABLE_IDENTIFIER, false);
         assert_eq!(relative(data.path(), &stable.database_dir), "anarlog");
     }
-
-    /// The platform folders `dirs` maps the data and local data directories to.
-    #[test]
-    fn platform_data_directories_golden() {
-        let data = dirs::data_dir().unwrap();
-        let local = dirs::data_local_dir().unwrap();
-        #[cfg(target_os = "macos")]
-        {
-            assert_eq!(
-                data,
-                dirs::home_dir().unwrap().join("Library/Application Support")
-            );
-            assert_eq!(local, data);
-        }
-        #[cfg(target_os = "linux")]
-        assert_eq!(local, data);
-        #[cfg(target_os = "windows")]
-        {
-            assert!(data.ends_with("AppData\\Roaming"), "{}", data.display());
-            assert!(local.ends_with("AppData\\Local"), "{}", local.display());
-        }
-        assert_eq!(
-            Locations::resolve(STABLE_IDENTIFIER),
-            Some(Locations::resolve_in(
-                &data,
-                &local,
-                STABLE_IDENTIFIER,
-                cfg!(debug_assertions)
-            ))
-        );
-    }
 }

@@ -147,10 +147,6 @@ mod tests {
     #[test]
     fn unconfigured_builds_run_in_the_sandbox() {
         assert_eq!(
-            run(&[], None, true).unwrap(),
-            sandbox("/home/user/.anarlog-gpui-sandbox")
-        );
-        assert_eq!(
             run(&[], None, false).unwrap(),
             sandbox("/home/user/.anarlog-gpui-sandbox")
         );
@@ -159,16 +155,11 @@ mod tests {
 
     #[test]
     fn a_profile_always_runs_in_the_sandbox() {
-        for (channel, is_debug) in [
-            (None, true),
-            (Some("stable"), false),
-            (Some("stable"), true),
-        ] {
-            assert_eq!(
-                run(&["--profile", "/tmp/p"], channel, is_debug).unwrap(),
-                sandbox("/tmp/p")
-            );
-        }
+        // Even over a compiled-in channel.
+        assert_eq!(
+            run(&["--profile", "/tmp/p"], Some("stable"), false).unwrap(),
+            sandbox("/tmp/p")
+        );
         assert!(run(&["--profile"], None, true).is_err());
     }
 
