@@ -235,6 +235,7 @@ describe("SQLite AI providers", () => {
           provider: "openai",
           baseUrl: expected,
           apiKey: "working",
+          apiKeyRequired: true,
         },
         expect.any(Function),
       );

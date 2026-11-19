@@ -1240,7 +1240,11 @@ const _PROVIDERS = [
     baseUrl: undefined,
     models: [],
     requirements: [
-      { kind: "requires_config", fields: ["base_url", "api_key"] },
+      {
+        kind: "requires_config",
+        fields: ["base_url", "api_key"],
+        optional: ["api_key"],
+      },
     ],
   },
 ] as const satisfies readonly Provider[];

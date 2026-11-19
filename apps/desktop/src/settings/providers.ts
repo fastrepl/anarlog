@@ -203,8 +203,13 @@ export function useSetAiProvider(
   providerId: string,
   {
     verifyCredentials = false,
+    apiKeyRequired = true,
     defaultBaseUrl = "",
-  }: { verifyCredentials?: boolean; defaultBaseUrl?: string } = {},
+  }: {
+    verifyCredentials?: boolean;
+    apiKeyRequired?: boolean;
+    defaultBaseUrl?: string;
+  } = {},
 ) {
   const queryClient = useQueryClient();
 
@@ -227,6 +232,7 @@ export function useSetAiProvider(
             provider: providerId,
             baseUrl,
             apiKey,
+            apiKeyRequired,
           },
           providerFetch,
         );

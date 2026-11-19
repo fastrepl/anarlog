@@ -34,7 +34,7 @@ import { useBillingAccess } from "~/auth/billing-context";
 import {
   providerRowId,
   ProviderIconSlot,
-  requiresKeyVerification,
+  requiresCredentialVerification,
   useProviderAvailability,
 } from "~/settings/ai/shared";
 import { ANARLOG_PRO_LLM_MODELS } from "~/settings/ai/shared/anarlog-pro-models";
@@ -550,7 +550,7 @@ export function getLlmProviderStatus({
     return { configured: false };
   }
 
-  if (provider.checkAvailability || requiresKeyVerification(provider)) {
+  if (provider.checkAvailability || requiresCredentialVerification(provider)) {
     if (isAvailable === undefined) {
       return { configured: false, availabilityPending: true };
     }
@@ -672,7 +672,7 @@ function useConfiguredMapping(): {
         // silently re-persist the selection to another provider.
         const isAvailable = provider.checkAvailability
           ? provider.id === current_llm_provider || availability[provider.id]
-          : requiresKeyVerification(provider)
+          : requiresCredentialVerification(provider)
             ? availability[provider.id]
             : undefined;
         return [

@@ -37,6 +37,7 @@ import {
 import { cn } from "@anlg/utils";
 
 import {
+  getMandatoryConfigFields,
   getProviderSelectionBlockers,
   getRequiredConfigFields,
   type ProviderRequirement,
@@ -208,16 +209,24 @@ export function providerRowId(providerType: ProviderType, providerId: string) {
   return `${providerType}:${providerId}`;
 }
 
-export function requiresKeyVerification(
+export function providerRequiresApiKey(
+  provider: Pick<ProviderConfig, "requirements">,
+) {
+  return getMandatoryConfigFields(provider.requirements).includes("api_key");
+}
+
+export function requiresCredentialVerification(
   provider: Pick<
     ProviderConfig,
     "requirements" | "authKind" | "checkAvailability"
   >,
 ) {
+  if (provider.authKind === "subscription" || provider.checkAvailability)
+    return false;
+  // A configurable endpoint must be validated even when it stores no key.
   return (
-    provider.authKind !== "subscription" &&
-    !provider.checkAvailability &&
-    getRequiredConfigFields(provider.requirements).includes("api_key")
+    providerRequiresApiKey(provider) ||
+    getRequiredConfigFields(provider.requirements).includes("base_url")
   );
 }
 
@@ -231,7 +240,7 @@ export function useProviderAvailability(
   const inputs = providers
     .filter(
       (provider) =>
-        provider.checkAvailability || requiresKeyVerification(provider),
+        provider.checkAvailability || requiresCredentialVerification(provider),
     )
     .map((provider) => {
       const config =
@@ -245,40 +254,58 @@ export function useProviderAvailability(
           config: { base_url: baseUrl, api_key: apiKey },
         }).length === 0;
 
-      return { provider, baseUrl, apiKey, isConfigured };
+      return {
+        provider,
+        baseUrl,
+        apiKey,
+        apiKeyRequired: providerRequiresApiKey(provider),
+        isConfigured,
+      };
     });
 
   const queries = useQueries({
-    queries: inputs.map(({ provider, baseUrl, apiKey, isConfigured }) => ({
-      queryKey: [
-        "ai-provider-availability",
-        providerType,
-        provider.id,
-        baseUrl,
-        providerCredentialIdentity({ provider: provider.id, baseUrl, apiKey }),
-      ],
-      queryFn: async ({ signal }: { signal: AbortSignal }) => {
-        if (provider.checkAvailability)
-          return provider.checkAvailability(baseUrl, apiKey);
-        try {
-          await verifyProviderCredentials(
-            { type: providerType, provider: provider.id, baseUrl, apiKey },
-            providerFetch,
-            signal,
-          );
-        } catch (error) {
-          if (error instanceof ProviderCredentialError && !error.retryable)
-            return false;
-          throw error;
-        }
-        return true;
-      },
-      enabled: isConfigured,
-      retry: false,
-      staleTime: provider.checkAvailability ? 0 : 5 * 60_000,
-      gcTime: 0,
-      refetchInterval: provider.checkAvailability ? 5_000 : (false as const),
-    })),
+    queries: inputs.map(
+      ({ provider, baseUrl, apiKey, apiKeyRequired, isConfigured }) => ({
+        queryKey: [
+          "ai-provider-availability",
+          providerType,
+          provider.id,
+          baseUrl,
+          providerCredentialIdentity({
+            provider: provider.id,
+            baseUrl,
+            apiKey,
+          }),
+        ],
+        queryFn: async ({ signal }: { signal: AbortSignal }) => {
+          if (provider.checkAvailability)
+            return provider.checkAvailability(baseUrl, apiKey);
+          try {
+            await verifyProviderCredentials(
+              {
+                type: providerType,
+                provider: provider.id,
+                baseUrl,
+                apiKey,
+                apiKeyRequired,
+              },
+              providerFetch,
+              signal,
+            );
+          } catch (error) {
+            if (error instanceof ProviderCredentialError && !error.retryable)
+              return false;
+            throw error;
+          }
+          return true;
+        },
+        enabled: isConfigured,
+        retry: false,
+        staleTime: provider.checkAvailability ? 0 : 5 * 60_000,
+        gcTime: 0,
+        refetchInterval: provider.checkAvailability ? 5_000 : (false as const),
+      }),
+    ),
   });
 
   const entries = inputs.map(
@@ -306,7 +333,8 @@ function useIsProviderReady(
 
   if (
     providerDef &&
-    (providerDef.checkAvailability || requiresKeyVerification(providerDef))
+    (providerDef.checkAvailability ||
+      requiresCredentialVerification(providerDef))
   ) {
     return availability[providerId];
   }
@@ -839,7 +867,8 @@ function useProvider(providerType: ProviderType, config: ProviderConfig) {
   const { providers, isReady } = useAiProvidersState(providerType);
   const providerRow = providers[providerRowId(providerType, config.id)];
   const providerMutation = useSetAiProvider(providerType, config.id, {
-    verifyCredentials: requiresKeyVerification(config),
+    verifyCredentials: requiresCredentialVerification(config),
+    apiKeyRequired: providerRequiresApiKey(config),
     defaultBaseUrl: config.baseUrl,
   });
 

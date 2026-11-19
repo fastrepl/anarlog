@@ -79,7 +79,7 @@ Anarlog currently offers three built-in on-device Transcription providers. Setti
 
 Parakeet Batch does not always provide word-level audio timestamps. When it returns text without a usable speech alignment, Anarlog keeps the individual words editable and groups the display by audio channel and processing chunk. The order between channels within a chunk is uncertain, and those words cannot be used for precise audio seeking. Speech-aligned words retain their timing.
 
-You can also keep audio on your network by pointing **Custom**, or Deepgram's **Advanced** base URL, at a Deepgram-compatible server on this computer or your local network.
+You can also keep audio on your network by pointing **Custom**, or Deepgram's **Advanced** base URL, at a Deepgram-compatible server on this computer or your local network. These servers usually run without TLS, so Anarlog accepts a plain `http://` base URL on loopback and private network addresses, and for any endpoint configured without an API key. A public endpoint that receives an API key still requires `https://`.
 
 <Note>
   Compatibility code still recognizes some older local model IDs, but they are not offered as new choices. The table above is the current user-facing model list.
