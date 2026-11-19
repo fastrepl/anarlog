@@ -31,8 +31,13 @@ refuses to start (stable and nightly need release, dev needs debug). A channel
 run opens shipping's `app.db` in place, keeps notes, recordings and attachments in
 shipping's data folder, and reads the channel's secure store under shipping's
 service and account names (E2EE keys and provider keys, chunked like shipping).
-Channel mode is incomplete until sign-in also uses shipping's session store; don't
-compile a channel in yet. Launch arguments the shipping app receives
+It keeps the sign-in in shipping's session store (`auth.json` on macOS, DPAPI on
+Windows, Secret Service with its fallbacks on Linux), which the bundled CLI shares,
+and its own pending sign-in and share links under `desktop-auth` and `share-links`
+in the channel's secure store; no sandbox name is used. Onboarding, pinned tabs,
+recent notes, the last seen version, the tray toggle and dismissed notices are read
+and written in shipping's `store.json`. Channel builds haven't been through a signed
+rehearsal yet; don't ship one. Launch arguments the shipping app receives
 (`--background`, `--onboarding`, `--updater2-*`, deep-link URLs) are accepted, and
 unknown ones are logged and ignored. A channel build also takes the
 shipping package's names: the channel identifier as Windows' AppUserModelID, the
@@ -82,9 +87,9 @@ include no Argmax or llama.cpp server. Argmax and GGUF models therefore show "No
 available in this build" unless an `argmax` or `llama-server` executable sits beside
 the app (or in `ANARLOG_NATIVE_RESOURCES`). Argmax also requires `ARGMAX_API_KEY`.
 
-Pinned tabs are restored and saved with CAS through `app_settings.gpui_pinned_tabs`
-inside the isolated profile. Malformed persisted pin data disables pin writes.
-This does not import the shipping application's file-based pinned-tab store.
+Pinned tabs are restored and saved with CAS: a sandbox profile through
+`app_settings.gpui_pinned_tabs`, a channel run through shipping's `store.json`
+`desktop.PinnedTabs`. Malformed persisted pin data disables pin writes.
 Title/editor/product drafts gate navigation and quit. Like shipping, closing the
 main window (or the application-menu Quit) hides it and the app keeps running in
 the tray; the first ⌘Q only shows the quit overlay. A second ⌘Q (or ⌘⇧Q) or a
