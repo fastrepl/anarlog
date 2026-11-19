@@ -129,7 +129,7 @@ runtime dependencies and no WebView2 installer on Windows.
 ANARLOG_CHANNEL=staging APP_VERSION=1.5.0-dev.1+abc1234 cargo build --locked --release
 python3 packaging/bundle.py bundle --channel staging --target aarch64-apple-darwin \
   --binary target/release/desktop-gpui --version 1.5.0-dev.1+abc1234 --bundles app,dmg
-# CI-runnable check of a built or downloaded bundle:
+# CI-runnable check of a bundle built here or by this repository's CI; it runs the binary:
 python3 packaging/bundle.py verify --channel staging --target aarch64-apple-darwin \
   --version 1.5.0-dev.1+abc1234 target/packaging.noindex/aarch64-apple-darwin/release/bundle
 ```

@@ -15,6 +15,7 @@ The binary finds its files where the bundler puts them, and reports `APP_VERSION
 """
 
 import argparse
+import glob
 import json
 import os
 import plistlib
@@ -84,7 +85,17 @@ def requested_bundles(args):
             f"Can't verify --bundles {args.bundles} for {args.target}; choose from "
             + ",".join(VERIFIED_BUNDLES[platform])
         )
+    # Tauri deletes the .app it built a DMG from unless app is requested, and verify checks it.
+    if "dmg" in kinds and "app" not in kinds:
+        sys.exit("--bundles dmg needs app as well: verify checks the app the DMG holds")
     return kinds
+
+
+def artifact(config, args, kind, suffix, checks):
+    """The bundler names each package `<productName>_<version>_<arch><suffix>`; matching the
+    product keeps another channel's package in the same folder from passing for this one."""
+    pattern = f"{glob.escape(config['productName'])}_{args.version}_*{suffix}"
+    return one(args.bundle_dir / kind, pattern, checks)
 
 
 def merge(base, patch):
@@ -320,7 +331,7 @@ def verify_macos(config, args, checks):
             "Missing updater signature",
         )
     if "dmg" in requested_bundles(args):
-        one(args.bundle_dir / "dmg", f"*_{args.version}_*.dmg", checks)
+        artifact(config, args, "dmg", ".dmg", checks)
 
     if not args.no_sign and shutil.which("codesign"):
         verify_macos_signature(config, args, app, checks)
@@ -375,13 +386,11 @@ def verify_linux(config, args, checks):
     bundles = requested_bundles(args)
     # Tauri keeps earlier versions' packages in the same folder.
     if "appimage" in bundles:
-        appimage = one(
-            args.bundle_dir / "appimage", f"*_{args.version}_*.AppImage", checks
-        )
+        appimage = artifact(config, args, "appimage", ".AppImage", checks)
         check_signature(appimage, args, checks)
     if "deb" not in bundles:
         return
-    deb = one(args.bundle_dir / "deb", f"*_{args.version}_*.deb", checks)
+    deb = artifact(config, args, "deb", ".deb", checks)
     check_signature(deb, args, checks)
     if not deb:
         return
@@ -441,12 +450,10 @@ def verify_linux(config, args, checks):
 def verify_windows(config, args, checks):
     bundles = requested_bundles(args)
     if "nsis" in bundles:
-        installer = one(
-            args.bundle_dir / "nsis", f"*_{args.version}_*-setup.exe", checks
-        )
+        installer = artifact(config, args, "nsis", "-setup.exe", checks)
         check_signature(installer, args, checks)
     if "msi" in bundles:
-        installer = one(args.bundle_dir / "msi", f"*_{args.version}_*.msi", checks)
+        installer = artifact(config, args, "msi", ".msi", checks)
         check_signature(installer, args, checks)
 
 
