@@ -28,8 +28,10 @@ shipping data through `crates/desktop-identity` (`src/launch.rs`). Unset builds,
 `cargo run` and tests stay in the sandbox, `--profile` always selects the sandbox,
 and a build kind that would resolve different folders than the shipping channel
 refuses to start (stable and nightly need release, dev needs debug). Channel mode
-is incomplete until the database, secure store and sign-in also use shipping's
-locations; don't compile a channel in yet. Launch arguments the shipping app
+already opens the channel's shipping `app.db`, but it is incomplete: opening it the
+way shipping does (the sqlite-sync extension, the reset marker, waiting for shipping's
+locks), the vault folders, the secure store and sign-in still use the sandbox's code.
+Don't compile a channel in yet. Launch arguments the shipping app
 receives (`--background`, `--onboarding`, `--updater2-*`, deep-link URLs) are
 accepted, and unknown ones are logged and ignored.
 The canonical schema is prepared with `db-app`. CloudSync starts disabled and
