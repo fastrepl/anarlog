@@ -24,6 +24,111 @@ use crate::ui::a11y::Accessible;
 
 impl gpui::Global for ProviderServices {}
 
+/// Shipping's `BillingProvider` runs `configurePaidSettings` each time the account turns paid,
+/// including when the plan loads at launch: a missing transcription provider becomes Anarlog's
+/// hosted model and a missing or unusable language model becomes Anarlog's "Auto". The
+/// choices are saved, so meetings, summaries, chat and the provider notices all use them.
+pub fn configure_when_paid(services: ProviderServices, cx: &mut gpui::App) -> Subscription {
+    // Unpaid until the plan loads, like shipping's pending claims.
+    let mut paid = false;
+    let mut check = move |cx: &mut gpui::App| {
+        let now = super::account::is_paid(cx);
+        if now && !paid {
+            let services = services.clone();
+            cx.spawn(async move |_| {
+                if let Err(error) = configure_paid(&services).await {
+                    tracing::warn!(%error, "paid AI defaults were not saved");
+                }
+            })
+            .detach();
+        }
+        paid = now;
+    };
+    check(cx);
+    cx.observe_global::<super::account::Account>(check)
+}
+
+async fn configure_paid(services: &ProviderServices) -> Result<()> {
+    let preferences = crate::meeting::config::preferences(&services.runtime).await?;
+    let mut values = Vec::new();
+    if preferences.text("current_stt_provider").is_empty() {
+        values.extend([
+            ("current_stt_provider", "anarlog"),
+            ("current_stt_model", "cloud"),
+        ]);
+    }
+    if uses_hosted_llm(services, &preferences).await {
+        values.extend([
+            ("current_llm_provider", "anarlog"),
+            ("current_llm_model", "Auto"),
+        ]);
+    }
+    if values.is_empty() {
+        return Ok(());
+    }
+    services
+        .runtime
+        .submit(move |services| async move {
+            let statements = values
+                .into_iter()
+                .map(|(key, value)| TransactionStatement {
+                    sql: "INSERT INTO app_settings (id,value_json,updated_at) VALUES (?,?,strftime('%Y-%m-%dT%H:%M:%fZ','now')) ON CONFLICT(id) DO UPDATE SET value_json=excluded.value_json,updated_at=excluded.updated_at".into(),
+                    params: vec![json!(key), json!(json!(value).to_string())],
+                    expected_rows_affected: Some(1),
+                })
+                .collect();
+            services
+                .executor
+                .execute_transaction(statements)
+                .await
+                .map_err(failure)?;
+            Ok(())
+        })?
+        .receive()
+        .await
+}
+
+/// Shipping's `shouldUseHostedLlm`: the saved language model is missing, unknown, or its
+/// provider lacks a required base URL or API key.
+async fn uses_hosted_llm(
+    services: &ProviderServices,
+    preferences: &crate::meeting::config::Preferences,
+) -> bool {
+    let provider = preferences.text("current_llm_provider");
+    if provider.is_empty() || preferences.text("current_llm_model").is_empty() {
+        return true;
+    }
+    // The native app's on-device language model, which shipping's list lacks.
+    if provider == "local" {
+        return false;
+    }
+    let Some(info) = provider_catalog::LLM
+        .iter()
+        .find(|info| info.id == provider)
+    else {
+        return true;
+    };
+    let blocked = |base: &str, key: &str| {
+        info.needs_base_url && base.trim().is_empty() || info.needs_api_key && key.trim().is_empty()
+    };
+    if !blocked(info.base_url, "") {
+        return false;
+    }
+    let config = preferences.provider(ProviderKind::Llm, &provider);
+    let base = config["base_url"]
+        .as_str()
+        .filter(|base| !base.is_empty())
+        .unwrap_or(info.base_url)
+        .to_owned();
+    match (services.secret)(ProviderKind::Llm, provider).await {
+        Ok(key) => blocked(
+            &base,
+            &key.unwrap_or_else(|| config["api_key"].as_str().unwrap_or_default().into()),
+        ),
+        Err(_) => true,
+    }
+}
+
 #[derive(Clone, Default)]
 struct Snapshot {
     values: BTreeMap<String, String>,
@@ -1271,7 +1376,31 @@ mod tests {
     struct Fixture {
         view: Entity<ProviderView>,
         runtime: desktop_runtime::RuntimeHandle,
+        services: ProviderServices,
         _directory: tempfile::TempDir,
+    }
+
+    fn set_paid(cx: &mut TestAppContext) {
+        use super::super::account::{self, Account, Claims, User};
+        cx.update(|cx| {
+            account::set(
+                Account {
+                    user: Some(User {
+                        id: "user".into(),
+                        email: None,
+                    }),
+                    claims: Some(Claims {
+                        entitlements: vec!["hyprnote_pro".into()],
+                        subscription_status: Some("active".into()),
+                        current_period_end: Some(account::now() + 86_400),
+                        ..Claims::default()
+                    }),
+                    workspaces: Some(vec![].into()),
+                    ..Account::default()
+                },
+                cx,
+            )
+        });
     }
 
     fn fixture(cx: &mut TestAppContext) -> Fixture {
@@ -1290,10 +1419,11 @@ mod tests {
             secret: Arc::new(|_, _| Box::pin(async { Ok(None) })),
             secret_write: Arc::new(|_, _, _| Box::pin(async { Ok(()) })),
         };
-        let view = cx.new(|cx| ProviderView::new(services, cx));
+        let view = cx.new(|cx| ProviderView::new(services.clone(), cx));
         let fixture = Fixture {
             view,
             runtime,
+            services,
             _directory: directory,
         };
         fixture.settle(cx);
@@ -1429,28 +1559,52 @@ mod tests {
         fixture.shutdown();
     }
 
+    /// A Pro account with nothing chosen kept "Transcription provider needed" until Anarlog
+    /// was picked by hand. Turning paid now saves Anarlog's hosted models for a missing
+    /// transcription choice and an unusable language model, as shipping does.
+    #[gpui::test]
+    fn turning_paid_saves_anarlog_for_missing_and_unusable_choices(cx: &mut TestAppContext) {
+        let fixture = fixture(cx);
+        // OpenAI without an API key cannot answer.
+        futures::executor::block_on(
+            fixture
+                .runtime
+                .submit(|services| async move {
+                    services
+                        .executor
+                        .execute(
+                            "INSERT INTO app_settings (id, value_json) VALUES ('current_llm_provider', '\"openai\"'), ('current_llm_model', '\"gpt-5\"')".into(),
+                            vec![],
+                        )
+                        .await
+                        .map_err(failure)
+                })
+                .unwrap()
+                .receive(),
+        )
+        .unwrap();
+        let services = fixture.services.clone();
+        let _watch = cx.update(|cx| configure_when_paid(services, cx));
+        cx.run_until_parked();
+        assert_eq!(fixture.setting("current_stt_provider"), None);
+        set_paid(cx);
+        for _ in 0..400 {
+            cx.run_until_parked();
+            if fixture.setting("current_llm_model").as_deref() == Some("Auto") {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        assert_eq!(fixture.setting("current_stt_provider").unwrap(), "anarlog");
+        assert_eq!(fixture.setting("current_stt_model").unwrap(), "cloud");
+        assert_eq!(fixture.setting("current_llm_provider").unwrap(), "anarlog");
+        assert_eq!(fixture.setting("current_llm_model").unwrap(), "Auto");
+        fixture.shutdown();
+    }
+
     #[gpui::test]
     fn picking_anarlog_saves_its_hosted_model(cx: &mut TestAppContext) {
-        use super::super::account::{self, Account, Claims, User};
-        cx.update(|cx| {
-            account::set(
-                Account {
-                    user: Some(User {
-                        id: "user".into(),
-                        email: None,
-                    }),
-                    claims: Some(Claims {
-                        entitlements: vec!["hyprnote_pro".into()],
-                        subscription_status: Some("active".into()),
-                        current_period_end: Some(account::now() + 86_400),
-                        ..Claims::default()
-                    }),
-                    workspaces: Some(vec![].into()),
-                    ..Account::default()
-                },
-                cx,
-            )
-        });
+        set_paid(cx);
         let fixture = fixture(cx);
         fixture.pick("anarlog", cx);
         assert_eq!(fixture.setting("current_stt_model").unwrap(), "cloud");
