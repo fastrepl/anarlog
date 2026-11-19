@@ -2,6 +2,7 @@ const COMMANDS: &[&str] = &[
     "register_hotkey",
     "unregister_hotkey",
     "configure",
+    "configure_gestures",
     "validate",
     "set_active",
 ];

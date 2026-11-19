@@ -1,10 +1,18 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::{ChannelProfile, RenderTranscriptHuman, RenderedTranscriptSegment};
+use crate::meeting_speakers::{MeetingSpeakerEvidence, NamedVoice, VoiceKey, VoiceWord};
+use crate::{ChannelProfile, RenderTranscriptHuman, RenderedTranscriptSegment, SegmentWord};
 
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize, specta::Type)]
 pub struct SpeakerContext {
     pub intervals: Vec<SpeakerContextInterval>,
+    /// Platform evidence per capture of this session. Malformed entries are dropped on read.
+    #[serde(
+        skip_serializing_if = "Vec::is_empty",
+        default,
+        deserialize_with = "crate::meeting_speakers::deserialize_meeting_evidence"
+    )]
+    pub meetings: Vec<MeetingSpeakerEvidence>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, specta::Type)]
@@ -27,6 +35,10 @@ pub enum SpeakerResolutionReason {
     VirtualMeetingMicrophone,
     SoleRemoteParticipant,
     OneOnOneTitle,
+    /// The meeting app showed this participant speaking over most of the voice.
+    MeetingActiveSpeaker,
+    /// The meeting app's roster showed exactly one other person while the voice spoke.
+    MeetingOneOnOne,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, specta::Type)]
@@ -56,6 +68,33 @@ pub fn segment_options_for_assignments(
 }
 
 impl SpeakerContext {
+    /// A stored `speaker_context` value, keeping what is valid: malformed or empty intervals and
+    /// malformed meeting evidence are dropped instead of failing the whole context.
+    pub fn from_stored_value(value: &serde_json::Value) -> Self {
+        let intervals = value
+            .get("intervals")
+            .and_then(serde_json::Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(|interval| {
+                serde_json::from_value::<SpeakerContextInterval>(interval.clone()).ok()
+            })
+            .filter(|interval| interval.start_ms < interval.end_ms)
+            .collect();
+        let meetings = value
+            .get("meetings")
+            .map(crate::meeting_speakers::parse_meeting_evidence)
+            .unwrap_or_default();
+        Self {
+            intervals,
+            meetings,
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.intervals.is_empty() && self.meetings.is_empty()
+    }
+
     fn interval_at(&self, start_ms: i64, end_ms: i64) -> Option<usize> {
         let mut matches = self.intervals.iter().enumerate().filter(|(_, interval)| {
             interval.start_ms <= start_ms
@@ -95,13 +134,17 @@ impl SpeakerContext {
         None
     }
 
+    /// `transcript_starts` are the epoch-ms starts of every transcript in the render; a later one
+    /// bounds a capture whose evidence never closed, so it cannot name the next recording.
     pub fn label_segments(
         &self,
         segments: Vec<RenderedTranscriptSegment>,
         started_at: i64,
+        transcript_starts: &[i64],
         self_human_id: Option<&str>,
         humans: &[RenderTranscriptHuman],
     ) -> Vec<RenderedTranscriptSegment> {
+        let meetings = MeetingNames::new(&self.meetings, transcript_starts, &segments, started_at);
         // Mic words per diarization voice per interval. Remote voices are not counted: diarization
         // indices restart with every stream refresh, so their number says nothing about how
         // many people are on the far end of a call.
@@ -133,22 +176,30 @@ impl SpeakerContext {
                 continue;
             }
 
-            let mut groups: Vec<(Option<usize>, Vec<crate::SegmentWord>)> = Vec::new();
+            let mut groups: Vec<(Option<usize>, MeetingLabel, Vec<SegmentWord>)> = Vec::new();
             for word in &segment.words {
                 let interval = self.interval_at(
                     started_at.saturating_add(word.start_ms),
                     started_at.saturating_add(word.end_ms),
                 );
-                if let Some((last_interval, words)) = groups.last_mut()
+                let mut meeting = meetings.label(&segment.key, word);
+                // An observed group call only matters where a calendar guess could apply; keep it
+                // from splitting turns elsewhere.
+                meeting.group_call &= meeting.name.is_none()
+                    && interval.is_some_and(|index| {
+                        self.intervals[index].active_call || self.intervals[index].calendar_call
+                    });
+                if let Some((last_interval, last_meeting, words)) = groups.last_mut()
                     && *last_interval == interval
+                    && *last_meeting == meeting
                 {
                     words.push(word.clone());
                 } else {
-                    groups.push((interval, vec![word.clone()]));
+                    groups.push((interval, meeting, vec![word.clone()]));
                 }
             }
             let split = groups.len() > 1;
-            for (interval, words) in groups {
+            for (interval, meeting, words) in groups {
                 let mut part = RenderedTranscriptSegment {
                     id: segment.id.clone(),
                     key: segment.key.clone(),
@@ -169,18 +220,16 @@ impl SpeakerContext {
                     .trim()
                     .to_owned();
                 part.words = words;
-                part.provisional_speaker = None;
-                if part.key.speaker_human_id.is_none()
-                    && let Some(index) = interval
-                {
-                    part.provisional_speaker = resolve_speaker(
+                let inferred = interval.and_then(|index| {
+                    resolve_speaker(
                         &self.intervals[index],
                         part.key.channel,
                         is_owner_voice(&local_voices[index], part.key.speaker_index),
                         self_human_id,
                         humans,
-                    );
-                }
+                    )
+                });
+                part.provisional_speaker = meeting.resolve(inferred);
                 if let Some(label) = &part.provisional_speaker {
                     part.speaker_label = label.name.clone();
                 }
@@ -200,6 +249,151 @@ impl SpeakerContext {
             }
         }
         result
+    }
+}
+
+/// A later transcript within this of a capture's start is that capture's own transcript.
+const CAPTURE_START_TOLERANCE_MS: i64 = 1_000;
+
+/// The meeting-evidence names of one render's remote voices.
+struct MeetingNames<'a> {
+    meetings: &'a [MeetingSpeakerEvidence],
+    transcript_starts: &'a [i64],
+    started_at: i64,
+    names: Vec<HashMap<VoiceKey, NamedVoice>>,
+}
+
+/// What meeting evidence says about one remote word.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+struct MeetingLabel {
+    name: Option<NamedVoice>,
+    group_call: bool,
+}
+
+impl<'a> MeetingNames<'a> {
+    fn new(
+        meetings: &'a [MeetingSpeakerEvidence],
+        transcript_starts: &'a [i64],
+        segments: &[RenderedTranscriptSegment],
+        started_at: i64,
+    ) -> Self {
+        let mut names = Self {
+            meetings,
+            transcript_starts,
+            started_at,
+            names: Vec::new(),
+        };
+        if meetings.is_empty() {
+            return names;
+        }
+        let mut words: Vec<Vec<VoiceWord>> = meetings.iter().map(|_| Vec::new()).collect();
+        for segment in segments {
+            if !is_unassigned_remote(&segment.key) {
+                continue;
+            }
+            for word in &segment.words {
+                if let Some((index, start_ms)) = names.capture_of(word) {
+                    words[index].push(VoiceWord {
+                        voice: meetings[index].voice_at(start_ms, segment.key.speaker_index),
+                        start_ms,
+                        end_ms: start_ms + (word.end_ms - word.start_ms),
+                    });
+                }
+            }
+        }
+        names.names = meetings
+            .iter()
+            .zip(&words)
+            .map(|(evidence, words)| evidence.name_voices(words))
+            .collect();
+        names
+    }
+
+    /// The capture `word` was recorded in, with its capture time: the latest capture started by
+    /// then that had neither ended nor been followed by another transcript. Ties name nobody.
+    fn capture_of(&self, word: &SegmentWord) -> Option<(usize, i64)> {
+        let at = self.started_at.saturating_add(word.start_ms);
+        let mut best: Option<usize> = None;
+        let mut tied = false;
+        for (index, evidence) in self.meetings.iter().enumerate() {
+            if evidence.started_at_ms > at {
+                continue;
+            }
+            match best.map(|best| self.meetings[best].started_at_ms) {
+                Some(start) if start > evidence.started_at_ms => {}
+                Some(start) if start == evidence.started_at_ms => tied = true,
+                _ => {
+                    best = Some(index);
+                    tied = false;
+                }
+            }
+        }
+        let index = best.filter(|_| !tied)?;
+        let evidence = &self.meetings[index];
+        let capture_ms = at - evidence.started_at_ms;
+        let next_recording = self.transcript_starts.iter().any(|&start| {
+            start > evidence.started_at_ms + CAPTURE_START_TOLERANCE_MS && start <= at
+        });
+        let ended = evidence.ended_at_ms.is_some_and(|end| capture_ms > end);
+        (!ended && !next_recording).then_some((index, capture_ms))
+    }
+
+    fn label(&self, key: &crate::SegmentKey, word: &SegmentWord) -> MeetingLabel {
+        if self.names.is_empty() || !is_unassigned_remote(key) {
+            return MeetingLabel::default();
+        }
+        let Some((index, capture_ms)) = self.capture_of(word) else {
+            return MeetingLabel::default();
+        };
+        let evidence = &self.meetings[index];
+        MeetingLabel {
+            name: self.names[index]
+                .get(&evidence.voice_at(capture_ms, key.speaker_index))
+                .cloned(),
+            group_call: evidence.group_call_at(capture_ms),
+        }
+    }
+}
+
+fn is_unassigned_remote(key: &crate::SegmentKey) -> bool {
+    key.channel == ChannelProfile::RemoteParty && key.speaker_human_id.is_none()
+}
+
+impl MeetingLabel {
+    /// Meeting evidence outranks calendar guesses; explicit assignments never reach here. A sole
+    /// invitee the app names the same keeps the invitee's provisional link.
+    fn resolve(
+        &self,
+        inferred: Option<ProvisionalSpeakerLabel>,
+    ) -> Option<ProvisionalSpeakerLabel> {
+        match &self.name {
+            Some(named) => Some(match inferred {
+                Some(label)
+                    if label.reason == SpeakerResolutionReason::SoleRemoteParticipant
+                        && label.name.to_lowercase() == named.name.to_lowercase() =>
+                {
+                    label
+                }
+                _ => ProvisionalSpeakerLabel {
+                    name: named.name.clone(),
+                    human_id: None,
+                    reason: if named.one_on_one {
+                        SpeakerResolutionReason::MeetingOneOnOne
+                    } else {
+                        SpeakerResolutionReason::MeetingActiveSpeaker
+                    },
+                },
+            }),
+            // The app shows more people than a calendar 1:1 guess allows.
+            None if self.group_call => inferred.filter(|label| {
+                !matches!(
+                    label.reason,
+                    SpeakerResolutionReason::SoleRemoteParticipant
+                        | SpeakerResolutionReason::OneOnOneTitle
+                )
+            }),
+            None => inferred,
+        }
     }
 }
 

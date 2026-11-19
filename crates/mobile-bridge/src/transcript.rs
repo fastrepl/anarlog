@@ -62,19 +62,12 @@ pub fn render_stored_transcript(request_json: String) -> Result<String, BridgeEr
         .as_deref()
         .and_then(|json| serde_json::from_str::<serde_json::Value>(json).ok())
         .and_then(|value| {
-            value
+            let context = SpeakerContext::from_stored_value(&value);
+            (value
                 .get("intervals")
-                .and_then(serde_json::Value::as_array)
-                .cloned()
-        })
-        .map(|intervals| SpeakerContext {
-            intervals: intervals
-                .into_iter()
-                .filter_map(|value| {
-                    serde_json::from_value::<anlg_transcript::SpeakerContextInterval>(value).ok()
-                })
-                .filter(|interval| interval.start_ms < interval.end_ms)
-                .collect(),
+                .is_some_and(serde_json::Value::is_array)
+                || !context.meetings.is_empty())
+            .then_some(context)
         });
     let segments = render_transcript_segments(RenderTranscriptRequest {
         transcripts: input.into_iter().collect(),
@@ -166,6 +159,30 @@ mod tests {
         );
         assert_eq!(segments[0]["startMs"], 1000);
         assert_eq!(segments[1]["text"], "Hi");
+    }
+
+    #[test]
+    fn meeting_evidence_without_intervals_names_the_remote_voice_on_mobile() {
+        let mut request = request(&[word("a", "Hello.", 1, 0, 0)]);
+        request["speaker_context_json"] = json!(
+            json!({"meetings": [{
+                "capture_id": "capture", "started_at_ms": 1000, "ended_at_ms": 20_000,
+                "native": {
+                    "platform": "webex", "last_heard_ms": 20_000,
+                    "participants": [
+                        {"id": "self", "name": "John", "is_self": true},
+                        {"id": "remote", "name": "Ada"}
+                    ],
+                    "rosters": [{"at_ms": 0, "participants": [0, 1], "count": 2, "complete": true}]
+                }
+            }]})
+            .to_string()
+        );
+        let segments = render(&request);
+        assert_eq!(segments.len(), 1);
+        assert_eq!(segments[0]["speaker"], "Ada");
+        assert_eq!(segments[0]["text"], "Hello.");
+        assert_eq!(segments[0]["wordCount"], 1);
     }
 
     #[test]

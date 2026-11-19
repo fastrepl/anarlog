@@ -2,6 +2,7 @@ mod batch_refine;
 mod channel_state;
 mod label;
 mod live_materialize;
+mod meeting_speakers;
 mod postprocessor;
 mod processor;
 mod render;
@@ -11,6 +12,10 @@ mod synthetic_render;
 pub use speaker_context::{
     ProvisionalSpeakerLabel, SpeakerContext, SpeakerContextInterval, SpeakerResolutionReason,
     segment_options_for_assignments,
+};
+pub use meeting_speakers::{
+    MeetingCueEvidence, MeetingEvidenceGap, MeetingEvidenceParticipant, MeetingEvidencePlatform,
+    MeetingEvidenceTrack, MeetingRosterEvidence, MeetingSpeakerEvidence, upsert_meeting_evidence,
 };
 pub use synthetic_render::synthetic_timing_from_metadata;
 mod types;

@@ -81,6 +81,10 @@ pub(crate) fn render_transcript_segments_ungrouped(
     } = request;
 
     let base_started_at = earliest_started_at(&transcripts);
+    let transcript_starts: Vec<i64> = transcripts
+        .iter()
+        .filter_map(|transcript| transcript.started_at)
+        .collect();
     if let Some(mut segments) = preview {
         for segment in &mut segments {
             if let Some(id) = &segment.key.speaker_human_id {
@@ -104,7 +108,13 @@ pub(crate) fn render_transcript_segments_ungrouped(
         }
         return match speaker_context {
             Some(context) => {
-                context.label_segments(segments, base_started_at, self_human_id.as_deref(), &humans)
+                context.label_segments(
+                segments,
+                base_started_at,
+                &transcript_starts,
+                self_human_id.as_deref(),
+                &humans,
+            )
             }
             None => segments,
         };
@@ -212,7 +222,13 @@ pub(crate) fn render_transcript_segments_ungrouped(
         .collect();
     match speaker_context {
         Some(context) => {
-            context.label_segments(segments, base_started_at, self_human_id.as_deref(), &humans)
+            context.label_segments(
+                segments,
+                base_started_at,
+                &transcript_starts,
+                self_human_id.as_deref(),
+                &humans,
+            )
         }
         None => segments,
     }

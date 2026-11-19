@@ -35,6 +35,7 @@
     "@anlg/plugin-attachment-sync": "workspace:*",
     "@anlg/plugin-auth": "workspace:*",
     "@anlg/plugin-calendar": "workspace:*",
+    "@anlg/plugin-camera-watermark": "workspace:*",
     "@anlg/plugin-db": "workspace:*",
     "@anlg/plugin-deeplink2": "workspace:*",
     "@anlg/plugin-detect": "workspace:*",

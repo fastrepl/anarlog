@@ -6,6 +6,9 @@
 
 
 export const commands = {
+async getRegisteredDesktopSchemes() : Promise<string[]> {
+    return await TAURI_INVOKE("get_registered_desktop_schemes");
+},
 async getOnboardingNeeded() : Promise<Result<boolean, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_onboarding_needed") };

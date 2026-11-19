@@ -13,6 +13,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { commands as miscCommands } from "@anlg/plugin-misc";
 import { commands as openerCommands } from "@anlg/plugin-opener2";
+import { commands as transcriptionCommands } from "@anlg/plugin-transcription";
 import { openUrlWithInstruction } from "@anlg/plugin-windows";
 import {
   getCustomProfileImageUrl,
@@ -71,6 +72,19 @@ const ACCOUNT_ADMISSION_TIMEOUT_MS = 15_000;
 // runs. Retry a few times; each attempt itself supersedes that refresh.
 const ACCOUNT_ADMISSION_MAX_ATTEMPTS = 3;
 
+// The recorder ends a recording when its account signs out or switches, which
+// also cancels that recording's pending meeting notice and camera work.
+async function reportMeetingAccount(accountId: string | null) {
+  try {
+    const result = await transcriptionCommands.setMeetingAccount(accountId);
+    if (result.status === "error") {
+      console.warn("[auth] recorder did not take the account change", result.error);
+    }
+  } catch (error) {
+    console.warn("[auth] recorder did not take the account change", error);
+  }
+}
+
 async function settleWithin<T>(
   operation: Promise<T>,
   timeoutMs: number,
@@ -121,6 +135,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       ) {
         toast.dismiss(SESSION_EXPIRED_TOAST_ID);
       }
+      const accountId = nextSession?.user.id ?? null;
+      const accountChanged = (sessionRef.current?.user.id ?? null) !== accountId;
       sessionRef.current = nextSession;
       admittedUserIdRef.current =
         nextSession &&
@@ -128,8 +144,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           ? nextSession.user.id
           : null;
       setSession(nextSession);
+      if (managesCloudsync && accountChanged) {
+        void reportMeetingAccount(accountId);
+      }
     },
-    [],
+    [managesCloudsync],
   );
 
   const enqueueAuthAnalytics = useCallback((task: () => Promise<void>) => {

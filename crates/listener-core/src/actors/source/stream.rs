@@ -85,10 +85,7 @@ const SWAPS_BLUETOOTH_DEFAULT_MIC: bool = cfg!(any(target_os = "macos", target_o
 // between words and the wearer's audio drops to 16 kHz. On macOS a HAL open does not, so capture
 // later sets the headset as the default input to complete A2DP→HFP/SCO. Only the system default
 // is swapped to wired; an explicit selection is respected.
-pub(super) fn active_mic_device(
-    explicit: Option<String>,
-    audio: &dyn AudioProvider,
-) -> Option<String> {
+pub fn active_mic_device(explicit: Option<String>, audio: &dyn AudioProvider) -> Option<String> {
     if explicit.is_some() || !SWAPS_BLUETOOTH_DEFAULT_MIC {
         return explicit;
     }
@@ -217,6 +214,7 @@ async fn run_stream_loop(mut ctx: StreamContext, mode: ChannelMode) {
     tokio::pin!(watchdog);
     let mut unavailable = false;
     let mut ready = false;
+    let mut channels = ReadyChannels::default();
     loop {
         let result = tokio::select! {
             _ = ctx.cancel_token.cancelled() => StreamResult::Stop,
@@ -236,19 +234,48 @@ async fn run_stream_loop(mut ctx: StreamContext, mode: ChannelMode) {
                 StreamResult::Continue
             }
             item = capture_stream.next_event() => {
-                if matches!(&item, Some(Ok(CaptureEvent::Frame(_)))) {
+                if channels.observe(&item) {
                     watchdog.as_mut().reset(tokio::time::Instant::now() + std::time::Duration::from_secs(5));
-                    if !ready || unavailable {
-                        let _ = ctx.actor.cast(SourceMsg::CaptureReady);
-                        ready = true;
-                        unavailable = false;
-                    }
+                }
+                if matches!(&item, Some(Ok(CaptureEvent::Frame(_)))) && (!ready || unavailable) {
+                    let _ = ctx.actor.cast(SourceMsg::CaptureReady);
+                    ready = true;
+                    unavailable = false;
                 }
                 handle_capture_item(&ctx, item).await
             }
         };
         if matches!(result, StreamResult::Stop) {
             return;
+        }
+    }
+}
+
+#[derive(Default)]
+struct ReadyChannels {
+    mic: bool,
+    speaker: bool,
+}
+
+impl ReadyChannels {
+    /// Whether this item shows the capture's clock is alive. Audio always does. Gap padding does
+    /// only while a channel is ready: the native meeting engine pads a pause that way, while the
+    /// legacy engine pads only an outage of both channels, which must still read as unavailable.
+    fn observe(&mut self, item: &Option<Result<CaptureEvent, anlg_audio::Error>>) -> bool {
+        match item {
+            Some(Ok(CaptureEvent::ChannelReady { channel, .. })) => self.set(*channel, true),
+            Some(Ok(CaptureEvent::ChannelFailed { channel, .. })) => self.set(*channel, false),
+            Some(Ok(CaptureEvent::Frame(_))) => return true,
+            Some(Ok(CaptureEvent::Gap(_))) => return self.mic || self.speaker,
+            _ => {}
+        }
+        false
+    }
+
+    fn set(&mut self, channel: anlg_audio::CaptureChannel, ready: bool) {
+        match channel {
+            anlg_audio::CaptureChannel::Mic => self.mic = ready,
+            anlg_audio::CaptureChannel::Speaker => self.speaker = ready,
         }
     }
 }

@@ -7,7 +7,10 @@ use tauri::Manager;
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Shortcut, ShortcutState};
 use tauri_specta::Event;
 
-use crate::{ShortcutEvent, ShortcutPluginExt};
+use crate::{
+    ShortcutEvent, ShortcutPluginExt,
+    gesture::{Driver, GestureCapabilities, GestureOptions, Input},
+};
 
 pub fn uses_portal() -> bool {
     cfg!(target_os = "linux") && std::env::var_os("WAYLAND_DISPLAY").is_some()
@@ -17,6 +20,38 @@ pub fn uses_portal() -> bool {
 pub struct GlobalState {
     registration: tokio::sync::Mutex<Registration>,
     active: Arc<AtomicBool>,
+    // Set while the shortcut reports gestures instead of legacy press/release events.
+    gestures: std::sync::Mutex<Option<Arc<Driver>>>,
+}
+
+impl GlobalState {
+    pub(crate) fn gestures(&self) -> Option<Arc<Driver>> {
+        self.gestures
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .clone()
+    }
+
+    fn set_gestures(&self, driver: Option<Arc<Driver>>) {
+        *self
+            .gestures
+            .lock()
+            .unwrap_or_else(|error| error.into_inner()) = driver;
+    }
+}
+
+/// Routes a backend event to the gesture driver, or emits the legacy event without one.
+pub(crate) fn report(app: &tauri::AppHandle, input: Input, legacy: Option<ShortcutEvent>) {
+    match app.state::<GlobalState>().gestures() {
+        Some(driver) => {
+            driver.input(input);
+        }
+        None => {
+            if let Some(event) = legacy {
+                let _ = event.emit(app);
+            }
+        }
+    }
 }
 
 #[derive(Default)]
@@ -30,12 +65,38 @@ struct Registration {
 #[tauri::command]
 #[specta::specta]
 pub async fn configure(app: tauri::AppHandle, shortcut: Option<String>) -> Result<(), String> {
+    apply(app, shortcut, None).await.map(|_| ())
+}
+
+/// Like `configure`, but the shortcut reports `DictationGesture` events: hold to talk, double
+/// tap or Space to keep listening, Escape or a chord to cancel. Taps never start dictation.
+#[tauri::command]
+#[specta::specta]
+pub async fn configure_gestures(
+    app: tauri::AppHandle,
+    shortcut: Option<String>,
+    options: GestureOptions,
+) -> Result<GestureCapabilities, String> {
+    apply(app, shortcut, Some(options)).await
+}
+
+const NO_CAPABILITIES: GestureCapabilities = GestureCapabilities {
+    space_latch: false,
+    chord_cancel: false,
+};
+
+async fn apply(
+    app: tauri::AppHandle,
+    shortcut: Option<String>,
+    gestures: Option<GestureOptions>,
+) -> Result<GestureCapabilities, String> {
     if let Some(value) = &shortcut {
         validate(app.clone(), value.clone())?;
     }
     let state = app.state::<GlobalState>();
     let mut registration = state.registration.lock().await;
     state.active.store(false, Ordering::SeqCst);
+    state.set_gestures(None);
     let native_only =
         cfg!(target_os = "macos") && matches!(shortcut.as_deref(), Some("Fn" | "RightCommand"));
     if !uses_portal() {
@@ -65,35 +126,65 @@ pub async fn configure(app: tauri::AppHandle, shortcut: Option<String>) -> Resul
         portal.close().await;
     }
     let Some(shortcut) = shortcut else {
-        return Ok(());
+        return Ok(NO_CAPABILITIES);
     };
 
     #[cfg(target_os = "macos")]
     if shortcut == "Fn" || shortcut == "RightCommand" {
-        return app
-            .shortcut()
-            .register(
-                crate::HotKey {
-                    key: None,
-                    modifiers: vec![if shortcut == "Fn" {
-                        crate::Modifier::Fn
-                    } else {
-                        crate::Modifier::RightCommand
-                    }],
-                },
-                crate::Options {
-                    double_tap_lock_enabled: false,
-                    ..Default::default()
-                },
-            )
-            .map_err(|e| e.to_string());
+        let hotkey = crate::HotKey {
+            key: None,
+            modifiers: vec![if shortcut == "Fn" {
+                crate::Modifier::Fn
+            } else {
+                crate::Modifier::RightCommand
+            }],
+        };
+        let Some(options) = gestures else {
+            return app
+                .shortcut()
+                .register(
+                    hotkey,
+                    crate::Options {
+                        double_tap_lock_enabled: false,
+                        ..Default::default()
+                    },
+                )
+                .map(|_| NO_CAPABILITIES)
+                .map_err(|e| e.to_string());
+        };
+        // The event tap sees every key, so it can latch on Space and cancel on chords.
+        let driver = gesture_driver(
+            &app,
+            options,
+            GestureCapabilities {
+                space_latch: options.space_latch,
+                chord_cancel: true,
+            },
+        );
+        app.state::<crate::handler::Handler>()
+            .register_gestures(hotkey, driver.clone())
+            .map_err(|e| e.to_string())?;
+        state.set_gestures(Some(driver.clone()));
+        return Ok(driver.capabilities());
     }
 
+    // Global accelerators and the portal report only the shortcut's own press and release.
+    let driver = gestures.map(|options| gesture_driver(&app, options, NO_CAPABILITIES));
+    let capabilities = driver
+        .as_ref()
+        .map_or(NO_CAPABILITIES, |driver| driver.capabilities());
     let key = parse_shortcut(&shortcut)?;
     #[cfg(target_os = "linux")]
     if uses_portal() {
-        registration.portal = Some(portal::register(app.clone(), key).await?);
-        return Ok(());
+        state.set_gestures(driver);
+        match portal::register(app.clone(), key).await {
+            Ok(portal) => registration.portal = Some(portal),
+            Err(error) => {
+                state.set_gestures(None);
+                return Err(error);
+            }
+        }
+        return Ok(capabilities);
     }
 
     let down = Arc::new(AtomicBool::new(false));
@@ -103,18 +194,30 @@ pub async fn configure(app: tauri::AppHandle, shortcut: Option<String>) -> Resul
             if down.swap(pressed, Ordering::SeqCst) == pressed {
                 return;
             }
-            let event = if pressed {
-                ShortcutEvent::Pressed
+            if pressed {
+                report(app, Input::Down, Some(ShortcutEvent::Pressed));
             } else {
-                ShortcutEvent::Released
-            };
-            let _ = event.emit(app);
+                report(app, Input::Up, Some(ShortcutEvent::Released));
+            }
         })
         .map_err(|e| {
             format!("Could not register dictation shortcut. It may be used by another app: {e}")
         })?;
     registration.shortcut = Some(key);
-    Ok(())
+    state.set_gestures(driver);
+    Ok(capabilities)
+}
+
+fn gesture_driver(
+    app: &tauri::AppHandle,
+    options: GestureOptions,
+    capabilities: GestureCapabilities,
+) -> Arc<Driver> {
+    let state = app.state::<GlobalState>();
+    let emitter = app.clone();
+    Driver::new(options, capabilities, state.active.clone(), move |event| {
+        let _ = event.emit(&emitter);
+    })
 }
 
 #[tauri::command]
@@ -123,6 +226,9 @@ pub async fn set_active(app: tauri::AppHandle, active: bool) -> Result<(), Strin
     let state = app.state::<GlobalState>();
     let mut registration = state.registration.lock().await;
     state.active.store(active, Ordering::SeqCst);
+    if !active && let Some(driver) = state.gestures() {
+        driver.session_ended();
+    }
     #[cfg(target_os = "linux")]
     if uses_portal() {
         return Ok(());
@@ -146,7 +252,7 @@ pub async fn set_active(app: tauri::AppHandle, active: bool) -> Result<(), Strin
             app.global_shortcut()
                 .on_shortcut(key, move |app, _, event| {
                     if event.state == ShortcutState::Pressed && enabled.load(Ordering::SeqCst) {
-                        let _ = ShortcutEvent::Cancelled.emit(app);
+                        report(app, Input::Escape, Some(ShortcutEvent::Cancelled));
                     }
                 })
                 .map_err(|e| e.to_string())?;

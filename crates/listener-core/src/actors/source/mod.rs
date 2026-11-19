@@ -20,6 +20,7 @@ use crate::{
 use anlg_audio::{AudioProvider, CaptureChannel, CaptureFrame};
 
 use pipeline::Pipeline;
+pub use stream::active_mic_device;
 use stream::start_source_loop;
 
 use anlg_device_monitor::{DeviceMonitorHandle, DeviceSwitch, DeviceSwitchMonitor};
@@ -649,12 +650,43 @@ mod tests {
         emit_frame: bool,
         partial_audio: bool,
         gap_only: bool,
+        paused_after_ready: bool,
         output_tx: Option<mpsc::UnboundedSender<bool>>,
     }
 
     impl AudioProvider for TestAudio {
         fn open_capture(&self, config: CaptureConfig) -> Result<CaptureStream, Error> {
             let _ = self.capture_tx.send(config.mic_device);
+            if self.paused_after_ready {
+                let chunk = config.chunk_size;
+                let ready = stream::iter([
+                    Ok(CaptureEvent::ChannelReady {
+                        channel: CaptureChannel::Mic,
+                        device: None,
+                    }),
+                    Ok(CaptureEvent::Frame(CaptureFrame {
+                        raw_mic: Arc::from(vec![0.1; chunk]),
+                        raw_speaker: Arc::from(vec![0.0; chunk]),
+                        aec_mic: None,
+                    })),
+                ]);
+                // A paused native capture: clock padding only, for longer than the watchdog.
+                let paused = stream::unfold(0, move |sent| async move {
+                    tokio::time::sleep(Duration::from_millis(120)).await;
+                    (sent < 80).then(|| {
+                        let silence = Arc::<[f32]>::from(vec![0.0; chunk]);
+                        let frame = CaptureFrame {
+                            raw_mic: Arc::clone(&silence),
+                            raw_speaker: silence,
+                            aec_mic: None,
+                        };
+                        (Ok(CaptureEvent::Gap(frame)), sent + 1)
+                    })
+                });
+                return Ok(CaptureStream::with_events(
+                    ready.chain(paused).chain(stream::pending()),
+                ));
+            }
             if self.gap_only {
                 let silence = Arc::from(vec![0.0; config.chunk_size]);
                 return Ok(CaptureStream::with_events(
@@ -767,6 +799,7 @@ mod tests {
             emit_frame: true,
             partial_audio: false,
             gap_only: false,
+            paused_after_ready: false,
             output_tx: None,
         });
         let expected = mic_device.map(str::to_string);
@@ -833,6 +866,7 @@ mod tests {
                     emit_frame: false,
                     partial_audio: false,
                     gap_only: true,
+                    paused_after_ready: false,
                     output_tx: None,
                 }),
                 session_id: "no-frames".into(),
@@ -850,6 +884,54 @@ mod tests {
             matches!(tokio::time::timeout(Duration::from_secs(6), error_rx.recv()).await.unwrap(), Some(SessionErrorEvent::AudioError { error, is_fatal: false, .. }) if error == "audio_capture_unavailable")
         );
         assert!(progress_rx.try_recv().is_err());
+        actor.stop(None);
+        handle.await.unwrap();
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn gap_padding_over_a_pause_after_audio_is_not_an_outage() {
+        let (progress_tx, mut progress_rx) = mpsc::unbounded_channel();
+        let (error_tx, mut error_rx) = mpsc::unbounded_channel();
+        let (capture_tx, _capture_rx) = mpsc::unbounded_channel();
+        let (actor, handle) = Actor::spawn(
+            None,
+            SourceActor,
+            SourceArgs {
+                mic_device: None,
+                onboarding: false,
+                runtime: Arc::new(TestRuntime {
+                    progress_tx,
+                    error_tx: Some(error_tx),
+                }),
+                audio: Arc::new(TestAudio {
+                    capture_tx,
+                    default_device_name_calls: AtomicUsize::new(0),
+                    end_immediately: false,
+                    emit_frame: false,
+                    partial_audio: false,
+                    gap_only: false,
+                    paused_after_ready: true,
+                    output_tx: None,
+                }),
+                session_id: "paused".into(),
+                listener_routing: ListenerRouting::Dropped,
+                recorder: None,
+            },
+        )
+        .await
+        .unwrap();
+        loop {
+            if let Some(SessionProgressEvent::AudioReady { .. }) = progress_rx.recv().await {
+                break;
+            }
+        }
+        // Nine and a half seconds of Gap padding: never reported as an unavailable capture.
+        let deadline = tokio::time::Instant::now() + Duration::from_millis(9_500);
+        while let Ok(Some(event)) = tokio::time::timeout_at(deadline, error_rx.recv()).await {
+            if let SessionErrorEvent::AudioError { error, .. } = event {
+                assert_ne!(error, "audio_capture_unavailable");
+            }
+        }
         actor.stop(None);
         handle.await.unwrap();
     }
@@ -925,6 +1007,7 @@ mod tests {
                     emit_frame: true,
                     partial_audio: false,
                     gap_only: false,
+                    paused_after_ready: false,
                     output_tx: Some(output_tx),
                 }),
                 session_id: "output-change".into(),
@@ -974,6 +1057,7 @@ mod tests {
             emit_frame: false,
             partial_audio: false,
             gap_only: false,
+            paused_after_ready: false,
             output_tx: None,
         });
         let (_actor, handle) = Actor::spawn(
@@ -1068,6 +1152,7 @@ mod tests {
                     emit_frame: false,
                     partial_audio: true,
                     gap_only: false,
+                    paused_after_ready: false,
                     output_tx: None,
                 }),
                 session_id: "partial-audio".into(),
@@ -1244,6 +1329,7 @@ mod tests {
                         emit_frame: true,
                         partial_audio: false,
                         gap_only: false,
+                        paused_after_ready: false,
                         output_tx: None,
                     });
                     let (source, source_handle) = Actor::spawn(

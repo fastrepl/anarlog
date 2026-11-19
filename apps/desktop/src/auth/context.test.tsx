@@ -40,6 +40,7 @@ const mocks = vi.hoisted(() => ({
   prepareCloudsyncSignOut: vi.fn(),
   refreshCloudsyncForSession: vi.fn(),
   refreshSession: vi.fn(),
+  setMeetingAccount: vi.fn(),
   signOut: vi.fn(),
   startAutoRefresh: vi.fn(),
   stopAutoRefresh: vi.fn(),
@@ -117,6 +118,12 @@ vi.mock("@anlg/plugin-misc", () => ({
     getFingerprint: vi
       .fn()
       .mockResolvedValue({ status: "ok", data: "fingerprint" }),
+  },
+}));
+
+vi.mock("@anlg/plugin-transcription", () => ({
+  commands: {
+    setMeetingAccount: mocks.setMeetingAccount,
   },
 }));
 
@@ -280,6 +287,8 @@ describe("AuthProvider", () => {
     mocks.prepareCloudsyncSignOut.mockReset();
     mocks.refreshCloudsyncForSession.mockReset();
     mocks.refreshSession.mockReset();
+    mocks.setMeetingAccount.mockReset();
+    mocks.setMeetingAccount.mockResolvedValue({ status: "ok", data: null });
     mocks.signOut.mockReset();
     mocks.startAutoRefresh.mockReset();
     mocks.stopAutoRefresh.mockReset();
@@ -670,6 +679,43 @@ describe("AuthProvider", () => {
         currentSession.access_token,
       );
     });
+  });
+
+  it("tells the recorder each committed account change so sign-out and switch end its recording", async () => {
+    renderAuthProvider();
+    await waitFor(() => expect(mocks.authCallback).not.toBeNull());
+
+    act(() => mocks.authCallback?.("SIGNED_IN", makeSession("account-a")));
+    await waitFor(() =>
+      expect(screen.getByTestId("session").textContent).toBe("account-a"),
+    );
+    // A token refresh for the same account is not an account change.
+    act(() => mocks.authCallback?.("TOKEN_REFRESHED", makeSession("account-a")));
+    act(() => mocks.authCallback?.("SIGNED_IN", makeSession("account-b")));
+    await waitFor(() =>
+      expect(screen.getByTestId("session").textContent).toBe("account-b"),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
+    await waitFor(() =>
+      expect(screen.getByTestId("session").textContent).toBe("none"),
+    );
+    expect(mocks.setMeetingAccount.mock.calls).toEqual([
+      ["account-a"],
+      ["account-b"],
+      [null],
+    ]);
+  });
+
+  it("leaves the recorder's account to the main window", async () => {
+    mocks.currentWebviewWindowLabel = "note-session-id";
+    renderAuthProvider();
+    await waitFor(() => expect(mocks.authCallback).not.toBeNull());
+    act(() => mocks.authCallback?.("SIGNED_IN", makeSession("account-a")));
+    await waitFor(() =>
+      expect(screen.getByTestId("session").textContent).toBe("account-a"),
+    );
+    expect(mocks.setMeetingAccount).not.toHaveBeenCalled();
   });
 
   it("only runs cloudsync from the main window", async () => {

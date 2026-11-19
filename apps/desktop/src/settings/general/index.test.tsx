@@ -51,6 +51,9 @@ vi.mock("~/settings/queries", () => ({
 
 vi.mock("./account", () => ({ SettingsAccount: () => null }));
 vi.mock("./app-settings", () => ({ AppSettingsView: () => null }));
+vi.mock("./camera-watermark", () => ({
+  CameraWatermarkSettings: () => null,
+}));
 vi.mock("./audio-settings", () => ({
   AudioSettingsView: () => <span>Audio settings</span>,
 }));

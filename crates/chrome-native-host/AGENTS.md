@@ -1,148 +1,30 @@
 # chrome-native-host
 
-Rust binary that bridges the Chrome extension to the Char desktop app.
-It is registered as a Chrome Native Messaging host, so Chrome spawns it as a subprocess and communicates over stdio.
-
-## System diagram
+Chrome native-messaging host for the Meet extension (`browser-meeting-extension/`). Chrome starts it per extension port; it proxies that port to the running Anarlog app and holds no recording state. The app side, including the state machine, is `crates/transcription-core/src/browser_meeting`.
 
 ```
-Google Meet tab
-  │  chrome.runtime.sendMessage(payload)
+Meet tab (activeTab, after a toolbar click)
+  │ chrome.runtime.connectNative("so.anarlog.browser_meeting")
   ▼
-background.js (service worker)
-  │  port.postMessage(payload)   [Chrome Native Messaging]
+this host ── stdin/stdout, Chrome framing (u32 native-endian length + JSON)
+  │ hello { secret, origin, browser_pid } on the app's 0600 Unix socket
   ▼
-char-chrome-native-host  ← this binary
-  │  writes atomically
-  ▼
-chrome_state.json  (on disk)
-  │  polled every 500 ms
-  ▼
-GoogleMeetWatcher (crates/detect)
-  │  fires DetectEvent
-  ▼
-Tauri plugin → React/Zustand
+browser_meeting::serve_connection → Relay → BrowserMeetingRoute → BrowserMeetingPort
+  (the one meeting runtime and recorder path)
 ```
 
-## Native Messaging wire protocol
+## Rules
 
-Chrome Native Messaging uses **stdin/stdout** with a simple framing:
+- Find the app through endpoint records in `{dirs::data_dir()}/anarlog-browser-meeting/*.json` (0600, written by `browser_meeting::serve`). Use only records whose `allowed_origins` contains the `chrome-extension://<id>/` origin Chrome passed, newest first; skip records another user could write.
+- Present the record's per-launch secret, the origin, and the parent process ID (the browser) in the first frame. Forward nothing before the app's `welcome`, then tell the extension `{"event":"connected"}`. An old host never sends `connected`, so the extension times out instead of waiting.
+- Forward only the eight `meeting_*` messages from Chrome. Pass the app's events back unchanged. When Chrome closes stdin, shut down the socket's write half; the app then detaches the tab. A recording the tab started stops, and one it joined keeps going.
+- Keep it std-only: no async runtime, and no dependency on `transcription-core`. Both sides test against `crates/transcription-core/src/browser_meeting/fixtures/wire.json`.
+- Windows is not supported yet. The host tells the extension so.
 
-```
-┌─────────────────┬──────────────────────────────┐
-│  4 bytes LE u32 │  N bytes UTF-8 JSON           │
-│  (message len)  │  (message body)               │
-└─────────────────┴──────────────────────────────┘
-```
+## Registration (integration)
 
-- Length is **little-endian unsigned 32-bit** integer.
-- Body is a UTF-8 JSON object.
-- The binary reads messages in a loop until EOF (Chrome closed the port).
-
-## Incoming message contract
-
-Two message types are sent by `background.js`:
-
-### `meeting_state` — meeting is active
-
-```json
-{
-  "type": "meeting_state",
-  "url": "https://meet.google.com/abc-defg-hij",
-  "is_active": true,
-  "muted": false,
-  "participants": [
-    { "name": "Alice", "is_self": true },
-    { "name": "Bob", "is_self": false }
-  ]
-}
-```
-
-### `meeting_ended` — tab closed / navigated away
-
-```json
-{
-  "type": "meeting_ended",
-  "url": "https://meet.google.com/abc-defg-hij",
-  "is_active": false
-}
-```
-
-Any unknown `type` is silently ignored.
-
-## Output: `chrome_state.json`
-
-Written to `{data_dir}/char/chrome_state.json` after every message.
-`data_dir` is platform-specific (`dirs::data_dir()`):
-
-- macOS: `~/Library/Application Support`
-- Linux: `~/.local/share`
-- Windows: `C:\Users\{user}\AppData\Roaming`
-
-**Schema:**
-
-```json
-{
-  "version": 1,
-  "timestamp_ms": 1700000000000,
-  "meeting": {
-    "url": "https://meet.google.com/abc-defg-hij",
-    "is_active": true,
-    "muted": false,
-    "participants": [
-      { "name": "Alice", "is_self": true }
-    ]
-  }
-}
-```
-
-`meeting` is `null` when the meeting has ended or `is_active` is false.
-
-**Write is atomic** — a `NamedTempFile` in the same directory is written and then renamed,
-so the watcher never reads a partial file.
-
-`timestamp_ms` is set to the current Unix epoch milliseconds on every write.
-The watcher in `crates/detect` treats state older than 30 seconds as stale.
-
-## Testable units
-
-| Function          | What it does                                    | How to test                                                    |
-| ----------------- | ----------------------------------------------- | -------------------------------------------------------------- |
-| `read_message`    | Decodes framed bytes from a `Read`              | Feed a `Cursor<Vec<u8>>`                                       |
-| `process_message` | Maps `IncomingMessage` → `Option<MeetingState>` | Pure function, no I/O                                          |
-| `write_state`     | Atomically writes JSON to a `Path`              | Pass a `tempdir` path                                          |
-| `run`             | Full loop: read → process → write               | Pipe encoded messages through a `Cursor`, assert file contents |
-
-## Bundle configuration
-
-For production, the binary is included in the app bundle as a Tauri `externalBin`
-(`tauri.conf.json`), placing it at `Contents/MacOS/char-chrome-native-host` next
-to the main executable.
-
-**How `prepare-binaries.mjs` works (runs as `beforeBundleCommand`):**
-
-1. Reads `TAURI_ENV_TARGET_TRIPLE` — the env var Tauri sets to the actual build
-   target, not the host. This matters for cross-compilation: the CI macOS job
-   builds both `aarch64-apple-darwin` and `x86_64-apple-darwin` from a single
-   ARM runner, so host ≠ target on the x86_64 build.
-
-2. Runs `cargo build --release --target $triple -p chrome-native-host` with
-   `cwd` set to `apps/desktop/src-tauri/` so that `.cargo/config.toml`'s
-   `target-dir = "target"` applies. Binary lands at
-   `apps/desktop/src-tauri/target/$triple/release/char-chrome-native-host[.exe]`.
-
-3. Copies it to `binaries/char-chrome-native-host-$triple[.exe]`, which is what
-   `externalBin: ["binaries/char-chrome-native-host"]` expects.
-
-No CI steps or `build.rs` changes are needed — `beforeBundleCommand` runs inside
-`tauri build` after the main Cargo step, so the cross-compilation toolchain is
-already present.
-
-For development (`debug_assertions`), no bundling is needed — the runtime resolves
-directly to `target/debug/char-chrome-native-host` built by Cargo as part of the workspace.
-
-## Running tests
+The binary is bundled as `binaries/char-chrome-native-host` (see `crates/xtask/src/prepare_binaries.rs`). The app writes the host manifest `so.anarlog.browser_meeting.json` into each installed Chromium browser's `NativeMessagingHosts` directory. That manifest's `allowed_origins` lists the same extension origins that the app passes to `browser_meeting::serve`.
 
 ```
-cargo test --package chrome-native-host
+cargo test --locked -p chrome-native-host
 ```

@@ -214,13 +214,12 @@ fn test_browser_chat_scope_requires_live_exit_visible_composer_and_platform_cont
     ];
 
     assert_eq!(
-        validated_chat_scope(&MeetingPlatform::GoogleMeet, &meet_nodes),
+        validated_chat_capture_scope(&MeetingPlatform::GoogleMeet, &meet_nodes),
         Some((vec![1], vec![1, 0]))
     );
 
     let mut disabled_composer_nodes = meet_nodes.clone();
     disabled_composer_nodes[3].enabled = Some(false);
-    assert!(validated_chat_scope(&MeetingPlatform::GoogleMeet, &disabled_composer_nodes).is_none());
     assert_eq!(
         validated_chat_capture_scope(&MeetingPlatform::GoogleMeet, &disabled_composer_nodes),
         Some((vec![1], vec![1, 0]))
@@ -228,21 +227,27 @@ fn test_browser_chat_scope_requires_live_exit_visible_composer_and_platform_cont
 
     let mut prejoin_nodes = meet_nodes.clone();
     prejoin_nodes[1] = fixture_node(1, "AXButton", "Turn off microphone", &[0]);
-    assert!(validated_chat_scope(&MeetingPlatform::GoogleMeet, &prejoin_nodes).is_none());
+    assert!(validated_chat_capture_scope(&MeetingPlatform::GoogleMeet, &prejoin_nodes).is_none());
 
     let mut hidden_composer_nodes = meet_nodes.clone();
     hidden_composer_nodes[3].bounds = None;
-    assert!(validated_chat_scope(&MeetingPlatform::GoogleMeet, &hidden_composer_nodes).is_none());
+    assert!(
+        validated_chat_capture_scope(&MeetingPlatform::GoogleMeet, &hidden_composer_nodes)
+            .is_none()
+    );
 
     let mut duplicate_composer_nodes = meet_nodes.clone();
     duplicate_composer_nodes.push(fixture_composer(4, "Send a message", &[1, 1]));
     assert!(
-        validated_chat_scope(&MeetingPlatform::GoogleMeet, &duplicate_composer_nodes).is_none()
+        validated_chat_capture_scope(&MeetingPlatform::GoogleMeet, &duplicate_composer_nodes)
+            .is_none()
     );
 
     let mut support_widget_nodes = meet_nodes.clone();
     support_widget_nodes[2] = fixture_node(2, "AXGroup", "Support chat", &[1]);
-    assert!(validated_chat_scope(&MeetingPlatform::GoogleMeet, &support_widget_nodes).is_none());
+    assert!(
+        validated_chat_capture_scope(&MeetingPlatform::GoogleMeet, &support_widget_nodes).is_none()
+    );
 }
 
 #[test]
@@ -256,7 +261,7 @@ fn test_browser_chat_scope_accepts_explicit_heading_beside_the_composer() {
     ];
 
     assert_eq!(
-        validated_chat_scope(&MeetingPlatform::GoogleMeet, &meet_nodes),
+        validated_chat_capture_scope(&MeetingPlatform::GoogleMeet, &meet_nodes),
         Some((vec![1], vec![1, 1, 0]))
     );
 }
@@ -276,7 +281,6 @@ fn test_teams_capture_accepts_deep_light_meeting_composer_below_explicit_heading
         validated_chat_capture_scope(&MeetingPlatform::MicrosoftTeams, &nodes),
         Some((vec![1], composer_path))
     );
-    assert!(validated_chat_scope(&MeetingPlatform::MicrosoftTeams, &nodes).is_none());
 }
 
 #[test]
@@ -315,20 +319,9 @@ fn test_platform_chat_adapters_validate_the_requested_provider_matrix() {
         ];
 
         assert_eq!(
-            validated_chat_scope(&platform, &nodes),
+            validated_chat_capture_scope(&platform, &nodes),
             Some((vec![1], vec![1, 0])),
             "adapter did not validate {platform:?}"
-        );
-
-        let mut send = fixture_node(4, "AXButton", "Send", &[1, 1]);
-        assert!(
-            is_platform_send_button(&platform, &send, &[1]),
-            "send button was not accepted for {platform:?}"
-        );
-        send.tree_path = vec![2, 0];
-        assert!(
-            !is_platform_send_button(&platform, &send, &[1]),
-            "out-of-scope send button was accepted for {platform:?}"
         );
     }
 
@@ -339,13 +332,15 @@ fn test_platform_chat_adapters_validate_the_requested_provider_matrix() {
         fixture_composer(3, "Message to test", &[1, 0]),
     ];
     assert_eq!(
-        validated_chat_scope(&MeetingPlatform::Slack, &slack_nodes),
+        validated_chat_capture_scope(&MeetingPlatform::Slack, &slack_nodes),
         Some((vec![1], vec![1, 0]))
     );
 
     let mut ordinary_channel_nodes = slack_nodes;
     ordinary_channel_nodes[2] = fixture_node(2, "AXGroup", "Channel test", &[1]);
-    assert!(validated_chat_scope(&MeetingPlatform::Slack, &ordinary_channel_nodes).is_none());
+    assert!(
+        validated_chat_capture_scope(&MeetingPlatform::Slack, &ordinary_channel_nodes).is_none()
+    );
 }
 
 #[test]
@@ -423,7 +418,6 @@ fn test_native_linux_webex_capture_accepts_read_only_atspi_composer() {
         validated_chat_capture_scope(&MeetingPlatform::Webex, &nodes),
         Some((vec![1, 1, 0], vec![1, 1, 0, 2, 0, 2, 0, 5, 4, 0]))
     );
-    assert!(validated_chat_scope(&MeetingPlatform::Webex, &nodes).is_none());
 }
 
 #[test]
@@ -471,7 +465,7 @@ fn test_teams_and_webex_reject_generic_chat_containers() {
         ];
 
         assert!(
-            validated_chat_scope(&platform, &nodes).is_none(),
+            validated_chat_capture_scope(&platform, &nodes).is_none(),
             "generic chat unexpectedly validated for {platform:?}"
         );
     }
