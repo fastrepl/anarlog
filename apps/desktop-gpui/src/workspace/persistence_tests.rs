@@ -20,26 +20,100 @@ use super::{
     pins, templates, undo_delete,
 };
 
+/// A channel run reads and writes the shipping app's own pinned tabs and recently opened
+/// notes in `store.json`, so they carry over and a rollback keeps any change.
 #[test]
-fn pins_use_cas_and_malformed_storage_cannot_become_empty_success() {
+fn channel_pins_and_recent_notes_live_in_shipping_store_json() {
+    use anlg_desktop_identity::store_json::StoreJson;
     block_on(async {
-        let (_directory, runtime) = start().await;
-        let (base, routes) = pins::load(&runtime).unwrap().receive().await.unwrap();
-        assert!(routes.is_empty());
-        let routes: Arc<[Route]> = vec![Route::Contacts, Route::Calendar].into();
-        pins::save(&runtime, base.clone(), routes.clone())
+        let (directory, runtime) = start().await;
+        let store = Arc::new(StoreJson::at(directory.path().join("store.json")));
+        let shipping_pins = json!([
+            {"type": "sessions", "id": "note", "state": {"view": null}, "pinned": true},
+            {"type": "settings", "state": {"tab": "calendar"}, "pinned": true},
+        ]);
+        store
+            .set("desktop", "PinnedTabs", json!(shipping_pins.to_string()))
+            .unwrap();
+        store
+            .set("desktop", "RecentlyOpenedSessions", json!(r#"["b","a"]"#))
+            .unwrap();
+
+        let (base, routes) = pins::load(&runtime, Some(store.clone()))
             .unwrap()
             .receive()
             .await
             .unwrap();
+        assert_eq!(
+            routes,
+            vec![
+                Route::Session(SessionId("note".into())),
+                Route::settings("calendar")
+            ]
+        );
+        let pinned: Arc<[Route]> = vec![Route::Contacts].into();
+        pins::save(&runtime, Some(store.clone()), base.clone(), pinned)
+            .unwrap()
+            .receive()
+            .await
+            .unwrap();
+        let written: Value = serde_json::from_str(
+            store
+                .get("desktop", "PinnedTabs")
+                .unwrap()
+                .unwrap()
+                .as_str()
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(written, json!([{"type": "contacts", "pinned": true}]));
         assert!(matches!(
-            pins::save(&runtime, base, Arc::from([]))
+            pins::save(&runtime, Some(store.clone()), base, Arc::from([]))
                 .unwrap()
                 .receive()
                 .await,
             Err(ServiceError::Conflict)
         ));
-        let (_, restored) = pins::load(&runtime).unwrap().receive().await.unwrap();
+
+        let recent = load_recent(&runtime, Some(store.clone()), CancellationToken::new())
+            .unwrap()
+            .receive()
+            .await
+            .unwrap();
+        assert_eq!(recent, vec![SessionId("b".into()), SessionId("a".into())]);
+        save_recent(&runtime, Some(store.clone()), vec![SessionId("c".into())])
+            .unwrap()
+            .receive()
+            .await
+            .unwrap();
+        assert_eq!(
+            store.get("desktop", "RecentlyOpenedSessions").unwrap(),
+            Some(json!(r#"["c"]"#))
+        );
+        runtime.shutdown().await.unwrap();
+    });
+}
+
+#[test]
+fn pins_use_cas_and_malformed_storage_cannot_become_empty_success() {
+    block_on(async {
+        let (_directory, runtime) = start().await;
+        let (base, routes) = pins::load(&runtime, None).unwrap().receive().await.unwrap();
+        assert!(routes.is_empty());
+        let routes: Arc<[Route]> = vec![Route::Contacts, Route::Calendar].into();
+        pins::save(&runtime, None, base.clone(), routes.clone())
+            .unwrap()
+            .receive()
+            .await
+            .unwrap();
+        assert!(matches!(
+            pins::save(&runtime, None, base, Arc::from([]))
+                .unwrap()
+                .receive()
+                .await,
+            Err(ServiceError::Conflict)
+        ));
+        let (_, restored) = pins::load(&runtime, None).unwrap().receive().await.unwrap();
         assert_eq!(restored.as_slice(), routes.as_ref());
         execute(
             &runtime,
@@ -47,7 +121,7 @@ fn pins_use_cas_and_malformed_storage_cannot_become_empty_success() {
             vec![],
         )
         .await;
-        assert!(pins::load(&runtime).unwrap().receive().await.is_err());
+        assert!(pins::load(&runtime, None).unwrap().receive().await.is_err());
         let raw = execute(
             &runtime,
             "SELECT value_json FROM app_settings WHERE id = 'gpui_pinned_tabs'",
@@ -104,7 +178,7 @@ fn recently_opened_notes_persist_and_malformed_storage_reads_as_empty() {
     block_on(async {
         let (_directory, runtime) = start().await;
         let load = || async {
-            load_recent(&runtime, CancellationToken::new())
+            load_recent(&runtime, None, CancellationToken::new())
                 .unwrap()
                 .receive()
                 .await
@@ -112,7 +186,7 @@ fn recently_opened_notes_persist_and_malformed_storage_reads_as_empty() {
         };
         assert!(load().await.is_empty());
         let recent = vec![SessionId("b".into()), SessionId("a".into())];
-        save_recent(&runtime, recent.clone())
+        save_recent(&runtime, None, recent.clone())
             .unwrap()
             .receive()
             .await

@@ -122,6 +122,8 @@ impl ApplicationView {
         cx: &mut Context<Self>,
     ) -> Self {
         let profile = storage.root.clone();
+        let shipping_store = storage.shipping_store();
+        cx.set_global(crate::shipping_store::ShippingStore(shipping_store.clone()));
         // Installed first: the note and transcript views read the live meeting from it.
         let meeting_host = MeetingHost::install(cx);
         let toasts = toasts::install(cx);
@@ -194,6 +196,7 @@ impl ApplicationView {
         };
         crate::product::settings::apply_stored_preferences(&runtime, cx);
         let pins_runtime = runtime.clone();
+        let pins_store = shipping_store.clone();
         cx.spawn(async move |this, cx| {
             let mut state = pins_runtime.state();
             loop {
@@ -210,7 +213,7 @@ impl ApplicationView {
                     return;
                 }
             }
-            let result = match pins::load(&pins_runtime) {
+            let result = match pins::load(&pins_runtime, pins_store) {
                 Ok(reply) => reply.receive().await,
                 Err(error) => Err(error),
             };
@@ -231,7 +234,10 @@ impl ApplicationView {
         .detach();
         let startup_runtime = runtime.clone();
         let editor_vault = storage.vault();
-        let tray_settings = profile.join("tray.json");
+        let tray_settings = match shipping_store.clone() {
+            Some(store) => lifecycle::TraySettings::Shipping(store),
+            None => lifecycle::TraySettings::File(profile.join("tray.json")),
+        };
         let (effects, mut commands) = Effects::channel(runtime.clone());
         let flush_effects = effects.clone();
         let instruction = cx.new(|cx| instruction::Instruction::new(window.window_handle(), cx));
@@ -303,6 +309,13 @@ impl ApplicationView {
                     _ => {}
                 }
                 state.changed().await.map_err(|_| ServiceError::Closed)?;
+            }
+            if let Some(store) = shipping_store {
+                let imported =
+                    crate::product::onboarding::import_shipping(&startup_runtime, store).await;
+                if let Err(error) = imported {
+                    tracing::warn!(%error, "the shipping app's onboarding state was not read");
+                }
             }
             let native =
                 NativeServices::new(startup_runtime.clone(), storage, effects.clone(), host)
@@ -905,7 +918,8 @@ impl ApplicationView {
         let Some(base) = self.pins_revision.clone() else {
             return;
         };
-        let reply = match pins::save(&self.runtime, base, routes.clone()) {
+        let shipping = crate::shipping_store::ShippingStore::get(cx);
+        let reply = match pins::save(&self.runtime, shipping, base, routes.clone()) {
             Ok(reply) => reply,
             Err(error) => {
                 self.pins_pending = Some(routes);

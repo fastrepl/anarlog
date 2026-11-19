@@ -61,6 +61,39 @@ impl Stored {
     }
 }
 
+impl Stored {
+    /// Adds the shipping app's permanent dismissals, which use the same ids.
+    fn merge_shipping(&mut self, dismissed: Vec<String>) {
+        for id in dismissed {
+            if !self.dismissed.contains(&id) {
+                self.dismissed.push(id);
+            }
+        }
+    }
+}
+
+/// Shipping's `DismissedToasts`; unreadable storage counts as none, as in shipping.
+async fn shipping_dismissals(
+    runtime: &desktop_runtime::RuntimeHandle,
+    store: Arc<anlg_desktop_identity::store_json::StoreJson>,
+) -> Vec<String> {
+    use crate::shipping_store::{DESKTOP, DISMISSED_TOASTS, read};
+    let reply = runtime.service(move |_| read(store, DESKTOP, DISMISSED_TOASTS));
+    let stored = match reply {
+        Ok(reply) => reply.receive().await,
+        Err(error) => Err(error),
+    };
+    match stored {
+        Ok(value) => value
+            .and_then(|value| serde_json::from_value(value).ok())
+            .unwrap_or_default(),
+        Err(error) => {
+            tracing::warn!(%error, "the shipping app's dismissed notices were not read");
+            Vec::new()
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Lifecycle {
     /// Shown while its condition holds; no Dismiss button.
@@ -337,12 +370,15 @@ impl ApplicationView {
     pub(super) fn watch_preferences(&mut self, cx: &mut Context<Self>) {
         let reply = settings::watch(&self.runtime);
         let runtime = self.runtime.clone();
+        let shipping = crate::shipping_store::ShippingStore::get(cx);
         self.preferences_task = Some(cx.spawn(async move |this, cx| {
             let stored =
                 crate::product::local::data::setting_value(&runtime, DISMISSALS_KEY.into()).await;
-            let _ = this.update(cx, |this, _| {
-                this.notifications.stored = Some(Stored::decode(stored.ok().flatten().as_ref()))
-            });
+            let mut stored = Stored::decode(stored.ok().flatten().as_ref());
+            if let Some(store) = shipping {
+                stored.merge_shipping(shipping_dismissals(&runtime, store).await);
+            }
+            let _ = this.update(cx, |this, _| this.notifications.stored = Some(stored));
             let result = async { reply?.receive().await }.await;
             let mut watch = match result {
                 Ok(watch) => watch,
@@ -590,7 +626,16 @@ impl ApplicationView {
             }
         }
         let value = json!({"dismissed": stored.dismissed, "snoozed": stored.snoozed}).to_string();
+        // A rollback to the Tauri app reads permanent dismissals from its own store.
+        let shipping = (notice.lifecycle == Lifecycle::Permanent)
+            .then(|| crate::shipping_store::ShippingStore::get(cx))
+            .flatten()
+            .map(|store| (store, json!(stored.dismissed)));
         let reply = self.runtime.submit(move |services| async move {
+            if let Some((store, dismissed)) = shipping {
+                use crate::shipping_store::{DESKTOP, DISMISSED_TOASTS, write};
+                write(store, DESKTOP, DISMISSED_TOASTS, dismissed).await?;
+            }
             services
                 .executor
                 .execute(
@@ -613,6 +658,28 @@ impl ApplicationView {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn channel_runs_honor_notices_dismissed_in_the_shipping_app() {
+        let root = tempfile::tempdir().unwrap();
+        let (runtime, ready) = desktop_runtime::RuntimeHandle::start(desktop_runtime::Profile {
+            database: root.path().join("library.sqlite"),
+        })
+        .unwrap();
+        ready.receive().await.unwrap();
+        let store = Arc::new(anlg_desktop_identity::store_json::StoreJson::at(
+            root.path().join("store.json"),
+        ));
+        store
+            .set("desktop", "DismissedToasts", json!(["auth-promotion"]))
+            .unwrap();
+        let mut stored = Stored::decode(Some(&json!({"dismissed": ["x"]})));
+
+        stored.merge_shipping(shipping_dismissals(&runtime, store).await);
+
+        assert_eq!(stored.dismissed, ["x", "auth-promotion"]);
+        runtime.shutdown().await.unwrap();
+    }
 
     fn inputs<'a>(stt: (&'a str, &'a str), llm: (&'a str, &'a str)) -> Inputs<'a> {
         Inputs {

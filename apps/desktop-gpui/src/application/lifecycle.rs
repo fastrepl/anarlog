@@ -3,7 +3,7 @@
 //! "Quit Completely…" or a second ⌘Q quits, always through [`ApplicationView::request_quit`].
 
 use std::{
-    path::{Path, PathBuf},
+    path::PathBuf,
     sync::{
         Arc,
         atomic::{AtomicU64, Ordering},
@@ -206,18 +206,49 @@ pub fn build_schedule(
     events.into()
 }
 
-fn load_show_events(path: &Path) -> bool {
-    std::fs::read(path)
-        .ok()
-        .and_then(|bytes| serde_json::from_slice::<Value>(&bytes).ok())
-        .and_then(|value| value["show_events_in_menu_bar"].as_bool())
-        .unwrap_or(true)
+/// Where "Show events in menu bar" persists: shipping's tray scope of `store.json` in a
+/// channel run, this profile's `tray.json` in a sandbox.
+#[derive(Clone)]
+pub(crate) enum TraySettings {
+    File(PathBuf),
+    Shipping(Arc<anlg_desktop_identity::store_json::StoreJson>),
+}
+
+impl TraySettings {
+    /// Blocks on the file system.
+    pub(crate) fn show_events(&self) -> bool {
+        use crate::shipping_store::{SHOW_EVENTS_IN_MENU_BAR, TRAY};
+        let stored = match self {
+            Self::File(path) => std::fs::read(path)
+                .ok()
+                .and_then(|bytes| serde_json::from_slice::<Value>(&bytes).ok())
+                .and_then(|value| value[SHOW_EVENTS_IN_MENU_BAR].as_bool()),
+            Self::Shipping(store) => match store.get(TRAY, SHOW_EVENTS_IN_MENU_BAR) {
+                Ok(value) => value.and_then(|value| value.as_bool()),
+                Err(error) => {
+                    tracing::warn!(%error, "failed to load tray event visibility");
+                    None
+                }
+            },
+        };
+        stored.unwrap_or(true)
+    }
+
+    /// Blocks on the file system.
+    pub(crate) fn set_show_events(&self, show: bool) -> std::io::Result<()> {
+        use crate::shipping_store::{SHOW_EVENTS_IN_MENU_BAR, TRAY};
+        match self {
+            Self::File(path) => {
+                std::fs::write(path, json!({ SHOW_EVENTS_IN_MENU_BAR: show }).to_string())
+            }
+            Self::Shipping(store) => store.set(TRAY, SHOW_EVENTS_IN_MENU_BAR, json!(show)),
+        }
+    }
 }
 
 /// Lifecycle state owned by the application view.
 pub(super) struct Lifecycle {
-    /// Shipping keeps "Show events in menu bar" in the tray plugin's local store.
-    settings_path: PathBuf,
+    tray_settings: TraySettings,
     show_events: bool,
     schedule: Arc<[ScheduleEvent]>,
     recording_title: Option<(SessionId, Option<Arc<str>>)>,
@@ -233,9 +264,9 @@ pub(super) struct Lifecycle {
 }
 
 impl Lifecycle {
-    pub(super) fn new(settings_path: PathBuf) -> Self {
+    pub(super) fn new(tray_settings: TraySettings) -> Self {
         Self {
-            settings_path,
+            tray_settings,
             show_events: true,
             schedule: Arc::from([]),
             recording_title: None,
@@ -344,11 +375,10 @@ impl ApplicationView {
             TrayAction::ToggleShowEvents => {
                 let show = !self.lifecycle.show_events;
                 self.lifecycle.show_events = show;
-                let path = self.lifecycle.settings_path.clone();
+                let settings = self.lifecycle.tray_settings.clone();
                 cx.background_executor()
                     .spawn(async move {
-                        let body = json!({ "show_events_in_menu_bar": show }).to_string();
-                        if let Err(error) = std::fs::write(&path, body) {
+                        if let Err(error) = settings.set_show_events(show) {
                             tracing::warn!(%error, "failed to persist tray event visibility");
                         }
                     })
@@ -499,11 +529,11 @@ impl ApplicationView {
 
     /// Publishes the calendar schedule and "Show events in menu bar" to the tray.
     pub(super) fn start_lifecycle(&mut self, cx: &mut Context<Self>) {
-        let path = self.lifecycle.settings_path.clone();
+        let settings = self.lifecycle.tray_settings.clone();
         cx.spawn(async move |this, cx| {
             let show = cx
                 .background_executor()
-                .spawn(async move { load_show_events(&path) })
+                .spawn(async move { settings.show_events() })
                 .await;
             let _ = this.update(cx, |this, _| this.lifecycle.show_events = show);
         })
@@ -893,6 +923,26 @@ fn download_percent(downloaded: u64, total: u64) -> Option<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn channel_tray_toggle_lives_in_shipping_store_json() {
+        let root = tempfile::tempdir().unwrap();
+        let store = Arc::new(anlg_desktop_identity::store_json::StoreJson::at(
+            root.path().join("store.json"),
+        ));
+        let settings = TraySettings::Shipping(store.clone());
+        assert!(settings.show_events());
+        store
+            .set("tray", "show_events_in_menu_bar", json!(false))
+            .unwrap();
+        assert!(!settings.show_events());
+
+        settings.set_show_events(true).unwrap();
+        assert_eq!(
+            store.get("tray", "show_events_in_menu_bar").unwrap(),
+            Some(json!(true))
+        );
+    }
 
     #[test]
     fn tray_schedule_skips_all_day_and_finished_events_and_labels_local_days() {

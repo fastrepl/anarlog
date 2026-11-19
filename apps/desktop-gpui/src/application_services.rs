@@ -243,6 +243,7 @@ impl NativeServices {
     ) -> Result<Self> {
         let api = std::env::var("VITE_API_URL").unwrap_or_else(|_| "https://api.anarlog.so".into());
         let cloud_config = config(&runtime, &storage, &api).await;
+        let shipping_store = storage.shipping_store();
         let profile = storage.root;
         // A channel run uses the shipping channel's secure store and names, so the secrets the
         // shipping app saved, the recovery key among them, are found in place.
@@ -384,6 +385,7 @@ impl NativeServices {
             },
             storage_root: profile,
             storage_pointer: storage.pointer,
+            shipping_store,
         });
         Ok(Self {
             local,

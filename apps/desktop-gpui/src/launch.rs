@@ -5,9 +5,9 @@
 //! is compiled in rather than read at runtime so a stray environment variable can't point a
 //! development build at real data.
 
-use std::{ffi::OsString, path::PathBuf};
+use std::{ffi::OsString, path::PathBuf, sync::Arc};
 
-use anlg_desktop_identity::{Channel, Locations};
+use anlg_desktop_identity::{Channel, Locations, paths::STORE_FILENAME, store_json::StoreJson};
 
 use crate::platform::deeplinks::SCHEMES;
 
@@ -67,6 +67,12 @@ impl Storage {
             Some(_) => self.root.clone(),
             None => self.root.join("vault"),
         }
+    }
+
+    /// The shipping app's `store.json`, which a channel run reads and writes in place.
+    pub fn shipping_store(&self) -> Option<Arc<StoreJson>> {
+        self.channel
+            .map(|_| Arc::new(StoreJson::at(self.root.join(STORE_FILENAME))))
     }
 }
 
