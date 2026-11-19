@@ -282,24 +282,22 @@ fn persist_secret_service(
 
     let data = serde_json::to_string(auth).map_err(|error| error.to_string())?;
     secrets.write(LINUX_SECRET_SCOPE, LINUX_SECRET_KEY, &data)?;
-
-    drop_secret_service_plaintext(paths);
-    Ok(())
+    drop_secret_service_plaintext(paths)
 }
 
 fn clear_secret_service(paths: &AuthPaths, secrets: &dyn Secrets) -> Result<(), String> {
     secrets.delete(LINUX_SECRET_SCOPE, LINUX_SECRET_KEY)?;
-    drop_secret_service_plaintext(paths);
-    Ok(())
+    drop_secret_service_plaintext(paths)
 }
 
 // The keyring is authoritative once it has been written or cleared, so a plaintext
 // copy left behind by a failed migration must not outlive it and silently restore
-// the session on the next launch.
-fn drop_secret_service_plaintext(paths: &AuthPaths) {
+// the session on the next launch. Loading prefers the CLI's fallback to the keyring,
+// so a save or sign-out that leaves it behind fails.
+fn drop_secret_service_plaintext(paths: &AuthPaths) -> Result<(), String> {
     let path = paths.resolve();
     discard_plaintext(&path);
-    discard_plaintext(&cli_fallback_path(&path));
+    crate::auth::remove_plaintext(&cli_fallback_path(&path)).map_err(|error| error.to_string())
 }
 
 fn protected_path(paths: &AuthPaths) -> PathBuf {
@@ -521,6 +519,30 @@ mod tests {
         store.save(&session("new")).unwrap();
         store.clear().unwrap();
         assert_eq!(keyring.stored(), None);
+        assert!(store.load().is_empty());
+    }
+
+    /// Loading prefers the CLI's fallback to the keyring, so a stale one that can't be truncated
+    /// must still go, or the next launch restores it.
+    #[cfg(unix)]
+    #[test]
+    fn a_read_only_cli_fallback_never_outlives_a_save_or_sign_out() {
+        use std::os::unix::fs::PermissionsExt;
+        let root = tempfile::tempdir().unwrap();
+        let paths = paths(root.path());
+        let store = SessionStore::secret_service(paths.clone(), Keyring::default());
+        let fallback = cli_fallback_path(&paths.current);
+        let leave_stale_fallback = || {
+            write_json(&fallback, &session("cli"));
+            std::fs::set_permissions(&fallback, std::fs::Permissions::from_mode(0o400)).unwrap();
+        };
+
+        leave_stale_fallback();
+        store.save(&session("new")).unwrap();
+        assert_eq!(store.load(), session("new"));
+
+        leave_stale_fallback();
+        store.clear().unwrap();
         assert!(store.load().is_empty());
     }
 

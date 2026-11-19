@@ -70,11 +70,15 @@ pub fn remove_plaintext(path: &Path) -> std::io::Result<()> {
         return Ok(());
     }
 
-    let file = std::fs::OpenOptions::new()
+    // Removing the file is what retires the session, so a file that can't be truncated, such as
+    // a read-only one, is still removed.
+    if let Ok(file) = std::fs::OpenOptions::new()
         .write(true)
         .truncate(true)
-        .open(path)?;
-    file.sync_all()?;
+        .open(path)
+    {
+        let _ = file.sync_all();
+    }
     std::fs::remove_file(path)
 }
 
