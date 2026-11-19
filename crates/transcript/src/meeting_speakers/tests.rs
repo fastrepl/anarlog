@@ -176,7 +176,11 @@ fn meet_cues_name_quick_turns_once_its_lag_is_taken_off() {
     let mut words = Vec::new();
     let mut turns = Vec::new();
     for turn in 0..40 {
-        let (voice, who) = if turn % 2 == 0 { (1, alice()) } else { (2, bob()) };
+        let (voice, who) = if turn % 2 == 0 {
+            (1, alice())
+        } else {
+            (2, bob())
+        };
         words.extend(speech(voice, turn * 1_000, turn * 1_000 + 1_000));
         turns.push((turn * 1_000, Some(who)));
     }
@@ -336,7 +340,10 @@ fn only_meets_extension_cues_count_as_speaking_signals() {
             CallPlatform::Webex,
         ] {
             let evidence = call(source, platform, three_way, &turns, 40_000, Some(40_000));
-            assert!(named(&evidence, &words).is_empty(), "{source:?} {platform:?}");
+            assert!(
+                named(&evidence, &words).is_empty(),
+                "{source:?} {platform:?}"
+            );
         }
     }
     let read_by_accessibility = call(
@@ -414,8 +421,18 @@ fn a_complete_webex_roster_alone_names_a_one_on_one() {
     );
     let twin = row("w/twin", "Sam Park", Some(false));
     for (case, roster, complete, platform) in [
-        ("no count", (vec![webex_me(), sam()], None), true, CallPlatform::Webex),
-        ("count says more", (vec![webex_me(), sam()], Some(3)), true, CallPlatform::Webex),
+        (
+            "no count",
+            (vec![webex_me(), sam()], None),
+            true,
+            CallPlatform::Webex,
+        ),
+        (
+            "count says more",
+            (vec![webex_me(), sam()], Some(3)),
+            true,
+            CallPlatform::Webex,
+        ),
         (
             "self unknown",
             (vec![row("w/me", "John Jeong", None), sam()], Some(2)),
@@ -423,12 +440,30 @@ fn a_complete_webex_roster_alone_names_a_one_on_one() {
             CallPlatform::Webex,
         ),
         ("panel closed", (vec![], None), false, CallPlatform::Webex),
-        ("helper says incomplete", solo.clone(), false, CallPlatform::Webex),
-        ("two people of one name", (vec![webex_me(), sam(), twin], Some(3)), true, CallPlatform::Webex),
+        (
+            "helper says incomplete",
+            solo.clone(),
+            false,
+            CallPlatform::Webex,
+        ),
+        (
+            "two people of one name",
+            (vec![webex_me(), sam(), twin], Some(3)),
+            true,
+            CallPlatform::Webex,
+        ),
         ("unqualified app", solo.clone(), true, CallPlatform::Zoom),
-        ("Meet, read by the extension", solo.clone(), true, CallPlatform::GoogleMeet),
+        (
+            "Meet, read by the extension",
+            solo.clone(),
+            true,
+            CallPlatform::GoogleMeet,
+        ),
     ] {
-        assert!(webex_call(roster, complete, platform, none).is_empty(), "{case}");
+        assert!(
+            webex_call(roster, complete, platform, none).is_empty(),
+            "{case}"
+        );
     }
 }
 
@@ -437,15 +472,21 @@ fn no_roster_holds_across_a_pause_or_a_lost_read() {
     let solo = (vec![webex_me(), sam()], Some(2));
     // Ten seconds each side: neither stretch is long enough to call a 1:1.
     let pause = |second: i64| match second {
-        10 => Some(MeetingCaptureEvent::Paused { at: instant(10_000) }),
-        20 => Some(MeetingCaptureEvent::Resumed { at: instant(20_000) }),
+        10 => Some(MeetingCaptureEvent::Paused {
+            at: instant(10_000),
+        }),
+        20 => Some(MeetingCaptureEvent::Resumed {
+            at: instant(20_000),
+        }),
         _ => None,
     };
     let lost = |second: i64| {
-        (10..20).contains(&second).then(|| MeetingCaptureEvent::ObservationUnavailable {
-            at: instant(second * 1_000),
-            reason: "incomplete_snapshot".into(),
-        })
+        (10..20)
+            .contains(&second)
+            .then(|| MeetingCaptureEvent::ObservationUnavailable {
+                at: instant(second * 1_000),
+                reason: "incomplete_snapshot".into(),
+            })
     };
     assert!(webex_call(solo.clone(), true, CallPlatform::Webex, pause).is_empty());
     assert!(webex_call(solo, true, CallPlatform::Webex, lost).is_empty());
@@ -634,7 +675,9 @@ fn label_by_word(segments: &[RenderedTranscriptSegment]) -> BTreeMap<String, Str
         for word in &segment.words {
             let id = word.id.clone().unwrap();
             assert!(
-                labels.insert(id.clone(), segment.speaker_label.clone()).is_none(),
+                labels
+                    .insert(id.clone(), segment.speaker_label.clone())
+                    .is_none(),
                 "{id} rendered twice"
             );
         }
@@ -685,21 +728,38 @@ fn replayed_live_rewrites_and_deletions_keep_one_word_per_id_under_its_voices_na
     let saved = render(context.clone(), vec![input.clone()], &[]);
 
     let labels = label_by_word(&saved);
-    assert_eq!(labels.len(), 100, "one entry per surviving word, no new ids");
+    assert_eq!(
+        labels.len(),
+        100,
+        "one entry per surviving word, no new ids"
+    );
     assert!(!labels.contains_key("a4"));
     assert!(labels.keys().all(|id| !id.contains(':')));
-    assert!((0..50).filter(|n| *n != 4).all(|n| labels[&format!("a{n}")] == "Alice Kim"));
+    assert!(
+        (0..50)
+            .filter(|n| *n != 4)
+            .all(|n| labels[&format!("a{n}")] == "Alice Kim")
+    );
     assert!((0..50).all(|n| labels[&format!("b{n}")] == "Bob Lee"));
-    assert_eq!(labels["m0"], "Speaker 1", "the microphone is never named from the call");
+    assert_eq!(
+        labels["m0"], "Speaker 1",
+        "the microphone is never named from the call"
+    );
     let rewritten = saved
         .iter()
         .flat_map(|segment| &segment.words)
         .find(|word| word.id.as_deref() == Some("a3"))
         .unwrap();
     assert_eq!(rewritten.text.trim(), "wordier");
-    let named = saved.iter().find(|s| s.speaker_label == "Alice Kim").unwrap();
+    let named = saved
+        .iter()
+        .find(|s| s.speaker_label == "Alice Kim")
+        .unwrap();
     assert_eq!(
-        named.provisional_speaker.as_ref().map(|p| (&p.human_id, &p.reason)),
+        named
+            .provisional_speaker
+            .as_ref()
+            .map(|p| (&p.human_id, &p.reason)),
         Some((&None, &SpeakerResolutionReason::MeetingActiveSpeaker))
     );
 
@@ -724,7 +784,11 @@ fn replayed_live_rewrites_and_deletions_keep_one_word_per_id_under_its_voices_na
 
 #[test]
 fn manual_and_voiceprint_assignments_win_over_meeting_names() {
-    let evidence = meet(three_way, &[(0, Some(alice())), (20_000, Some(bob()))], 40_000);
+    let evidence = meet(
+        three_way,
+        &[(0, Some(alice())), (20_000, Some(bob()))],
+        40_000,
+    );
     let words = [
         remote_run("a", 0, 0, 20_000),
         remote_run("b", 1, 20_000, 40_000),
@@ -893,7 +957,8 @@ fn an_observed_group_call_overrides_the_calendars_sole_invitee() {
     assert!(
         segments
             .iter()
-            .all(|s| s.key.channel == ChannelProfile::RemoteParty && s.key.speaker_human_id.is_none())
+            .all(|s| s.key.channel == ChannelProfile::RemoteParty
+                && s.key.speaker_human_id.is_none())
     );
 }
 

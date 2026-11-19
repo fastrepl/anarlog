@@ -9,15 +9,23 @@ pub const MAX_FRAME_BYTES: usize = 256 * 1024;
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ExtensionMessage {
-    MeetingStart { url: String },
+    MeetingStart {
+        url: String,
+    },
     MeetingPause,
     MeetingResume,
     MeetingStop,
     /// The tab is gone, navigated, unreadable, or showed the call ending.
     MeetingDetach,
-    MeetingCues { events: Vec<serde_json::Value> },
-    MeetingChat { outcome: String },
-    MeetingCamera { outcome: String },
+    MeetingCues {
+        events: Vec<serde_json::Value>,
+    },
+    MeetingChat {
+        outcome: String,
+    },
+    MeetingCamera {
+        outcome: String,
+    },
 }
 
 /// What the app tells the extension. `started` carries the notice and camera to act on, once.
@@ -38,9 +46,13 @@ pub enum ExtensionEvent {
     /// The tab let go; an app recording keeps going in Anarlog.
     Detached,
     /// The link is over.
-    Error { message: String },
+    Error {
+        message: String,
+    },
     /// A command was refused; the link and the recording stay as they were.
-    Refused { message: String },
+    Refused {
+        message: String,
+    },
 }
 
 /// The native host's first frame on the app's socket.

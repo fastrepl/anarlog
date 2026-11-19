@@ -345,9 +345,12 @@ impl MeetingRuntime {
             return self.begin(account_id, session_id, LifecycleOwner::App);
         };
         let mut state = self.state();
-        let reserved = state.extension_reservation.as_ref().is_some_and(|reservation| {
-            reservation.request_id == request_id && reservation.session_id == session_id
-        });
+        let reserved = state
+            .extension_reservation
+            .as_ref()
+            .is_some_and(|reservation| {
+                reservation.request_id == request_id && reservation.session_id == session_id
+            });
         if !reserved {
             return Err(MeetingError::StaleExtensionStart);
         }

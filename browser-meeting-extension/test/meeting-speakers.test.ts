@@ -2,7 +2,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import vm from "node:vm";
-
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 type Event = Record<string, unknown> & { kind: string };
@@ -32,7 +31,10 @@ function start() {
     sent.push(...message.events);
     return Promise.resolve();
   });
-  const script = readFileSync(resolve(import.meta.dirname, "../extension/meeting-speakers.js"), "utf8");
+  const script = readFileSync(
+    resolve(import.meta.dirname, "../extension/meeting-speakers.js"),
+    "utf8",
+  );
   const location = { pathname: "/abc-defg-hij" };
   const tab = vm.createContext({
     document,
@@ -58,7 +60,11 @@ afterEach(() => vi.useRealTimers());
 it("tells who Meet lights as speaking, the roster with the person's own tile, and a heartbeat", () => {
   call(null);
   const { sent } = start();
-  expect(sent.map((event) => event.kind)).toEqual(["speaker", "roster", "heartbeat"]);
+  expect(sent.map((event) => event.kind)).toEqual([
+    "speaker",
+    "roster",
+    "heartbeat",
+  ]);
   expect(sent[0]).toMatchObject({ participantId: null });
   expect(sent[1]).toMatchObject({
     selfId: "spaces/s/devices/1",
@@ -105,16 +111,20 @@ it("reads no more often than every 200 ms however fast Meet repaints", () => {
     call(step % 2 ? "spaces/s/devices/2" : null);
     vi.advanceTimersByTime(20);
   }
-  expect(read.mock.calls.filter(([selector]) => selector === "[data-participant-id]")).toHaveLength(
-    1,
-  );
+  expect(
+    read.mock.calls.filter(
+      ([selector]) => selector === "[data-participant-id]",
+    ),
+  ).toHaveLength(1);
 });
 
 it("keeps the speaker already lit while Meet briefly lights a second tile", () => {
   call("spaces/s/devices/2");
   const { sent } = start();
   sent.length = 0;
-  const bob = document.querySelector('[data-participant-id="spaces/s/devices/3"] .frame');
+  const bob = document.querySelector(
+    '[data-participant-id="spaces/s/devices/3"] .frame',
+  );
   bob?.setAttribute("style", LIT);
   vi.advanceTimersByTime(200);
   expect(sent.filter((event) => event.kind === "speaker")).toEqual([]);
@@ -128,8 +138,15 @@ it("tells the next recording in the same tab who is lit and who is here, from it
 
   inject();
 
-  expect(sent.map((event) => event.kind)).toEqual(["speaker", "roster", "heartbeat"]);
-  expect(sent[0]).toMatchObject({ participantId: "spaces/s/devices/2", name: "Alice Kim" });
+  expect(sent.map((event) => event.kind)).toEqual([
+    "speaker",
+    "roster",
+    "heartbeat",
+  ]);
+  expect(sent[0]).toMatchObject({
+    participantId: "spaces/s/devices/2",
+    name: "Alice Kim",
+  });
   sent.length = 0;
   vi.advanceTimersByTime(1_000);
   // One reader still: unchanged reads say nothing.
@@ -139,7 +156,9 @@ it("tells the next recording in the same tab who is lit and who is here, from it
 it("stops reading once the extension is gone", async () => {
   call(null);
   const { sendMessage } = start();
-  sendMessage.mockImplementation(() => Promise.reject(new Error("Extension context invalidated.")));
+  sendMessage.mockImplementation(() =>
+    Promise.reject(new Error("Extension context invalidated.")),
+  );
   call("spaces/s/devices/2");
   vi.advanceTimersByTime(200);
   await vi.advanceTimersByTimeAsync(0);
@@ -176,8 +195,15 @@ it("stops reading when the tab lets go, and reads afresh when it links again", (
 
   sent.length = 0;
   inject();
-  expect(sent.map((event) => event.kind)).toEqual(["speaker", "roster", "heartbeat"]);
-  expect(sent[0]).toMatchObject({ participantId: "spaces/s/devices/3", name: "Bob Lee" });
+  expect(sent.map((event) => event.kind)).toEqual([
+    "speaker",
+    "roster",
+    "heartbeat",
+  ]);
+  expect(sent[0]).toMatchObject({
+    participantId: "spaces/s/devices/3",
+    name: "Bob Lee",
+  });
 });
 
 it("keeps reading after a relink when a send from before it fails late", async () => {
@@ -200,7 +226,10 @@ it("keeps reading after a relink when a send from before it fails late", async (
   call("spaces/s/devices/3");
   vi.advanceTimersByTime(200);
   expect(sent).toEqual([
-    expect.objectContaining({ kind: "speaker", participantId: "spaces/s/devices/3" }),
+    expect.objectContaining({
+      kind: "speaker",
+      participantId: "spaces/s/devices/3",
+    }),
   ]);
 });
 

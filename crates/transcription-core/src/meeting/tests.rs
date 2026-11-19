@@ -616,7 +616,10 @@ async fn the_default_input_records_natively_when_the_helper_is_installed_and_kee
         Err(Error::MeetingCaptureUnavailable(_))
     ));
     assert_eq!(audio.legacy_opens.load(Ordering::SeqCst), 2);
-    assert_eq!(router.engine_of(&capture), Some(CaptureEngine::NativeMeeting));
+    assert_eq!(
+        router.engine_of(&capture),
+        Some(CaptureEngine::NativeMeeting)
+    );
 
     let requests = audio.engine.requests.lock().unwrap().clone();
     assert_eq!(requests[0].0, ScopeRequest::Discover);

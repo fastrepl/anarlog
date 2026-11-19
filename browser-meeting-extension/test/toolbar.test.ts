@@ -1,7 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import vm from "node:vm";
-
 import { expect, it, vi } from "vitest";
 
 const read = (name: string) =>
@@ -24,7 +23,8 @@ it("asks for no Meet host access: a Meet tab is reachable only through the click
 it("hands a clicked Meet call to the recorder and tells other pages to open a call", () => {
   const listeners: Record<string, (...args: any[]) => unknown> = {};
   const event = (name: string) => ({
-    addListener: (fn: (...args: any[]) => unknown) => void (listeners[name] = fn),
+    addListener: (fn: (...args: any[]) => unknown) =>
+      void (listeners[name] = fn),
   });
   const connectNative = vi.fn(() => ({
     postMessage: () => {},
@@ -34,14 +34,22 @@ it("hands a clicked Meet call to the recorder and tells other pages to open a ca
   }));
   const title = vi.fn();
   const chrome = {
-    action: { setBadgeText: () => {}, setTitle: title, onClicked: event("click") },
+    action: {
+      setBadgeText: () => {},
+      setTitle: title,
+      onClicked: event("click"),
+    },
     runtime: {
       connectNative,
       onInstalled: event("install"),
       onStartup: event("startup"),
       onMessage: event("message"),
     },
-    contextMenus: { create: () => {}, removeAll: async () => {}, onClicked: event("menu") },
+    contextMenus: {
+      create: () => {},
+      removeAll: async () => {},
+      onClicked: event("menu"),
+    },
     tabs: { onUpdated: event("updated"), onRemoved: event("removed") },
   };
   const worker = vm.createContext({ chrome, URL, setTimeout, clearTimeout });

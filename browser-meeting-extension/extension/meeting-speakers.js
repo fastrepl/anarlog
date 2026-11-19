@@ -18,7 +18,8 @@
     selfName: "[data-self-name]",
     selfNameAttribute: "data-self-name",
     tileName: "[data-participant-name], [data-name]",
-    peopleCount: '[aria-label*="participant" i] [data-count], [data-participant-count]',
+    peopleCount:
+      '[aria-label*="participant" i] [data-count], [data-participant-count]',
     speakingOutline: null,
   };
 
@@ -29,12 +30,17 @@
   /** How deep in a tile its speaking outline may sit. */
   const OUTLINE_DEPTH = 3;
 
-  const clean = (value) => (typeof value === "string" ? value.trim().replace(/\s+/g, " ") : "");
+  const clean = (value) =>
+    typeof value === "string" ? value.trim().replace(/\s+/g, " ") : "";
 
   /** Whether an element draws a visible coloured ring at least 2 px wide. */
   function ringed(element) {
     const style = global.getComputedStyle(element);
-    if (style.visibility === "hidden" || style.display === "none" || style.opacity === "0")
+    if (
+      style.visibility === "hidden" ||
+      style.display === "none" ||
+      style.opacity === "0"
+    )
       return false;
     const visible = (width, kind, color) =>
       parseFloat(width) >= 2 &&
@@ -48,20 +54,28 @@
     const spread = parseFloat((shadow.match(/-?\d+(?:\.\d+)?px/g) || [])[3]);
     return (
       visible(style.outlineWidth, style.outlineStyle, style.outlineColor) ||
-      visible(style.borderTopWidth, style.borderTopStyle, style.borderTopColor) ||
-      (shadow !== "none" && spread >= 2 && !/^(transparent|rgba\([^)]*,\s*0\))/.test(shadow))
+      visible(
+        style.borderTopWidth,
+        style.borderTopStyle,
+        style.borderTopColor,
+      ) ||
+      (shadow !== "none" &&
+        spread >= 2 &&
+        !/^(transparent|rgba\([^)]*,\s*0\))/.test(shadow))
     );
   }
 
   /** Whether Meet shows this tile speaking: its outline, on the tile or close inside it. */
   function lit(tile) {
-    if (MEET.speakingOutline) return Boolean(tile.querySelector(MEET.speakingOutline));
+    if (MEET.speakingOutline)
+      return Boolean(tile.querySelector(MEET.speakingOutline));
     const queue = [{ element: tile, depth: 0 }];
     while (queue.length) {
       const { element, depth } = queue.shift();
       if (ringed(element)) return true;
       if (depth < OUTLINE_DEPTH)
-        for (const child of element.children) queue.push({ element: child, depth: depth + 1 });
+        for (const child of element.children)
+          queue.push({ element: child, depth: depth + 1 });
     }
     return false;
   }
@@ -72,13 +86,19 @@
     const text =
       clean(named && named.textContent) ||
       clean(tile.getAttribute("aria-label")) ||
-      clean((tile.innerText || tile.textContent || "").split("\n").find((line) => line.trim()));
+      clean(
+        (tile.innerText || tile.textContent || "")
+          .split("\n")
+          .find((line) => line.trim()),
+      );
     return text.length <= 120 ? text : "";
   }
 
   function read() {
     const selfElement = document.querySelector(MEET.selfName);
-    const selfName = clean(selfElement && selfElement.getAttribute(MEET.selfNameAttribute));
+    const selfName = clean(
+      selfElement && selfElement.getAttribute(MEET.selfNameAttribute),
+    );
     const tiles = new Map();
     for (const tile of document.querySelectorAll(MEET.tile)) {
       const id = clean(tile.getAttribute(MEET.tileId));
@@ -98,13 +118,16 @@
         lit: lit(tile),
       });
     }
-    const countText = clean(document.querySelector(MEET.peopleCount)?.textContent);
+    const countText = clean(
+      document.querySelector(MEET.peopleCount)?.textContent,
+    );
     const count = /^\d+$/.test(countText) ? Number(countText) : null;
     return { tiles: [...tiles.values()], count };
   }
 
   const meetingCode = () =>
-    (/^\/(?:meet\/)?([a-z]{3}-[a-z]{4}-[a-z]{3})$/.exec(location.pathname) || [])[1] || null;
+    (/^\/(?:meet\/)?([a-z]{3}-[a-z]{4}-[a-z]{3})$/.exec(location.pathname) ||
+      [])[1] || null;
 
   const pending = [];
   let speaker;
@@ -128,20 +151,30 @@
     } catch {
       return;
     }
-    const litIds = seen.tiles.filter((tile) => tile.lit).map((tile) => tile.participantId);
+    const litIds = seen.tiles
+      .filter((tile) => tile.lit)
+      .map((tile) => tile.participantId);
     // While two tiles are lit, the one already speaking stays: Meet often lights a second voice
     // for a moment.
     const active = litIds.includes(speaker) ? speaker : (litIds[0] ?? null);
     if (active !== speaker) {
       speaker = active;
       const tile = seen.tiles.find((entry) => entry.participantId === active);
-      pending.push({ kind: "speaker", at: now, participantId: active, name: tile?.name ?? null });
+      pending.push({
+        kind: "speaker",
+        at: now,
+        participantId: active,
+        name: tile?.name ?? null,
+      });
     }
     const self = seen.tiles.find((tile) => tile.isSelf);
     const snapshot = {
       kind: "roster",
       selfId: self ? self.participantId : null,
-      participants: seen.tiles.map(({ participantId, name }) => ({ participantId, name })),
+      participants: seen.tiles.map(({ participantId, name }) => ({
+        participantId,
+        name,
+      })),
       count: seen.count,
     };
     const key = JSON.stringify(snapshot);
@@ -164,7 +197,10 @@
     };
     try {
       void Promise.resolve(
-        chrome.runtime.sendMessage({ type: "anarlog_meeting_speakers", events }),
+        chrome.runtime.sendMessage({
+          type: "anarlog_meeting_speakers",
+          events,
+        }),
       ).catch(gone);
     } catch {
       gone();

@@ -107,15 +107,13 @@ pub(crate) fn render_transcript_segments_ungrouped(
             }
         }
         return match speaker_context {
-            Some(context) => {
-                context.label_segments(
+            Some(context) => context.label_segments(
                 segments,
                 base_started_at,
                 &transcript_starts,
                 self_human_id.as_deref(),
                 &humans,
-            )
-            }
+            ),
             None => segments,
         };
     }
@@ -221,15 +219,13 @@ pub(crate) fn render_transcript_segments_ungrouped(
         })
         .collect();
     match speaker_context {
-        Some(context) => {
-            context.label_segments(
-                segments,
-                base_started_at,
-                &transcript_starts,
-                self_human_id.as_deref(),
-                &humans,
-            )
-        }
+        Some(context) => context.label_segments(
+            segments,
+            base_started_at,
+            &transcript_starts,
+            self_human_id.as_deref(),
+            &humans,
+        ),
         None => segments,
     }
 }

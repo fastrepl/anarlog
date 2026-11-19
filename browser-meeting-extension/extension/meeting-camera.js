@@ -36,15 +36,19 @@
       await sleep(every);
     }
   }
-  const visible = (element) => element && !element.closest("[aria-hidden='true'],[hidden]");
-  const textOf = (element) => (element.textContent || "").replace(/\s+/g, " ").trim();
+  const visible = (element) =>
+    element && !element.closest("[aria-hidden='true'],[hidden]");
+  const textOf = (element) =>
+    (element.textContent || "").replace(/\s+/g, " ").trim();
   const named = (selector, name, root = document) =>
     [...root.querySelectorAll(selector)].find(
       (element) =>
         visible(element) &&
-        (textOf(element) === name || (element.getAttribute("aria-label") || "").trim() === name),
+        (textOf(element) === name ||
+          (element.getAttribute("aria-label") || "").trim() === name),
     ) || null;
-  const dialog = () => [...document.querySelectorAll(MEET.dialog)].find(visible) || null;
+  const dialog = () =>
+    [...document.querySelectorAll(MEET.dialog)].find(visible) || null;
   const picker = () => {
     const open = dialog();
     const found = open && open.querySelector(MEET.picker);
@@ -52,8 +56,9 @@
   };
   /** The camera the picker shows now: its label after "Camera", or its text. */
   const shownCamera = (element) =>
-    (element.getAttribute("aria-label") || "").replace(/^camera\s*:?\s*/i, "").trim() ||
-    textOf(element);
+    (element.getAttribute("aria-label") || "")
+      .replace(/^camera\s*:?\s*/i, "")
+      .trim() || textOf(element);
   const isChosen = (option) =>
     option.getAttribute("aria-selected") === "true" ||
     option.getAttribute("aria-checked") === "true";
@@ -66,7 +71,10 @@
     if (!item) return false;
     item.click();
     if (!(await waitFor(dialog, STEP_MS))) return false;
-    const video = await waitFor(() => named(MEET.tab, "Video", dialog() || document), STEP_MS);
+    const video = await waitFor(
+      () => named(MEET.tab, "Video", dialog() || document),
+      STEP_MS,
+    );
     if (video) video.click();
     return true;
   }
@@ -77,7 +85,12 @@
     if (close) close.click();
     else
       document.dispatchEvent(
-        new KeyboardEvent("keydown", { key: "Escape", code: "Escape", keyCode: 27, bubbles: true }),
+        new KeyboardEvent("keydown", {
+          key: "Escape",
+          code: "Escape",
+          keyCode: 27,
+          bubbles: true,
+        }),
       );
   }
 
@@ -130,7 +143,13 @@
       // The mark belongs to a call that has ended; a later call on the same link gets its own try.
       global.sessionStorage.removeItem(triedKey());
     }
-    if (!(await waitFor(() => !live() || document.querySelector(MEET.leave), JOIN_LIMIT_MS, 1_000)))
+    if (
+      !(await waitFor(
+        () => !live() || document.querySelector(MEET.leave),
+        JOIN_LIMIT_MS,
+        1_000,
+      ))
+    )
       return "not_in_call";
     await sleep(SETTLE_MS);
     if (!live()) return "cancelled";
@@ -147,5 +166,10 @@
     }
   }
 
-  global.anarlogMeetingCamera = { MEET, select, cancel, timing: { SETTLE_MS, STEP_MS } };
+  global.anarlogMeetingCamera = {
+    MEET,
+    select,
+    cancel,
+    timing: { SETTLE_MS, STEP_MS },
+  };
 })(globalThis);

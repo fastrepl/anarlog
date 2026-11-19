@@ -1,7 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import vm from "node:vm";
-
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 type Message = {
@@ -26,7 +25,12 @@ type Controller = {
   ended(sender: Sender): void;
   speakers(sender: Sender, events: unknown): void;
 };
-type Injection = { target: { tabId: number }; files?: string[]; func?: unknown; args?: unknown[] };
+type Injection = {
+  target: { tabId: number };
+  files?: string[];
+  func?: unknown;
+  args?: unknown[];
+};
 
 const MEET = "https://meet.google.com/abc-defg-hij";
 const HOST = "so.anarlog.browser_meeting";
@@ -35,14 +39,21 @@ const HOST = "so.anarlog.browser_meeting";
  * `scriptResult` is what an injected function resolves to in the page; `unreadable` makes the page
  * scripts' injection fail, as it does without the click's activeTab grant.
  */
-function setup(withScripting = false, scriptResult?: unknown, unreadable = false) {
+function setup(
+  withScripting = false,
+  scriptResult?: unknown,
+  unreadable = false,
+) {
   const source = readFileSync(
     resolve(import.meta.dirname, "../extension/meeting-background.js"),
     "utf8",
   );
   // The background's own globals, which an injected function sees as the page's.
   const page: Record<string, unknown> = { URL, setTimeout, clearTimeout };
-  const module = vm.runInNewContext(`${source}\nAnarlogMeetingBackground`, page);
+  const module = vm.runInNewContext(
+    `${source}\nAnarlogMeetingBackground`,
+    page,
+  );
   const commands: Message[] = [];
   const badges: string[] = [];
   const titles: string[] = [];
@@ -60,7 +71,9 @@ function setup(withScripting = false, scriptResult?: unknown, unreadable = false
               if (unreadable && injection.files?.includes("meeting-content.js"))
                 throw new Error("Cannot access contents of the page.");
               const result =
-                typeof scriptResult === "function" ? scriptResult(injection) : scriptResult;
+                typeof scriptResult === "function"
+                  ? scriptResult(injection)
+                  : scriptResult;
               return injection.func ? [{ result }] : undefined;
             },
           },
@@ -77,14 +90,18 @@ function setup(withScripting = false, scriptResult?: unknown, unreadable = false
           postMessage: (value: Message) => void commands.push(value),
           disconnect: () => void (disconnects += 1),
           onMessage: { addListener: (fn: Listener) => void (message = fn) },
-          onDisconnect: { addListener: (fn: () => void) => void (disconnect = fn) },
+          onDisconnect: {
+            addListener: (fn: () => void) => void (disconnect = fn),
+          },
         };
       },
     },
   };
   const controller: Controller = module.createController(api, HOST);
-  const start = (url = "https://meet.google.com/meet/abc-defg-hij?authuser=1", id = 4) =>
-    controller.toolbar({ id, url });
+  const start = (
+    url = "https://meet.google.com/meet/abc-defg-hij?authuser=1",
+    id = 4,
+  ) => controller.toolbar({ id, url });
   const receive = (value: Message) => message(value);
   return {
     controller,
@@ -160,18 +177,25 @@ describe("Meet recording controls", () => {
     expect(
       s.injections
         .slice(pageScripts)
-        .map((injection) => [injection.target.tabId, injection.files, injection.args]),
+        .map((injection) => [
+          injection.target.tabId,
+          injection.files,
+          injection.args,
+        ]),
     ).toEqual([
       [4, ["meeting-camera.js"], undefined],
       [4, undefined, ["Anarlog Camera"]],
       [4, ["meeting-chat.js"], undefined],
       [4, undefined, ["Anarlog is taking notes."]],
     ]);
-    expect(s.commands.filter((c) => c.type === "meeting_camera" || c.type === "meeting_chat"))
-      .toEqual([
-        { type: "meeting_camera", outcome: "switched" },
-        { type: "meeting_chat", outcome: "sent" },
-      ]);
+    expect(
+      s.commands.filter(
+        (c) => c.type === "meeting_camera" || c.type === "meeting_chat",
+      ),
+    ).toEqual([
+      { type: "meeting_camera", outcome: "switched" },
+      { type: "meeting_chat", outcome: "sent" },
+    ]);
     s.receive({ event: "paused" });
     s.receive({ event: "resumed" });
     await tick();
@@ -181,10 +205,9 @@ describe("Meet recording controls", () => {
     quiet.start();
     quiet.started();
     await tick();
-    expect(quiet.injections.flatMap((injection) => injection.files ?? [])).toEqual([
-      "meeting-content.js",
-      "meeting-speakers.js",
-    ]);
+    expect(
+      quiet.injections.flatMap((injection) => injection.files ?? []),
+    ).toEqual(["meeting-content.js", "meeting-speakers.js"]);
   });
 
   it("tells Anarlog nothing about a notice once its link ended before the post finished", async () => {
@@ -193,7 +216,9 @@ describe("Meet recording controls", () => {
     late.started({ notice: "Anarlog is taking notes." });
     late.receive({ event: "detached" });
     await tick();
-    expect(late.commands.map((command) => command.type)).not.toContain("meeting_chat");
+    expect(late.commands.map((command) => command.type)).not.toContain(
+      "meeting_chat",
+    );
   });
 
   it("pauses and resumes on the toolbar only when the recorder can pause", () => {
@@ -210,7 +235,10 @@ describe("Meet recording controls", () => {
     s.controller.toolbar(tab);
     expect(s.commands.at(-1)).toEqual({ type: "meeting_resume" });
     // Anarlog refused: the recording is as it was, and the person hears why.
-    s.receive({ event: "refused", message: "Anarlog couldn't change the recording." });
+    s.receive({
+      event: "refused",
+      message: "Anarlog couldn't change the recording.",
+    });
     expect(s.titles.at(-1)).toBe("Anarlog couldn't change the recording.");
     s.controller.toolbar(tab);
     expect(s.commands.at(-1)).toEqual({ type: "meeting_resume" });
@@ -221,7 +249,9 @@ describe("Meet recording controls", () => {
     fixed.start();
     fixed.started({ pausable: false });
     fixed.controller.toolbar(tab);
-    expect(fixed.commands.map((command) => command.type)).toEqual(["meeting_start"]);
+    expect(fixed.commands.map((command) => command.type)).toEqual([
+      "meeting_start",
+    ]);
     expect(fixed.titles.at(-1)).toContain("Stop it from this button's menu");
   });
 
@@ -243,12 +273,19 @@ describe("Meet recording controls", () => {
     s.controller.removed(9);
     s.controller.ended({ tab: { id: 9 }, url: MEET });
     s.controller.ended({ tab: { id: 4 }, url: "https://example.com" });
-    s.controller.updated(4, { url: "https://meet.google.com/abc-defg-hij?authuser=1" });
-    expect(s.commands.map((command) => command.type)).toEqual(["meeting_start"]);
+    s.controller.updated(4, {
+      url: "https://meet.google.com/abc-defg-hij?authuser=1",
+    });
+    expect(s.commands.map((command) => command.type)).toEqual([
+      "meeting_start",
+    ]);
     s.controller.ended(sender);
     s.controller.updated(4, { status: "loading" });
     s.controller.removed(4);
-    expect(s.commands.map((command) => command.type)).toEqual(["meeting_start", "meeting_detach"]);
+    expect(s.commands.map((command) => command.type)).toEqual([
+      "meeting_start",
+      "meeting_detach",
+    ]);
     s.receive({ event: "ended" });
     expect(s.badges.at(-1)).toBe("");
     expect(s.titles.at(-1)).toBe("Recording saved in Anarlog.");
@@ -278,14 +315,20 @@ describe("Meet recording controls", () => {
     const s = setup(true, undefined, true);
     s.start();
     await tick();
-    expect(s.commands.map((command) => command.type)).toEqual(["meeting_start", "meeting_detach"]);
+    expect(s.commands.map((command) => command.type)).toEqual([
+      "meeting_start",
+      "meeting_detach",
+    ]);
   });
 
   it("shows Anarlog's refusal or a lost connection, then lets a fresh click start again", () => {
     const s = setup();
     s.start();
     s.receive({ event: "connected" });
-    s.receive({ event: "error", message: "Anarlog is recording a different Meet call." });
+    s.receive({
+      event: "error",
+      message: "Anarlog is recording a different Meet call.",
+    });
     expect(s.badges.at(-1)).toBe("!");
     expect(s.titles.at(-1)).toBe("Anarlog is recording a different Meet call.");
     s.start();
@@ -302,7 +345,10 @@ describe("Meet recording controls", () => {
     s.started();
     s.controller.click({ menuItemId: "anarlog-meeting-stop" });
     s.controller.click({ menuItemId: "anarlog-meeting-stop" });
-    expect(s.commands.map((command) => command.type)).toEqual(["meeting_start", "meeting_stop"]);
+    expect(s.commands.map((command) => command.type)).toEqual([
+      "meeting_start",
+      "meeting_stop",
+    ]);
   });
 
   it("stops the tab's page scripts once the link is over, so a later click starts them again", async () => {
@@ -334,18 +380,26 @@ describe("Meet recording controls", () => {
     ]);
     s.start();
     await tick();
-    expect(s.injections.at(-1)?.files).toEqual(["meeting-content.js", "meeting-speakers.js"]);
+    expect(s.injections.at(-1)?.files).toEqual([
+      "meeting-content.js",
+      "meeting-speakers.js",
+    ]);
   });
 
   it("passes on who Meet shows speaking from the recording tab only, until the stop", () => {
     const s = setup();
-    const events = [{ kind: "speaker", at: 1, participantId: "p-alice", name: "Alice" }];
+    const events = [
+      { kind: "speaker", at: 1, participantId: "p-alice", name: "Alice" },
+    ];
     const sender = { tab: { id: 4 }, url: MEET };
     s.controller.speakers(sender, events);
     expect(s.commands).toEqual([]);
     s.start();
     s.controller.speakers({ tab: { id: 9 }, url: MEET }, events);
-    s.controller.speakers({ tab: { id: 4 }, url: "https://meet.google.com/xxx-yyyy-zzz" }, events);
+    s.controller.speakers(
+      { tab: { id: 4 }, url: "https://meet.google.com/xxx-yyyy-zzz" },
+      events,
+    );
     s.controller.speakers(sender, "not a list");
     s.controller.speakers(sender, events);
     s.controller.click({ menuItemId: "anarlog-meeting-stop" });

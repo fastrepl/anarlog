@@ -66,7 +66,10 @@ vi.mock("~/store/zustand/listener/instance", () => ({
 vi.mock("./useStartListeningWithBatchOverride", () => ({
   useStartListeningWithBatchOverride:
     (sessionId: string, options?: { extensionStart?: string }) => async () => {
-      mocks.recorded.push({ sessionId, extensionStart: options?.extensionStart });
+      mocks.recorded.push({
+        sessionId,
+        extensionStart: options?.extensionStart,
+      });
     },
 }));
 

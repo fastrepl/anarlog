@@ -78,7 +78,10 @@ async function reportMeetingAccount(accountId: string | null) {
   try {
     const result = await transcriptionCommands.setMeetingAccount(accountId);
     if (result.status === "error") {
-      console.warn("[auth] recorder did not take the account change", result.error);
+      console.warn(
+        "[auth] recorder did not take the account change",
+        result.error,
+      );
     }
   } catch (error) {
     console.warn("[auth] recorder did not take the account change", error);
@@ -136,7 +139,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         toast.dismiss(SESSION_EXPIRED_TOAST_ID);
       }
       const accountId = nextSession?.user.id ?? null;
-      const accountChanged = (sessionRef.current?.user.id ?? null) !== accountId;
+      const accountChanged =
+        (sessionRef.current?.user.id ?? null) !== accountId;
       sessionRef.current = nextSession;
       admittedUserIdRef.current =
         nextSession &&

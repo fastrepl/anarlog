@@ -141,7 +141,10 @@ pub fn endpoints(dir: &Path, origin: &str) -> Vec<EndpointRecord> {
             let record: EndpointRecord =
                 serde_json::from_slice(&std::fs::read(entry.path()).ok()?).ok()?;
             (record.protocol == PROTOCOL_VERSION
-                && record.allowed_origins.iter().any(|allowed| allowed == origin))
+                && record
+                    .allowed_origins
+                    .iter()
+                    .any(|allowed| allowed == origin))
             .then(|| (metadata.modified().unwrap_or(std::time::UNIX_EPOCH), record))
         })
         .collect();
@@ -166,7 +169,11 @@ type Socket = std::os::unix::net::UnixStream;
 /// Connects to the first record whose app answers, presenting its secret. A refusal ends the
 /// search with the app's reason; a record whose app is gone is skipped.
 #[cfg(unix)]
-fn connect(records: &[EndpointRecord], origin: &str, browser_pid: Option<u32>) -> Result<Socket, String> {
+fn connect(
+    records: &[EndpointRecord],
+    origin: &str,
+    browser_pid: Option<u32>,
+) -> Result<Socket, String> {
     use std::time::Duration;
     for record in records {
         let Ok(mut socket) = Socket::connect(&record.socket) else {
@@ -181,7 +188,9 @@ fn connect(records: &[EndpointRecord], origin: &str, browser_pid: Option<u32>) -
         let Ok(body) = serde_json::to_vec(&hello) else {
             continue;
         };
-        if socket.set_read_timeout(Some(Duration::from_secs(5))).is_err()
+        if socket
+            .set_read_timeout(Some(Duration::from_secs(5)))
+            .is_err()
             || write_frame(&mut socket, &body, false).is_err()
         {
             continue;
@@ -305,7 +314,9 @@ mod tests {
         std::thread::spawn(move || {
             let (mut stream, _) = listener.accept().unwrap();
             let mut seen = Vec::new();
-            let hello = read_frame(&mut stream, MAX_FROM_CHROME, false).unwrap().unwrap();
+            let hello = read_frame(&mut stream, MAX_FROM_CHROME, false)
+                .unwrap()
+                .unwrap();
             seen.push(serde_json::from_slice::<Value>(&hello).unwrap());
             write_frame(&mut stream, &serde_json::to_vec(&reply).unwrap(), false).unwrap();
             if reply["type"] != "welcome" {
@@ -334,15 +345,34 @@ mod tests {
         );
         record(dir.path(), "com.hyprnote.dev", &socket, "secret-1", ORIGIN);
         // A gone app's record and another extension's record are skipped.
-        record(dir.path(), "old", &dir.path().join("gone.sock"), "x", ORIGIN);
-        record(dir.path(), "other", &socket, "x", "chrome-extension://pppppppppppppppppppppppppppppppp/");
+        record(
+            dir.path(),
+            "old",
+            &dir.path().join("gone.sock"),
+            "x",
+            ORIGIN,
+        );
+        record(
+            dir.path(),
+            "other",
+            &socket,
+            "x",
+            "chrome-extension://pppppppppppppppppppppppppppppppp/",
+        );
         let input = chrome_frames(&[
             json!({"type": "meeting_start", "url": "https://meet.google.com/abc-defg-hij"}),
             json!({"type": "save_link", "url": "https://example.com"}),
             json!({"type": "meeting_detach"}),
         ]);
         let mut output = Vec::new();
-        run(Cursor::new(input), &mut output, dir.path(), ORIGIN, Some(77)).unwrap();
+        run(
+            Cursor::new(input),
+            &mut output,
+            dir.path(),
+            ORIGIN,
+            Some(77),
+        )
+        .unwrap();
 
         assert_eq!(
             read_chrome(&output),
@@ -356,7 +386,10 @@ mod tests {
             seen[0],
             json!({"type": "hello", "protocol": 1, "secret": "secret-1", "origin": ORIGIN, "browser_pid": 77})
         );
-        let types: Vec<&str> = seen[1..].iter().map(|m| m["type"].as_str().unwrap()).collect();
+        let types: Vec<&str> = seen[1..]
+            .iter()
+            .map(|m| m["type"].as_str().unwrap())
+            .collect();
         assert_eq!(types, ["meeting_start", "meeting_detach"]);
     }
 
@@ -364,8 +397,18 @@ mod tests {
     fn tells_the_extension_when_no_app_answers_or_the_app_refuses() {
         let dir = tempfile::tempdir().unwrap();
         let mut output = Vec::new();
-        run(Cursor::new(vec![]), &mut output, dir.path(), ORIGIN, Some(77)).unwrap();
-        assert_eq!(read_chrome(&output), vec![json!({"event": "error", "message": NO_APP})]);
+        run(
+            Cursor::new(vec![]),
+            &mut output,
+            dir.path(),
+            ORIGIN,
+            Some(77),
+        )
+        .unwrap();
+        assert_eq!(
+            read_chrome(&output),
+            vec![json!({"event": "error", "message": NO_APP})]
+        );
 
         let socket = dir.path().join("s.sock");
         let app = fake_app(
@@ -374,11 +417,20 @@ mod tests {
         );
         record(dir.path(), "com.hyprnote.dev", &socket, "secret-1", ORIGIN);
         let mut output = Vec::new();
-        run(Cursor::new(vec![]), &mut output, dir.path(), ORIGIN, Some(77)).unwrap();
+        run(
+            Cursor::new(vec![]),
+            &mut output,
+            dir.path(),
+            ORIGIN,
+            Some(77),
+        )
+        .unwrap();
         app.join().unwrap();
         assert_eq!(
             read_chrome(&output),
-            vec![json!({"event": "error", "message": "Update Anarlog and the extension together."})]
+            vec![
+                json!({"event": "error", "message": "Update Anarlog and the extension together."})
+            ]
         );
 
         // A record another user could have written is never trusted.
@@ -425,11 +477,16 @@ mod tests {
         assert_eq!(&serde_json::to_value(&ours).unwrap(), hello);
         assert!(matches!(
             serde_json::from_value(fixture["welcome"].clone()).unwrap(),
-            HelloReply::Welcome { protocol: PROTOCOL_VERSION }
+            HelloReply::Welcome {
+                protocol: PROTOCOL_VERSION
+            }
         ));
         serde_json::from_value::<EndpointRecord>(fixture["endpoint_record"].clone()).unwrap();
         for message in fixture["extension_messages"].as_array().unwrap() {
-            assert!(forwardable(&serde_json::to_vec(message).unwrap()), "{message}");
+            assert!(
+                forwardable(&serde_json::to_vec(message).unwrap()),
+                "{message}"
+            );
         }
     }
 }

@@ -121,7 +121,11 @@ impl MeetCueReader {
 }
 
 fn text(value: &Value, limit: usize) -> Option<String> {
-    let value = value.as_str()?.split_whitespace().collect::<Vec<_>>().join(" ");
+    let value = value
+        .as_str()?
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
     (!value.is_empty() && value.chars().count() <= limit).then_some(value)
 }
 
@@ -134,7 +138,9 @@ fn parse(event: &Value) -> Option<Cue> {
                 Value::Null => None,
                 id => Some(MeetSpeaker {
                     participant_id: text(id, MAX_ID_CHARS)?,
-                    display_name: event.get("name").and_then(|name| text(name, MAX_NAME_CHARS)),
+                    display_name: event
+                        .get("name")
+                        .and_then(|name| text(name, MAX_NAME_CHARS)),
                 }),
             };
             Some(Cue::Speaker { at, speaker })

@@ -8,8 +8,10 @@
    */
   const MEET = {
     leave: 'button[aria-label="Leave call"]',
-    input: 'textarea[aria-label^="Send a message" i], textarea[placeholder^="Send a message" i]',
-    openChat: 'button[aria-label^="Chat with everyone" i], button[aria-label="Chat" i]',
+    input:
+      'textarea[aria-label^="Send a message" i], textarea[placeholder^="Send a message" i]',
+    openChat:
+      'button[aria-label^="Chat with everyone" i], button[aria-label="Chat" i]',
     send: 'button[aria-label="Send a message" i], button[aria-label="Send" i]',
   };
 
@@ -31,7 +33,8 @@
       await sleep(every);
     }
   }
-  const visible = (element) => element && !element.closest("[aria-hidden='true'],[hidden]");
+  const visible = (element) =>
+    element && !element.closest("[aria-hidden='true'],[hidden]");
   const input = () => {
     const found = document.querySelector(MEET.input);
     return visible(found) ? found : null;
@@ -42,7 +45,9 @@
     textarea.focus();
     // Meet's handlers read the value through the element's own setter, as typing sets it.
     Reflect.set(global.HTMLTextAreaElement.prototype, "value", text, textarea);
-    textarea.dispatchEvent(new InputEvent("input", { bubbles: true, data: text }));
+    textarea.dispatchEvent(
+      new InputEvent("input", { bubbles: true, data: text }),
+    );
   }
 
   const enabledSend = () => {
@@ -63,16 +68,25 @@
     }
     const send = await waitFor(enabledSend, STEP_MS);
     // The person may have typed while Meet's send button was off: send only Anarlog's own text.
-    if (field.value !== text) return field.value.trim() ? "draft_in_progress" : "not_sent";
+    if (field.value !== text)
+      return field.value.trim() ? "draft_in_progress" : "not_sent";
     if (!live()) return "cancelled";
     global.sessionStorage.setItem(sentKey(), "pending");
     if (send) send.click();
     else
       field.dispatchEvent(
-        new KeyboardEvent("keydown", { key: "Enter", code: "Enter", keyCode: 13, bubbles: true }),
+        new KeyboardEvent("keydown", {
+          key: "Enter",
+          code: "Enter",
+          keyCode: 13,
+          bubbles: true,
+        }),
       );
     // An input that empties is Meet taking the message, not anyone in the call reading it.
-    const cleared = await waitFor(() => (field.value.trim() ? null : true), STEP_MS);
+    const cleared = await waitFor(
+      () => (field.value.trim() ? null : true),
+      STEP_MS,
+    );
     if (!cleared) return "unconfirmed";
     global.sessionStorage.setItem(sentKey(), "sent");
     return "sent";
@@ -136,18 +150,30 @@
         return mark === "pending" ? "already_attempted" : "already_sent";
       global.sessionStorage.removeItem(sentKey());
     }
-    if (!(await waitFor(() => !live() || document.querySelector(MEET.leave), JOIN_LIMIT_MS, 1_000)))
+    if (
+      !(await waitFor(
+        () => !live() || document.querySelector(MEET.leave),
+        JOIN_LIMIT_MS,
+        1_000,
+      ))
+    )
       return "not_in_call";
     await sleep(SETTLE_MS);
     let outcome = "not_sent";
     for (let tries = 0; tries < ATTEMPTS; tries += 1) {
       if (!live()) return "cancelled";
       outcome = await attempt(text, live);
-      if (outcome !== "chat_unavailable" && outcome !== "not_sent") return outcome;
+      if (outcome !== "chat_unavailable" && outcome !== "not_sent")
+        return outcome;
       await sleep(STEP_MS);
     }
     return outcome;
   }
 
-  global.anarlogMeetingChat = { MEET, post, cancel, timing: { SETTLE_MS, STEP_MS } };
+  global.anarlogMeetingChat = {
+    MEET,
+    post,
+    cancel,
+    timing: { SETTLE_MS, STEP_MS },
+  };
 })(globalThis);

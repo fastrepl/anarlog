@@ -9,13 +9,13 @@ mod render;
 mod segments;
 mod speaker_context;
 mod synthetic_render;
-pub use speaker_context::{
-    ProvisionalSpeakerLabel, SpeakerContext, SpeakerContextInterval, SpeakerResolutionReason,
-    segment_options_for_assignments,
-};
 pub use meeting_speakers::{
     MeetingCueEvidence, MeetingEvidenceGap, MeetingEvidenceParticipant, MeetingEvidencePlatform,
     MeetingEvidenceTrack, MeetingRosterEvidence, MeetingSpeakerEvidence, upsert_meeting_evidence,
+};
+pub use speaker_context::{
+    ProvisionalSpeakerLabel, SpeakerContext, SpeakerContextInterval, SpeakerResolutionReason,
+    segment_options_for_assignments,
 };
 pub use synthetic_render::synthetic_timing_from_metadata;
 mod types;

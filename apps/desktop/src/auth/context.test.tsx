@@ -690,7 +690,9 @@ describe("AuthProvider", () => {
       expect(screen.getByTestId("session").textContent).toBe("account-a"),
     );
     // A token refresh for the same account is not an account change.
-    act(() => mocks.authCallback?.("TOKEN_REFRESHED", makeSession("account-a")));
+    act(() =>
+      mocks.authCallback?.("TOKEN_REFRESHED", makeSession("account-a")),
+    );
     act(() => mocks.authCallback?.("SIGNED_IN", makeSession("account-b")));
     await waitFor(() =>
       expect(screen.getByTestId("session").textContent).toBe("account-b"),

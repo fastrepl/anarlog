@@ -121,8 +121,14 @@ mod tests {
             assert_eq!(meet_call_of(other), None, "{other}");
         }
         assert!(same_meet_call(&format!("{MEET}?authuser=1"), MEET));
-        assert!(!same_meet_call(MEET, "https://meet.google.com/xxx-yyyy-zzz"));
-        assert!(!same_meet_call("https://meet.google.com/", "https://meet.google.com/"));
+        assert!(!same_meet_call(
+            MEET,
+            "https://meet.google.com/xxx-yyyy-zzz"
+        ));
+        assert!(!same_meet_call(
+            "https://meet.google.com/",
+            "https://meet.google.com/"
+        ));
         assert!(is_canonical_meet_call(MEET));
         assert!(!is_canonical_meet_call(&format!("{MEET}?authuser=1")));
         assert_eq!(meeting_code_of(MEET), Some("abc-defg-hij"));

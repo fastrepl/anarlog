@@ -724,9 +724,7 @@ mod tests {
         cancel(start).await;
         assert!(host.runtime.is_current(&began));
         host.window.lock().unwrap().recorder_idle = false;
-        host.runtime
-            .confirm(&began, meet_call(), native())
-            .unwrap();
+        host.runtime.confirm(&began, meet_call(), native()).unwrap();
         assert_eq!(
             host.window.lock().unwrap().stops,
             vec![began.clone(), began.clone()]

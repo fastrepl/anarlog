@@ -10,8 +10,12 @@
   function meetingUrl(value) {
     try {
       const url = new URL(value);
-      const call = /^\/(?:meet\/)?([a-z]{3}-[a-z]{4}-[a-z]{3})$/.exec(url.pathname);
-      return url.origin === "https://meet.google.com" && call ? `${url.origin}/${call[1]}` : null;
+      const call = /^\/(?:meet\/)?([a-z]{3}-[a-z]{4}-[a-z]{3})$/.exec(
+        url.pathname,
+      );
+      return url.origin === "https://meet.google.com" && call
+        ? `${url.origin}/${call[1]}`
+        : null;
     } catch {
       return null;
     }
@@ -36,13 +40,18 @@
     function show(next, title) {
       state = next;
       if (api.contextMenus?.update)
-        void Promise.resolve(api.contextMenus.update(MENU.stop, { enabled: port !== null })).catch(
-          () => {},
-        );
+        void Promise.resolve(
+          api.contextMenus.update(MENU.stop, { enabled: port !== null }),
+        ).catch(() => {});
       const text =
-        { starting: "…", pausing: "…", resuming: "…", stopping: "…", leaving: "…", error: "!" }[
-          next
-        ] || "";
+        {
+          starting: "…",
+          pausing: "…",
+          resuming: "…",
+          stopping: "…",
+          leaving: "…",
+          error: "!",
+        }[next] || "";
       void api.action.setBadgeText({ text });
       if (typeof OffscreenCanvas !== "undefined") {
         const canvas = new OffscreenCanvas(32, 32);
@@ -186,7 +195,10 @@
       if (port) return;
       const target = meetingUrl(tab && tab.url);
       if (!target || !Number.isInteger(tab.id)) {
-        show("error", "Open a Google Meet call, then click Anarlog to record it.");
+        show(
+          "error",
+          "Open a Google Meet call, then click Anarlog to record it.",
+        );
         return;
       }
       let connection;
@@ -202,34 +214,51 @@
       show("starting");
       connectTimer = setTimeout(() => {
         if (port === connection)
-          disconnect(connection, "error", "Update Anarlog and the extension together.");
+          disconnect(
+            connection,
+            "error",
+            "Update Anarlog and the extension together.",
+          );
       }, CONNECT_TIMEOUT_MS);
       connection.onMessage.addListener((message) => {
-        if (port !== connection || !message || typeof message !== "object") return;
+        if (port !== connection || !message || typeof message !== "object")
+          return;
         clearTimeout(connectTimer);
         if (message.event === "connected") return;
         // Anarlog said no to a pause, resume or stop: the recording stays as it was.
         if (message.event === "refused") {
-          const settled = { pausing: "recording", resuming: "paused", stopping: "recording" };
+          const settled = {
+            pausing: "recording",
+            resuming: "paused",
+            stopping: "recording",
+          };
           show(
             settled[state] || state,
             typeof message.message === "string" ? message.message : undefined,
           );
           return;
         }
-        const wanted = state === "stopping" || state === "leaving" ? null : message.event;
+        const wanted =
+          state === "stopping" || state === "leaving" ? null : message.event;
         if (wanted === "started") pausable = message.pausable === true;
         if (wanted === "started" || wanted === "resumed") show("recording");
         if (wanted === "paused") show("paused");
         const notice =
-          wanted === "started" && typeof message.notice === "string" && message.notice
+          wanted === "started" &&
+          typeof message.notice === "string" &&
+          message.notice
             ? message.notice
             : null;
         // The camera switch works in Meet's own Settings dialog; the notice waits until it is
         // done, so the two never drive the same tab at once.
-        if (wanted === "started" && typeof message.camera === "string" && message.camera)
+        if (
+          wanted === "started" &&
+          typeof message.camera === "string" &&
+          message.camera
+        )
           void switchCamera(tab.id, message.camera, connection).then(() => {
-            if (notice && port === connection) postNotice(tab.id, notice, connection);
+            if (notice && port === connection)
+              postNotice(tab.id, notice, connection);
           });
         else if (notice) postNotice(tab.id, notice, connection);
         if (message.event === "ended" || message.event === "detached")
@@ -255,7 +284,12 @@
         const error = api.runtime.lastError;
         if (port !== connection) return;
         release();
-        show("error", error ? SETUP : "Anarlog stopped answering. Check the recording in Anarlog.");
+        show(
+          "error",
+          error
+            ? SETUP
+            : "Anarlog stopped answering. Check the recording in Anarlog.",
+        );
       });
       connection.postMessage({ type: "meeting_start", url: target });
       if (api.scripting)
@@ -304,7 +338,8 @@
       // The call ended in the tab: Anarlog stops a recording the tab started and keeps one its own
       // window started, which only the person stops.
       ended: (sender) => {
-        if (sender?.tab?.id === tabId && meetingUrl(sender.url) === url) leave();
+        if (sender?.tab?.id === tabId && meetingUrl(sender.url) === url)
+          leave();
       },
       // What Meet shows about who is speaking, from the tab being recorded only.
       speakers: (sender, events) => {
@@ -319,16 +354,25 @@
     };
   }
 
-  global.AnarlogMeetingBackground = { MENU, CONNECT_TIMEOUT_MS, meetingUrl, createController };
+  global.AnarlogMeetingBackground = {
+    MENU,
+    CONNECT_TIMEOUT_MS,
+    meetingUrl,
+    createController,
+  };
   const api = global.chrome;
   if (!api || !api.contextMenus || !global.AnarlogMeetingConfig) return;
-  const controller = createController(api, global.AnarlogMeetingConfig.nativeHost);
+  const controller = createController(
+    api,
+    global.AnarlogMeetingConfig.nativeHost,
+  );
   global.AnarlogMeetingController = controller;
   api.contextMenus.onClicked.addListener(controller.click);
   api.tabs.onUpdated.addListener(controller.updated);
   api.tabs.onRemoved.addListener(controller.removed);
   api.runtime.onMessage.addListener((message, sender) => {
     if (message?.type === "anarlog_meeting_ended") controller.ended(sender);
-    if (message?.type === "anarlog_meeting_speakers") controller.speakers(sender, message.events);
+    if (message?.type === "anarlog_meeting_speakers")
+      controller.speakers(sender, message.events);
   });
 })(globalThis);

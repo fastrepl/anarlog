@@ -14,7 +14,8 @@ fn main() {
     let browser_pid = Some(std::os::unix::process::parent_id());
     #[cfg(not(unix))]
     let browser_pid = None;
-    if let Err(error) = chrome_native_host::run(io::stdin(), &mut stdout, &dir, &origin, browser_pid)
+    if let Err(error) =
+        chrome_native_host::run(io::stdin(), &mut stdout, &dir, &origin, browser_pid)
     {
         eprintln!("native host stopped: {error}");
     }

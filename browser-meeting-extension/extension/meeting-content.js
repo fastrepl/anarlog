@@ -5,13 +5,20 @@
     return;
   }
   const ended = () => {
-    void chrome.runtime.sendMessage({ type: "anarlog_meeting_ended" }).catch(() => {});
+    void chrome.runtime
+      .sendMessage({ type: "anarlog_meeting_ended" })
+      .catch(() => {});
   };
   // Positive end cues only. Missing controls (loading, PiP, or hidden tabs) do not
   // imply the call ended. Unknown languages retain navigation/close/manual Stop.
   const leaveClicked = (event) => {
     const label = event.target.closest?.("button")?.getAttribute("aria-label");
-    if (["Leave call", "Leave the call", "통화 종료", "통화에서 나가기"].includes(label)) ended();
+    if (
+      ["Leave call", "Leave the call", "통화 종료", "통화에서 나가기"].includes(
+        label,
+      )
+    )
+      ended();
   };
   let timer;
   const check = () => {
