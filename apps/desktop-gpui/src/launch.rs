@@ -140,6 +140,14 @@ pub fn parse(
     Ok(Launch::Run { mode, urls })
 }
 
+/// This launch's arguments for the process that replaces it. Its links were already handled,
+/// so a restart drops them instead of opening them again.
+pub fn relaunch_args(args: impl IntoIterator<Item = OsString>) -> Vec<OsString> {
+    args.into_iter()
+        .filter(|arg| !arg.to_str().is_some_and(is_deep_link))
+        .collect()
+}
+
 fn is_deep_link(argument: &str) -> bool {
     argument
         .split_once(':')
@@ -243,6 +251,19 @@ mod tests {
         assert_eq!(
             run(&["--background", "--help"], None, true).unwrap(),
             Launch::Help
+        );
+    }
+
+    #[test]
+    fn a_restart_does_not_open_the_launch_link_again() {
+        assert_eq!(
+            relaunch_args(args(&[
+                "--profile",
+                "/tmp/p",
+                "anarlog://auth/callback?code=1",
+                "--background",
+            ])),
+            args(&["--profile", "/tmp/p", "--background"])
         );
     }
 

@@ -266,9 +266,22 @@ impl Waiting {
     }
 }
 
+impl Default for NativeEvents {
+    fn default() -> Self {
+        let (sender, receiver) = mpsc::sync_channel(64);
+        Self {
+            sender,
+            receiver: Arc::new(Mutex::new(receiver)),
+            links: NativeDeepLinks::default(),
+        }
+    }
+}
+
 impl NativeEvents {
-    /// Queues deep links, from the OS or from launch arguments on Windows and Linux.
-    pub fn open_urls(&self, urls: Vec<String>) {
+    /// Queues deep links, from the OS or from launch arguments on Windows and Linux, and says
+    /// whether it took them all.
+    pub fn open_urls(&self, urls: Vec<String>) -> bool {
+        let mut taken = true;
         for url in urls.into_iter().take(64) {
             match self.links.receive(&url) {
                 Ok(id) => {
@@ -279,29 +292,32 @@ impl NativeEvents {
                     {
                         let _ = self.links.acknowledge(id);
                         tracing::warn!("Native event queue is full");
+                        taken = false;
                     }
                 }
-                Err(error) => tracing::warn!("Deep link rejected: {error}"),
+                Err(error) => {
+                    tracing::warn!("Deep link rejected: {error}");
+                    taken = false;
+                }
             }
         }
+        taken
     }
 
-    pub fn install(application: &Application) -> Self {
-        let (sender, receiver) = mpsc::sync_channel(64);
-        let events = Self {
-            sender,
-            receiver: Arc::new(Mutex::new(receiver)),
-            links: NativeDeepLinks::default(),
-        };
-        let links = events.clone();
-        application.on_open_urls(move |urls| links.open_urls(urls));
-        let reopen = events.clone();
-        application.on_reopen(move |_| {
-            let _ = reopen
-                .sender
-                .try_send(NativeEvent::Action(TrayAction::Open));
+    /// A later launch of this app: like shipping's single-instance callback, it shows the main
+    /// window, and its links open here.
+    pub fn relaunched(&self, urls: Vec<String>) -> bool {
+        self.send(NativeEvent::Action(TrayAction::Open));
+        self.open_urls(urls)
+    }
+
+    pub fn install(&self, application: &Application) {
+        let links = self.clone();
+        application.on_open_urls(move |urls| {
+            links.open_urls(urls);
         });
-        events
+        let reopen = self.clone();
+        application.on_reopen(move |_| reopen.send(NativeEvent::Action(TrayAction::Open)));
     }
 
     pub fn next(&self) -> Option<NativeEvent> {

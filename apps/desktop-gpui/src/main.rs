@@ -62,6 +62,17 @@ fn main() -> anyhow::Result<()> {
             (Storage::channel(channel, &locations), locations.database())
         }
     };
+    let events = NativeEvents::default();
+    // Before the runtime takes the profile, which the running instance holds.
+    #[cfg(any(target_os = "linux", target_os = "windows"))]
+    let Some(instance) = desktop_gpui::platform::single_instance::claim(&storage.root, &urls, {
+        let events = events.clone();
+        move |urls| events.relaunched(urls)
+    })?
+    else {
+        return Ok(());
+    };
+    events.open_urls(urls);
     let startup = match storage.channel {
         Some(_) => Startup::shipping(storage.vault()),
         None => Startup::default(),
@@ -69,8 +80,7 @@ fn main() -> anyhow::Result<()> {
     let (runtime, ready) = RuntimeHandle::start_with(Profile { database }, startup)?;
     let zoom = desktop_gpui::zoom::Zoom::load(storage.root.join("zoom.json"));
     let application = zoom.application().with_assets(Assets);
-    let events = NativeEvents::install(&application);
-    events.open_urls(urls);
+    events.install(&application);
     if let Some(channel) = package::channel() {
         desktop_gpui::platform::deeplinks::register_handler(channel);
     }
@@ -161,9 +171,12 @@ fn main() -> anyhow::Result<()> {
         }
         cx.activate(true);
     });
+    // The replacement serves this profile's launches next.
+    #[cfg(any(target_os = "linux", target_os = "windows"))]
+    drop(instance);
     if desktop_gpui::platform::windows::restart_requested() {
         std::process::Command::new(std::env::current_exe()?)
-            .args(std::env::args_os().skip(1))
+            .args(launch::relaunch_args(std::env::args_os().skip(1)))
             .spawn()?;
     }
     Ok(())

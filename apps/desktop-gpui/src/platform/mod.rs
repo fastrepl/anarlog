@@ -8,6 +8,8 @@ pub mod os;
 pub mod package;
 pub mod permissions;
 pub mod shortcuts;
+#[cfg(any(target_os = "linux", target_os = "windows"))]
+pub mod single_instance;
 pub mod sounds;
 pub mod system_settings;
 pub mod tray;

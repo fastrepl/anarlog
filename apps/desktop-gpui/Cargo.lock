@@ -3112,6 +3112,7 @@ dependencies = [
  "meeting-import",
  "mime_guess",
  "model-downloader",
+ "nix",
  "notification-interface",
  "notification-linux",
  "notification-macos",
