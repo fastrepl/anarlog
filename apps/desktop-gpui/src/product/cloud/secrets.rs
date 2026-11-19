@@ -21,11 +21,20 @@ pub enum SecretNames {
 }
 
 impl SecretNames {
-    /// This app's sign-in secrets; shipping keeps its session elsewhere.
-    pub fn auth(&self, name: &str) -> String {
+    /// A browser sign-in this app started and hasn't finished.
+    pub fn pending_sign_in(&self) -> String {
         match self {
-            Self::Sandbox(namespace) => format!("{namespace}:{name}"),
-            Self::Channel => format!("desktop-auth:{name}"),
+            Self::Sandbox(namespace) => format!("{namespace}:pending-sign-in"),
+            Self::Channel => "desktop-auth:pending-sign-in".into(),
+        }
+    }
+
+    /// The signed-in session's item in this store. A channel run has none: it keeps the
+    /// session in the shipping app's session store, where the CLI and a rollback find it.
+    pub fn session(&self) -> Option<String> {
+        match self {
+            Self::Sandbox(namespace) => Some(format!("{namespace}:session")),
+            Self::Channel => None,
         }
     }
 
@@ -234,13 +243,15 @@ mod tests {
             format!("e2ee:account:{account}:device-enrollment-v1")
         );
         assert!(channel.recovery("not-an-account").is_err());
+        assert_eq!(channel.pending_sign_in(), "desktop-auth:pending-sign-in");
+        assert_eq!(channel.session(), None);
 
         let sandbox = SecretNames::Sandbox("gpui-device".into());
         assert_eq!(
             sandbox.recovery(ACCOUNT).unwrap(),
             format!("gpui-device:{ACCOUNT}:recovery")
         );
-        assert_eq!(sandbox.auth("session"), "gpui-device:session");
+        assert_eq!(sandbox.session().as_deref(), Some("gpui-device:session"));
     }
 
     /// The flat name maps to shipping's service, account and chunk layout per channel.

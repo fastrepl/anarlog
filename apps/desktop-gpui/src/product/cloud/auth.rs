@@ -275,9 +275,12 @@ pub(crate) struct Auth {
 }
 
 impl Auth {
-    /// Keeps the session in `store` under this profile's credential namespace.
+    /// Keeps a sandbox profile's session in `store`. A channel run must pass the shipping
+    /// app's session store to `with_session`.
     pub async fn new(transport: Transport, store: Arc<dyn SecureStore>) -> Result<Arc<Self>> {
-        let key = transport.config.secrets.auth("session");
+        let key = transport.config.secrets.session().ok_or_else(|| {
+            failure("A channel run keeps its sign-in in the shipping app's session store")
+        })?;
         let session = Arc::new(KeychainSession::new(store.clone(), key));
         Self::with_session(transport, store, session).await
     }
@@ -305,10 +308,6 @@ impl Auth {
             state.session = Some(session);
         }
         Ok(this)
-    }
-
-    pub fn key(&self, suffix: &str) -> String {
-        self.secrets().auth(suffix)
     }
 
     pub fn secrets(&self) -> &super::SecretNames {
@@ -432,7 +431,7 @@ impl Auth {
         };
         self.store
             .write(
-                self.key("pending-sign-in"),
+                self.secrets().pending_sign_in(),
                 Zeroizing::new(
                     serde_json::to_string(&pending)
                         .map_err(|_| failure("Could not start sign in"))?,
@@ -458,7 +457,7 @@ impl Auth {
         let mut state = self.state.lock().await;
         let pending = self
             .store
-            .read(self.key("pending-sign-in"))
+            .read(self.secrets().pending_sign_in())
             .await?
             .ok_or_else(|| failure("No sign-in request is pending"))?;
         let pending: PendingLogin =
@@ -500,7 +499,7 @@ impl Auth {
         normalize_expiry(&mut session);
         self.validate_session(&session)?;
         self.persist(&session).await?;
-        self.store.remove(self.key("pending-sign-in")).await?;
+        self.store.remove(self.secrets().pending_sign_in()).await?;
         self.announce(&mut state, Some(&session));
         state.session = Some(session);
         Ok(self.identity())
@@ -511,7 +510,7 @@ impl Auth {
         let old = state.session.take();
         self.announce(&mut state, None);
         let removed = self.session.clear().await;
-        let pending_removed = self.store.remove(self.key("pending-sign-in")).await;
+        let pending_removed = self.store.remove(self.secrets().pending_sign_in()).await;
         if let Some(session) = old {
             // Local erasure must not depend on reachability of the logout endpoint.
             let _ = self

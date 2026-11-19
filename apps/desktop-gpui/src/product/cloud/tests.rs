@@ -16,7 +16,7 @@ use zeroize::Zeroizing;
 
 use super::{
     ChannelStore, CloudHost, CloudServices, ConflictDecision, SecretNames, ShareCommand,
-    auth::{Auth, SecureStore},
+    auth::{Auth, SecureStore, ShippingSession},
     sharing::validate_document,
     transport::{CloudConfig, Transport},
 };
@@ -2363,20 +2363,23 @@ async fn channel_runs_find_the_recovery_key_the_shipping_app_saved() {
         "com.hyprnote.stable",
         keychain.entry(),
     )));
-    store
-        .write(
-            "desktop-auth:session".into(),
-            Zeroizing::new(session(now() + 3600, "fixture-token").to_string()),
-        )
-        .await
-        .unwrap();
-    let cloud = CloudServices::new(
+    let auth_json = directory.path().join("auth.json");
+    std::fs::write(
+        &auth_json,
+        json!({"sb-127-auth-token": session(now() + 3600, "fixture-token").to_string()})
+            .to_string(),
+    )
+    .unwrap();
+    let config = channel_config(&server);
+    let session = Arc::new(ShippingSession::new(
+        anlg_desktop_identity::session::SessionStore::file(auth_json),
+        &config.supabase,
+    ));
+    let cloud = CloudServices::with_session(
         runtime.clone(),
-        CloudConfig {
-            secrets: SecretNames::Channel,
-            ..config(&server, "unused")
-        },
+        config,
         store,
+        Some(session),
         Arc::new(FixtureHost),
     )
     .await
@@ -2407,14 +2410,84 @@ async fn channel_runs_find_the_recovery_key_the_shipping_app_saved() {
         .map(|(_, account)| account)
         .collect::<Vec<_>>();
     accounts.sort();
-    assert_eq!(
-        accounts,
-        [
-            "desktop-auth:session".to_owned(),
-            format!("e2ee:account:{ACCOUNT}:recovery-v1")
-        ]
-    );
+    assert_eq!(accounts, [format!("e2ee:account:{ACCOUNT}:recovery-v1")]);
     runtime.shutdown().await.unwrap();
+}
+
+fn channel_config(server: &MockServer) -> CloudConfig {
+    CloudConfig {
+        callback: "anarlog://auth/callback".parse().unwrap(),
+        secrets: SecretNames::Channel,
+        ..config(server, "unused")
+    }
+}
+
+/// A channel run signs in through shipping's session store and keeps only shipping-named
+/// items, in shipping's service, in the keychain; it can't fall back to a keychain session.
+#[tokio::test]
+async fn channel_sign_in_keeps_the_session_in_shippings_store_and_no_sandbox_names() {
+    let server = MockServer::start().await;
+    let directory = tempfile::tempdir().unwrap();
+    let keychain = super::secrets::mock::Keychain::default();
+    let store = || -> Arc<dyn SecureStore> {
+        Arc::new(ChannelStore::new(anlg_desktop_identity::SecureStore::new(
+            "com.hyprnote.stable",
+            keychain.entry(),
+        )))
+    };
+    assert!(
+        Auth::new(Transport::new(channel_config(&server)).unwrap(), store())
+            .await
+            .is_err()
+    );
+    let auth_json = directory.path().join("auth.json");
+    let auth = Auth::with_session(
+        Transport::new(channel_config(&server)).unwrap(),
+        store(),
+        Arc::new(ShippingSession::new(
+            anlg_desktop_identity::session::SessionStore::file(auth_json.clone()),
+            &server.uri().parse().unwrap(),
+        )),
+    )
+    .await
+    .unwrap();
+
+    let login = auth.begin_sign_in().await.unwrap();
+    assert_eq!(
+        keychain.accounts(),
+        [(
+            "com.anarlog.stable.secure-store".to_owned(),
+            "desktop-auth:pending-sign-in".to_owned()
+        )]
+    );
+    let state = login
+        .query_pairs()
+        .find(|(key, _)| key == "desktop_state")
+        .unwrap()
+        .1
+        .to_string();
+    Mock::given(method("POST"))
+        .and(path("/auth/v1/token"))
+        .and(query_param("grant_type", "refresh_token"))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(session(now() + 3600, "fixture-token")),
+        )
+        .expect(1)
+        .mount(&server)
+        .await;
+    let mut callback: reqwest::Url = "anarlog://auth/callback".parse().unwrap();
+    callback
+        .query_pairs_mut()
+        .append_pair("access_token", "handed-off")
+        .append_pair("refresh_token", "fixture-refresh")
+        .append_pair("state", &state);
+    auth.deep_link(callback).await.unwrap();
+
+    assert!(keychain.accounts().is_empty());
+    let saved: HashMap<String, String> =
+        serde_json::from_str(&std::fs::read_to_string(&auth_json).unwrap()).unwrap();
+    let saved: Value = serde_json::from_str(&saved["sb-127-auth-token"]).unwrap();
+    assert_eq!(saved["access_token"], "fixture-token");
 }
 
 mod shipping_session {
