@@ -11,6 +11,7 @@ mod note_windows;
 mod notifications;
 mod release_notes;
 mod shared_notes;
+mod startup;
 pub mod team_invitations;
 pub mod toasts;
 
@@ -47,15 +48,18 @@ use crate::{
     workspace::{WorkspaceAction, WorkspaceView, navigation::Route, pins},
 };
 
-struct ProfileStorage(PathBuf);
+struct ProfileStorage {
+    root: PathBuf,
+    vault: PathBuf,
+}
 
 impl anlg_storage::StorageRuntime for ProfileStorage {
     fn global_base(&self) -> Result<PathBuf, anlg_storage::Error> {
-        Ok(self.0.clone())
+        Ok(self.root.clone())
     }
 
     fn vault_base(&self) -> Result<PathBuf, anlg_storage::Error> {
-        Ok(self.0.join("vault"))
+        Ok(self.vault.clone())
     }
 }
 
@@ -173,6 +177,8 @@ impl ApplicationView {
             }),
         ];
         subscriptions.push(lock::install(&runtime, window, cx));
+        startup::install(&runtime, cx);
+        subscriptions.push(cx.observe_global::<startup::StartupGate>(|_, cx| cx.notify()));
         let dictation = match crate::dictation::Dictation::install(runtime.clone(), cx) {
             Ok(dictation) => {
                 subscriptions.push(cx.subscribe(&dictation, |this, _, failed, cx| {
@@ -224,7 +230,7 @@ impl ApplicationView {
         })
         .detach();
         let startup_runtime = runtime.clone();
-        let editor_vault = profile.join("vault");
+        let editor_vault = storage.vault();
         let tray_settings = profile.join("tray.json");
         let (effects, mut commands) = Effects::channel(runtime.clone());
         let flush_effects = effects.clone();
@@ -285,6 +291,7 @@ impl ApplicationView {
             }
         })
         .detach();
+        let vault = editor_vault.clone();
         let startup = cx.background_executor().spawn(async move {
             let mut state = startup_runtime.state();
             loop {
@@ -300,8 +307,10 @@ impl ApplicationView {
             let native =
                 NativeServices::new(startup_runtime.clone(), storage, effects.clone(), host)
                     .await?;
-            let storage = Arc::new(ProfileStorage(profile));
-            let vault = storage.0.join("vault");
+            let storage = Arc::new(ProfileStorage {
+                root: profile,
+                vault: vault.clone(),
+            });
             let audio_vault = vault.clone();
             let capture = CaptureService::spawn(
                 startup_runtime.clone(),
@@ -1550,6 +1559,9 @@ impl Render for ApplicationView {
         let colors = theme(window);
         let _ = &self.subscriptions;
         self.sync_notice(window, cx);
+        if let Some(gate) = startup::gate(window, cx) {
+            return gate;
+        }
         if let Some(gate) = lock::gate(window, cx) {
             return gate;
         }

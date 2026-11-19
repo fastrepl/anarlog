@@ -3,13 +3,16 @@ use std::{
     fs::{File, OpenOptions, TryLockError},
     path::{Path, PathBuf},
     sync::Arc,
-    time::Duration,
+    time::{Duration, Instant},
 };
 
-use anlg_db_core::{Db, DbOpenOptions, DbStorage};
-use anlg_db_execute::DbExecutor;
+use anlg_db_core::{Db, DbStorage};
 
-use crate::{Profile, Result, ServiceError, types::failure};
+use crate::{Profile, Result, ServiceError, Startup, StartupStatus, types::failure};
+
+const LOCK_POLL: Duration = Duration::from_millis(500);
+const DB_OPEN_LOCK_RETRIES: u32 = 12;
+const DB_OPEN_LOCK_RETRY_DELAY: Duration = Duration::from_secs(5);
 
 pub(crate) struct ProfileLease {
     _files: Vec<File>,
@@ -21,28 +24,51 @@ fn suffix(path: &Path, suffix: &str) -> PathBuf {
     name.into()
 }
 
-fn lock(path: &Path) -> Result<File> {
+/// The lock file, or `None` while another process holds it.
+fn lock(path: &Path) -> Result<Option<File>> {
     let file = OpenOptions::new()
         .create(true)
         .truncate(false)
         .write(true)
         .open(path)
         .map_err(failure)?;
-    file.try_lock().map_err(|error| match error {
-        TryLockError::WouldBlock => ServiceError::Failed(
-            format!(
-                "Profile is already open in another process: {}",
-                path.display()
-            )
-            .into(),
-        ),
-        TryLockError::Error(error) => failure(error),
-    })?;
-    Ok(file)
+    match file.try_lock() {
+        Ok(()) => Ok(Some(file)),
+        Err(TryLockError::WouldBlock) => Ok(None),
+        Err(TryLockError::Error(error)) => Err(failure(error)),
+    }
 }
 
 impl ProfileLease {
-    pub(crate) fn acquire(profile: &Profile) -> Result<Self> {
+    /// Takes this app's lock and the shipping app's launch and channel locks. While another
+    /// process holds one, retries until `startup.lock_wait` passes: an update relaunch starts
+    /// before the replaced app has exited.
+    pub(crate) async fn acquire(
+        profile: &Profile,
+        startup: &Startup,
+        waiting: impl Fn(),
+    ) -> Result<Self> {
+        let deadline = Instant::now() + startup.lock_wait;
+        loop {
+            let held = match Self::try_acquire(profile)? {
+                Ok(lease) => return Ok(lease),
+                Err(held) => held,
+            };
+            if Instant::now() >= deadline {
+                return Err(ServiceError::Failed(
+                    format!(
+                        "Profile is already open in another process: {}",
+                        held.display()
+                    )
+                    .into(),
+                ));
+            }
+            waiting();
+            tokio::time::sleep(LOCK_POLL).await;
+        }
+    }
+
+    fn try_acquire(profile: &Profile) -> Result<std::result::Result<Self, PathBuf>> {
         let parent = profile
             .database
             .parent()
@@ -60,67 +86,84 @@ impl ProfileLease {
                 "Database symlinks are not supported for isolated profiles",
             ));
         }
-        let mut files = vec![lock(&suffix(&canonical, ".gpui.lock"))?];
-        for name in [
-            "launch.lock",
-            "com.hyprnote.stable.running.lock",
-            "com.hyprnote.nightly.running.lock",
+        let mut files = Vec::new();
+        for path in [
+            suffix(&canonical, ".gpui.lock"),
+            parent.join("launch.lock"),
+            parent.join("com.hyprnote.stable.running.lock"),
+            parent.join("com.hyprnote.nightly.running.lock"),
         ] {
-            files.push(lock(&parent.join(name))?);
+            match lock(&path)? {
+                Some(file) => files.push(file),
+                None => return Ok(Err(path)),
+            }
         }
-        Ok(Self { _files: files })
+        Ok(Ok(Self { _files: files }))
     }
 }
 
-pub(crate) async fn open(profile: &Profile) -> Result<Arc<Db>> {
+/// Opens like the shipping app: the bundled sqlite-sync extension loaded, so a database that
+/// ran sqlite-sync opens and migrates, retrying while the previous process still holds it.
+pub(crate) async fn open(
+    profile: &Profile,
+    mut progress: impl FnMut(StartupStatus) + Send,
+) -> Result<Arc<Db>> {
     let mut retries = 0;
     let db = loop {
-        match Db::open(DbOpenOptions {
-            storage: DbStorage::Local(&profile.database),
-            cloudsync_enabled: false,
-            journal_mode_wal: true,
-            foreign_keys: true,
-            max_connections: Some(crate::DATABASE_POOL_SIZE),
-        })
+        match anlg_db_core::open_app_db(
+            DbStorage::Local(&profile.database),
+            crate::DATABASE_POOL_SIZE,
+        )
         .await
         {
             Ok(db) => break Arc::new(db),
             Err(error) => {
                 let text = error.to_string();
-                if retries < 12
+                if retries < DB_OPEN_LOCK_RETRIES
                     && (text.contains("database is locked")
                         || text.contains("database table is locked"))
                 {
                     retries += 1;
-                    tokio::time::sleep(Duration::from_secs(5)).await;
+                    tokio::time::sleep(DB_OPEN_LOCK_RETRY_DELAY).await;
                 } else {
                     return Err(failure(error));
                 }
             }
         }
     };
-    let executor = DbExecutor::new(db.clone());
-    let initialized = executor.execute(
-        "SELECT 1 AS initialized FROM sqlite_master WHERE (type = 'table' AND name = 'cloudsync_table_settings') OR (type = 'trigger' AND instr(replace(lower(COALESCE(sql, '')), 'cloudsync_workspace_binding', ''), 'cloudsync_') > 0) LIMIT 1".into(),
-        vec![],
-    ).await.map_err(failure);
-    match initialized {
-        Ok(rows) if rows.is_empty() => {}
-        result => {
-            db.pool().close().await;
-            return Err(result.err().unwrap_or_else(|| ServiceError::Unsupported(
-                "This profile contains an initialized CloudSync replica. A native sync bootstrap is required; the database has not been migrated.".into(),
-            )));
-        }
-    }
-    if let Err(error) = anlg_db_app::prepare_schema(&db).await {
+    let prepared = anlg_db_app::prepare_schema_with_progress(&db, |migration| {
+        progress(if migration.completed < migration.total {
+            StartupStatus::Migrating {
+                current: migration.completed + 1,
+                total: migration.total,
+            }
+        } else {
+            StartupStatus::Opening
+        })
+    })
+    .await;
+    if let Err(error) = prepared {
         db.pool().close().await;
         return Err(failure(error));
     }
     Ok(db)
 }
 
-pub(crate) fn check_reset(profile: &Profile) -> Result<()> {
+/// Shipping's "Start fresh" leaves a marker for the next launch. Its data moves the database
+/// aside the way shipping does; an isolated profile refuses to open instead.
+pub(crate) fn check_reset(profile: &Profile, startup: &Startup) -> Result<()> {
+    if startup.apply_reset {
+        let directory = profile
+            .database
+            .parent()
+            .ok_or_else(|| failure("Database path must include a directory"))?;
+        if let Some(backup) = anlg_desktop_identity::paths::apply_pending_database_reset(directory)
+            .map_err(failure)?
+        {
+            tracing::info!(backup = %backup.display(), "moved the database aside for a fresh start");
+        }
+        return Ok(());
+    }
     if suffix(&profile.database, ".reset-requested").exists() {
         return Err(ServiceError::Unsupported(
             "A database reset is pending. Preserve this profile and finish the reset in the shipping application before copying it again.".into(),

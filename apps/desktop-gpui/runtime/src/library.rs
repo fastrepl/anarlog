@@ -109,7 +109,8 @@ fn tag_locale(name: Option<&str>) -> Locale {
 }
 
 pub(crate) struct Cache {
-    observer: SqliteConnection,
+    /// `None` once shutdown closed it.
+    observer: Option<SqliteConnection>,
     version: i64,
     pages: VecDeque<(PageKey, LibraryPage)>,
     bytes: usize,
@@ -126,16 +127,24 @@ impl Cache {
         .await
         .map_err(failure)?;
         Ok(Self {
-            observer,
+            observer: Some(observer),
             version: -1,
             pages: VecDeque::new(),
             bytes: 0,
         })
     }
 
+    /// Shutdown closes the observer with the pool, so no connection outlives it.
+    pub(crate) async fn close(&mut self) {
+        if let Some(observer) = self.observer.take() {
+            let _ = observer.close().await;
+        }
+    }
+
     async fn version(&mut self) -> Result<i64> {
+        let observer = self.observer.as_mut().ok_or(ServiceError::Closed)?;
         sqlx::query_scalar("PRAGMA data_version")
-            .fetch_one(&mut self.observer)
+            .fetch_one(observer)
             .await
             .map_err(failure)
     }

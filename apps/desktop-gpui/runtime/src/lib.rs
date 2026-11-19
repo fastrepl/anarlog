@@ -16,7 +16,7 @@ use std::{
     panic::AssertUnwindSafe,
     path::PathBuf,
     sync::{Arc, Mutex, atomic::Ordering},
-    time::Instant,
+    time::{Duration, Instant},
 };
 
 use anlg_db_core::Db;
@@ -41,6 +41,43 @@ pub struct Profile {
     pub database: PathBuf,
 }
 
+/// How startup treats a profile that another app may also open.
+#[derive(Clone, Debug, Default)]
+pub struct Startup {
+    /// How long to wait for another process to release the profile's locks; zero refuses at
+    /// once.
+    pub lock_wait: Duration,
+    /// Apply a pending reset the shipping app requested, instead of refusing to open.
+    pub apply_reset: bool,
+    /// Notes, recordings and attachments; `vault` beside the database when unset.
+    pub vault: Option<PathBuf>,
+}
+
+impl Startup {
+    /// The shipping app's data in place. Its update relaunch starts this app before the
+    /// replaced one has exited, so its locks are waited for.
+    pub fn shipping(vault: PathBuf) -> Self {
+        Self {
+            lock_wait: Duration::from_secs(60),
+            apply_reset: true,
+            vault: Some(vault),
+        }
+    }
+}
+
+/// What a starting runtime is doing, for a long-load notice.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum StartupStatus {
+    Opening,
+    /// Another process holds the profile, such as the app an update is replacing.
+    WaitingForLock,
+    /// Migration `current` of `total` is running.
+    Migrating {
+        current: usize,
+        total: usize,
+    },
+}
+
 #[derive(Clone, Debug)]
 pub enum RuntimeState {
     Starting,
@@ -55,6 +92,8 @@ pub enum RuntimeState {
 pub struct Services {
     pub db: Arc<Db>,
     pub executor: DbExecutor,
+    /// Notes, recordings and attachments.
+    pub vault: Arc<PathBuf>,
     pub shutdown_requested: CancellationToken,
     database: mpsc::Sender<Command>,
     watch_slots: Arc<Semaphore>,
@@ -108,6 +147,7 @@ pub struct RuntimeHandle {
     admission: Arc<Mutex<bool>>,
     shutdown_requested: CancellationToken,
     state: state::Receiver<RuntimeState>,
+    startup: state::Receiver<StartupStatus>,
     metrics: Arc<metrics::Metrics>,
     _owner: Arc<Owner>,
 }
@@ -124,10 +164,15 @@ impl Drop for Owner {
 
 impl RuntimeHandle {
     pub fn start(profile: Profile) -> std::io::Result<(Self, Reply<()>)> {
+        Self::start_with(profile, Startup::default())
+    }
+
+    pub fn start_with(profile: Profile, startup: Startup) -> std::io::Result<(Self, Reply<()>)> {
         let (sender, receiver) = mpsc::channel(QUEUE_CAPACITY);
         let (service_sender, service_receiver) = mpsc::channel(SERVICE_CAPACITY);
         let (ready_tx, ready_rx) = oneshot::channel();
         let (state_tx, state) = state::channel(RuntimeState::Starting);
+        let (status_tx, status) = state::channel(StartupStatus::Opening);
         let shutdown_requested = CancellationToken::new();
         let handle = Self {
             sender,
@@ -135,6 +180,7 @@ impl RuntimeHandle {
             admission: Arc::new(Mutex::new(true)),
             shutdown_requested: shutdown_requested.clone(),
             state,
+            startup: status,
             metrics: Arc::new(metrics::Metrics::default()),
             _owner: Arc::new(Owner(shutdown_requested.clone())),
         };
@@ -158,13 +204,27 @@ impl RuntimeHandle {
                 };
                 runtime.block_on(async move {
                     let startup = async {
-                        let lease = startup::ProfileLease::acquire(&profile)?;
-                        startup::check_reset(&profile)?;
-                        let db = startup::open(&profile).await?;
+                        let lease = startup::ProfileLease::acquire(&profile, &startup, || {
+                            status_tx.send_replace(StartupStatus::WaitingForLock);
+                        })
+                        .await?;
+                        status_tx.send_replace(StartupStatus::Opening);
+                        startup::check_reset(&profile, &startup)?;
+                        let db = startup::open(&profile, |status| {
+                            status_tx.send_replace(status);
+                        })
+                        .await?;
+                        let vault = startup.vault.clone().unwrap_or_else(|| {
+                            let parent = profile.database.parent().unwrap_or(&profile.database);
+                            std::fs::canonicalize(parent)
+                                .unwrap_or_else(|_| parent.to_path_buf())
+                                .join("vault")
+                        });
                         Ok::<_, ServiceError>((
                             lease,
                             Services {
                                 executor: DbExecutor::new(db.clone()),
+                                vault: Arc::new(vault),
                                 watches: Arc::new(watch::WatchRegistry::new(db.clone())),
                                 metrics: worker_metrics,
                                 library: Arc::new(tokio::sync::Mutex::new(
@@ -199,6 +259,10 @@ impl RuntimeHandle {
 
     pub fn state(&self) -> state::Receiver<RuntimeState> {
         self.state.clone()
+    }
+
+    pub fn startup(&self) -> state::Receiver<StartupStatus> {
+        self.startup.clone()
     }
 
     pub fn metrics(&self) -> RuntimeMetrics {

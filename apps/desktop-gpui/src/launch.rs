@@ -7,7 +7,7 @@
 
 use std::{ffi::OsString, path::PathBuf};
 
-use anlg_desktop_identity::Channel;
+use anlg_desktop_identity::{Channel, Locations};
 
 use crate::platform::deeplinks::SCHEMES;
 
@@ -48,6 +48,26 @@ pub struct Storage {
     pub root: PathBuf,
     /// Where a sandbox records that its profile moved. Channel data never moves.
     pub pointer: Option<PathBuf>,
+}
+
+impl Storage {
+    /// The shipping channel's data in place.
+    pub fn channel(channel: Channel, locations: &Locations) -> Self {
+        Self {
+            channel: Some(channel),
+            root: locations.base.clone(),
+            pointer: None,
+        }
+    }
+
+    /// Notes, recordings and attachments. Shipping keeps them in its data folder itself; a
+    /// sandbox profile keeps them in `vault`.
+    pub fn vault(&self) -> PathBuf {
+        match self.channel {
+            Some(_) => self.root.clone(),
+            None => self.root.join("vault"),
+        }
+    }
 }
 
 /// Accepts every argument the shipping app is launched with: the login item's `--background`,
@@ -231,5 +251,38 @@ mod tests {
                 Launch::CrashReporter
             );
         }
+    }
+
+    /// Shipping's `global_base` (settings, models) and `vault_base` (notes, recordings,
+    /// attachments) are both its settings base; nightly's differs from the database folder.
+    #[test]
+    fn channel_files_are_where_shipping_keeps_them() {
+        let data = tempfile::tempdir().unwrap();
+        let local = tempfile::tempdir().unwrap();
+        for channel in [
+            Channel::Dev,
+            Channel::Staging,
+            Channel::Nightly,
+            Channel::Stable,
+        ] {
+            let is_debug = channel == Channel::Dev;
+            let shipping = anlg_storage::global::compute_default_base_in(
+                data.path(),
+                channel.identifier(),
+                is_debug,
+            );
+            let locations =
+                Locations::resolve_in(data.path(), local.path(), channel.identifier(), is_debug);
+            let storage = Storage::channel(channel, &locations);
+            assert_eq!(storage.root, shipping, "{channel:?}");
+            assert_eq!(storage.vault(), shipping, "{channel:?}");
+            assert_eq!(storage.pointer, None);
+        }
+        let sandbox = Storage {
+            channel: None,
+            root: PathBuf::from("/profile"),
+            pointer: None,
+        };
+        assert_eq!(sandbox.vault(), PathBuf::from("/profile/vault"));
     }
 }
