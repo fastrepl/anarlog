@@ -35,12 +35,21 @@ pub fn configure_when_paid(services: ProviderServices, cx: &mut gpui::App) -> Su
         let now = super::account::is_paid(cx);
         if now && !paid {
             let services = services.clone();
-            cx.spawn(async move |_| {
-                if let Err(error) = configure_paid(&services).await {
-                    tracing::warn!(%error, "paid AI defaults were not saved");
-                }
-            })
-            .detach();
+            // The API key lookup needs Tokio, so the whole check runs as a runtime job.
+            match services
+                .runtime
+                .clone()
+                .service(move |_| async move { configure_paid(&services).await })
+            {
+                Ok(reply) => cx
+                    .spawn(async move |_| {
+                        if let Err(error) = reply.receive().await {
+                            tracing::warn!(%error, "paid AI defaults were not saved");
+                        }
+                    })
+                    .detach(),
+                Err(error) => tracing::warn!(%error, "paid AI defaults were not saved"),
+            }
         }
         paid = now;
     };
@@ -48,7 +57,61 @@ pub fn configure_when_paid(services: ProviderServices, cx: &mut gpui::App) -> Su
     cx.observe_global::<super::account::Account>(check)
 }
 
+/// The settings `configure_paid` may write.
+const PAID_KEYS: [&str; 4] = [
+    "current_stt_provider",
+    "current_stt_model",
+    "current_llm_provider",
+    "current_llm_model",
+];
+
 async fn configure_paid(services: &ProviderServices) -> Result<()> {
+    let statements = paid_defaults(services).await?;
+    if statements.is_empty() {
+        return Ok(());
+    }
+    services
+        .runtime
+        .submit(move |services| async move {
+            services
+                .executor
+                .execute_transaction(statements)
+                .await
+                .map_err(failure)?;
+            Ok(())
+        })?
+        .receive()
+        .await
+}
+
+/// The writes that give a paid account Anarlog's hosted models where it has no usable choice.
+/// Each applies only while its setting still holds the value read here, so a choice saved in
+/// between wins and the whole fallback rolls back.
+async fn paid_defaults(services: &ProviderServices) -> Result<Vec<TransactionStatement>> {
+    // Read before deciding: a save landing after this read fails the comparison below.
+    let stored = services
+        .runtime
+        .submit(|services| async move {
+            let rows = services
+                .executor
+                .execute(
+                    "SELECT id, value_json FROM app_settings WHERE id IN (?,?,?,?)".into(),
+                    PAID_KEYS.iter().map(|key| json!(key)).collect(),
+                )
+                .await
+                .map_err(failure)?;
+            Ok(rows
+                .iter()
+                .filter_map(|row| {
+                    Some((
+                        row["id"].as_str()?.to_owned(),
+                        row["value_json"].as_str()?.to_owned(),
+                    ))
+                })
+                .collect::<BTreeMap<_, _>>())
+        })?
+        .receive()
+        .await?;
     let preferences = crate::meeting::config::preferences(&services.runtime).await?;
     let mut values = Vec::new();
     if preferences.text("current_stt_provider").is_empty() {
@@ -63,29 +126,22 @@ async fn configure_paid(services: &ProviderServices) -> Result<()> {
             ("current_llm_model", "Auto"),
         ]);
     }
-    if values.is_empty() {
-        return Ok(());
+    Ok(values
+        .into_iter()
+        .map(|(key, value)| {
+            compare_and_set(key, &json!(value), stored.get(key).map(String::as_str))
+        })
+        .collect())
+}
+
+/// Writes `key` only while it still holds `original` (`None`: absent), else affects no row,
+/// which fails the transaction's expected row count.
+fn compare_and_set(key: &str, value: &Value, original: Option<&str>) -> TransactionStatement {
+    TransactionStatement {
+        sql: "INSERT INTO app_settings (id,value_json,updated_at) SELECT ?1,?2,strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE (SELECT value_json FROM app_settings WHERE id=?1) IS ?3 ON CONFLICT(id) DO UPDATE SET value_json=excluded.value_json,updated_at=excluded.updated_at".into(),
+        params: vec![json!(key), json!(value.to_string()), json!(original)],
+        expected_rows_affected: Some(1),
     }
-    services
-        .runtime
-        .submit(move |services| async move {
-            let statements = values
-                .into_iter()
-                .map(|(key, value)| TransactionStatement {
-                    sql: "INSERT INTO app_settings (id,value_json,updated_at) VALUES (?,?,strftime('%Y-%m-%dT%H:%M:%fZ','now')) ON CONFLICT(id) DO UPDATE SET value_json=excluded.value_json,updated_at=excluded.updated_at".into(),
-                    params: vec![json!(key), json!(json!(value).to_string())],
-                    expected_rows_affected: Some(1),
-                })
-                .collect();
-            services
-                .executor
-                .execute_transaction(statements)
-                .await
-                .map_err(failure)?;
-            Ok(())
-        })?
-        .receive()
-        .await
 }
 
 /// Shipping's `shouldUseHostedLlm`: the saved language model is missing, unknown, or its
@@ -230,11 +286,7 @@ impl Snapshot {
     }
 
     fn upsert(&self, key: String, value: Value) -> TransactionStatement {
-        TransactionStatement {
-            sql: "INSERT INTO app_settings (id,value_json,updated_at) SELECT ?1,?2,strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE (SELECT value_json FROM app_settings WHERE id=?1) IS ?3 ON CONFLICT(id) DO UPDATE SET value_json=excluded.value_json,updated_at=excluded.updated_at".into(),
-            params: vec![json!(key), json!(value.to_string()), json!(self.values.get(&key))],
-            expected_rows_affected: Some(1),
-        }
+        compare_and_set(&key, &value, self.values.get(&key).map(String::as_str))
     }
 }
 
@@ -1416,7 +1468,10 @@ mod tests {
             api_url: String::new(),
             cloud: Arc::new(|| Box::pin(async { Err(ServiceError::Closed) })),
             local: Arc::new(|_| Box::pin(async { Err(ServiceError::Closed) })),
-            secret: Arc::new(|_, _| Box::pin(async { Ok(None) })),
+            // Like the keyring resolver, which reads on Tokio's blocking pool.
+            secret: Arc::new(|_, _| {
+                Box::pin(async { tokio::task::spawn_blocking(|| None).await.map_err(failure) })
+            }),
             secret_write: Arc::new(|_, _, _| Box::pin(async { Ok(()) })),
         };
         let view = cx.new(|cx| ProviderView::new(services.clone(), cx));
@@ -1599,6 +1654,41 @@ mod tests {
         assert_eq!(fixture.setting("current_stt_model").unwrap(), "cloud");
         assert_eq!(fixture.setting("current_llm_provider").unwrap(), "anarlog");
         assert_eq!(fixture.setting("current_llm_model").unwrap(), "Auto");
+        fixture.shutdown();
+    }
+
+    #[gpui::test]
+    fn a_choice_saved_while_paid_defaults_are_decided_is_kept(cx: &mut TestAppContext) {
+        let fixture = fixture(cx);
+        let services = fixture.services.clone();
+        // Decided with nothing saved, so both kinds would get Anarlog.
+        let statements = futures::executor::block_on(
+            fixture
+                .runtime
+                .service(move |_| async move { paid_defaults(&services).await })
+                .unwrap()
+                .receive(),
+        )
+        .unwrap();
+        assert!(!statements.is_empty());
+        // The user saves a provider before those defaults are written.
+        fixture.pick("deepgram", cx);
+        let written = futures::executor::block_on(
+            fixture
+                .runtime
+                .submit(move |services| async move {
+                    services
+                        .executor
+                        .execute_transaction(statements)
+                        .await
+                        .map_err(failure)
+                })
+                .unwrap()
+                .receive(),
+        );
+        assert!(written.is_err(), "the stale defaults are rejected");
+        assert_eq!(fixture.setting("current_stt_provider").unwrap(), "deepgram");
+        assert_eq!(fixture.setting("current_llm_provider"), None);
         fixture.shutdown();
     }
 
