@@ -630,6 +630,7 @@ impl ImportsView {
         &self,
         provider: &'static Provider,
         colors: &Theme,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let row = self.rows.get(provider.id);
@@ -856,9 +857,14 @@ impl ImportsView {
             .items_center()
             .gap_1()
             .child(group.child(caret))
-            .when(menu_open, |view| {
-                view.child(dropdown(menu_panel(160., colors).children(items), true))
-            })
+            .child(dropdown(
+                SharedString::from(format!("import-menu-{id}")),
+                menu_open.then(|| menu_panel(colors).w(px(160.)).children(items)),
+                true,
+                |this: &mut Self| this.menu = None,
+                window,
+                cx,
+            ))
             .into_any_element()
     }
 
@@ -937,6 +943,7 @@ impl ImportsView {
         provider: &'static Provider,
         first: bool,
         colors: &Theme,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Div {
         let open = self.rows.get(provider.id).is_some_and(|row| row.open);
@@ -984,7 +991,7 @@ impl ImportsView {
                                     }),
                             ),
                     )
-                    .child(self.control(provider, colors, cx)),
+                    .child(self.control(provider, colors, window, cx)),
             )
             .when(open, |row| row.child(self.content(provider, colors)))
     }
@@ -1074,39 +1081,11 @@ impl Render for ImportsView {
                             )
                         })
                         .children(providers.iter().enumerate().map(|(index, provider)| {
-                            self.provider_row(provider, index == 0, &colors, cx)
+                            self.provider_row(provider, index == 0, &colors, window, cx)
                         })),
                 )
             });
-        div()
-            .flex()
-            .flex_col()
-            .gap_8()
-            .child(title)
-            .child(screen)
-            .when(self.menu.is_some(), |view| {
-                view.child(
-                    gpui::deferred(
-                        gpui::anchored()
-                            .position(gpui::point(px(0.), px(0.)))
-                            .child(
-                                div()
-                                    .id("imports-menu-backdrop")
-                                    .w(window.viewport_size().width)
-                                    .h(window.viewport_size().height)
-                                    .occlude()
-                                    .on_mouse_down(
-                                        gpui::MouseButton::Left,
-                                        cx.listener(|this, _, _, cx| {
-                                            this.menu = None;
-                                            cx.notify();
-                                        }),
-                                    ),
-                            ),
-                    )
-                    .with_priority(0),
-                )
-            })
+        div().flex().flex_col().gap_8().child(title).child(screen)
     }
 }
 

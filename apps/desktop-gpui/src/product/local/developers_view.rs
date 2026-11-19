@@ -661,7 +661,7 @@ fn agent_icon(agent: SkillAgent, dark: bool, colors: &Theme) -> AnyElement {
 }
 
 impl DevelopersView {
-    fn cli_section(&mut self, colors: &Theme, cx: &mut Context<Self>) -> Div {
+    fn cli_section(&mut self, colors: &Theme, window: &mut Window, cx: &mut Context<Self>) -> Div {
         let status = match &self.cli {
             Load::Ready(status) => Some(status.clone()),
             _ => None,
@@ -804,11 +804,11 @@ impl DevelopersView {
                     .gap_4()
                     .child(cli)
                     .child(mcp)
-                    .child(self.skills_row(colors, cx)),
+                    .child(self.skills_row(colors, window, cx)),
             )
     }
 
-    fn skills_row(&mut self, colors: &Theme, cx: &mut Context<Self>) -> Div {
+    fn skills_row(&mut self, colors: &Theme, window: &mut Window, cx: &mut Context<Self>) -> Div {
         let enabled = !self.agents.is_empty() && !self.adding_skill;
         let trigger = button("add-skill", Variant::Outline, enabled, colors)
             .a11y_button("Add skill to…")
@@ -835,12 +835,14 @@ impl DevelopersView {
                     .mt_1()
                     .child("Teach coding agents when and how to use the Anarlog CLI and MCP"),
             ),
-            div()
-                .relative()
-                .child(trigger)
-                .when(self.skill_menu, |view| {
-                    view.child(controls::dropdown(self.skill_menu(colors, cx), true))
-                }),
+            div().relative().child(trigger).child(controls::dropdown(
+                "add-skill-menu",
+                self.skill_menu.then(|| self.skill_menu(colors, cx)),
+                true,
+                |this: &mut Self| this.skill_menu = false,
+                window,
+                cx,
+            )),
         )
     }
 
@@ -877,10 +879,6 @@ impl DevelopersView {
             .text_color(colors.popover_foreground)
             .shadow_lg()
             .occlude()
-            .on_mouse_down_out(cx.listener(|this, _, _, cx| {
-                this.skill_menu = false;
-                cx.notify();
-            }))
             .child(
                 div()
                     .p(px(6.))
@@ -1384,7 +1382,7 @@ impl Render for DevelopersView {
                             .on_click(|_, _, cx| cx.open_url(GUIDE_URL)),
                     ),
             )
-            .child(self.cli_section(&colors, cx))
+            .child(self.cli_section(&colors, window, cx))
             .child(self.cloud_section(&colors, cx))
             .child(self.webhooks_section(&colors, cx))
     }

@@ -2,8 +2,11 @@
 //! (`settings/page-title.tsx`, `settings/setting-row.tsx`, and the `@anlg/ui` switch, button,
 //! and select). Sizes follow the Tailwind classes those components use.
 
+use std::rc::Rc;
+
 use gpui::{
-    App, ClickEvent, Div, ElementId, FontWeight, SharedString, Stateful, Window, deferred, div,
+    AnyElement, App, ClickEvent, Context, Div, ElementId, FocusHandle, FontWeight, KeyDownEvent,
+    MouseDownEvent, Pixels, SharedString, Stateful, Window, canvas, deferred, div, point,
     prelude::*, px, svg,
 };
 
@@ -249,34 +252,154 @@ pub fn select_trigger(
         .when(enabled, |view| view.cursor_pointer())
 }
 
-/// Places `menu` directly under the element it is attached to, above all other content.
-pub fn dropdown(menu: impl IntoElement, align_end: bool) -> Div {
-    div()
-        .absolute()
-        .top_full()
-        .when(!align_end, |view| view.left_0())
-        .when(align_end, |view| view.right_0())
-        .child(
-            deferred(
-                gpui::anchored()
-                    .anchor(if align_end {
-                        gpui::Anchor::TopRight
-                    } else {
-                        gpui::Anchor::TopLeft
-                    })
-                    .snap_to_window_with_margin(px(8.))
-                    .child(menu),
-            )
-            .with_priority(1),
-        )
+/// What a dropdown keeps between frames: its trigger's width, measured while drawn, and the
+/// focus it takes while open.
+struct DropdownState {
+    trigger: Pixels,
+    focus: FocusHandle,
+    /// The focus from before the menu opened, given back when it closes; `Some` while open.
+    restore: Option<Option<FocusHandle>>,
 }
 
-pub fn menu_panel(width: f32, colors: &Theme) -> Stateful<Div> {
+/// Floats `menu` under the element it is attached to, which must be a `relative` wrapper
+/// around the trigger, above all other content and at least as wide as the trigger
+/// (`min-w-(--radix-select-trigger-width)`). As with Radix menus, a click outside closes it
+/// without reaching the page, and it takes focus while open so Escape closes it too; focus
+/// goes back when it closes. Render it with `None` while closed so the trigger stays measured.
+pub fn dropdown<T: 'static>(
+    id: impl Into<ElementId>,
+    menu: Option<impl IntoElement>,
+    align_end: bool,
+    close: impl Fn(&mut T) + 'static,
+    window: &mut Window,
+    cx: &mut Context<T>,
+) -> AnyElement {
+    let state = window.use_keyed_state(id, cx, |_, cx| DropdownState {
+        trigger: px(0.),
+        focus: cx.focus_handle(),
+        restore: None,
+    });
+    let open = menu.is_some();
+    let previous = window.focused(cx);
+    let (focus, trigger, opening, closing) = state.update(cx, |state, _| {
+        let opening = open && state.restore.is_none();
+        if opening {
+            state.restore = Some(previous);
+        }
+        let closing = if open { None } else { state.restore.take() };
+        (state.focus.clone(), state.trigger, opening, closing)
+    });
+    if opening {
+        // Once this frame is drawn, unless focus already landed inside, as in a menu's search.
+        let focus = focus.clone();
+        window.defer(cx, move |window, cx| {
+            if !focus.contains_focused(window, cx) {
+                focus.focus(window, cx);
+            }
+        });
+    }
+    if let Some(previous) = closing.filter(|_| focus.contains_focused(window, cx)) {
+        window.defer(cx, move |window, cx| match previous {
+            Some(previous) => previous.focus(window, cx),
+            None => window.blur(cx),
+        });
+    }
+    let measure = canvas(
+        move |bounds, _, cx| {
+            state.update(cx, |state, cx| {
+                if state.trigger != bounds.size.width {
+                    state.trigger = bounds.size.width;
+                    if open {
+                        cx.notify();
+                    }
+                }
+            })
+        },
+        |_, _, _, _| {},
+    )
+    .absolute()
+    .size_full();
+    let close = Rc::new(close);
+    let menu = menu.map(|menu| {
+        let backdrop = {
+            let close = close.clone();
+            backdrop(move |this| close(this), window, cx)
+        };
+        let on_key = cx.listener(move |this, event: &KeyDownEvent, _, cx| {
+            if event.keystroke.key == "escape" {
+                close(this);
+                cx.stop_propagation();
+                cx.notify();
+            }
+        });
+        div()
+            .absolute()
+            .top_full()
+            .when(!align_end, |view| view.left_0())
+            .when(align_end, |view| view.right_0())
+            .child(backdrop)
+            .child(
+                deferred(
+                    gpui::anchored()
+                        .anchor(if align_end {
+                            gpui::Anchor::TopRight
+                        } else {
+                            gpui::Anchor::TopLeft
+                        })
+                        .snap_to_window_with_margin(px(8.))
+                        .child(
+                            div()
+                                .id("dropdown")
+                                .track_focus(&focus)
+                                .min_w(trigger)
+                                .on_key_down(on_key)
+                                .child(menu),
+                        ),
+                )
+                .with_priority(1),
+            )
+    });
+    div()
+        .absolute()
+        .inset_0()
+        .child(measure)
+        .children(menu)
+        .into_any_element()
+}
+
+/// A transparent layer over the window, under a menu drawn after it, that calls `close` on a
+/// press anywhere outside the menu and keeps the press from reaching the page, as Radix's
+/// modal menus do.
+pub fn backdrop<T: 'static>(
+    close: impl Fn(&mut T) + 'static,
+    window: &Window,
+    cx: &mut Context<T>,
+) -> gpui::Deferred {
+    let viewport = window.viewport_size();
+    deferred(
+        gpui::anchored().position(point(px(0.), px(0.))).child(
+            div()
+                .id("menu-backdrop")
+                .w(viewport.width)
+                .h(viewport.height)
+                .occlude()
+                .on_any_mouse_down(cx.listener(move |this, _: &MouseDownEvent, _, cx| {
+                    close(this);
+                    cx.stop_propagation();
+                    cx.notify();
+                })),
+        ),
+    )
+    .with_priority(1)
+}
+
+/// `SelectContent`: as wide as its widest item, and at least as wide as the trigger once
+/// [`dropdown`] places it.
+pub fn menu_panel(colors: &Theme) -> Stateful<Div> {
     div()
         .id("menu-panel")
         .role(gpui::Role::ListBox)
         .mt_1()
-        .w(px(width))
         .p_1()
         .flex()
         .flex_col()
@@ -288,7 +411,67 @@ pub fn menu_panel(width: f32, colors: &Theme) -> Stateful<Div> {
         .occlude()
 }
 
+/// `SelectItem`: `pl-2 pr-8`, with the selected row's check drawn inside the right padding
+/// (`absolute right-2`) so it never moves the row's content.
+pub fn select_item(
+    id: impl Into<ElementId>,
+    label: SharedString,
+    selected: bool,
+    colors: &Theme,
+) -> Stateful<Div> {
+    let hover = colors.accent;
+    div()
+        .id(id)
+        .a11y_option(label, selected)
+        .relative()
+        .w_full()
+        .py(px(6.))
+        .pl_2()
+        .pr_8()
+        .flex()
+        .items_center()
+        .gap_2()
+        .text_sm()
+        .cursor_pointer()
+        .hover(move |style| style.bg(hover))
+        .when(selected, |view| {
+            view.child(
+                div()
+                    .absolute()
+                    .top_0()
+                    .bottom_0()
+                    .right_2()
+                    .flex()
+                    .items_center()
+                    .child(icon("product/CheckIcon.svg", 16., colors.foreground)),
+            )
+        })
+}
+
+/// A [`select_item`] showing `label`, with `detail` at its right edge.
 pub fn menu_item(
+    id: impl Into<ElementId>,
+    label: impl Into<SharedString>,
+    detail: Option<SharedString>,
+    selected: bool,
+    colors: &Theme,
+) -> Stateful<Div> {
+    let label = label.into();
+    select_item(id, option_name(&label, &detail), selected, colors)
+        .child(div().flex_1().min_w_0().truncate().child(label))
+        .when_some(detail, |view, detail| {
+            view.child(
+                div()
+                    .text_xs()
+                    .text_color(colors.muted_foreground)
+                    .child(detail),
+            )
+        })
+}
+
+/// A searchable select's `CommandItem` (`settings/general/searchable-select.tsx`): `px-2`,
+/// with the check after the detail on the selected row only, so no row reserves its space.
+pub fn command_item(
     id: impl Into<ElementId>,
     label: impl Into<SharedString>,
     detail: Option<SharedString>,
@@ -299,17 +482,10 @@ pub fn menu_item(
     let label = label.into();
     div()
         .id(id)
-        .a11y_option(
-            match &detail {
-                Some(detail) => SharedString::from(format!("{label}, {detail}")),
-                None => label.clone(),
-            },
-            selected,
-        )
+        .a11y_option(option_name(&label, &detail), selected)
         .w_full()
         .py(px(6.))
-        .pl_2()
-        .pr_2()
+        .px_2()
         .flex()
         .items_center()
         .gap_2()
@@ -320,12 +496,83 @@ pub fn menu_item(
         .when_some(detail, |view, detail| {
             view.child(
                 div()
+                    .flex_shrink_0()
                     .text_xs()
                     .text_color(colors.muted_foreground)
                     .child(detail),
             )
         })
-        .child(div().size(px(16.)).flex_shrink_0().when(selected, |view| {
+        .when(selected, |view| {
             view.child(icon("product/CheckIcon.svg", 16., colors.foreground))
-        }))
+        })
+}
+
+fn option_name(label: &SharedString, detail: &Option<SharedString>) -> SharedString {
+    match detail {
+        Some(detail) => format!("{label}, {detail}").into(),
+        None => label.clone(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use gpui::{Modifiers, MouseButton, TestAppContext, VisualTestContext};
+
+    use super::*;
+
+    struct Picker {
+        open: bool,
+    }
+
+    impl Render for Picker {
+        fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+            let colors = crate::ui::theme::theme(window);
+            div().size_full().child(
+                div()
+                    .relative()
+                    .w(px(160.))
+                    .h(px(36.))
+                    .child(div().id("trigger").size_full().on_click(cx.listener(
+                        |this, _, _, cx| {
+                            this.open = !this.open;
+                            cx.notify();
+                        },
+                    )))
+                    .child(dropdown(
+                        "menu",
+                        self.open.then(|| {
+                            menu_panel(&colors)
+                                .child(menu_item("item", "Item", None, false, &colors))
+                        }),
+                        false,
+                        |this: &mut Self| this.open = false,
+                        window,
+                        cx,
+                    )),
+            )
+        }
+    }
+
+    #[gpui::test]
+    fn an_open_dropdown_closes_on_escape_and_on_a_press_outside(cx: &mut TestAppContext) {
+        let (picker, cx) = cx.add_window_view(|_, _| Picker { open: false });
+        let open = |cx: &mut VisualTestContext| {
+            // Draw, so the open menu takes focus once the frame is done.
+            cx.update(|window, cx| window.draw(cx).clear(cx));
+            cx.run_until_parked();
+            picker.read_with(cx, |picker, _| picker.open)
+        };
+        cx.simulate_click(point(px(20.), px(18.)), Modifiers::none());
+        assert!(open(cx));
+        cx.simulate_keystrokes("escape");
+        assert!(!open(cx), "Escape closes the menu");
+        cx.simulate_click(point(px(20.), px(18.)), Modifiers::none());
+        assert!(open(cx));
+        cx.simulate_mouse_down(
+            point(px(400.), px(300.)),
+            MouseButton::Left,
+            Modifiers::none(),
+        );
+        assert!(!open(cx), "a press outside closes the menu");
+    }
 }

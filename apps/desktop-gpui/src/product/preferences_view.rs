@@ -7,8 +7,8 @@ use std::{
 use desktop_runtime::{CancellationToken, RuntimeHandle, ServiceError};
 use futures::future::{Either, select};
 use gpui::{
-    AnyElement, Context, Entity, EventEmitter, Focusable, KeyDownEvent, MouseButton, Render,
-    SharedString, Subscription, Window, deferred, div, point, prelude::*, px,
+    AnyElement, Context, Entity, EventEmitter, Focusable, KeyDownEvent, Render, SharedString,
+    Subscription, Window, div, prelude::*, px,
 };
 use serde_json::Value;
 
@@ -468,6 +468,9 @@ impl PreferencesView {
         .into_any_element()
     }
 
+    /// A select, or with `searchable` a `SearchableSelect`. Searchable menus are `width` wide
+    /// (shipping's trigger width, or `w-72`); others fit their items and are at least as wide
+    /// as the trigger.
     #[allow(clippy::too_many_arguments)]
     pub(super) fn dropdown_select(
         &self,
@@ -529,7 +532,8 @@ impl PreferencesView {
                 })
                 .collect::<Vec<_>>();
             let empty = visible.is_empty();
-            controls::menu_panel(width.max(controls::CONTROL_WIDTH), &colors)
+            controls::menu_panel(&colors)
+                .when(searchable, |view| view.w(px(width)))
                 .when(searchable, |view| {
                     view.child(
                         div()
@@ -572,20 +576,29 @@ impl PreferencesView {
                         .children(visible.into_iter().map(|option| {
                             let value = option.value.to_string();
                             let on_select = on_select.clone();
-                            controls::menu_item(
-                                SharedString::from(format!("{id}-{value}")),
-                                option.label,
-                                option.detail,
-                                value == selected,
-                                &colors,
-                            )
-                            .on_click(cx.listener(
-                                move |this, _, _, cx| {
-                                    this.menu = None;
-                                    on_select(this, value.clone(), cx);
-                                    cx.notify();
-                                },
-                            ))
+                            let item_id = SharedString::from(format!("{id}-{value}"));
+                            let item = if searchable {
+                                controls::command_item(
+                                    item_id,
+                                    option.label,
+                                    option.detail,
+                                    value == selected,
+                                    &colors,
+                                )
+                            } else {
+                                controls::menu_item(
+                                    item_id,
+                                    option.label,
+                                    option.detail,
+                                    value == selected,
+                                    &colors,
+                                )
+                            };
+                            item.on_click(cx.listener(move |this, _, _, cx| {
+                                this.menu = None;
+                                on_select(this, value.clone(), cx);
+                                cx.notify();
+                            }))
                         })),
                 )
         });
@@ -593,33 +606,15 @@ impl PreferencesView {
             .relative()
             .w_full()
             .child(trigger)
-            .when_some(menu, |view, menu| {
-                view.child(controls::dropdown(menu, width > controls::CONTROL_WIDTH))
-            })
+            .child(controls::dropdown(
+                SharedString::from(format!("{id}-menu")),
+                menu,
+                width > controls::CONTROL_WIDTH,
+                |this: &mut Self| this.menu = None,
+                window,
+                cx,
+            ))
             .into_any_element()
-    }
-
-    /// Closes an open menu on any click outside it, without the click reaching the page.
-    fn backdrop(&self, window: &Window, cx: &mut Context<Self>) -> AnyElement {
-        let size = window.viewport_size();
-        deferred(
-            gpui::anchored().position(point(px(0.), px(0.))).child(
-                div()
-                    .id("settings-menu-backdrop")
-                    .w(size.width)
-                    .h(size.height)
-                    .occlude()
-                    .on_mouse_down(
-                        MouseButton::Left,
-                        cx.listener(|this, _, _, cx| {
-                            this.menu = None;
-                            cx.notify();
-                        }),
-                    ),
-            ),
-        )
-        .with_priority(0)
-        .into_any_element()
     }
 }
 
@@ -657,9 +652,6 @@ impl Render for PreferencesView {
                 view.child(div().text_sm().text_color(colors.destructive).child(status))
             })
             .child(page)
-            .when(self.menu.is_some(), |view| {
-                view.child(self.backdrop(window, cx))
-            })
     }
 }
 

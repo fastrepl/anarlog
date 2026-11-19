@@ -366,9 +366,10 @@ impl Render for ProfileCard {
                     cx.notify();
                 })),
             )
-            .when(self.menu, |view| {
-                view.child(controls::dropdown(
-                    controls::menu_panel(240., &colors)
+            .child(controls::dropdown(
+                "profile-company-menu",
+                self.menu.then(|| {
+                    controls::menu_panel(&colors)
                         .child(
                             controls::menu_item(
                                 "profile-company-none",
@@ -399,10 +400,13 @@ impl Render for ProfileCard {
                                     this.schedule_save(cx);
                                 },
                             ))
-                        })),
-                    false,
-                ))
-            });
+                        }))
+                }),
+                false,
+                |this: &mut Self| this.menu = false,
+                window,
+                cx,
+            ));
         div()
             .flex()
             .flex_col()

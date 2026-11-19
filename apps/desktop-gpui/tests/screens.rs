@@ -261,6 +261,9 @@ fn main() {
     ] {
         open(&mut cx, window, Route::Settings(page.into()));
         capture(&mut cx, window, &out, &format!("settings-{page}"));
+        if page == "transcription" {
+            provider_menus(&mut cx, window, &runtime, &out);
+        }
     }
     developers(&mut cx, window, &runtime, &out);
     chat_edits(&mut cx, window, &runtime, &out);
@@ -425,6 +428,29 @@ fn app_links_and_transcript_selection(
     capture(cx, window, out, "transcript-selection-speaker");
     type_text(cx, window, &["escape"]);
     click(cx, window, 330., 23.);
+}
+
+/// Settings › Transcription's provider and model menus, which are at least as wide as their
+/// triggers. Picking Deepgram saves it, so its rows are removed again afterwards.
+fn provider_menus(
+    cx: &mut HeadlessAppContext,
+    window: WindowHandle<ApplicationView>,
+    runtime: &RuntimeHandle,
+    out: &std::path::Path,
+) {
+    click(cx, window, 350., 143.);
+    capture(cx, window, out, "settings-transcription-provider-menu");
+    type_text(cx, window, &["escape"]);
+    click(cx, window, 350., 143.);
+    // Deepgram, the fifth provider.
+    click(cx, window, 350., 314.);
+    click(cx, window, 700., 143.);
+    capture(cx, window, out, "settings-transcription-model-menu");
+    type_text(cx, window, &["escape"]);
+    sql(
+        runtime,
+        "DELETE FROM app_settings WHERE id IN ('current_stt_provider', 'current_stt_model', 'ai_provider:stt:deepgram')",
+    );
 }
 
 /// A file picker that never opens: a stray click cannot show an OS dialog.
