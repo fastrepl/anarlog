@@ -96,17 +96,25 @@ mod test {
                 std::env::set_var("XDG_DATA_HOME", &primary);
             }
 
-            let mut paths = vec![primary.clone()];
-            if let Some(default_base) = anlg_storage::global::compute_default_base(&identifier) {
-                paths.push(default_base);
-            }
-
-            Self {
+            let mut vault = Self {
                 identifier,
                 previous_home,
                 previous_xdg_data_home,
-                paths,
+                paths: vec![primary.clone()],
+            };
+            // Windows' data folder ignores HOME, and a release build maps the synthetic identifier
+            // to the real `anarlog` folder there, which these tests would write and then delete.
+            let base = anlg_storage::global::compute_default_base(&vault.identifier)
+                .expect("a data directory");
+            assert!(
+                base.starts_with(&primary) || base.ends_with(&vault.identifier),
+                "store2 tests would use the real app data at {}",
+                base.display()
+            );
+            if !base.starts_with(&primary) {
+                vault.paths.push(base);
             }
+            vault
         }
 
         fn store_file(&self) -> PathBuf {
