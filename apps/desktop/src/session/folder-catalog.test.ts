@@ -117,6 +117,32 @@ describe("folder catalog", () => {
     expect(mocks.deleteFolder).not.toHaveBeenCalled();
   });
 
+  it("moves only notes literally inside the deleted folder", async () => {
+    mocks.execute.mockResolvedValue([
+      { id: "inside", folder_path: "Q1_2026/Notes" },
+      { id: "look-alike", folder_path: "Q1-2026/Notes" },
+      { id: "other-case", folder_path: "q1_2026" },
+    ]);
+
+    await deleteNamedFolder("Q1_2026");
+
+    expect(mocks.moveSession).toHaveBeenCalledTimes(1);
+    expect(mocks.moveSession).toHaveBeenCalledWith(
+      "inside",
+      "Q1_2026/Notes",
+      "",
+    );
+  });
+
+  it("still moves notes whose path a parent rename made longer than new paths may be", async () => {
+    const nested = `Archived/${["a", "b", "c"].map((c) => c.repeat(64)).join("/")}`;
+    mocks.execute.mockResolvedValue([{ id: "nested", folder_path: nested }]);
+
+    await deleteNamedFolder("Archived");
+
+    expect(mocks.moveSession).toHaveBeenCalledWith("nested", nested, "");
+  });
+
   it("does not update the catalog if creating a missing rename target fails", async () => {
     mocks.renameFolder.mockResolvedValue({
       status: "error",
