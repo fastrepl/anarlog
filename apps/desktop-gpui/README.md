@@ -64,10 +64,19 @@ them through the model manager.
 
 Cloud sign-in requires `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` at build
 or runtime. `VITE_API_URL` and `VITE_WEB_APP_URL` can select another deployment.
-A sandbox profile keeps its own keyring namespace. Local engine executables
-and bundled CLI/skills are resolved under `ANARLOG_NATIVE_RESOURCES` (or the
-`resources` directory beside the executable); models are stored under the isolated
-profile. Argmax also requires `ARGMAX_API_KEY`.
+A sandbox profile keeps its own keyring namespace. Models are stored under the
+isolated profile.
+
+Packaged files are found where Tauri's bundler puts them for the shipping app
+(`src/platform/package.rs`): icons and notification icons in the resource folder
+(macOS `Contents/Resources`, the deb's `/usr/lib/<product>`, the AppImage's
+`usr/lib/<product>`, Windows' install folder), and the CLI (`anarlog-cli`) beside
+the executable. Debug builds read icons from `apps/desktop/src-tauri/resources`.
+`ANARLOG_NATIVE_RESOURCES` overrides both with one folder in the packaged layout
+(`icons/<name>.icns`, `notification-icons/`, `anarlog-cli`). The release version is
+`APP_VERSION` at build time, as for the shipping app, else Cargo's. Local engine
+executables (`argmax`, `llama-server`) sit beside the app or in
+`ANARLOG_NATIVE_RESOURCES`; Argmax also requires `ARGMAX_API_KEY`.
 
 Pinned tabs are restored and saved with CAS through `app_settings.gpui_pinned_tabs`
 inside the isolated profile. Malformed persisted pin data disables pin writes.

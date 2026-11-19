@@ -1,9 +1,23 @@
-//! What packaging decides about this binary: the names the OS knows it by.
+//! What packaging decides about this binary: its version, the names the OS knows it by, the
+//! package type and where the package keeps its files.
 //!
 //! CD bundles the binary with Tauri's bundler and the shipping app's configuration
-//! (`packaging/bundle.py`), so these follow what the shipping Tauri app does.
+//! (`packaging/bundle.py`), so each of these follows what the shipping Tauri app does.
+
+use std::path::{Path, PathBuf};
 
 use anlg_desktop_identity::Channel;
+
+/// `APP_VERSION`, which CD sets for packaged builds as it does for the shipping app and its CLI,
+/// else Cargo's. Cargo's stays fixed so `--locked` builds keep working.
+pub const VERSION: &str = version(option_env!("APP_VERSION"), env!("CARGO_PKG_VERSION"));
+
+const fn version(release: Option<&'static str>, cargo: &'static str) -> &'static str {
+    match release {
+        Some(release) if !release.is_empty() => release,
+        _ => cargo,
+    }
+}
 
 /// The channel CD compiled in, which names the package this binary ships in. It decides the
 /// package's names even for a `--profile` run, whose data alone is sandboxed.
@@ -52,9 +66,177 @@ pub fn window_app_id() -> Option<String> {
     Some(AppIds::current().window_class.into())
 }
 
+/// The tray's channel label, as shipping's `TrayVersion` derives it.
+pub fn tray_channel(channel: Option<Channel>) -> &'static str {
+    match channel {
+        Some(Channel::Stable) => "stable",
+        Some(Channel::Staging) => "staging",
+        _ => "dev",
+    }
+}
+
+/// The package type. Tauri's bundler rewrites the end of this marker in the copy of the
+/// executable it puts in each Linux and Windows package, as it does for the shipping app's
+/// `tauri::utils::platform::bundle_type`; the updater reads it to tell a deb from an AppImage.
+#[used]
+static mut BUNDLE_TYPE: &str = "__TAURI_BUNDLE_TYPE_VAR_UNK";
+
+const BUNDLE_TYPE_PREFIX: &str = "__TAURI_BUNDLE_TYPE_VAR_";
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum BundleType {
+    App,
+    Deb,
+    Rpm,
+    AppImage,
+    Nsis,
+    Msi,
+}
+
+pub fn bundle_type() -> Option<BundleType> {
+    // SAFETY: nothing writes the marker while the app runs. The volatile read keeps the compiler
+    // from folding in the unpatched value.
+    let marker = unsafe { std::ptr::read_volatile(&raw const BUNDLE_TYPE) };
+    bundle_type_of(marker, cfg!(target_os = "macos"))
+}
+
+fn bundle_type_of(marker: &str, macos: bool) -> Option<BundleType> {
+    match marker.strip_prefix(BUNDLE_TYPE_PREFIX) {
+        Some("DEB") => Some(BundleType::Deb),
+        Some("RPM") => Some(BundleType::Rpm),
+        Some("APP") => Some(BundleType::AppImage),
+        Some("NSS") => Some(BundleType::Nsis),
+        Some("MSI") => Some(BundleType::Msi),
+        // The bundler leaves macOS bundles unpatched.
+        _ => macos.then_some(BundleType::App),
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Os {
+    MacOs,
+    Linux,
+    Windows,
+}
+
+impl Os {
+    pub const CURRENT: Self = if cfg!(target_os = "macos") {
+        Self::MacOs
+    } else if cfg!(windows) {
+        Self::Windows
+    } else {
+        Self::Linux
+    };
+}
+
+/// Where the package keeps this app's files: the bundle's resources (`bundle.resources`) and the
+/// executables shipped beside the app's own (`bundle.externalBin`).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Resources {
+    dir: PathBuf,
+    executables: PathBuf,
+    os: Os,
+    /// The shipping app's source folder, whose icons are not renamed yet.
+    sources: bool,
+}
+
+impl Resources {
+    /// `ANARLOG_NATIVE_RESOURCES` holds both kinds when set. Otherwise debug builds read the
+    /// shipping app's sources, and release builds read their package.
+    pub fn current() -> Option<Self> {
+        if let Some(dir) = std::env::var_os("ANARLOG_NATIVE_RESOURCES") {
+            let dir = PathBuf::from(dir);
+            return Some(Self {
+                executables: dir.clone(),
+                dir,
+                os: Os::CURRENT,
+                sources: false,
+            });
+        }
+        let exe = std::env::current_exe().ok()?;
+        if cfg!(debug_assertions) {
+            return Some(Self {
+                dir: Path::new(env!("CARGO_MANIFEST_DIR")).join("../desktop/src-tauri/resources"),
+                executables: exe.parent()?.to_owned(),
+                os: Os::CURRENT,
+                sources: true,
+            });
+        }
+        Self::packaged(
+            Os::CURRENT,
+            &exe,
+            channel().map(Channel::product_name),
+            std::env::var_os("APPDIR").map(PathBuf::from),
+        )
+    }
+
+    /// Tauri's `resource_dir`: `Contents/Resources` on macOS, the executable's folder on Windows,
+    /// and on Linux `lib/<product>` beside the executable's `bin` (the deb's `/usr/lib/<product>`),
+    /// else the AppImage's, else `/usr/lib/<product>`. Executables sit beside the app's own.
+    pub fn packaged(
+        os: Os,
+        exe: &Path,
+        product: Option<&str>,
+        appdir: Option<PathBuf>,
+    ) -> Option<Self> {
+        let executables = exe.parent()?.to_owned();
+        let dir = match os {
+            Os::MacOs => executables.parent()?.join("Resources"),
+            Os::Windows => executables.clone(),
+            Os::Linux => {
+                let lib = Path::new("lib").join(product?);
+                let beside = executables.parent()?.join(&lib);
+                if beside.is_dir() {
+                    beside
+                } else {
+                    appdir
+                        .unwrap_or_else(|| PathBuf::from("/"))
+                        .join("usr")
+                        .join(lib)
+                }
+            }
+        };
+        Some(Self {
+            dir,
+            executables,
+            os,
+            sources: false,
+        })
+    }
+
+    /// An app icon by its name, such as `staging-dark`.
+    pub fn icon(&self, name: &str) -> PathBuf {
+        if self.sources {
+            self.dir.join(name).join("AppIcon.icns")
+        } else {
+            self.dir.join("icons").join(format!("{name}.icns"))
+        }
+    }
+
+    pub fn notification_icons(&self) -> PathBuf {
+        self.dir.join("notification-icons")
+    }
+
+    /// An executable shipped beside the app's own, such as `anarlog-cli`.
+    pub fn executable(&self, name: &str) -> PathBuf {
+        self.executables.join(if self.os == Os::Windows {
+            format!("{name}.exe")
+        } else {
+            name.to_owned()
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_release_version_comes_from_the_build_environment() {
+        assert_eq!(version(Some("1.5.0"), "0.1.0"), "1.5.0");
+        assert_eq!(version(Some(""), "0.1.0"), "0.1.0");
+        assert_eq!(version(None, "0.1.0"), "0.1.0");
+    }
 
     #[test]
     fn channel_packages_use_the_shipping_app_ids() {
@@ -79,5 +261,115 @@ mod tests {
             (SANDBOX_ID, SANDBOX_ID, "Anarlog GPUI"),
             "an unpackaged build keeps its own names"
         );
+    }
+
+    #[test]
+    fn the_tray_labels_the_channel_like_shipping() {
+        assert_eq!(tray_channel(Some(Channel::Stable)), "stable");
+        assert_eq!(tray_channel(Some(Channel::Staging)), "staging");
+        assert_eq!(tray_channel(Some(Channel::Nightly)), "dev");
+        assert_eq!(tray_channel(None), "dev");
+    }
+
+    #[test]
+    fn the_bundlers_marker_is_in_the_binary_once_and_reads_as_its_package() {
+        // Built here so this test's own bytes don't add a second copy to the binary.
+        let marker = format!("{BUNDLE_TYPE_PREFIX}UNK");
+        let binary = std::fs::read(std::env::current_exe().unwrap()).unwrap();
+        let copies = regex::bytes::Regex::new(&regex::escape(&marker))
+            .unwrap()
+            .find_iter(&binary)
+            .count();
+        assert_eq!(copies, 1, "the bundler patches the first copy it finds");
+
+        let patched = |kind: &str| bundle_type_of(&format!("{BUNDLE_TYPE_PREFIX}{kind}"), false);
+        assert_eq!(patched("DEB"), Some(BundleType::Deb));
+        assert_eq!(patched("APP"), Some(BundleType::AppImage));
+        assert_eq!(patched("NSS"), Some(BundleType::Nsis));
+        assert_eq!(patched("MSI"), Some(BundleType::Msi));
+        assert_eq!(patched("UNK"), None);
+        assert_eq!(bundle_type_of(&marker, true), Some(BundleType::App));
+    }
+
+    fn file(path: &Path) {
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, b"").unwrap();
+    }
+
+    #[test]
+    fn finds_resources_where_the_bundler_puts_them() {
+        let root = tempfile::tempdir().unwrap();
+        let root = root.path();
+
+        let app = root.join("Anarlog Staging.app/Contents");
+        file(&app.join("MacOS/anarlog-staging"));
+        file(&app.join("MacOS/anarlog-cli"));
+        file(&app.join("Resources/icons/staging-dark.icns"));
+        file(&app.join("Resources/notification-icons/zoom.svg"));
+        let mac = Resources::packaged(
+            Os::MacOs,
+            &app.join("MacOS/anarlog-staging"),
+            Some("Anarlog Staging"),
+            None,
+        )
+        .unwrap();
+        assert!(mac.icon("staging-dark").is_file());
+        assert!(mac.notification_icons().join("zoom.svg").is_file());
+        assert!(mac.executable("anarlog-cli").is_file());
+
+        let deb = root.join("deb/usr");
+        file(&deb.join("bin/anarlog-staging"));
+        file(&deb.join("bin/anarlog-cli"));
+        file(&deb.join("lib/Anarlog Staging/icons/staging.icns"));
+        let linux = Resources::packaged(
+            Os::Linux,
+            &deb.join("bin/anarlog-staging"),
+            Some("Anarlog Staging"),
+            None,
+        )
+        .unwrap();
+        assert!(linux.icon("staging").is_file());
+        assert!(linux.executable("anarlog-cli").is_file());
+
+        let appdir = root.join("appimage");
+        file(&appdir.join("usr/lib/Anarlog/notification-icons/zoom.svg"));
+        let appimage = Resources::packaged(
+            Os::Linux,
+            &root.join("elsewhere/bin/anarlog"),
+            Some("Anarlog"),
+            Some(appdir),
+        )
+        .unwrap();
+        assert!(appimage.notification_icons().join("zoom.svg").is_file());
+        assert_eq!(
+            Resources::packaged(
+                Os::Linux,
+                &root.join("elsewhere/bin/anarlog"),
+                Some("Anarlog"),
+                None
+            )
+            .unwrap()
+            .notification_icons(),
+            Path::new("/usr/lib/Anarlog/notification-icons")
+        );
+        assert_eq!(
+            Resources::packaged(Os::Linux, &deb.join("bin/anarlog"), None, None),
+            None,
+            "an unpackaged Linux build has no product folder"
+        );
+
+        let windows = root.join("Programs/Anarlog");
+        file(&windows.join("anarlog.exe"));
+        file(&windows.join("anarlog-cli.exe"));
+        file(&windows.join("icons/stable.icns"));
+        let windows = Resources::packaged(
+            Os::Windows,
+            &windows.join("anarlog.exe"),
+            Some("Anarlog"),
+            None,
+        )
+        .unwrap();
+        assert!(windows.icon("stable").is_file());
+        assert!(windows.executable("anarlog-cli").is_file());
     }
 }

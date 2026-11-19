@@ -101,7 +101,7 @@ fn updater() -> desktop_runtime::Result<Arc<NativeUpdater>> {
     let url = endpoint
         .parse()
         .map_err(|_| ServiceError::Failed("Invalid native update URL".into()))?;
-    let version = env!("CARGO_PKG_VERSION")
+    let version = crate::platform::package::VERSION
         .parse()
         .map_err(|_| ServiceError::Failed("Invalid native version".into()))?;
     NativeUpdater::new(UpdateConfig::new(vec![url], version, target, key)).map(Arc::new)
@@ -399,7 +399,7 @@ impl ApplicationView {
     pub(super) fn show_about(&mut self, cx: &mut Context<Self>) {
         let message = format!(
             "- App Name: Anarlog\n- App Version: {}\n- SHA:\n  {}",
-            env!("CARGO_PKG_VERSION"),
+            crate::platform::package::VERSION,
             env!("ANARLOG_GIT_SHA")
         );
         cx.spawn(async move |_, cx| {
@@ -830,7 +830,8 @@ impl ApplicationView {
                     "Set ANARLOG_NATIVE_UPDATE_INSTALLATION to the GPUI package to install its signed update.".into(),
                 )
             })
-        });
+        })
+        .or_else(|| crate::platform::updater::PackageKind::current().err());
         if let Some(error) = blocked {
             let message = format!("Failed to install update: {error}");
             return if from_tray {
@@ -862,13 +863,7 @@ impl ApplicationView {
                 pause.await?;
                 use crate::platform::updater::{NativeInstaller, PackageKind};
                 let installer = NativeInstaller {
-                    kind: if cfg!(target_os = "macos") {
-                        PackageKind::MacBundle
-                    } else if cfg!(target_os = "windows") {
-                        PackageKind::WindowsNsis
-                    } else {
-                        PackageKind::AppImage
-                    },
+                    kind: PackageKind::current()?,
                     staging_root: installation
                         .parent()
                         .ok_or_else(|| ServiceError::Failed("Invalid installation path".into()))?

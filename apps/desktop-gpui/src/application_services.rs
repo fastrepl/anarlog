@@ -282,15 +282,13 @@ impl NativeServices {
                 error,
             },
         };
-        let resources = std::env::var_os("ANARLOG_NATIVE_RESOURCES")
-            .map(PathBuf::from)
-            .unwrap_or(
-                std::env::current_exe()
-                    .map_err(failure)?
-                    .parent()
-                    .ok_or(ServiceError::Closed)?
-                    .join("resources"),
-            );
+        let resources = crate::platform::package::Resources::current();
+        let executable = |name| {
+            resources
+                .as_ref()
+                .map(|resources| resources.executable(name))
+                .unwrap_or_default()
+        };
         let home = std::env::var_os("HOME")
             .or_else(|| std::env::var_os("USERPROFILE"))
             .map(PathBuf::from)
@@ -298,16 +296,8 @@ impl NativeServices {
         let models = Arc::new(ModelService::new(
             profile.join("models"),
             EngineResources {
-                argmax: resources.join(if cfg!(windows) {
-                    "argmax.exe"
-                } else {
-                    "argmax"
-                }),
-                llama_server: resources.join(if cfg!(windows) {
-                    "llama-server.exe"
-                } else {
-                    "llama-server"
-                }),
+                argmax: executable("argmax"),
+                llama_server: executable("llama-server"),
                 argmax_api_key: std::env::var("ARGMAX_API_KEY").unwrap_or_default(),
             },
         ));
@@ -374,14 +364,12 @@ impl NativeServices {
             models,
             calendar: CalendarService::new(api.into(), Arc::new(cloud.clone())),
             developers: DeveloperTools {
-                bundled_cli: resources.join(if cfg!(windows) {
-                    "anarlog.exe"
-                } else {
-                    "anarlog"
-                }),
+                // Shipping's `externalBin` sidecar, beside the app's executable.
+                bundled_cli: executable("anarlog-cli"),
                 home,
-                command_name: "anarlog",
-                version: env!("CARGO_PKG_VERSION"),
+                command_name: crate::platform::package::channel()
+                    .map_or("anarlog", anlg_desktop_identity::Channel::executable),
+                version: crate::platform::package::VERSION,
             },
             storage_root: profile,
             storage_pointer: storage.pointer,

@@ -11,12 +11,36 @@ use desktop_runtime::{
 };
 use futures::future::BoxFuture;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PackageKind {
     AppImage,
     MacBundle,
     WindowsNsis,
     WindowsMsi,
+}
+
+impl PackageKind {
+    /// The package this binary was installed from, which decides how an update replaces it.
+    pub fn current() -> Result<Self> {
+        Self::of(crate::platform::package::bundle_type())
+    }
+
+    fn of(bundle: Option<crate::platform::package::BundleType>) -> Result<Self> {
+        use crate::platform::package::BundleType;
+        match bundle {
+            Some(BundleType::App) => Ok(Self::MacBundle),
+            Some(BundleType::AppImage) => Ok(Self::AppImage),
+            Some(BundleType::Nsis) => Ok(Self::WindowsNsis),
+            Some(BundleType::Msi) => Ok(Self::WindowsMsi),
+            Some(BundleType::Deb | BundleType::Rpm) => Err(ServiceError::Unsupported(
+                "This build can't update a system package yet. Install the new package instead."
+                    .into(),
+            )),
+            None if cfg!(target_os = "macos") => Ok(Self::MacBundle),
+            None if cfg!(target_os = "windows") => Ok(Self::WindowsNsis),
+            None => Ok(Self::AppImage),
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -268,6 +292,24 @@ fn failure(error: impl std::fmt::Display) -> ServiceError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_bundle_type_picks_how_an_update_installs() {
+        use crate::platform::package::BundleType;
+        assert_eq!(
+            PackageKind::of(Some(BundleType::AppImage)).unwrap(),
+            PackageKind::AppImage
+        );
+        assert!(PackageKind::of(Some(BundleType::Deb)).is_err());
+        assert_eq!(
+            PackageKind::of(Some(BundleType::Msi)).unwrap(),
+            PackageKind::WindowsMsi
+        );
+        assert_eq!(
+            PackageKind::of(Some(BundleType::App)).unwrap(),
+            PackageKind::MacBundle
+        );
+    }
 
     #[test]
     fn replacement_retains_one_rollback_and_rejects_unsafe_archive_paths() {

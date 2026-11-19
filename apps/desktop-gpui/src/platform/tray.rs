@@ -122,12 +122,12 @@ pub struct TrayModel {
 const RECORDING_FRAME_MS: f64 = 250.0;
 
 pub fn version_label() -> String {
-    let channel = if cfg!(debug_assertions) {
-        "dev"
-    } else {
-        "stable"
-    };
-    format!("v{} ({channel})", env!("CARGO_PKG_VERSION"))
+    use crate::platform::package;
+    format!(
+        "v{} ({})",
+        package::VERSION,
+        package::tray_channel(package::channel())
+    )
 }
 
 fn item(id: &str, label: impl Into<String>, enabled: bool) -> TrayItem {
