@@ -2264,3 +2264,53 @@ async fn sync_setup_claims_the_recovery_key_it_showed_and_enabling_without_one_a
     assert_eq!(cloud.sync_state().await.unwrap().block, None);
     runtime.shutdown().await.unwrap();
 }
+
+#[tokio::test]
+async fn sync_advertises_the_accepted_replica_and_stops_once_an_update_is_required() {
+    use super::calls::{CloudCalls, SyncBlock};
+    let server = MockServer::start().await;
+    let directory = tempfile::tempdir().unwrap();
+    let (runtime, ready) = RuntimeHandle::start(Profile {
+        database: directory.path().join("cloud.sqlite"),
+    })
+    .unwrap();
+    ready.receive().await.unwrap();
+    let store = Arc::new(MemoryStore::default());
+    let cloud = fixture_cloud(&runtime, &server, store.clone()).await;
+    let slot = |name: &str| format!("fixture:{ACCOUNT}:{name}");
+    store
+        .write(slot("sync-enabled"), Zeroizing::new("true".into()))
+        .await
+        .unwrap();
+    let recovery = anlg_e2ee::RecoveryKey::generate().unwrap();
+    store
+        .write(slot("recovery"), recovery.expose_code())
+        .await
+        .unwrap();
+    // The SQLite Cloud retirement answers clients without `accepted_replica` with 426.
+    Mock::given(method("POST"))
+        .and(path("/sync/replica/credentials"))
+        .and(|request: &wiremock::Request| {
+            request
+                .headers
+                .get("x-anarlog-cloudsync-transports")
+                .and_then(|value| value.to_str().ok())
+                == Some("replica, accepted_replica")
+        })
+        .respond_with(
+            ResponseTemplate::new(426)
+                .set_body_json(json!({"error": {"code": "cloudsync_upgrade_required"}})),
+        )
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    assert!(cloud.refresh(false).await.is_err());
+    assert_eq!(
+        cloud.sync_state().await.unwrap().block,
+        Some(SyncBlock::UpdateRequired)
+    );
+    // Retrying can't succeed until the app updates, so later refreshes don't ask again.
+    cloud.refresh(false).await.unwrap();
+    runtime.shutdown().await.unwrap();
+}

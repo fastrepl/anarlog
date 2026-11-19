@@ -31,6 +31,11 @@ const KEYCHAIN: &str = "macOS could not access your recovery key";
 const DEVICE_LIMIT: &str =
     "Your plan's sync device limit is reached. Replace or remove another device to sync here.";
 const UPDATE_REQUIRED: &str = "This version can no longer sync";
+/// Shipping's `CLOUDSYNC_ACCEPTED_TRANSPORTS`. `accepted_replica` promises that unsent edits
+/// survive hydration (the accepted-state outbox in `anlg_db_sync`, which this app runs too) and
+/// that sync stops on an update-required response; the API requires it since SQLite Cloud
+/// retired.
+const TRANSPORTS: &str = "replica, accepted_replica";
 const APPROVAL: &str = "Approval requested. Approve this device on an enrolled device, then retry";
 const LOG_LIMIT: usize = 200;
 
@@ -132,7 +137,7 @@ impl Sync {
                 &[
                     ("x-anarlog-e2ee-key-id", recovery.key_id()),
                     ("x-anarlog-e2ee-member-public-key", identity.public_key()),
-                    ("x-anarlog-cloudsync-transports", "replica".into()),
+                    ("x-anarlog-cloudsync-transports", TRANSPORTS.into()),
                     ("x-device-fingerprint", config.device_fingerprint.clone()),
                     ("x-anarlog-device-name", config.device_name.clone()),
                 ],
@@ -803,6 +808,12 @@ impl Sync {
             }
         }
         Ok(None)
+    }
+
+    /// Like shipping, an update-required response stops automatic retries until the next
+    /// launch: retrying can't succeed until the app updates.
+    pub fn update_required(&self) -> bool {
+        self.blocked_by(&SyncBlock::UpdateRequired)
     }
 
     fn blocked_by(&self, block: &SyncBlock) -> bool {

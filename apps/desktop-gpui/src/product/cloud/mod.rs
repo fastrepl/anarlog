@@ -144,7 +144,9 @@ impl CloudServices {
                     };
                     match this.core.auth.lease(&account, force).await {
                         Ok(lease) => {
-                            if this.core.sync.enabled(&this.core.auth, &account).await? {
+                            if !this.core.sync.update_required()
+                                && this.core.sync.enabled(&this.core.auth, &account).await?
+                            {
                                 this.core.sync.start(&this.core, &services, &lease).await?;
                             }
                             Ok(())
