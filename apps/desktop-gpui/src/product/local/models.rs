@@ -529,7 +529,8 @@ mod tests {
             },
         );
         let am = LocalModel::Am(anlg_local_model::AmModel::ParakeetV2);
-        let gguf = LocalModel::GgufLlm(anlg_local_llm_core::SUPPORTED_MODELS[0].clone());
+        // x86_64 builds support no GGUF model, so this also covers the platform refusal there.
+        let gguf = LocalModel::GgufLlm(anlg_local_model::GgufLlmModel::Llama3p2_3bQ4);
         for model in [am, gguf.clone()] {
             if !model.is_available_on_current_platform() {
                 assert_eq!(
