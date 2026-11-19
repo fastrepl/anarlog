@@ -29,9 +29,7 @@ final class LiveOutputTests: XCTestCase {
       var result: [Message] = []
       var at = 0
       while at + 5 <= bytes.count {
-        let length = Int(
-          UInt32(bytes[at + 1]) | UInt32(bytes[at + 2]) << 8
-            | UInt32(bytes[at + 3]) << 16 | UInt32(bytes[at + 4]) << 24)
+        let length = Int(Self.littleEndian(bytes, at + 1))
         let payload = Array(bytes[(at + 5)..<(at + 5 + length)])
         if bytes[at] == WireFrame.event {
           result.append(.event(EventLine.parse(String(decoding: payload, as: UTF8.self))!))
@@ -40,9 +38,7 @@ final class LiveOutputTests: XCTestCase {
             $0 | UInt64($1.element) << (8 * UInt64($1.offset))
           }
           let samples = stride(from: 9, to: payload.count, by: 4).map { index in
-            Float(
-              bitPattern: UInt32(payload[index]) | UInt32(payload[index + 1]) << 8
-                | UInt32(payload[index + 2]) << 16 | UInt32(payload[index + 3]) << 24)
+            Float(bitPattern: Self.littleEndian(payload, index))
           }
           result.append(.pcm(track: payload[0], frame: Int64(frame), samples: samples))
         }
@@ -50,6 +46,15 @@ final class LiveOutputTests: XCTestCase {
       }
       XCTAssertEqual(at, bytes.count, "a message was cut")
       return result
+    }
+
+    // One shift per statement: the inline expression is too slow for Swift to type-check.
+    static func littleEndian(_ bytes: [UInt8], _ at: Int) -> UInt32 {
+      var word: UInt32 = 0
+      for offset in 0..<4 {
+        word |= UInt32(bytes[at + offset]) << UInt32(8 * offset)
+      }
+      return word
     }
 
     var events: [EventLine] {
