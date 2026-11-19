@@ -41,6 +41,14 @@ EXTERNAL_BIN = {
     "windows": ["resources/cli/anarlog-cli"],
 }
 
+# The bundle types verify checks, and those it expects when `--bundles` doesn't say: what
+# Tauri builds for `"targets": "all"` (Linux's rpm aside, which isn't checked).
+VERIFIED_BUNDLES = {
+    "macos": ["app", "dmg"],
+    "linux": ["deb", "appimage"],
+    "windows": ["nsis", "msi"],
+}
+
 # Shipping's Developer ID designated requirement (see `codesign -d -r-` on a release).
 DESIGNATED_REQUIREMENT = (
     'identifier "{identifier}" and anchor apple generic and '
@@ -63,6 +71,20 @@ def platform_of(target):
     if "-windows-" in target:
         return "windows"
     sys.exit(f"Unsupported target {target}")
+
+
+def requested_bundles(args):
+    platform = platform_of(args.target)
+    if not args.bundles:
+        return set(VERIFIED_BUNDLES[platform])
+    kinds = {kind.strip() for kind in args.bundles.split(",") if kind.strip()}
+    unknown = kinds - set(VERIFIED_BUNDLES[platform])
+    if not kinds or unknown:
+        sys.exit(
+            f"Can't verify --bundles {args.bundles} for {args.target}; choose from "
+            + ",".join(VERIFIED_BUNDLES[platform])
+        )
+    return kinds
 
 
 def merge(base, patch):
@@ -100,6 +122,7 @@ def load_config(channel, target):
 
 def bundle(args):
     platform = platform_of(args.target)
+    requested_bundles(args)
     config = load_config(args.channel, args.target)
     exe = ".exe" if platform == "windows" else ""
     out = args.out.resolve()
@@ -177,18 +200,52 @@ def run(*command):
     return subprocess.run(command, capture_output=True, text=True)
 
 
-def check_binary(binary, bundle_type, args, checks):
-    """The app's own build facts: the release version it reports (`APP_VERSION` at build time)
-    and, in Linux and Windows packages, the bundle-type marker the bundler patches in."""
+def check_binary(binary, expected, args, checks):
+    """The app's own view, run from the bundle (`--print-package`, src/platform/package.rs): the
+    channel and version it was built with, the package type the bundler patched in, and the
+    folders it reads its resources and sidecars from, which must be where they are."""
     data = binary.read_bytes() if binary.is_file() else b""
-    checks.expect(
-        args.version.encode() in data,
-        f"{binary.name} was not built with APP_VERSION={args.version}",
-    )
-    if bundle_type:
+    # A binary without the flag would ignore it and start the app on this channel's real data.
+    if b"--print-package" not in data:
         checks.expect(
-            f"__TAURI_BUNDLE_TYPE_VAR_{bundle_type}".encode() in data,
-            f"{binary.name} lacks the {bundle_type} bundle-type marker",
+            False, f"{binary.name} can't report its package (--print-package)"
+        )
+        return
+    env = {
+        key: value
+        for key, value in os.environ.items()
+        if key not in ("ANARLOG_NATIVE_RESOURCES", "APPDIR", "APPIMAGE")
+    }
+    try:
+        result = subprocess.run(
+            [str(binary), "--print-package"],
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=60,
+        )
+        report = json.loads(result.stdout) if result.returncode == 0 else None
+    except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError) as error:
+        result, report = None, None
+        checks.expect(False, f"{binary.name} --print-package failed: {error}")
+    if report is None:
+        if result is not None:
+            checks.expect(
+                False,
+                f"{binary.name} --print-package exited {result.returncode}: "
+                + result.stderr.strip(),
+            )
+        return
+    checks.equal(report["channel"], args.channel, f"{binary.name} compiled channel")
+    checks.equal(report["version"], args.version, f"{binary.name} version")
+    checks.equal(
+        report["bundle_type"], expected["bundle_type"], f"{binary.name} package type"
+    )
+    for key in ["resources", "executables"]:
+        checks.equal(
+            Path(report[key]).resolve() if report[key] else None,
+            expected[key].resolve(),
+            f"{binary.name} {key} folder",
         )
 
 
@@ -244,9 +301,16 @@ def verify_macos(config, args, checks):
         path = contents / destination
         checks.expect(source is None or path.exists(), f"Missing bundle file {path}")
 
-    # The app reads the resources above from Contents/Resources and runs the CLI from beside
-    # its executable, as Tauri resolves them (src/platform/package.rs); no bridge is needed.
-    check_binary(binary, None, args, checks)
+    check_binary(
+        binary,
+        {
+            "bundle_type": "App",
+            "resources": contents / "Resources",
+            "executables": contents / "MacOS",
+        },
+        args,
+        checks,
+    )
 
     updater = args.bundle_dir / "macos" / f"{product}.app.tar.gz"
     checks.expect(updater.is_file(), f"Missing updater artifact {updater}")
@@ -255,11 +319,8 @@ def verify_macos(config, args, checks):
             updater.with_name(updater.name + ".sig").is_file(),
             "Missing updater signature",
         )
-    if (args.bundle_dir / "dmg").is_dir():
-        dmg = one(args.bundle_dir / "dmg", "*.dmg", checks)
-        checks.expect(
-            dmg is None or args.version in dmg.name, f"DMG name lacks {args.version}"
-        )
+    if "dmg" in requested_bundles(args):
+        one(args.bundle_dir / "dmg", f"*_{args.version}_*.dmg", checks)
 
     if not args.no_sign and shutil.which("codesign"):
         verify_macos_signature(config, args, app, checks)
@@ -301,20 +362,27 @@ def verify_macos_signature(config, args, app, checks):
         checks.equal(fields.get("TeamIdentifier"), args.team_id, "Team identifier")
 
 
+def check_signature(artifact, args, checks):
+    if artifact and not args.no_sign:
+        checks.expect(
+            artifact.with_name(artifact.name + ".sig").is_file(),
+            f"Missing {artifact}.sig",
+        )
+
+
 def verify_linux(config, args, checks):
     product, exe = config["productName"], config["mainBinaryName"]
-    deb = one(args.bundle_dir / "deb", "*.deb", checks)
-    appimage = one(args.bundle_dir / "appimage", "*.AppImage", checks)
-    for artifact in [deb, appimage]:
-        if artifact and not args.no_sign:
-            checks.expect(
-                artifact.with_name(artifact.name + ".sig").is_file(),
-                f"Missing {artifact}.sig",
-            )
-    if appimage:
-        checks.expect(
-            args.version in appimage.name, f"AppImage name lacks {args.version}"
+    bundles = requested_bundles(args)
+    # Tauri keeps earlier versions' packages in the same folder.
+    if "appimage" in bundles:
+        appimage = one(
+            args.bundle_dir / "appimage", f"*_{args.version}_*.AppImage", checks
         )
+        check_signature(appimage, args, checks)
+    if "deb" not in bundles:
+        return
+    deb = one(args.bundle_dir / "deb", f"*_{args.version}_*.deb", checks)
+    check_signature(deb, args, checks)
     if not deb:
         return
 
@@ -342,7 +410,16 @@ def verify_linux(config, args, checks):
         root = Path(directory)
         subprocess.run(["dpkg-deb", "-x", str(deb), str(root)], check=True)
         checks.expect((root / "usr/bin" / exe).is_file(), f"Missing /usr/bin/{exe}")
-        check_binary(root / "usr/bin" / exe, "DEB", args, checks)
+        check_binary(
+            root / "usr/bin" / exe,
+            {
+                "bundle_type": "Deb",
+                "resources": root / "usr/lib" / product,
+                "executables": root / "usr/bin",
+            },
+            args,
+            checks,
+        )
         for sidecar in EXTERNAL_BIN["linux"]:
             name = Path(sidecar).name
             checks.expect(
@@ -362,16 +439,15 @@ def verify_linux(config, args, checks):
 
 
 def verify_windows(config, args, checks):
-    installer = one(args.bundle_dir / "nsis", "*-setup.exe", checks)
-    if installer:
-        checks.expect(
-            args.version in installer.name, f"Installer name lacks {args.version}"
+    bundles = requested_bundles(args)
+    if "nsis" in bundles:
+        installer = one(
+            args.bundle_dir / "nsis", f"*_{args.version}_*-setup.exe", checks
         )
-        if not args.no_sign:
-            checks.expect(
-                installer.with_name(installer.name + ".sig").is_file(),
-                "Missing installer .sig",
-            )
+        check_signature(installer, args, checks)
+    if "msi" in bundles:
+        installer = one(args.bundle_dir / "msi", f"*_{args.version}_*.msi", checks)
+        check_signature(installer, args, checks)
 
 
 def verify(args):
@@ -401,12 +477,14 @@ def main():
         command.add_argument(
             "--team-id", help="Require this Developer ID designated requirement"
         )
+        command.add_argument(
+            "--bundles",
+            help="Tauri bundle types, e.g. app,dmg; verify checks only these "
+            "(default: every type the platform builds)",
+        )
     commands.choices["bundle"].add_argument("--binary", required=True, type=Path)
     commands.choices["bundle"].add_argument(
         "--out", type=Path, default=REPO / "apps/desktop-gpui/target/packaging.noindex"
-    )
-    commands.choices["bundle"].add_argument(
-        "--bundles", help="Tauri bundle types, e.g. app,dmg"
     )
     commands.choices["verify"].add_argument("bundle_dir", type=Path)
     args = parser.parse_args()

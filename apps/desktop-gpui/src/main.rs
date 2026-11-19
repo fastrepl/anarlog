@@ -33,6 +33,10 @@ fn main() -> anyhow::Result<()> {
             return Ok(());
         }
         Launch::CrashReporter => return Ok(()),
+        Launch::Package => {
+            println!("{}", package::report());
+            return Ok(());
+        }
         Launch::Run { mode, urls } => (mode, urls),
     };
     let (storage, database) = match mode {

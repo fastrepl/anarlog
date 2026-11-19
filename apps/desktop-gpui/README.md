@@ -125,7 +125,8 @@ runtime dependencies and no WebView2 installer on Windows.
 ```sh
 # Stage the sidecars as desktop_cd.yaml does: `cargo xtask prepare-binaries` for the
 # CLI and Chrome host; on macOS also check-permissions (built by shipping's build.rs).
-APP_VERSION=1.5.0-dev.1+abc1234 cargo build --locked --release
+# The channel is compiled in; keep it the one you bundle, which verify checks.
+ANARLOG_CHANNEL=staging APP_VERSION=1.5.0-dev.1+abc1234 cargo build --locked --release
 python3 packaging/bundle.py bundle --channel staging --target aarch64-apple-darwin \
   --binary target/release/desktop-gpui --version 1.5.0-dev.1+abc1234 --bundles app,dmg
 # CI-runnable check of a built or downloaded bundle:
@@ -144,9 +145,11 @@ The release build finds its files where the bundler puts them, as Tauri's
 `Contents/Resources`, the deb's `/usr/lib/<product>/`, the AppImage's
 `usr/lib/<product>/` and the NSIS install folder, and the CLI sidecar beside the
 executable. The bundle keeps shipping's layout with no bridge. Build with
-`APP_VERSION` set to the bundle's version: `verify` checks that the binary reports it,
-and that the deb's copy carries the package-type marker the bundler patches in, which
-the updater reads.
+`ANARLOG_CHANNEL` and `APP_VERSION` set to the bundle's channel and version: `verify`
+runs the bundled binary with `--print-package` (the macOS app and the deb's copy) and
+checks the channel, version and package type it reports, and that the folders it reads
+resources and sidecars from are where the bundler put them. `--bundles` limits both
+commands to the package types it names.
 
 ## Architecture
 

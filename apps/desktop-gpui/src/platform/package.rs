@@ -75,6 +75,22 @@ pub fn tray_channel(channel: Option<Channel>) -> &'static str {
     }
 }
 
+/// What this build reports to `packaging/bundle.py verify` (`--print-package`), run from the
+/// bundle: the channel and version it was built with, the package type the bundler patched in,
+/// and where it reads its files there. Checked against the real bundle, not a layout copied
+/// into a test.
+pub fn report() -> serde_json::Value {
+    let exe = std::env::current_exe().ok();
+    let resources = exe.as_deref().and_then(Resources::installed);
+    serde_json::json!({
+        "channel": channel().map(Channel::name),
+        "version": VERSION,
+        "bundle_type": bundle_type().map(|kind| format!("{kind:?}")),
+        "resources": resources.as_ref().map(|resources| &resources.dir),
+        "executables": resources.as_ref().map(|resources| &resources.executables),
+    })
+}
+
 /// The package type. Tauri's bundler rewrites the end of this marker in the copy of the
 /// executable it puts in each Linux and Windows package, as it does for the shipping app's
 /// `tauri::utils::platform::bundle_type`; the updater reads it to tell a deb from an AppImage.
@@ -162,9 +178,14 @@ impl Resources {
                 sources: true,
             });
         }
+        Self::installed(&exe)
+    }
+
+    /// Where the package this executable runs from keeps its files.
+    pub fn installed(exe: &Path) -> Option<Self> {
         Self::packaged(
             Os::CURRENT,
-            &exe,
+            exe,
             channel().map(Channel::product_name),
             std::env::var_os("APPDIR").map(PathBuf::from),
         )
@@ -183,18 +204,23 @@ impl Resources {
         let dir = match os {
             Os::MacOs => executables.parent()?.join("Resources"),
             Os::Windows => executables.clone(),
-            Os::Linux => {
-                let lib = Path::new("lib").join(product?);
-                let beside = executables.parent()?.join(&lib);
-                if beside.is_dir() {
-                    beside
-                } else {
-                    appdir
-                        .unwrap_or_else(|| PathBuf::from("/"))
-                        .join("usr")
-                        .join(lib)
+            // Without a product, as in a build CD didn't channel, nothing names a package folder,
+            // so resources sit with the executables, as Tauri's are in a cargo target folder.
+            Os::Linux => match product {
+                None => executables.clone(),
+                Some(product) => {
+                    let lib = Path::new("lib").join(product);
+                    let beside = executables.parent()?.join(&lib);
+                    if beside.is_dir() {
+                        beside
+                    } else {
+                        appdir
+                            .unwrap_or_else(|| PathBuf::from("/"))
+                            .join("usr")
+                            .join(lib)
+                    }
                 }
-            }
+            },
         };
         Some(Self {
             dir,
@@ -291,85 +317,14 @@ mod tests {
         assert_eq!(bundle_type_of(&marker, true), Some(BundleType::App));
     }
 
-    fn file(path: &Path) {
-        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
-        std::fs::write(path, b"").unwrap();
-    }
-
     #[test]
-    fn finds_resources_where_the_bundler_puts_them() {
-        let root = tempfile::tempdir().unwrap();
-        let root = root.path();
-
-        let app = root.join("Anarlog Staging.app/Contents");
-        file(&app.join("MacOS/anarlog-staging"));
-        file(&app.join("MacOS/anarlog-cli"));
-        file(&app.join("Resources/icons/staging-dark.icns"));
-        file(&app.join("Resources/notification-icons/zoom.svg"));
-        let mac = Resources::packaged(
-            Os::MacOs,
-            &app.join("MacOS/anarlog-staging"),
-            Some("Anarlog Staging"),
-            None,
-        )
-        .unwrap();
-        assert!(mac.icon("staging-dark").is_file());
-        assert!(mac.notification_icons().join("zoom.svg").is_file());
-        assert!(mac.executable("anarlog-cli").is_file());
-
-        let deb = root.join("deb/usr");
-        file(&deb.join("bin/anarlog-staging"));
-        file(&deb.join("bin/anarlog-cli"));
-        file(&deb.join("lib/Anarlog Staging/icons/staging.icns"));
-        let linux = Resources::packaged(
-            Os::Linux,
-            &deb.join("bin/anarlog-staging"),
-            Some("Anarlog Staging"),
-            None,
-        )
-        .unwrap();
-        assert!(linux.icon("staging").is_file());
-        assert!(linux.executable("anarlog-cli").is_file());
-
-        let appdir = root.join("appimage");
-        file(&appdir.join("usr/lib/Anarlog/notification-icons/zoom.svg"));
-        let appimage = Resources::packaged(
-            Os::Linux,
-            &root.join("elsewhere/bin/anarlog"),
-            Some("Anarlog"),
-            Some(appdir),
-        )
-        .unwrap();
-        assert!(appimage.notification_icons().join("zoom.svg").is_file());
+    fn an_unchanneled_linux_release_finds_the_sidecars_beside_it() {
+        let resources =
+            Resources::packaged(Os::Linux, Path::new("/opt/gpui/desktop-gpui"), None, None)
+                .unwrap();
         assert_eq!(
-            Resources::packaged(
-                Os::Linux,
-                &root.join("elsewhere/bin/anarlog"),
-                Some("Anarlog"),
-                None
-            )
-            .unwrap()
-            .notification_icons(),
-            Path::new("/usr/lib/Anarlog/notification-icons")
+            resources.executable("llama-server"),
+            Path::new("/opt/gpui/llama-server")
         );
-        assert_eq!(
-            Resources::packaged(Os::Linux, &deb.join("bin/anarlog"), None, None),
-            None,
-            "an unpackaged Linux build has no product folder"
-        );
-
-        let windows = root.join("Programs/Anarlog");
-        file(&windows.join("anarlog.exe"));
-        file(&windows.join("anarlog-cli.exe"));
-        file(&windows.join("icons/stable.icns"));
-        let windows = Resources::packaged(
-            Os::Windows,
-            &windows.join("anarlog.exe"),
-            Some("Anarlog"),
-            None,
-        )
-        .unwrap();
-        assert!(windows.icon("stable").is_file());
-        assert!(windows.executable("anarlog-cli").is_file());
     }
 }
