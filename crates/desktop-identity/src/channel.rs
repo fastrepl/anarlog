@@ -48,6 +48,17 @@ impl Channel {
         }
     }
 
+    /// The executable's name (`mainBinaryName`). Linux matches windows to the package's desktop
+    /// entry by it (`StartupWMClass`), and it is the bundled CLI's command name.
+    pub fn executable(self) -> &'static str {
+        match self {
+            Self::Dev => "anarlog-dev",
+            Self::Staging => "anarlog-staging",
+            Self::Nightly => "anarlog-nightly",
+            Self::Stable => "anarlog",
+        }
+    }
+
     /// Deep-link schemes this channel registers; the first is the one it builds links with.
     pub fn schemes(self) -> &'static [&'static str] {
         match self {
@@ -100,6 +111,11 @@ mod tests {
 
             assert_eq!(config["identifier"], channel.identifier(), "{channel:?}");
             assert_eq!(config["productName"], channel.product_name(), "{channel:?}");
+            assert_eq!(
+                config["mainBinaryName"],
+                channel.executable(),
+                "{channel:?}"
+            );
             assert_eq!(schemes, channel.schemes(), "{channel:?}");
             assert_eq!(Channel::from_name(channel.name()), Some(channel));
         }
