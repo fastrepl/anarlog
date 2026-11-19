@@ -444,11 +444,12 @@ async fn a_raw_microphone_is_echo_cancelled_when_the_capture_asks() {
         let mut capture = engine.open(request).unwrap();
         assert_eq!(capture.provenance.mic, MicProcessing::Raw);
         let mut frames = 0;
-        while let Ok(Some(item)) =
-            tokio::time::timeout(Duration::from_millis(500), capture.stream.next_event()).await
-        {
+        // Echo cancellation can hold the first frame back well past 500 ms on a loaded runner.
+        let mut wait = Duration::from_secs(10);
+        while let Ok(Some(item)) = tokio::time::timeout(wait, capture.stream.next_event()).await {
             if let CaptureEvent::Frame(frame) = item.unwrap() {
                 frames += 1;
+                wait = Duration::from_millis(500);
                 let cancelled = frame
                     .aec_mic
                     .as_ref()
