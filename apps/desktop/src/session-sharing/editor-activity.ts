@@ -41,6 +41,19 @@ export async function flushCanonicalSessionEditorChanges(
   await flushDatabaseWrites([`session:${sessionId}`]);
 }
 
+/** Hands every mounted editor's debounced edit to the database write queue. */
+export function flushAllCanonicalSessionEditors() {
+  for (const editors of mountedCanonicalEditors.values()) {
+    for (const flushPendingChanges of editors.values()) {
+      try {
+        flushPendingChanges();
+      } catch (error) {
+        console.error("Failed to flush a note editor", error);
+      }
+    }
+  }
+}
+
 export async function isCanonicalSessionEditorActive(
   sessionId: string,
 ): Promise<boolean> {
