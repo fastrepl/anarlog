@@ -266,9 +266,11 @@ impl Waiting {
     }
 }
 
+const QUEUE: usize = 64;
+
 impl Default for NativeEvents {
     fn default() -> Self {
-        let (sender, receiver) = mpsc::sync_channel(64);
+        let (sender, receiver) = mpsc::sync_channel(QUEUE);
         Self {
             sender,
             receiver: Arc::new(Mutex::new(receiver)),
@@ -281,8 +283,12 @@ impl NativeEvents {
     /// Queues deep links, from the OS or from launch arguments on Windows and Linux, and says
     /// whether it took them all.
     pub fn open_urls(&self, urls: Vec<String>) -> bool {
+        if urls.len() > QUEUE {
+            tracing::warn!(count = urls.len(), "Too many deep links at once");
+            return false;
+        }
         let mut taken = true;
-        for url in urls.into_iter().take(64) {
+        for url in urls {
             match self.links.receive(&url) {
                 Ok(id) => {
                     if self
@@ -307,8 +313,19 @@ impl NativeEvents {
     /// A later launch of this app: like shipping's single-instance callback, it shows the main
     /// window, and its links open here.
     pub fn relaunched(&self, urls: Vec<String>) -> bool {
-        self.send(NativeEvent::Action(TrayAction::Open));
-        self.open_urls(urls)
+        let shown = self
+            .sender
+            .try_send(NativeEvent::Action(TrayAction::Open))
+            .is_ok();
+        if !shown {
+            tracing::warn!("Native event queue is full");
+        }
+        // A plain relaunch only shows the window, so it fails when that can't be queued.
+        if urls.is_empty() {
+            shown
+        } else {
+            self.open_urls(urls)
+        }
     }
 
     pub fn install(&self, application: &Application) {
@@ -650,5 +667,26 @@ mod tests {
                 NativeEvent::About
             ]
         ));
+    }
+
+    /// A launch the running app can't take fails, so it isn't reported as opened.
+    #[test]
+    fn a_relaunch_fails_when_the_running_app_cant_take_it() {
+        let events = NativeEvents::default();
+        let links = |count: usize| {
+            (0..count)
+                .map(|n| format!("anarlog-staging://auth/callback?code={n}"))
+                .collect::<Vec<_>>()
+        };
+        assert!(!events.open_urls(links(QUEUE + 1)));
+        assert!(
+            events.next().is_none(),
+            "a batch is taken whole or not at all"
+        );
+
+        for _ in 0..QUEUE {
+            events.sender.try_send(NativeEvent::NewNote).unwrap();
+        }
+        assert!(!events.relaunched(Vec::new()));
     }
 }

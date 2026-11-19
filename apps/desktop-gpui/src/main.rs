@@ -85,7 +85,8 @@ fn main() -> anyhow::Result<()> {
     let zoom = desktop_gpui::zoom::Zoom::load(storage.root.join("zoom.json"));
     let application = zoom.application().with_assets(Assets);
     events.install(&application);
-    if let Some(channel) = package::channel() {
+    // A `--profile` run of a channel build leaves the installed app's link handler alone.
+    if let Some(channel) = storage.channel {
         desktop_gpui::platform::deeplinks::register_handler(channel);
     }
     application.run(move |cx| {

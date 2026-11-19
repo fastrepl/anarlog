@@ -111,10 +111,15 @@ fn register_linux_handler(channel: Channel) -> Result<()> {
         tracing::debug!(%error, "update-desktop-database is unavailable");
     }
     for scheme in channel.schemes() {
-        Command::new("xdg-mime")
+        let status = Command::new("xdg-mime")
             .args(["default", &name, &format!("x-scheme-handler/{scheme}")])
             .status()
             .map_err(failure)?;
+        if !status.success() {
+            return Err(failure(format!(
+                "xdg-mime could not make the app open {scheme} links ({status})"
+            )));
+        }
     }
     Ok(())
 }
