@@ -693,6 +693,37 @@ describe("browser-safe editor controls", () => {
     expect(handleChange).toHaveBeenCalledWith(baseDoc);
   });
 
+  it("flushes only a queued local edit, never a focused editor's deferred older view", async () => {
+    const ref = createRef<NoteEditorRef>();
+    const handleChange = vi.fn();
+    const props = { ref, handleChange, enforceTitleHeading: false };
+    const rendered = render(
+      createElement(NoteEditor, { ...props, initialContent: baseDoc }),
+    );
+    await waitFor(() => expect(ref.current?.view).not.toBeNull());
+    act(() => ref.current?.view?.focus());
+    // Newer stored content waits for blur, and nothing local is queued.
+    rendered.rerender(
+      createElement(NoteEditor, { ...props, initialContent: nextDoc }),
+    );
+
+    act(() => ref.current?.flushQueuedChange());
+    expect(handleChange).not.toHaveBeenCalled();
+
+    act(() => {
+      const view = ref.current?.view;
+      view?.dispatch(view.state.tr.insertText("!", 4));
+    });
+    act(() => ref.current?.flushQueuedChange());
+    expect(handleChange).toHaveBeenCalledOnce();
+    expect(handleChange).toHaveBeenCalledWith({
+      type: "doc",
+      content: [
+        { type: "paragraph", content: [{ type: "text", text: "old!" }] },
+      ],
+    });
+  });
+
   it("persists during uninterrupted typing instead of waiting for a pause", async () => {
     const ref = createRef<NoteEditorRef>();
     const handleChange = vi.fn();

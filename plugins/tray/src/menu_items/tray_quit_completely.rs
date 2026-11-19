@@ -36,7 +36,7 @@ impl MenuItemHandler for TrayQuitCompletely {
 }
 
 pub fn quit_completely(app: &AppHandle<tauri::Wry>) {
-    // Skip the frontend exit flush so the process terminates immediately.
+    // A confirmed quit skips the full frontend exit flush and only saves local edits.
     anlg_intercept::set_force_quit();
     app.exit(0);
 }
