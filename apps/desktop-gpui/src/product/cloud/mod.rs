@@ -14,6 +14,7 @@ pub use account::{ReferralInvite, Referrals};
 pub use management::ManagementCommand;
 pub mod resources;
 mod review;
+mod secrets;
 mod sharing;
 mod sync;
 pub mod sync_view;
@@ -22,6 +23,7 @@ pub mod teams_view;
 mod transport;
 pub mod view;
 pub use review::{ConflictDecision, ConflictReview};
+pub use secrets::{ChannelStore, SecretNames};
 pub use sharing::ShareCommand;
 
 use std::sync::Arc;
@@ -143,14 +145,7 @@ impl CloudServices {
                         return Ok(());
                     };
                     match this.core.auth.lease(&account, force).await {
-                        Ok(lease) => {
-                            if !this.core.sync.update_required()
-                                && this.core.sync.enabled(&this.core.auth, &account).await?
-                            {
-                                this.core.sync.start(&this.core, &services, &lease).await?;
-                            }
-                            Ok(())
-                        }
+                        Ok(lease) => this.core.sync.resume(&this.core, &services, &lease).await,
                         Err(error) => {
                             this.core.sync.stop().await;
                             Err(error)

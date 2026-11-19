@@ -174,7 +174,11 @@ impl Auth {
     }
 
     pub fn key(&self, suffix: &str) -> String {
-        format!("{}:{suffix}", self.transport.config.credential_namespace)
+        self.secrets().auth(suffix)
+    }
+
+    pub fn secrets(&self) -> &super::SecretNames {
+        &self.transport.config.secrets
     }
 
     pub fn identity(&self) -> Identity {

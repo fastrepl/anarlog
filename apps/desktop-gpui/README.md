@@ -27,15 +27,22 @@ Packaged builds will instead run in channel mode: CD compiles in
 shipping data through `crates/desktop-identity` (`src/launch.rs`). Unset builds,
 `cargo run` and tests stay in the sandbox, `--profile` always selects the sandbox,
 and a build kind that would resolve different folders than the shipping channel
-refuses to start (stable and nightly need release, dev needs debug). Channel mode
-already opens the channel's shipping `app.db`, but it is incomplete: opening it the
-way shipping does (the sqlite-sync extension, the reset marker, waiting for shipping's
-locks), the vault folders, the secure store and sign-in still use the sandbox's code.
-Don't compile a channel in yet. Launch arguments the shipping app
-receives (`--background`, `--onboarding`, `--updater2-*`, deep-link URLs) are
-accepted, and unknown ones are logged and ignored.
-The canonical schema is prepared with `db-app`. CloudSync starts disabled and
-requires account sign-in, encryption setup and explicit enablement.
+refuses to start (stable and nightly need release, dev needs debug). A channel
+run opens shipping's `app.db` in place, keeps notes, recordings and attachments in
+shipping's data folder, and reads the channel's secure store under shipping's
+service and account names (E2EE keys and provider keys, chunked like shipping).
+Channel mode is incomplete until sign-in also uses shipping's session store; don't
+compile a channel in yet. Launch arguments the shipping app receives
+(`--background`, `--onboarding`, `--updater2-*`, deep-link URLs) are accepted, and
+unknown ones are logged and ignored.
+Both modes open the database like shipping, with the bundled sqlite-sync extension
+loaded (`anlg_db_core::open_app_db`), so a database that ran sqlite-sync opens and
+migrates; slow migrations show their progress. A channel run waits up to a minute
+for the replaced app's launch and channel locks and applies its "Start fresh"
+marker; a sandbox refuses both at once. The canonical schema is prepared with
+`db-app`. CloudSync follows shipping's `cloud_sync_enabled` setting (on unless
+turned off) and also needs account sign-in and a recovery key; it advertises the
+`replica, accepted_replica` transports.
 
 The integrated preview mounts the native workspace, TipTap JSON editor,
 transcript/audio pane, and concrete cloud/local product services. The editor
@@ -53,7 +60,7 @@ them through the model manager.
 
 Cloud sign-in requires `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` at build
 or runtime. `VITE_API_URL` and `VITE_WEB_APP_URL` can select another deployment.
-The native sandbox uses separate keyring namespaces. Local engine executables
+A sandbox profile keeps its own keyring namespace. Local engine executables
 and bundled CLI/skills are resolved under `ANARLOG_NATIVE_RESOURCES` (or the
 `resources` directory beside the executable); models are stored under the isolated
 profile. Argmax also requires `ARGMAX_API_KEY`.

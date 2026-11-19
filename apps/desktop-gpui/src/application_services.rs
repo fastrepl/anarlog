@@ -21,7 +21,11 @@ use crate::{
     },
     platform::permissions::NativePermissions,
     product::{
-        cloud::{CloudConfig, CloudServices, auth::KeyringStore, host::NativeHost},
+        cloud::{
+            ChannelStore, CloudConfig, CloudServices, SecretNames,
+            auth::{KeyringStore, SecureStore},
+            host::NativeHost,
+        },
         local::{
             HostEffects, LocalServices,
             calendar::{AccessToken, CalendarAuth, CalendarService},
@@ -32,6 +36,8 @@ use crate::{
         services::{Mutation, Outcome, Panel, ProductServices, Request, Surface},
     },
 };
+
+const SANDBOX_IDENTIFIER: &str = "com.anarlog.gpui.sandbox";
 
 pub enum HostCommand {
     Flush(oneshot::Sender<Result<()>>),
@@ -237,15 +243,20 @@ impl NativeServices {
         let api = std::env::var("VITE_API_URL").unwrap_or_else(|_| "https://api.anarlog.so".into());
         let cloud_config = config(&runtime, &storage, &api).await;
         let profile = storage.root;
-        let cloud = match cloud_config {
-            Ok(config) => match CloudServices::new(
-                runtime.clone(),
-                config,
+        // A channel run uses the shipping channel's secure store and names, so the secrets the
+        // shipping app saved, the recovery key among them, are found in place.
+        let (identifier, store): (&str, Arc<dyn SecureStore>) = match storage.channel {
+            Some(channel) => (
+                channel.identifier(),
+                Arc::new(ChannelStore::keyring(channel.identifier())),
+            ),
+            None => (
+                SANDBOX_IDENTIFIER,
                 Arc::new(KeyringStore::new("com.anarlog.gpui.sandbox.secure-store")),
-                host,
-            )
-            .await
-            {
+            ),
+        };
+        let cloud = match cloud_config {
+            Ok(config) => match CloudServices::new(runtime.clone(), config, store, host).await {
                 Ok(service) => CloudConnection {
                     service: Some(service),
                     error: ServiceError::Closed,
@@ -326,10 +337,8 @@ impl NativeServices {
                         .await
                 })
             }),
-            secret: crate::meeting::config::keyring_secrets("com.anarlog.gpui.sandbox".into()),
-            secret_write: crate::meeting::subscription::keyring_writer(
-                "com.anarlog.gpui.sandbox".into(),
-            ),
+            secret: crate::meeting::config::keyring_secrets(identifier.into()),
+            secret_write: crate::meeting::subscription::keyring_writer(identifier.into()),
         };
         let stop_models = models.clone();
         let stop_effects = effects.clone();
@@ -421,7 +430,10 @@ async fn config(runtime: &RuntimeHandle, storage: &Storage, api: &str) -> Result
             .map_err(failure)?,
         anon_key,
         callback: "anarlog-dev://auth/callback".parse().map_err(failure)?,
-        credential_namespace: format!("gpui-{fingerprint}"),
+        secrets: match channel {
+            Some(_) => SecretNames::Channel,
+            None => SecretNames::Sandbox(format!("gpui-{fingerprint}")),
+        },
         device_fingerprint: fingerprint,
         device_name,
     })

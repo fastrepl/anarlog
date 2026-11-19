@@ -15,7 +15,7 @@ use wiremock::{
 use zeroize::Zeroizing;
 
 use super::{
-    CloudHost, CloudServices, ConflictDecision, ShareCommand,
+    ChannelStore, CloudHost, CloudServices, ConflictDecision, SecretNames, ShareCommand,
     auth::{Auth, SecureStore},
     sharing::validate_document,
     transport::{CloudConfig, Transport},
@@ -598,7 +598,7 @@ fn config(server: &MockServer, namespace: &str) -> CloudConfig {
         web: server.uri().parse().unwrap(),
         anon_key: "fixture-anon".into(),
         callback: "anarlog-dev://auth/callback".parse().unwrap(),
-        credential_namespace: namespace.into(),
+        secrets: SecretNames::Sandbox(namespace.into()),
         device_fingerprint: "fixture-device".into(),
         device_name: "Fixture device".into(),
     }
@@ -817,7 +817,7 @@ async fn sign_in_handoff_checks_state_before_exchange_and_rejects_replayed_callb
 }
 
 #[tokio::test]
-async fn sync_preferences_and_recovery_keys_survive_reconstruction() {
+async fn recovery_keys_survive_reconstruction() {
     let server = MockServer::start().await;
     let store = Arc::new(MemoryStore::default());
     let auth = Auth::new(
@@ -827,18 +827,10 @@ async fn sync_preferences_and_recovery_keys_survive_reconstruction() {
     .await
     .unwrap();
     let sync = super::sync::Sync::default();
-    assert!(!sync.enabled(&auth, ACCOUNT).await.unwrap());
-    store
-        .write(
-            auth.key(&format!("{ACCOUNT}:sync-enabled")),
-            Zeroizing::new("true".into()),
-        )
-        .await
-        .unwrap();
     let recovery = anlg_e2ee::RecoveryKey::generate().unwrap();
     store
         .write(
-            auth.key(&format!("{ACCOUNT}:recovery")),
+            auth.secrets().recovery(ACCOUNT).unwrap(),
             recovery.expose_code(),
         )
         .await
@@ -846,7 +838,6 @@ async fn sync_preferences_and_recovery_keys_survive_reconstruction() {
     let restored = Auth::new(Transport::new(config(&server, "sync")).unwrap(), store)
         .await
         .unwrap();
-    assert!(sync.enabled(&restored, ACCOUNT).await.unwrap());
     assert_eq!(
         sync.recovery(&restored, ACCOUNT).await.unwrap().key_id(),
         recovery.key_id()
@@ -1295,6 +1286,7 @@ async fn invitations_use_current_email_contract_and_report_clipboard_fallback() 
 
 #[tokio::test]
 async fn encryption_setup_never_replaces_an_existing_server_identity_and_pause_is_durable() {
+    use super::calls::CloudCalls;
     let server = MockServer::start().await;
     let directory = tempfile::tempdir().unwrap();
     let (runtime, ready) = RuntimeHandle::start(Profile {
@@ -1384,15 +1376,7 @@ async fn encryption_setup_never_replaces_an_existing_server_identity_and_pause_i
         .perform(Surface::CloudSync, request(), mutation(Action::PauseSync))
         .await
         .unwrap();
-    assert_eq!(
-        store
-            .read(format!("fixture:{ACCOUNT}:sync-enabled"))
-            .await
-            .unwrap()
-            .unwrap()
-            .as_str(),
-        "false"
-    );
+    assert!(!cloud.sync_state().await.unwrap().enabled);
     runtime.shutdown().await.unwrap();
 }
 
@@ -2143,10 +2127,6 @@ async fn devices_waiting_for_approval_keep_waiting_and_syncing_devices_approve_t
     let slot = |name: &str| format!("fixture:{ACCOUNT}:{name}");
     let enrollment = anlg_e2ee::DeviceEnrollmentKey::generate().unwrap();
     store
-        .write(slot("sync-enabled"), Zeroizing::new("true".into()))
-        .await
-        .unwrap();
-    store
         .write(slot("enrollment"), enrollment.expose_code())
         .await
         .unwrap();
@@ -2226,10 +2206,11 @@ async fn sync_setup_claims_the_recovery_key_it_showed_and_enabling_without_one_a
             .unwrap()
             .is_none()
     );
+    // Like shipping, the setting is on until turned off; the missing key asks for setup.
     let state = cloud.sync_state().await.unwrap();
     assert_eq!(
         (state.enabled, state.block),
-        (false, Some(SyncBlock::SetupRequired))
+        (true, Some(SyncBlock::SetupRequired))
     );
     // Reopening setup shows the same unsaved key, and "I saved it" claims exactly that key.
     let shown = cloud
@@ -2278,10 +2259,6 @@ async fn sync_advertises_the_accepted_replica_and_stops_once_an_update_is_requir
     let store = Arc::new(MemoryStore::default());
     let cloud = fixture_cloud(&runtime, &server, store.clone()).await;
     let slot = |name: &str| format!("fixture:{ACCOUNT}:{name}");
-    store
-        .write(slot("sync-enabled"), Zeroizing::new("true".into()))
-        .await
-        .unwrap();
     let recovery = anlg_e2ee::RecoveryKey::generate().unwrap();
     store
         .write(slot("recovery"), recovery.expose_code())
@@ -2312,5 +2289,130 @@ async fn sync_advertises_the_accepted_replica_and_stops_once_an_update_is_requir
     );
     // Retrying can't succeed until the app updates, so later refreshes don't ask again.
     cloud.refresh(false).await.unwrap();
+    runtime.shutdown().await.unwrap();
+}
+
+/// Shipping's `cloud_sync_enabled` decides whether sync starts: on unless the user turned it
+/// off, which shipping saves as an `app_settings` row.
+#[tokio::test]
+async fn sync_starts_only_when_shippings_cloud_sync_setting_allows_it() {
+    use super::calls::CloudCalls;
+    let server = MockServer::start().await;
+    let directory = tempfile::tempdir().unwrap();
+    let (runtime, ready) = RuntimeHandle::start(Profile {
+        database: directory.path().join("cloud.sqlite"),
+    })
+    .unwrap();
+    ready.receive().await.unwrap();
+    let store = Arc::new(MemoryStore::default());
+    let cloud = fixture_cloud(&runtime, &server, store.clone()).await;
+    let recovery = anlg_e2ee::RecoveryKey::generate().unwrap();
+    store
+        .write(
+            format!("fixture:{ACCOUNT}:recovery"),
+            recovery.expose_code(),
+        )
+        .await
+        .unwrap();
+    assert!(cloud.sync_state().await.unwrap().enabled);
+    runtime
+        .submit(|services| async move {
+            sqlx::query(
+                "INSERT INTO app_settings (id, value_json) VALUES ('cloud_sync_enabled', 'false')",
+            )
+            .execute(services.db.pool())
+            .await
+            .unwrap();
+            Ok(())
+        })
+        .unwrap()
+        .receive()
+        .await
+        .unwrap();
+    Mock::given(method("POST"))
+        .and(path("/sync/replica/credentials"))
+        .respond_with(ResponseTemplate::new(500))
+        .expect(0)
+        .mount(&server)
+        .await;
+    cloud.refresh(false).await.unwrap();
+    assert!(!cloud.sync_state().await.unwrap().enabled);
+    runtime.shutdown().await.unwrap();
+}
+
+/// A channel run reads shipping's keychain: the recovery key shipping saved is sent, so no
+/// setup or recovery-key prompt appears.
+#[tokio::test]
+async fn channel_runs_find_the_recovery_key_the_shipping_app_saved() {
+    use super::calls::{CloudCalls, SyncBlock};
+    let server = MockServer::start().await;
+    let directory = tempfile::tempdir().unwrap();
+    let (runtime, ready) = RuntimeHandle::start(Profile {
+        database: directory.path().join("app.db"),
+    })
+    .unwrap();
+    ready.receive().await.unwrap();
+    let keychain = super::secrets::mock::Keychain::default();
+    let recovery = anlg_e2ee::RecoveryKey::generate().unwrap();
+    keychain.insert(
+        "com.anarlog.stable.secure-store",
+        &format!("e2ee:account:{ACCOUNT}:recovery-v1"),
+        &recovery.expose_code(),
+    );
+    let store = Arc::new(ChannelStore::new(anlg_desktop_identity::SecureStore::new(
+        "com.hyprnote.stable",
+        keychain.entry(),
+    )));
+    store
+        .write(
+            "desktop-auth:session".into(),
+            Zeroizing::new(session(now() + 3600, "fixture-token").to_string()),
+        )
+        .await
+        .unwrap();
+    let cloud = CloudServices::new(
+        runtime.clone(),
+        CloudConfig {
+            secrets: SecretNames::Channel,
+            ..config(&server, "unused")
+        },
+        store,
+        Arc::new(FixtureHost),
+    )
+    .await
+    .unwrap();
+    // Any terminal answer will do; this request only exists once the key was found.
+    let key_id = recovery.key_id();
+    Mock::given(method("POST"))
+        .and(path("/sync/replica/credentials"))
+        .and(move |request: &wiremock::Request| {
+            request
+                .headers
+                .get("x-anarlog-e2ee-key-id")
+                .and_then(|value| value.to_str().ok())
+                == Some(key_id.as_str())
+        })
+        .respond_with(ResponseTemplate::new(426))
+        .expect(1)
+        .mount(&server)
+        .await;
+    assert!(cloud.refresh(false).await.is_err());
+    assert_eq!(
+        cloud.sync_state().await.unwrap().block,
+        Some(SyncBlock::UpdateRequired)
+    );
+    let mut accounts = keychain
+        .accounts()
+        .into_iter()
+        .map(|(_, account)| account)
+        .collect::<Vec<_>>();
+    accounts.sort();
+    assert_eq!(
+        accounts,
+        [
+            "desktop-auth:session".to_owned(),
+            format!("e2ee:account:{ACCOUNT}:recovery-v1")
+        ]
+    );
     runtime.shutdown().await.unwrap();
 }
