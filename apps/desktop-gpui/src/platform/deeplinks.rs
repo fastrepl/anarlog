@@ -64,6 +64,7 @@ pub const SCHEMES: &[&str] = &[
     "hyprnote-staging",
     "hyprnote-nightly",
     "hypr",
+    "char",
 ];
 
 /// Shipping's start-up `register_all` on Linux (tauri-plugin-deep-link): a hidden
@@ -101,11 +102,14 @@ fn register_linux_handler(channel: Channel) -> Result<()> {
     if std::fs::read_to_string(&path).ok().as_deref() != Some(entry.as_str()) {
         anlg_storage::fs::atomic_write(&path, &entry).map_err(failure)?;
     }
-    // Like shipping, only a missing command fails; NixOS lacks update-desktop-database.
-    Command::new("update-desktop-database")
+    // Only refreshes the MIME cache, so a system without it, such as NixOS, still gets the
+    // defaults below. Shipping's plugin stops here instead and never sets them.
+    if let Err(error) = Command::new("update-desktop-database")
         .arg(&directory)
         .status()
-        .map_err(failure)?;
+    {
+        tracing::debug!(%error, "update-desktop-database is unavailable");
+    }
     for scheme in channel.schemes() {
         Command::new("xdg-mime")
             .args(["default", &name, &format!("x-scheme-handler/{scheme}")])
@@ -160,12 +164,15 @@ mod tests {
     use super::*;
 
     #[test]
-    fn rejects_unregistered_schemes() {
-        assert!(
-            NativeDeepLinks::default()
-                .receive("https://auth/callback?code=test")
-                .is_err()
-        );
+    fn opens_every_scheme_a_channel_registers_and_nothing_else() {
+        let links = NativeDeepLinks::default();
+        for channel in Channel::ALL {
+            for scheme in channel.schemes() {
+                let link = format!("{scheme}://auth/callback?code=test");
+                assert!(links.receive(&link).is_ok(), "{link}");
+            }
+        }
+        assert!(links.receive("https://auth/callback?code=test").is_err());
     }
 
     #[test]
