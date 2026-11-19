@@ -87,8 +87,11 @@ move ahead. The repository workspace and its lockfile are unchanged.
   hit-testing and IME geometry (`ZoomedInput`) stay aligned, and AccessKit sees real
   points through the root transform. Screen geometry and the traffic lights stay in
   real points, so their gutters divide by the factor as shipping's do. Windows has
-  no adapter yet and stays at 100%. Headless screens set the same window geometry
-  directly (`ANLG_SCREENS_ONLY=zoom`).
+  no zoom yet and stays at 100%. Headless screens set the same window geometry
+  directly (`ANLG_SCREENS_ONLY=zoom`). The same adapter turns line-based wheel
+  deltas into the pixels shipping's web view scrolls per notch, on every platform:
+  Chromium's 100 px per three wheel lines on Windows, WebKit's 40 px per line on
+  macOS, and WebKitGTK's window height to the 2/3 power per notch on Linux.
 - `ui/` provides source-derived light/dark HSL tokens, the system font policy,
   embedded existing logo and Hugeicons, focus restoration, and a bounded native
   text input with UTF-16/IME entry points and clipboard operations. Single-line
