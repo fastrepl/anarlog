@@ -2340,6 +2340,41 @@ async fn sync_starts_only_when_shippings_cloud_sync_setting_allows_it() {
     runtime.shutdown().await.unwrap();
 }
 
+/// A sandbox saved its sync switch in its keychain before it followed `cloud_sync_enabled`,
+/// whose default is on; a pause saved there must not resume sync after the update.
+#[tokio::test]
+async fn a_sandbox_sync_pause_outlasts_the_new_default() {
+    use super::calls::CloudCalls;
+    let server = MockServer::start().await;
+    let directory = tempfile::tempdir().unwrap();
+    let (runtime, ready) = RuntimeHandle::start(Profile {
+        database: directory.path().join("cloud.sqlite"),
+    })
+    .unwrap();
+    ready.receive().await.unwrap();
+    let store = Arc::new(MemoryStore::default());
+    let cloud = fixture_cloud(&runtime, &server, store.clone()).await;
+    let recovery = anlg_e2ee::RecoveryKey::generate().unwrap();
+    for (name, value) in [
+        ("recovery", recovery.expose_code()),
+        ("sync-enabled", zeroize::Zeroizing::new("false".to_string())),
+    ] {
+        store
+            .write(format!("fixture:{ACCOUNT}:{name}"), value)
+            .await
+            .unwrap();
+    }
+    Mock::given(method("POST"))
+        .and(path("/sync/replica/credentials"))
+        .respond_with(ResponseTemplate::new(500))
+        .expect(0)
+        .mount(&server)
+        .await;
+    cloud.refresh(false).await.unwrap();
+    assert!(!cloud.sync_state().await.unwrap().enabled);
+    runtime.shutdown().await.unwrap();
+}
+
 /// A channel run reads shipping's keychain: the recovery key shipping saved is sent, so no
 /// setup or recovery-key prompt appears.
 #[tokio::test]

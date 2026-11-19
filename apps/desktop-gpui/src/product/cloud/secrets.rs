@@ -57,6 +57,14 @@ impl SecretNames {
         self.e2ee(account, "enrollment", e2ee::device_key_name)
     }
 
+    /// Where a sandbox kept its sync switch before it followed `cloud_sync_enabled`.
+    pub fn legacy_sync_switch(&self, account: &str) -> Option<String> {
+        match self {
+            Self::Sandbox(namespace) => Some(format!("{namespace}:{account}:sync-enabled")),
+            Self::Channel => None,
+        }
+    }
+
     pub fn share_link(&self, account: &str, share: &str) -> String {
         match self {
             Self::Sandbox(namespace) => format!("{namespace}:{account}:share:{share}:link"),

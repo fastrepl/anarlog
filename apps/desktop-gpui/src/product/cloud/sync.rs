@@ -72,6 +72,10 @@ impl Sync {
 
     /// Shipping's `cloud_sync_enabled` device setting, on unless turned off.
     pub async fn enabled(&self, services: &Services) -> Result<bool> {
+        Ok(self.setting(services).await?.unwrap_or(true))
+    }
+
+    async fn setting(&self, services: &Services) -> Result<Option<bool>> {
         let rows = services
             .executor
             .execute(
@@ -83,10 +87,32 @@ impl Sync {
             )
             .await
             .map_err(|_| failure("Could not read the sync preference"))?;
+        // Every key decodes, with its default when nothing stored one.
         Ok(crate::product::settings::decode(&rows)?
             .get(ENABLED)
-            .and_then(|setting| setting.value.as_bool())
-            .unwrap_or(true))
+            .filter(|setting| setting.source != "Default")
+            .and_then(|setting| setting.value.as_bool()))
+    }
+
+    /// A sandbox kept its switch in its keychain, off until turned on. Until the device has a
+    /// sync setting, a switch it saved becomes that setting, so a pause outlasts the new default.
+    async fn carry_legacy_switch(
+        &self,
+        auth: &Auth,
+        account: &str,
+        services: &Services,
+    ) -> Result<()> {
+        let Some(slot) = auth.secrets().legacy_sync_switch(account) else {
+            return Ok(());
+        };
+        if self.setting(services).await?.is_some() {
+            return Ok(());
+        }
+        // An unreadable keychain also stops sync from starting; the next refresh carries it.
+        if let Ok(Some(saved)) = auth.store.read(slot).await {
+            self.set_enabled(services, saved.as_str() == "true").await?;
+        }
+        Ok(())
     }
 
     async fn set_enabled(&self, services: &Services, enabled: bool) -> Result<()> {
@@ -107,7 +133,12 @@ impl Sync {
     /// The periodic refresh, like shipping's credential exchange: sync starts when the device
     /// setting allows it, and a missing recovery key only marks setup as needed.
     pub async fn resume(&self, core: &Core, services: &Services, lease: &AuthLease) -> Result<()> {
-        if self.update_required() || !self.enabled(services).await? {
+        if self.update_required() {
+            return Ok(());
+        }
+        self.carry_legacy_switch(&core.auth, account(lease)?, services)
+            .await?;
+        if !self.enabled(services).await? {
             return Ok(());
         }
         match self.start(core, services, lease).await {
