@@ -85,15 +85,10 @@ pub fn remove_auth_from_store_json(store_json_path: &Path) -> std::io::Result<()
     }
 
     let content = std::fs::read_to_string(store_json_path)?;
-    let mut store: serde_json::Map<String, serde_json::Value> = match serde_json::from_str(&content)
-    {
-        Ok(store) => store,
-        Err(_) => {
-            // The legacy store is already unreadable. Replace it so a partial
-            // auth payload cannot survive after the encrypted store is authoritative.
-            return anlg_storage::fs::atomic_write(store_json_path, "{}");
-        }
-    };
+    // An unreadable store is left alone, as store2 leaves it: it also holds onboarding, pins and
+    // preferences, which a repaired file gets back. No reader takes a session from it meanwhile.
+    let mut store: serde_json::Map<String, serde_json::Value> =
+        serde_json::from_str(&content).map_err(invalid_data)?;
 
     if store.remove(LEGACY_STORE_KEY).is_none() {
         return Ok(());
@@ -443,14 +438,15 @@ mod test {
     }
 
     #[test]
-    fn plaintext_cleanup_scrubs_unreadable_legacy_store() {
+    fn plaintext_cleanup_leaves_an_unreadable_store_and_its_settings_alone() {
         let temp = tempdir().unwrap();
         let store_path = temp.path().join("store.json");
-        std::fs::write(&store_path, r#"{"auth":"partial-secret""#).unwrap();
+        let truncated = r#"{"desktop":"{\"OnboardingNeeded2\":false}""#;
+        std::fs::write(&store_path, truncated).unwrap();
 
-        remove_auth_from_store_json(&store_path).unwrap();
+        assert!(remove_auth_from_store_json(&store_path).is_err());
 
-        assert_eq!(std::fs::read_to_string(store_path).unwrap(), "{}");
+        assert_eq!(std::fs::read_to_string(store_path).unwrap(), truncated);
     }
 
     fn auth_json(token: &str) -> String {

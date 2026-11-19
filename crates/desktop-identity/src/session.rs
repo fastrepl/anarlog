@@ -311,15 +311,18 @@ fn load_protected(paths: &AuthPaths, vault: &dyn Vault) -> SessionMap {
     let secure_path = protected_path(paths);
 
     if secure_path.is_file() {
-        let auth = match vault.load(&secure_path) {
-            Ok(auth) => auth,
+        return match vault.load(&secure_path) {
+            Ok(auth) => {
+                discard_protected_plaintext(paths);
+                auth
+            }
+            // A plaintext copy may be the only readable one left. It may also be stale, so it
+            // isn't used; the next sign-in saves a protected session and drops it.
             Err(error) => {
                 tracing::warn!(%error, "ignoring_unreadable_windows_auth");
                 SessionMap::new()
             }
         };
-        discard_protected_plaintext(paths);
-        return auth;
     }
 
     if !plaintext_path.is_file() {
@@ -583,7 +586,7 @@ mod tests {
     }
 
     #[test]
-    fn unreadable_protected_sessions_read_as_signed_out() {
+    fn unreadable_protected_sessions_read_as_signed_out_and_keep_the_plaintext() {
         let root = tempfile::tempdir().unwrap();
         let paths = paths(root.path());
         let secure = paths.current.with_file_name("auth.dpapi");
@@ -593,7 +596,7 @@ mod tests {
 
         let store = SessionStore::protected(paths.clone(), FakeVault::default());
         assert!(store.load().is_empty());
-        assert!(!paths.current.exists());
+        assert!(paths.current.is_file());
         assert!(secure.is_file());
     }
 }
