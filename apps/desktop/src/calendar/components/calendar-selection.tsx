@@ -10,6 +10,7 @@ import {
 } from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
+import type { CalendarSyncIssue } from "~/services/calendar/sync-errors";
 import {
   type MenuItemDef,
   useNativeContextMenu,
@@ -27,6 +28,7 @@ export interface CalendarGroup {
   sourceName: string;
   calendars: CalendarItem[];
   menuItems?: MenuItemDef[];
+  issue?: CalendarSyncIssue;
 }
 
 interface CalendarSelectionProps {
@@ -94,11 +96,13 @@ export function CalendarSelection({
     <div className={cn(["flex flex-col gap-3", className])}>
       {groups.map((group) => {
         const showHeader =
-          groups.length > 1 || (group.menuItems?.length ?? 0) > 0;
+          group.issue ||
+          groups.length > 1 ||
+          (group.menuItems?.length ?? 0) > 0;
 
         return (
           <div
-            key={group.id ?? group.sourceName}
+            key={JSON.stringify([group.id, group.sourceName])}
             className="flex flex-col gap-1"
           >
             {showHeader ? (
@@ -107,6 +111,29 @@ export function CalendarSelection({
                 disableHoverTone={disableHoverTone}
               />
             ) : null}
+
+            {group.issue && (
+              <div className="flex items-start gap-2">
+                <p role="alert" className="text-xs text-amber-700">
+                  {group.issue === "outlook_mailbox_unavailable"
+                    ? t`This Outlook account needs an active cloud mailbox. Ask your Microsoft 365 administrator to enable Exchange Online, or connect another account.`
+                    : group.issue === "reconnect_required"
+                      ? t`Reconnect your calendar account to resume syncing.`
+                      : t`Some calendars could not sync. Refresh to try again.`}
+                </p>
+                {onRefresh && (
+                  <button
+                    type="button"
+                    onClick={onRefresh}
+                    disabled={isLoading}
+                    className="text-muted-foreground hover:text-foreground shrink-0 rounded p-1"
+                    aria-label={t`Refresh calendars`}
+                  >
+                    <ArrowsClockwise className="size-3" />
+                  </button>
+                )}
+              </div>
+            )}
 
             <div className="flex flex-col gap-1">
               {group.calendars.map((cal) => (

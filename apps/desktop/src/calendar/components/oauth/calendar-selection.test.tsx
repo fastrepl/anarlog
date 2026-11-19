@@ -1,4 +1,10 @@
-import { cleanup, render } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -34,12 +40,17 @@ vi.mock("~/calendar/queries", () => ({
 }));
 
 import { PROVIDERS } from "../shared";
-import { useOAuthCalendarSelection } from "./calendar-selection";
+import {
+  OAuthCalendarSelection,
+  useOAuthCalendarSelection,
+} from "./calendar-selection";
+
+import { setCalendarSyncIssue } from "~/services/calendar/sync-errors";
 
 const GOOGLE_PROVIDER = PROVIDERS.find((provider) => provider.id === "google")!;
 
 function HookHarness() {
-  useOAuthCalendarSelection(GOOGLE_PROVIDER);
+  useOAuthCalendarSelection(GOOGLE_PROVIDER, []);
   return null;
 }
 
@@ -48,6 +59,39 @@ describe("useOAuthCalendarSelection", () => {
     cleanup();
     mocks.scheduleSync.mockClear();
     mocks.calendars = [];
+  });
+
+  it("shows the mailbox error on the affected account before calendar discovery and clears it after retry", () => {
+    const provider = PROVIDERS.find((item) => item.id === "outlook")!;
+    const connections = [
+      {
+        integration_id: "outlook",
+        connection_id: "fixture",
+        account_identity: "Work account",
+      },
+    ];
+    function OutlookSelection() {
+      const { groups, handleToggle, handleRefresh, isLoading } =
+        useOAuthCalendarSelection(provider, connections);
+      return (
+        <OAuthCalendarSelection
+          groups={groups}
+          onToggle={handleToggle}
+          onRefresh={handleRefresh}
+          isLoading={isLoading}
+        />
+      );
+    }
+    setCalendarSyncIssue("outlook:fixture", "outlook_mailbox_unavailable");
+    render(<OutlookSelection />);
+    expect(screen.getByText("Work account")).toBeTruthy();
+    expect(screen.getByRole("alert").textContent).toContain("Exchange Online");
+    expect(screen.queryByText("No calendars found")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Refresh calendars" }));
+    expect(mocks.scheduleSync).toHaveBeenCalled();
+    act(() => setCalendarSyncIssue("outlook:fixture"));
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByText("No calendars found")).toBeTruthy();
   });
 
   it.each([

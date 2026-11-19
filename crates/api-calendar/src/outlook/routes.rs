@@ -1,5 +1,5 @@
 use anlg_api_auth::AuthContext;
-use anlg_api_nango::{NangoConnectionState, NangoIntegrationId, Outlook};
+use anlg_api_nango::{NangoConnectionError, NangoConnectionState, NangoIntegrationId, Outlook};
 use anlg_outlook_calendar::{ListCalendarsResponse, ListEventsResponse, OutlookCalendarClient};
 use axum::{Extension, Json};
 use serde::Deserialize;
@@ -51,7 +51,8 @@ pub async fn list_calendars(
             Outlook::ID,
             &req.connection_id,
         )
-        .await?
+        .await
+        .map_err(connection_error)?
         .with_retries(0)
         .with_base_url_override("https://graph.microsoft.com/v1.0");
 
@@ -60,7 +61,7 @@ pub async fn list_calendars(
     let response = match client.list_calendars().await {
         Ok(response) => response,
         Err(e) => {
-            return Err(map_provider_error(&nango_state, Outlook::ID, &req.connection_id, e).await);
+            return Err(outlook_read_error(&nango_state, &req.connection_id, e).await);
         }
     };
 
@@ -92,7 +93,8 @@ pub async fn list_events(
             Outlook::ID,
             &req.connection_id,
         )
-        .await?
+        .await
+        .map_err(connection_error)?
         .with_retries(0)
         .with_base_url_override("https://graph.microsoft.com/v1.0");
 
@@ -136,9 +138,50 @@ pub async fn list_events(
     let response = match client.list_events(outlook_req).await {
         Ok(response) => response,
         Err(e) => {
-            return Err(map_provider_error(&nango_state, Outlook::ID, &req.connection_id, e).await);
+            return Err(outlook_read_error(&nango_state, &req.connection_id, e).await);
         }
     };
 
     Ok(Json(response))
+}
+
+fn connection_error(err: NangoConnectionError) -> CalendarError {
+    if matches!(err, NangoConnectionError::Database(_)) {
+        tracing::warn!(
+            anarlog.error.stage = "connection_lookup",
+            error.type = "database",
+            "outlook_calendar_read_failed"
+        );
+    }
+    err.into()
+}
+
+async fn outlook_read_error(
+    state: &NangoConnectionState,
+    connection_id: &str,
+    err: anlg_outlook_calendar::Error,
+) -> CalendarError {
+    use anlg_outlook_calendar::Error;
+    let mapped = map_provider_error(state, Outlook::ID, connection_id, &err).await;
+    if matches!(mapped, CalendarError::Internal(_)) {
+        let (stage, kind, status) = match &err {
+            Error::InvalidNextLink => ("pagination", "invalid_next_link", None),
+            Error::RepeatedNextLink => ("pagination", "repeated_next_link", None),
+            Error::TooManyPages => ("pagination", "too_many_pages", None),
+            Error::Json(_) => ("decode", "invalid_graph_response", None),
+            Error::Http(source) => match source.downcast_ref::<anlg_nango::Error>() {
+                Some(anlg_nango::Error::Api(status, _)) => {
+                    ("upstream", "provider_http", Some(*status))
+                }
+                _ => ("transport", "http_client", None),
+            },
+        };
+        tracing::warn!(
+            anarlog.error.stage = stage,
+            error.type = kind,
+            upstream.status_code = status,
+            "outlook_calendar_read_failed"
+        );
+    }
+    mapped
 }

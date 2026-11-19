@@ -134,11 +134,11 @@ function GoogleCalendarConnectedContent({
   const { scheduleSync } = useSync();
   const {
     groups,
-    connectionSourceMap,
+
     handleRefresh,
     handleToggle,
     isLoading,
-  } = useOAuthCalendarSelection(GOOGLE_PROVIDER!);
+  } = useOAuthCalendarSelection(GOOGLE_PROVIDER!, providerConnections);
   const reconnectRequiredConnections = useMemo(
     () =>
       providerConnections.filter(
@@ -151,11 +151,11 @@ function GoogleCalendarConnectedContent({
       addIntegrationMenus({
         groups,
         connections: providerConnections,
-        connectionSourceMap,
+
         provider: GOOGLE_PROVIDER!,
         getHeaders: auth.getHeaders,
       }),
-    [auth.getHeaders, connectionSourceMap, groups, providerConnections],
+    [auth.getHeaders, groups, providerConnections],
   );
 
   useMountEffect(() => {
@@ -192,21 +192,18 @@ function GoogleCalendarConnectedContent({
 function addIntegrationMenus({
   groups,
   connections,
-  connectionSourceMap,
+
   provider,
   getHeaders,
 }: {
   groups: CalendarGroup[];
   connections: ConnectionItem[];
-  connectionSourceMap: Map<string, string>;
   provider: (typeof PROVIDERS)[number];
   getHeaders: () => Record<string, string> | null;
 }) {
   return groups.map((group) => {
     const connection = connections.find(
-      (item) =>
-        item.connection_id === group.id ||
-        connectionSourceMap.get(item.connection_id) === group.sourceName,
+      (item) => item.connection_id === group.id,
     );
 
     if (!connection) return group;
@@ -250,11 +247,11 @@ function OutlookCalendarConnectedContent({
   const { scheduleSync } = useSync();
   const {
     groups,
-    connectionSourceMap,
+
     handleRefresh,
     handleToggle,
     isLoading,
-  } = useOAuthCalendarSelection(OUTLOOK_PROVIDER!);
+  } = useOAuthCalendarSelection(OUTLOOK_PROVIDER!, providerConnections);
   const reconnectRequiredConnections = useMemo(
     () =>
       providerConnections.filter(
@@ -267,11 +264,11 @@ function OutlookCalendarConnectedContent({
       addIntegrationMenus({
         groups,
         connections: providerConnections,
-        connectionSourceMap,
+
         provider: OUTLOOK_PROVIDER!,
         getHeaders: auth.getHeaders,
       }),
-    [auth.getHeaders, connectionSourceMap, groups, providerConnections],
+    [auth.getHeaders, groups, providerConnections],
   );
 
   useMountEffect(() => {

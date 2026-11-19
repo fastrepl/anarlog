@@ -4876,6 +4876,10 @@ msgstr "Reconnect required for {0} Calendar"
 msgid "Reconnect Slack"
 msgstr "Reconnect Slack"
 
+#: src/calendar/components/calendar-selection.tsx
+msgid "Reconnect your calendar account to resume syncing."
+msgstr "Reconnect your calendar account to resume syncing."
+
 #: src/session/components/outer-header/index.tsx
 msgid "Record"
 msgstr "Record"
@@ -5972,6 +5976,10 @@ msgstr "Smileys & People"
 msgid "Software Engineer"
 msgstr "Software Engineer"
 
+#: src/calendar/components/calendar-selection.tsx
+msgid "Some calendars could not sync. Refresh to try again."
+msgstr "Some calendars could not sync. Refresh to try again."
+
 #: src/session/components/note-input/transcript/renderer/selection-menu.tsx
 #: src/shared/control.tsx
 msgid "Something went wrong"
@@ -6487,6 +6495,10 @@ msgstr "This note"
 #: src/session/components/note-conflict-banner.tsx
 msgid "This note was edited on another device at the same time. The later edit was kept."
 msgstr "This note was edited on another device at the same time. The later edit was kept."
+
+#: src/calendar/components/calendar-selection.tsx
+msgid "This Outlook account needs an active cloud mailbox. Ask your Microsoft 365 administrator to enable Exchange Online, or connect another account."
+msgstr "This Outlook account needs an active cloud mailbox. Ask your Microsoft 365 administrator to enable Exchange Online, or connect another account."
 
 #: src/store/zustand/listener/general-live.ts
 msgid "This recording follows your Mac's default microphone. To select a different microphone, stop and start a new recording."

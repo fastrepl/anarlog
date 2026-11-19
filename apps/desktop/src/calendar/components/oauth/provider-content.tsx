@@ -221,19 +221,17 @@ function ConnectedContent({
   const { openIntegration } = useOpenIntegrationUrl();
   const {
     groups,
-    connectionSourceMap,
+
     handleRefresh,
     handleToggle,
     isLoading,
-  } = useOAuthCalendarSelection(config);
+  } = useOAuthCalendarSelection(config, connections);
 
   const groupsWithMenus = useMemo(
     () =>
       groups.map((group) => {
         const connection = connections.find(
-          (item) =>
-            item.connection_id === group.id ||
-            connectionSourceMap.get(item.connection_id) === group.sourceName,
+          (item) => item.connection_id === group.id,
         );
 
         if (!connection) return group;
@@ -270,7 +268,7 @@ function ConnectedContent({
       }),
     [
       config.nangoIntegrationId,
-      connectionSourceMap,
+
       connections,
       groups,
       onConnectStarted,

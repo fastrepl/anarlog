@@ -61,7 +61,9 @@ describe("calendar sync context", () => {
 
     expect(ctx.from).toEqual(new Date(2026, 4, 23, 0, 0, 0, 0));
     expect(ctx.to).toEqual(new Date(2026, 4, 31, 0, 0, 0, 0));
-    expect(ctx.calendarTrackingIdToId).toEqual(new Map([["primary", "cal-1"]]));
+    expect(ctx.calendars).toEqual([
+      { id: "cal-1", tracking_id_calendar: "primary" },
+    ]);
   });
 
   test("uses an explicit event range", async () => {
@@ -90,7 +92,7 @@ describe("calendar sync context", () => {
   test("keeps overlapping calendar ids isolated by connection", async () => {
     pluginCalendar.listCalendars.mockImplementation(
       async (_provider: string, connectionId: string) => ({
-        status: "success",
+        status: "ok",
         data: [
           {
             id: "primary",
@@ -131,19 +133,22 @@ describe("calendar sync context", () => {
     pluginCalendar.listCalendars.mockImplementation(
       async (_provider: string, connectionId: string) =>
         connectionId === "conn-failed"
-          ? { status: "error", error: "offline" }
-          : { status: "success", data: [] },
+          ? { status: "error", error: "outlook_mailbox_unavailable" }
+          : { status: "ok", data: [] },
     );
 
-    await syncCalendars([
+    const failures = await syncCalendars([
       {
-        provider: "google",
+        provider: "outlook",
         connection_ids: ["conn-ok", "conn-failed"],
       },
     ]);
 
+    expect(failures).toEqual(
+      new Map([["outlook:conn-failed", "outlook_mailbox_unavailable"]]),
+    );
     expect(storage.applyCalendarInventory).toHaveBeenCalledWith({
-      provider: "google",
+      provider: "outlook",
       requestedConnectionIds: ["conn-ok", "conn-failed"],
       successfulConnections: [{ connectionId: "conn-ok", calendars: [] }],
     });
@@ -153,7 +158,7 @@ describe("calendar sync context", () => {
     const abortController = new AbortController();
     pluginCalendar.listCalendars.mockImplementation(async () => {
       abortController.abort();
-      return { status: "success", data: [] };
+      return { status: "ok", data: [] };
     });
 
     await syncCalendars(

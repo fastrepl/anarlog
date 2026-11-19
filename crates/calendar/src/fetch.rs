@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use anlg_api_client::ClientInfo;
 use anlg_calendar_interface::EventFilter;
 use anlg_google_calendar::{CalendarListEntry as GoogleCalendar, Event as GoogleEvent};
 use anlg_outlook_calendar::{Calendar as OutlookCalendar, Event as OutlookEvent};
@@ -103,6 +104,31 @@ pub async fn list_google_events(
     }
 }
 
+// The generated client discards the error body for documented 424 responses.
+async fn post_outlook<T: serde::de::DeserializeOwned>(
+    client: &anlg_api_client::Client,
+    operation: &str,
+    body: &impl serde::Serialize,
+) -> Result<T, Error> {
+    let response = client
+        .client()
+        .post(format!("{}/calendar/outlook/{operation}", client.baseurl()))
+        .header("api-version", anlg_api_client::Client::api_version())
+        .header(reqwest::header::ACCEPT, "application/json")
+        .json(body)
+        .send()
+        .await?;
+    if response.status() == reqwest::StatusCode::FAILED_DEPENDENCY {
+        let body = response.json::<serde_json::Value>().await?;
+        return Err(match body.pointer("/error/code").and_then(|v| v.as_str()) {
+            Some("outlook_mailbox_unavailable") => Error::MailboxUnavailable,
+            Some("reconnect_required") => Error::ReconnectRequired,
+            _ => Error::Api("Outlook calendar request failed (424)".into()),
+        });
+    }
+    Ok(response.error_for_status()?.json().await?)
+}
+
 pub async fn list_outlook_calendars(
     api_base_url: &str,
     access_token: &str,
@@ -114,12 +140,9 @@ pub async fn list_outlook_calendars(
         connection_id: connection_id.to_string(),
     };
 
-    let response = client
-        .outlook_list_calendars(&body)
-        .await
-        .map_err(|e| Error::Api(e.to_string()))?;
-
-    Ok(response.into_inner().value)
+    let response: anlg_outlook_calendar::ListCalendarsResponse =
+        post_outlook(&client, "list-calendars", &body).await?;
+    Ok(response.value)
 }
 
 pub async fn list_outlook_events(
@@ -139,12 +162,9 @@ pub async fn list_outlook_events(
         order_by: Some("startTime".to_string()),
     };
 
-    let response = client
-        .outlook_list_events(&body)
-        .await
-        .map_err(|e| Error::Api(e.to_string()))?;
-
-    Ok(response.into_inner().value)
+    let response: anlg_outlook_calendar::ListEventsResponse =
+        post_outlook(&client, "list-events", &body).await?;
+    Ok(response.value)
 }
 
 #[cfg(test)]
@@ -152,8 +172,71 @@ mod tests {
     use super::*;
     use wiremock::{
         Mock, MockServer, ResponseTemplate,
-        matchers::{body_partial_json, method, path},
+        matchers::{body_partial_json, header, method, path},
     };
+
+    #[tokio::test]
+    async fn outlook_retains_actionable_dependency_errors() {
+        for (code, expected) in [
+            ("outlook_mailbox_unavailable", "outlook_mailbox_unavailable"),
+            ("reconnect_required", "reconnect_required"),
+            (
+                "unknown_code",
+                "api error: Outlook calendar request failed (424)",
+            ),
+        ] {
+            let server = MockServer::start().await;
+            Mock::given(method("POST"))
+                .and(path("/calendar/outlook/list-calendars"))
+                .respond_with(ResponseTemplate::new(424).set_body_json(serde_json::json!({
+                    "error": {"code": code, "message": "provider detail"}
+                })))
+                .mount(&server)
+                .await;
+            let err = list_outlook_calendars(&server.uri(), "token", "account")
+                .await
+                .unwrap_err();
+            assert_eq!(err.to_string(), expected);
+        }
+    }
+
+    #[tokio::test]
+    async fn outlook_reads_events_for_the_connected_calendar_and_requested_range() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/calendar/outlook/list-events"))
+            .and(header("authorization", "Bearer token"))
+            .and(body_partial_json(serde_json::json!({
+                "connection_id": "account", "calendar_id": "work",
+                "time_min": "2026-11-16T00:00:00+00:00", "time_max": "2026-11-17T00:00:00+00:00",
+                "order_by": "startTime"
+            })))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(serde_json::json!({"value": [{"id": "meeting"}]})),
+            )
+            .mount(&server)
+            .await;
+        let events = list_outlook_events(
+            &server.uri(),
+            "token",
+            "account",
+            EventFilter {
+                calendar_tracking_id: "work".into(),
+                from: "2026-11-16T00:00:00Z".parse().unwrap(),
+                to: "2026-11-17T00:00:00Z".parse().unwrap(),
+            },
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            events
+                .iter()
+                .map(|event| event.id.as_str())
+                .collect::<Vec<_>>(),
+            ["meeting"]
+        );
+    }
 
     #[tokio::test]
     async fn google_events_retains_free_busy_instances_after_empty_page() {
