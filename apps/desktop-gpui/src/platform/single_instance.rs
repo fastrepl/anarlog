@@ -29,7 +29,10 @@ pub fn claim(
     urls: &[String],
     open: impl Fn(Vec<String>) -> bool + Send + Sync + 'static,
 ) -> io::Result<Option<Instance>> {
-    let profile = std::fs::canonicalize(profile).or_else(|_| std::path::absolute(profile))?;
+    // Windows canonicalizes an existing folder to an extended-length path only, so the first
+    // launch of a profile creates it to name the same channel as every later one.
+    std::fs::create_dir_all(profile)?;
+    let profile = std::fs::canonicalize(profile)?;
     let digest: String = Sha256::digest(profile.as_os_str().as_encoded_bytes())
         .iter()
         .map(|byte| format!("{byte:02x}"))
@@ -165,10 +168,12 @@ mod transport {
 }
 
 /// A named pipe per profile. The first instance of the name serves; a launch that can't create
-/// it connects instead, retrying while the serving instance is between connections.
+/// it connects instead, retrying while the serving instance is between connections. Any local
+/// user can create the name first, so a launch checks the server is this user before handing it
+/// a sign-in callback; the pipe's default access already keeps other users from writing to it.
 #[cfg(target_os = "windows")]
 mod transport {
-    use std::{io, time::Duration};
+    use std::{io, os::windows::io::AsRawHandle, time::Duration};
 
     use tokio::{
         net::windows::named_pipe::{ClientOptions, NamedPipeServer, ServerOptions},
@@ -197,6 +202,7 @@ mod transport {
             }
             match ClientOptions::new().open(&name) {
                 Ok(client) => {
+                    same_user(&client)?;
                     super::forward(client, urls).await?;
                     return Ok(None);
                 }
@@ -221,6 +227,59 @@ mod transport {
                 .create(&self.name)?;
             let current = std::mem::replace(&mut self.next, next);
             connected.map(|()| current)
+        }
+    }
+
+    fn same_user(pipe: &impl AsRawHandle) -> io::Result<()> {
+        use windows::Win32::{
+            Foundation::{CloseHandle, HANDLE},
+            Security::{EqualSid, GetTokenInformation, TOKEN_QUERY, TOKEN_USER, TokenUser},
+            System::{
+                Pipes::GetNamedPipeServerProcessId,
+                Threading::{
+                    GetCurrentProcess, OpenProcess, OpenProcessToken,
+                    PROCESS_QUERY_LIMITED_INFORMATION,
+                },
+            },
+        };
+
+        // A TOKEN_USER and the SID it points into, in words so the struct is aligned.
+        fn user(process: HANDLE) -> windows::core::Result<Vec<usize>> {
+            let mut token = HANDLE::default();
+            unsafe { OpenProcessToken(process, TOKEN_QUERY, &mut token) }?;
+            let mut size = 0;
+            // Fails with the size it needs.
+            let _ = unsafe { GetTokenInformation(token, TokenUser, None, 0, &mut size) };
+            let mut user = vec![0usize; (size as usize).div_ceil(size_of::<usize>())];
+            let read = unsafe {
+                GetTokenInformation(
+                    token,
+                    TokenUser,
+                    Some(user.as_mut_ptr().cast()),
+                    size,
+                    &mut size,
+                )
+            };
+            let _ = unsafe { CloseHandle(token) };
+            read.map(|()| user)
+        }
+
+        let mut server = 0;
+        unsafe { GetNamedPipeServerProcessId(HANDLE(pipe.as_raw_handle()), &mut server) }?;
+        let ours = user(unsafe { GetCurrentProcess() })?;
+        let process = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, server) };
+        let theirs = process.and_then(|process| {
+            let user = user(process);
+            let _ = unsafe { CloseHandle(process) };
+            user
+        });
+        let sid = |user: &[usize]| unsafe { (*user.as_ptr().cast::<TOKEN_USER>()).User.Sid };
+        match theirs {
+            Ok(theirs) if unsafe { EqualSid(sid(&ours), sid(&theirs)) }.is_ok() => Ok(()),
+            _ => Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "the running app belongs to another user",
+            )),
         }
     }
 }
@@ -261,5 +320,30 @@ mod tests {
             claim(profile.path(), &[], |_| true).unwrap().is_some(),
             "the next launch serves once the running instance exits"
         );
+    }
+
+    #[test]
+    fn a_fresh_profiles_first_launch_receives_the_sign_in_callback() {
+        let parent = tempfile::tempdir().unwrap();
+        let profile = parent.path().join("profile");
+        let events = NativeEvents::default();
+        let running = {
+            let events = events.clone();
+            claim(&profile, &[], move |urls| events.relaunched(urls))
+        }
+        .unwrap();
+        assert!(running.is_some());
+
+        let link = "anarlog-staging://auth/callback?code=test";
+        let callback = claim(&profile, &[link.into()], |_| {
+            panic!("the first launch serves the profile it created")
+        })
+        .unwrap();
+        assert!(callback.is_none());
+        assert!(matches!(
+            events.next(),
+            Some(NativeEvent::Action(TrayAction::Open))
+        ));
+        assert!(matches!(events.next(), Some(NativeEvent::DeepLink { raw, .. }) if raw == link));
     }
 }

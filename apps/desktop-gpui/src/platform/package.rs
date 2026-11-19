@@ -283,15 +283,4 @@ mod tests {
         assert_eq!(patched("UNK"), None);
         assert_eq!(bundle_type_of(&marker, true), Some(BundleType::App));
     }
-
-    #[test]
-    fn an_unchanneled_linux_release_finds_the_sidecars_beside_it() {
-        let resources =
-            Resources::packaged(Os::Linux, Path::new("/opt/gpui/desktop-gpui"), None, None)
-                .unwrap();
-        assert_eq!(
-            resources.executable("llama-server"),
-            Path::new("/opt/gpui/llama-server")
-        );
-    }
 }

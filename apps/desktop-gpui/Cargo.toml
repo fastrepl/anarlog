@@ -225,5 +225,6 @@ swift-rs = { workspace = true, features = ["build"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 anlg-notification-windows = { path = "../../crates/notification-windows", package = "notification-windows" }
-# The platform adapter forwards GPUI windows' HWND; keep GPUI's version.
-windows = { version = "=0.62.2", features = ["Win32_Foundation"] }
+# The platform adapter forwards GPUI windows' HWND; keep GPUI's version. Single-instance
+# launches check the running app's user.
+windows = { version = "=0.62.2", features = ["Win32_Foundation", "Win32_Security", "Win32_System_Pipes", "Win32_System_Threading"] }
