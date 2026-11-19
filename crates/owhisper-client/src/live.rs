@@ -322,10 +322,17 @@ impl WebSocketIO for ListenClientIO {
     }
 
     fn from_message(msg: Message) -> Result<Option<Self::Output>, anlg_ws_client::Error> {
-        Ok(match msg {
-            Message::Text(text) => Some(text.to_string()),
-            _ => None,
-        })
+        Ok(provider_payload(msg))
+    }
+}
+
+// Gemini Live sends its JSON events as binary frames, so text-only decoding drops every
+// transcript from that provider.
+fn provider_payload(msg: Message) -> Option<String> {
+    match msg {
+        Message::Text(text) => Some(text.to_string()),
+        Message::Binary(data) => String::from_utf8(data.to_vec()).ok(),
+        _ => None,
     }
 }
 
@@ -357,10 +364,7 @@ impl WebSocketIO for ListenClientDualIO {
     }
 
     fn from_message(msg: Message) -> Result<Option<Self::Output>, anlg_ws_client::Error> {
-        Ok(match msg {
-            Message::Text(text) => Some(text.to_string()),
-            _ => None,
-        })
+        Ok(provider_payload(msg))
     }
 }
 
