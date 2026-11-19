@@ -109,7 +109,7 @@ impl Sync {
             return Ok(());
         }
         // An unreadable keychain also stops sync from starting; the next refresh carries it.
-        if let Ok(Some(saved)) = auth.store.read(slot).await {
+        if let Some(saved) = auth.store.read(slot).await? {
             self.set_enabled(services, saved.as_str() == "true").await?;
         }
         Ok(())

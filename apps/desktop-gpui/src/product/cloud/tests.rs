@@ -156,7 +156,7 @@ impl CloudHost for FixtureHost {
 async fn fixture_cloud(
     runtime: &RuntimeHandle,
     server: &MockServer,
-    store: Arc<MemoryStore>,
+    store: Arc<impl SecureStore + 'static>,
 ) -> CloudServices {
     store
         .write(
@@ -2372,6 +2372,61 @@ async fn a_sandbox_sync_pause_outlasts_the_new_default() {
         .await;
     cloud.refresh(false).await.unwrap();
     assert!(!cloud.sync_state().await.unwrap().enabled);
+    runtime.shutdown().await.unwrap();
+}
+
+/// A locked keychain can't say whether the sandbox paused sync, so sync waits for a refresh that
+/// can read it instead of following the new default.
+#[tokio::test]
+async fn a_sandbox_sync_switch_that_cant_be_read_keeps_sync_from_starting() {
+    #[derive(Default)]
+    struct LockedSwitch(MemoryStore);
+    impl SecureStore for LockedSwitch {
+        fn read(
+            &self,
+            key: String,
+        ) -> BoxFuture<'static, desktop_runtime::Result<Option<Zeroizing<String>>>> {
+            if key.ends_with(":sync-enabled") {
+                return Box::pin(async { Err(ServiceError::Cancelled) });
+            }
+            self.0.read(key)
+        }
+        fn write(
+            &self,
+            key: String,
+            value: Zeroizing<String>,
+        ) -> BoxFuture<'static, desktop_runtime::Result<()>> {
+            self.0.write(key, value)
+        }
+        fn remove(&self, key: String) -> BoxFuture<'static, desktop_runtime::Result<()>> {
+            self.0.remove(key)
+        }
+    }
+
+    let server = MockServer::start().await;
+    let directory = tempfile::tempdir().unwrap();
+    let (runtime, ready) = RuntimeHandle::start(Profile {
+        database: directory.path().join("cloud.sqlite"),
+    })
+    .unwrap();
+    ready.receive().await.unwrap();
+    let store = Arc::new(LockedSwitch::default());
+    let cloud = fixture_cloud(&runtime, &server, store.clone()).await;
+    let recovery = anlg_e2ee::RecoveryKey::generate().unwrap();
+    store
+        .write(
+            format!("fixture:{ACCOUNT}:recovery"),
+            recovery.expose_code(),
+        )
+        .await
+        .unwrap();
+    Mock::given(method("POST"))
+        .and(path("/sync/replica/credentials"))
+        .respond_with(ResponseTemplate::new(500))
+        .expect(0)
+        .mount(&server)
+        .await;
+    let _ = cloud.refresh(false).await;
     runtime.shutdown().await.unwrap();
 }
 
