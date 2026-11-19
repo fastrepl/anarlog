@@ -5,7 +5,9 @@
 `tauri.conf*.json` files that `desktop_cd.yaml` passes. Bundle ID, executable name,
 Info.plist, entitlements, resources, sidecars, installers, signing and updater artifacts
 therefore match shipping by construction. Only the binary and `tauri.gpui.json` differ.
+The binary finds its files where the bundler puts them, and reports `APP_VERSION`:
 
+  APP_VERSION=1.5.0 cargo build --locked --release
   bundle.py bundle --channel staging --target aarch64-apple-darwin \
       --binary target/release/desktop-gpui --version 1.5.0
   bundle.py verify --channel staging --target aarch64-apple-darwin \
@@ -20,7 +22,6 @@ import shlex
 import shutil
 import subprocess
 import sys
-import tarfile
 import tempfile
 from pathlib import Path
 
@@ -97,23 +98,6 @@ def load_config(channel, target):
     return config
 
 
-def macos_overlay(directory):
-    """Symlinks Tauri copies into the bundle as-is (bundle.macOS.files).
-
-    GPUI's release build looks for resources beside its executable (`Contents/MacOS/resources`)
-    and for the CLI as `resources/anarlog`. Code signing and notarization want data in
-    `Contents/Resources` and every Mach-O signed, so the files stay where shipping puts them
-    and these links point at them.
-    """
-    overlay = directory / "gpui-overlay"
-    shutil.rmtree(overlay, ignore_errors=True)
-    (overlay / "MacOS").mkdir(parents=True)
-    (overlay / "Resources").mkdir()
-    (overlay / "MacOS/resources").symlink_to("../Resources")
-    (overlay / "Resources/anarlog").symlink_to("../MacOS/anarlog-cli")
-    return overlay
-
-
 def bundle(args):
     platform = platform_of(args.target)
     config = load_config(args.channel, args.target)
@@ -144,14 +128,6 @@ def bundle(args):
         "version": args.version,
         "bundle": {"externalBin": EXTERNAL_BIN[platform]},
     }
-    if platform == "macos":
-        overlay = macos_overlay(out / args.target)
-        overrides["bundle"]["macOS"] = {
-            "files": {
-                "MacOS": str(overlay / "MacOS"),
-                "Resources": str(overlay / "Resources"),
-            }
-        }
     generated = out / args.target / "tauri.gpui.generated.json"
     generated.write_text(json.dumps(overrides, indent=2) + "\n")
 
@@ -199,6 +175,21 @@ def one(directory, pattern, checks):
 
 def run(*command):
     return subprocess.run(command, capture_output=True, text=True)
+
+
+def check_binary(binary, bundle_type, args, checks):
+    """The app's own build facts: the release version it reports (`APP_VERSION` at build time)
+    and, in Linux and Windows packages, the bundle-type marker the bundler patches in."""
+    data = binary.read_bytes() if binary.is_file() else b""
+    checks.expect(
+        args.version.encode() in data,
+        f"{binary.name} was not built with APP_VERSION={args.version}",
+    )
+    if bundle_type:
+        checks.expect(
+            f"__TAURI_BUNDLE_TYPE_VAR_{bundle_type}".encode() in data,
+            f"{binary.name} lacks the {bundle_type} bundle-type marker",
+        )
 
 
 def verify_macos(config, args, checks):
@@ -253,33 +244,12 @@ def verify_macos(config, args, checks):
         path = contents / destination
         checks.expect(source is None or path.exists(), f"Missing bundle file {path}")
 
-    # GPUI's release lookups: `<executable dir>/resources/{icons,notification-icons,anarlog}`.
-    resources = contents / "MacOS/resources"
-    checks.expect(
-        resources.is_symlink() and os.readlink(resources) == "../Resources",
-        f"{resources} must be a symlink to ../Resources",
-    )
-    for name in config["bundle"]["resources"].values():
-        if name.startswith("icons/"):
-            checks.expect(
-                (resources / name).is_file(), f"GPUI cannot resolve {resources / name}"
-            )
-    checks.expect(
-        (resources / "notification-icons").is_dir(),
-        "GPUI cannot resolve notification-icons",
-    )
-    checks.expect(
-        (resources / "anarlog").is_file(), "GPUI cannot resolve the bundled CLI"
-    )
+    # The app reads the resources above from Contents/Resources and runs the CLI from beside
+    # its executable, as Tauri resolves them (src/platform/package.rs); no bridge is needed.
+    check_binary(binary, None, args, checks)
 
     updater = args.bundle_dir / "macos" / f"{product}.app.tar.gz"
     checks.expect(updater.is_file(), f"Missing updater artifact {updater}")
-    if updater.is_file():
-        with tarfile.open(updater) as archive:
-            link = archive.getmember(f"{product}.app/Contents/MacOS/resources")
-            checks.expect(
-                link.issym(), "The updater archive does not keep the resources symlink"
-            )
     if not args.no_sign:
         checks.expect(
             updater.with_name(updater.name + ".sig").is_file(),
@@ -372,6 +342,7 @@ def verify_linux(config, args, checks):
         root = Path(directory)
         subprocess.run(["dpkg-deb", "-x", str(deb), str(root)], check=True)
         checks.expect((root / "usr/bin" / exe).is_file(), f"Missing /usr/bin/{exe}")
+        check_binary(root / "usr/bin" / exe, "DEB", args, checks)
         for sidecar in EXTERNAL_BIN["linux"]:
             name = Path(sidecar).name
             checks.expect(

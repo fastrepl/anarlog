@@ -120,7 +120,7 @@ runtime dependencies and no WebView2 installer on Windows.
 ```sh
 # Stage the sidecars as desktop_cd.yaml does: `cargo xtask prepare-binaries` for the
 # CLI and Chrome host; on macOS also check-permissions (built by shipping's build.rs).
-cargo build --locked --release
+APP_VERSION=1.5.0-dev.1+abc1234 cargo build --locked --release
 python3 packaging/bundle.py bundle --channel staging --target aarch64-apple-darwin \
   --binary target/release/desktop-gpui --version 1.5.0-dev.1+abc1234 --bundles app,dmg
 # CI-runnable check of a built or downloaded bundle:
@@ -134,13 +134,14 @@ Signing follows the bundler's environment, as in shipping's CD: `APPLE_SIGNING_I
 require shipping's Developer ID designated requirement. `CI` defaults to `true`, which
 skips the DMG's Finder layout script; shipping's CD sets `CI=false` to get it.
 
-The release build resolves resources beside its executable. On macOS the bundle keeps
-shipping's layout and adds two symlinks: `Contents/MacOS/resources → ../Resources` and
-`Contents/Resources/anarlog → ../MacOS/anarlog-cli`. Strict code-sign verification
-accepts both, and the updater archive keeps them. Linux and Windows have no such bridge.
-The deb puts resources in `/usr/lib/<product>/` and the CLI in `/usr/bin/anarlog-cli`;
-NSIS puts both beside the executable. GPUI must resolve them the Tauri way before those
-packages can find their icons, notification icons and CLI.
+The release build finds its files where the bundler puts them, as Tauri's
+`resource_dir` does (`src/platform/package.rs`): resources in macOS
+`Contents/Resources`, the deb's `/usr/lib/<product>/`, the AppImage's
+`usr/lib/<product>/` and the NSIS install folder, and the CLI sidecar beside the
+executable. The bundle keeps shipping's layout with no bridge. Build with
+`APP_VERSION` set to the bundle's version: `verify` checks that the binary reports it,
+and that the deb's copy carries the package-type marker the bundler patches in, which
+the updater reads.
 
 ## Architecture
 
