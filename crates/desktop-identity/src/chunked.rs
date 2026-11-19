@@ -8,7 +8,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 const MANIFEST_PREFIX: &str = "anarlog-secure-store-chunks:v1:";
 const CHUNK_UTF16_UNITS: usize = 1024;
 
-pub(crate) trait SecretSlot {
+pub trait SecretSlot {
     fn get(&self) -> keyring::Result<String>;
     fn set(&self, value: &str) -> keyring::Result<()>;
     fn delete(&self) -> keyring::Result<()>;

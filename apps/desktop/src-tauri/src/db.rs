@@ -1,11 +1,10 @@
 use std::sync::Arc;
 
 use anlg_db_core::Db;
+use anlg_desktop_identity::paths::{
+    DB_FILENAME, apply_pending_database_reset, desktop_db_dir,
+};
 
-const DB_FILENAME: &str = "app.db";
-const DB_RESET_MARKER: &str = "app.db.reset-requested";
-pub(crate) const STABLE_BUNDLE_ID: &str = "com.hyprnote.stable";
-pub(crate) const NIGHTLY_BUNDLE_ID: &str = "com.hyprnote.nightly";
 const DEFAULT_CLOUDSYNC_INTERVAL_MS: u64 = 30_000;
 const DB_OPEN_LOCK_RETRIES: u32 = 12;
 const DB_OPEN_LOCK_RETRY_DELAY: std::time::Duration = std::time::Duration::from_secs(5);
@@ -48,32 +47,6 @@ pub async fn open_desktop_db(identifier: &str) -> Result<Arc<Db>, String> {
     };
 
     Ok(Arc::new(db))
-}
-
-fn apply_pending_database_reset(
-    dir: &std::path::Path,
-) -> Result<Option<std::path::PathBuf>, String> {
-    let marker = dir.join(DB_RESET_MARKER);
-    if !marker.is_file() {
-        return Ok(None);
-    }
-    let stamp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|elapsed| elapsed.as_secs())
-        .unwrap_or(0);
-    let backup = dir.join(format!("{DB_FILENAME}.{stamp}.bak"));
-    for suffix in ["", "-wal", "-shm"] {
-        let source = dir.join(format!("{DB_FILENAME}{suffix}"));
-        if !source.exists() {
-            continue;
-        }
-        let target = dir.join(format!("{DB_FILENAME}.{stamp}.bak{suffix}"));
-        std::fs::rename(&source, &target)
-            .map_err(|error| format!("failed to move {} aside: {error}", source.display()))?;
-    }
-    std::fs::remove_file(&marker)
-        .map_err(|error| format!("failed to clear the database reset marker: {error}"))?;
-    Ok(Some(backup))
 }
 
 pub fn is_transient_lock_error(error: &impl std::fmt::Display) -> bool {
@@ -169,69 +142,10 @@ fn parse_env_flag(value: String) -> Result<bool, String> {
     }
 }
 
-// Nightly previews run against the user's real notes, so it opens stable's
-// database while keeping its own settings, store, and sign-in. db-migrate keeps
-// the two builds compatible: stable tolerates the additive migrations a newer
-// Nightly applies and refuses the file after a "-- breaking" one until a stable
-// release includes that migration.
-pub(crate) fn shared_database_peer(identifier: &str) -> Option<&'static str> {
-    match identifier {
-        NIGHTLY_BUNDLE_ID => Some(STABLE_BUNDLE_ID),
-        STABLE_BUNDLE_ID => Some(NIGHTLY_BUNDLE_ID),
-        _ => None,
-    }
-}
-
-fn database_identifier(identifier: &str) -> &str {
-    if identifier == NIGHTLY_BUNDLE_ID {
-        STABLE_BUNDLE_ID
-    } else {
-        identifier
-    }
-}
-
-pub(crate) fn desktop_db_dir(identifier: &str) -> Option<std::path::PathBuf> {
-    let identifier = database_identifier(identifier);
-    let data_dir = dirs::data_dir()?;
-    let default_dir = anlg_storage::global::compute_default_base(identifier)?;
-    let identifier_dir = data_dir.join(identifier);
-
-    if identifier_dir.join(DB_FILENAME).is_file() && !default_dir.join(DB_FILENAME).is_file() {
-        Some(identifier_dir)
-    } else {
-        Some(default_dir)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::collections::HashMap;
-
-    #[test]
-    fn a_reset_marker_moves_the_database_aside_once() {
-        let dir = tempfile::tempdir().unwrap();
-        for suffix in ["", "-wal", "-shm"] {
-            std::fs::write(dir.path().join(format!("{DB_FILENAME}{suffix}")), b"data").unwrap();
-        }
-        assert_eq!(apply_pending_database_reset(dir.path()).unwrap(), None);
-        std::fs::write(dir.path().join(DB_RESET_MARKER), b"").unwrap();
-
-        let backup = apply_pending_database_reset(dir.path())
-            .unwrap()
-            .expect("database moved aside");
-
-        assert!(backup.is_file());
-        assert!(
-            backup.with_extension("bak-wal").is_file() || {
-                let name = format!("{}-wal", backup.file_name().unwrap().to_string_lossy());
-                dir.path().join(name).is_file()
-            }
-        );
-        assert!(!dir.path().join(DB_FILENAME).exists());
-        assert!(!dir.path().join(DB_RESET_MARKER).exists());
-        assert_eq!(apply_pending_database_reset(dir.path()).unwrap(), None);
-    }
 
     #[test]
     fn startup_error_classifiers_recognize_lock_and_newer_schema_errors() {
@@ -253,34 +167,6 @@ mod tests {
         assert!(!is_newer_schema_error(
             &"unable to open database file: /tmp/app.db"
         ));
-    }
-
-    #[test]
-    fn only_nightly_and_stable_share_a_database_directory() {
-        let db_dir = desktop_db_dir("com.hyprnote.dev").unwrap();
-
-        assert!(db_dir.ends_with("com.hyprnote.dev"));
-
-        assert_eq!(
-            desktop_db_dir(NIGHTLY_BUNDLE_ID),
-            desktop_db_dir(STABLE_BUNDLE_ID)
-        );
-        assert!(
-            !desktop_db_dir(NIGHTLY_BUNDLE_ID)
-                .unwrap()
-                .ends_with(NIGHTLY_BUNDLE_ID)
-        );
-
-        assert_eq!(
-            shared_database_peer(NIGHTLY_BUNDLE_ID),
-            Some(STABLE_BUNDLE_ID)
-        );
-        assert_eq!(
-            shared_database_peer(STABLE_BUNDLE_ID),
-            Some(NIGHTLY_BUNDLE_ID)
-        );
-        assert_eq!(shared_database_peer("com.hyprnote.staging"), None);
-        assert_eq!(shared_database_peer("com.hyprnote.dev"), None);
     }
 
     #[test]

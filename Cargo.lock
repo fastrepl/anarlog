@@ -4702,6 +4702,7 @@ dependencies = [
  "db-app",
  "db-core",
  "db-sync",
+ "desktop-identity",
  "dirs 6.0.0",
  "host",
  "intercept",
@@ -4789,6 +4790,22 @@ dependencies = [
  "transcription-core",
  "windows 0.62.2",
  "windows-registry 0.5.3",
+]
+
+[[package]]
+name = "desktop-identity"
+version = "0.1.0"
+dependencies = [
+ "dirs 6.0.0",
+ "gethostname",
+ "host",
+ "keyring",
+ "security-framework",
+ "serde_json",
+ "storage",
+ "tempfile",
+ "tracing",
+ "uuid",
 ]
 
 [[package]]
@@ -16618,6 +16635,7 @@ dependencies = [
 name = "tauri-plugin-auth"
 version = "0.1.0"
 dependencies = [
+ "desktop-identity",
  "serde",
  "serde_json",
  "sha2 0.11.0",
@@ -16630,7 +16648,6 @@ dependencies = [
  "tauri-plugin-settings",
  "tauri-plugin-store2",
  "tauri-specta",
- "tempfile",
  "thiserror 2.0.18",
  "tracing",
 ]
@@ -16755,6 +16772,7 @@ dependencies = [
  "db-migrate",
  "db-reactive",
  "db-sync",
+ "desktop-identity",
  "e2ee",
  "fs-sync-core",
  "serde",
@@ -17603,9 +17621,8 @@ name = "tauri-plugin-store2"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "keyring",
+ "desktop-identity",
  "objc2-security",
- "security-framework",
  "serde",
  "serde_json",
  "specta",

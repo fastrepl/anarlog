@@ -75,6 +75,7 @@ anlg-db-execute = { path = "crates/db-execute", package = "db-execute" }
 anlg-db-migrate = { path = "crates/db-migrate", package = "db-migrate" }
 anlg-db-reactive = { path = "crates/db-reactive", package = "db-reactive" }
 anlg-db-sync = { path = "crates/db-sync", package = "db-sync" }
+anlg-desktop-identity = { path = "crates/desktop-identity", package = "desktop-identity" }
 anlg-detect = { path = "crates/detect", package = "detect" }
 anlg-device-monitor = { path = "crates/device-monitor", package = "device-monitor" }
 anlg-dictation-ui-macos = { path = "crates/dictation-ui-macos", package = "dictation-ui-macos" }
@@ -267,6 +268,7 @@ codes-iso-639 = "0.1.5"
 dirs = "6.0.0"
 dotenvy = "0.15.7"
 envy = "0.4"
+gethostname = "1.1.0"
 governor = "0.10.4"
 http = "1"
 image = { version = "0.25.10", default-features = false, features = ["webp"] }
