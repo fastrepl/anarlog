@@ -4,7 +4,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   analyticsEvent: vi.fn().mockResolvedValue({ status: "ok", data: null }),
   completeAppExit: vi.fn().mockResolvedValue(undefined),
-  flushDatabaseWritesWithin: vi.fn<(timeoutMs: number) => Promise<void> | undefined>(),
+  flushDatabaseWritesWithin:
+    vi.fn<(timeoutMs: number) => Promise<void> | undefined>(),
   listener: null as
     | ((event: { payload: { quick?: boolean } | null }) => void)
     | null,
