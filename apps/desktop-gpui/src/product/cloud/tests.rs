@@ -2754,7 +2754,11 @@ mod shipping_session {
             let session = shipping_reads(&written[key]);
             assert_eq!(session["access_token"], "renewed-token", "{platform}");
             assert_eq!(session["refresh_token"], "rotated-refresh", "{platform}");
-            assert!(session["weak_password"].is_null(), "{platform}");
+            assert_eq!(
+                session.get("weak_password"),
+                Some(&Value::Null),
+                "{platform}"
+            );
 
             auth.sign_out().await.unwrap();
             assert!(store().load().is_empty(), "{platform} signs out");
