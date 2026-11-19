@@ -84,6 +84,129 @@ fn storage_error() -> ServiceError {
     failure("Secure credential storage is locked or unavailable. Unlock it and retry")
 }
 
+/// Where the signed-in session persists.
+pub trait SessionStore: Send + Sync {
+    fn load(&self) -> BoxFuture<'static, Result<Option<Session>>>;
+    fn save(&self, session: &Session) -> BoxFuture<'static, Result<()>>;
+    fn clear(&self) -> BoxFuture<'static, Result<()>>;
+}
+
+/// A sandbox profile's session: one item of this app's secure store.
+pub struct KeychainSession {
+    store: Arc<dyn SecureStore>,
+    key: String,
+}
+
+impl KeychainSession {
+    pub fn new(store: Arc<dyn SecureStore>, key: String) -> Self {
+        Self { store, key }
+    }
+}
+
+impl SessionStore for KeychainSession {
+    fn load(&self) -> BoxFuture<'static, Result<Option<Session>>> {
+        let read = self.store.read(self.key.clone());
+        Box::pin(async move {
+            read.await?
+                .map(|value| {
+                    serde_json::from_str(&value)
+                        .map_err(|_| failure("Stored session is invalid. Sign out to clear it"))
+                })
+                .transpose()
+        })
+    }
+
+    fn save(&self, session: &Session) -> BoxFuture<'static, Result<()>> {
+        let value = serde_json::to_string(session);
+        let store = self.store.clone();
+        let key = self.key.clone();
+        Box::pin(async move {
+            let value = value.map_err(|_| failure("Could not persist session"))?;
+            store.write(key, Zeroizing::new(value)).await
+        })
+    }
+
+    fn clear(&self) -> BoxFuture<'static, Result<()>> {
+        self.store.remove(self.key.clone())
+    }
+}
+
+/// A channel run's session, kept where and how the shipping app keeps it: its supabase-js
+/// storage map, which the Tauri app reads after a rollback and the bundled CLI shares.
+pub struct ShippingSession {
+    store: Arc<anlg_desktop_identity::session::SessionStore>,
+    /// The key shipping's supabase-js client reads.
+    key: String,
+}
+
+impl ShippingSession {
+    pub fn new(store: anlg_desktop_identity::session::SessionStore, supabase: &Url) -> Self {
+        Self {
+            store: Arc::new(store),
+            key: anlg_desktop_identity::session::storage_key(
+                supabase.host_str().unwrap_or_default(),
+            ),
+        }
+    }
+
+    fn blocking<T: Send + 'static>(
+        &self,
+        work: impl FnOnce(&anlg_desktop_identity::session::SessionStore, &str) -> Result<T>
+        + Send
+        + 'static,
+    ) -> BoxFuture<'static, Result<T>> {
+        let store = self.store.clone();
+        let key = self.key.clone();
+        Box::pin(async move {
+            tokio::task::spawn_blocking(move || work(&store, &key))
+                .await
+                .map_err(|_| storage_error())?
+        })
+    }
+}
+
+impl SessionStore for ShippingSession {
+    fn load(&self) -> BoxFuture<'static, Result<Option<Session>>> {
+        self.blocking(|store, key| {
+            let map = store.load();
+            // The desktop key first; the CLI may have saved its login under its own.
+            let value = map.get(key).or_else(|| {
+                map.iter()
+                    .find(|(name, _)| {
+                        name.ends_with(anlg_desktop_identity::session::SESSION_KEY_SUFFIX)
+                    })
+                    .map(|(_, value)| value)
+            });
+            // Like supabase-js, an unreadable session reads as signed out and stays stored.
+            Ok(value.and_then(|value| match serde_json::from_str(value) {
+                Ok(session) => Some(session),
+                Err(error) => {
+                    tracing::warn!(%error, "ignoring an unreadable stored session");
+                    None
+                }
+            }))
+        })
+    }
+
+    fn save(&self, session: &Session) -> BoxFuture<'static, Result<()>> {
+        let value = serde_json::to_string(session);
+        self.blocking(move |store, key| {
+            let value = value.map_err(|_| failure("Could not persist session"))?;
+            // Rewrite the stored map, other entries included, with this one session in it.
+            let mut map = store.load();
+            map.retain(|name, _| {
+                !name.ends_with(anlg_desktop_identity::session::SESSION_KEY_SUFFIX)
+            });
+            map.insert(key.to_owned(), value);
+            store.save(&map).map_err(|error| failure(&error))
+        })
+    }
+
+    fn clear(&self) -> BoxFuture<'static, Result<()>> {
+        self.blocking(|store, _| store.clear().map_err(|error| failure(&error)))
+    }
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Identity {
     pub account_id: Option<Arc<str>>,
@@ -146,25 +269,36 @@ struct PendingLogin {
 pub(crate) struct Auth {
     pub store: Arc<dyn SecureStore>,
     pub transport: Transport,
+    session: Arc<dyn SessionStore>,
     state: Mutex<State>,
     identity: watch::Sender<Identity>,
 }
 
 impl Auth {
+    /// Keeps the session in `store` under this profile's credential namespace.
     pub async fn new(transport: Transport, store: Arc<dyn SecureStore>) -> Result<Arc<Self>> {
+        let key = transport.config.secrets.auth("session");
+        let session = Arc::new(KeychainSession::new(store.clone(), key));
+        Self::with_session(transport, store, session).await
+    }
+
+    pub async fn with_session(
+        transport: Transport,
+        store: Arc<dyn SecureStore>,
+        session: Arc<dyn SessionStore>,
+    ) -> Result<Arc<Self>> {
         let (identity, _) = watch::channel(Identity::default());
         let this = Arc::new(Self {
             store,
             transport,
+            session,
             identity,
             state: Mutex::new(State {
                 session: None,
                 cancel: CancellationToken::new(),
             }),
         });
-        if let Some(value) = this.store.read(this.key("session")).await? {
-            let session: Session = serde_json::from_str(&value)
-                .map_err(|_| failure("Stored session is invalid. Sign out to clear it"))?;
+        if let Some(session) = this.session.load().await? {
             this.validate_session(&session)?;
             let mut state = this.state.lock().await;
             this.announce(&mut state, Some(&session));
@@ -218,11 +352,27 @@ impl Auth {
         if self.identity.borrow().account_id.as_deref() != Some(account) {
             return Err(ServiceError::Conflict);
         }
+        let needs_refresh = |session: &Session| {
+            force || session.requires_refresh(SystemTime::now(), Duration::from_secs(90))
+        };
         let session = state
             .session
             .as_ref()
             .ok_or_else(|| failure("Sign in to continue"))?;
-        if force || session.requires_refresh(SystemTime::now(), Duration::from_secs(90)) {
+        if needs_refresh(session) {
+            // Another app sharing the session, such as the CLI, may have rotated it since it
+            // was read; refreshing with the old token would fail and sign this app out.
+            if let Some(stored) = self.session.load().await?
+                && stored.user.as_ref().map(|user| user.id.as_str()) == Some(account)
+            {
+                state.session = Some(stored);
+            }
+        }
+        let session = state
+            .session
+            .as_ref()
+            .ok_or_else(|| failure("Sign in to continue"))?;
+        if needs_refresh(session) {
             let refresh_token = session
                 .refresh_token()
                 .ok_or_else(|| failure("Sign in again to renew this session"))?
@@ -269,11 +419,7 @@ impl Auth {
     }
 
     async fn persist(&self, session: &Session) -> Result<()> {
-        let value =
-            serde_json::to_string(session).map_err(|_| failure("Could not persist session"))?;
-        self.store
-            .write(self.key("session"), Zeroizing::new(value))
-            .await
+        self.session.save(session).await
     }
 
     /// Shipping's browser hand-off: the web `/auth` page signs in and returns to the app with
@@ -364,7 +510,7 @@ impl Auth {
         let mut state = self.state.lock().await;
         let old = state.session.take();
         self.announce(&mut state, None);
-        let removed = self.store.remove(self.key("session")).await;
+        let removed = self.session.clear().await;
         let pending_removed = self.store.remove(self.key("pending-sign-in")).await;
         if let Some(session) = old {
             // Local erasure must not depend on reachability of the logout endpoint.

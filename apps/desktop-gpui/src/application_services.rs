@@ -4,6 +4,7 @@ use std::{
 };
 
 use anlg_calendar::CalendarProviderType;
+use anlg_desktop_identity::{Channel, Locations, auth::AuthPaths};
 use desktop_runtime::{CancellationToken, Result, RuntimeHandle, ServiceError};
 use futures::{
     SinkExt,
@@ -23,7 +24,7 @@ use crate::{
     product::{
         cloud::{
             ChannelStore, CloudConfig, CloudServices, SecretNames,
-            auth::{KeyringStore, SecureStore},
+            auth::{KeyringStore, SecureStore, SessionStore, ShippingSession},
             host::NativeHost,
         },
         local::{
@@ -255,17 +256,26 @@ impl NativeServices {
                 Arc::new(KeyringStore::new("com.anarlog.gpui.sandbox.secure-store")),
             ),
         };
-        let cloud = match cloud_config {
-            Ok(config) => match CloudServices::new(runtime.clone(), config, store, host).await {
-                Ok(service) => CloudConnection {
-                    service: Some(service),
-                    error: ServiceError::Closed,
-                },
-                Err(error) => CloudConnection {
-                    service: None,
-                    error,
-                },
-            },
+        let cloud = match cloud_config.and_then(|config| {
+            let session = storage
+                .channel
+                .map(|channel| shipping_session(channel, &config));
+            Ok((config, session.transpose()?))
+        }) {
+            Ok((config, session)) => {
+                match CloudServices::with_session(runtime.clone(), config, store, session, host)
+                    .await
+                {
+                    Ok(service) => CloudConnection {
+                        service: Some(service),
+                        error: ServiceError::Closed,
+                    },
+                    Err(error) => CloudConnection {
+                        service: None,
+                        error,
+                    },
+                }
+            }
             Err(error) => CloudConnection {
                 service: None,
                 error,
@@ -429,7 +439,7 @@ async fn config(runtime: &RuntimeHandle, storage: &Storage, api: &str) -> Result
             .parse()
             .map_err(failure)?,
         anon_key,
-        callback: "anarlog-dev://auth/callback".parse().map_err(failure)?,
+        callback: sign_in_callback(channel).parse().map_err(failure)?,
         secrets: match channel {
             Some(_) => SecretNames::Channel,
             None => SecretNames::Sandbox(format!("gpui-{fingerprint}")),
@@ -439,8 +449,40 @@ async fn config(runtime: &RuntimeHandle, storage: &Storage, api: &str) -> Result
     })
 }
 
+/// Shipping's web sign-in returns to `<scheme>://auth/callback`, with the scheme the app passes.
+fn sign_in_callback(channel: Option<Channel>) -> String {
+    let scheme = channel.map_or("anarlog-dev", |channel| channel.schemes()[0]);
+    format!("{scheme}://auth/callback")
+}
+
+/// A channel run keeps the sign-in where the shipping app does, so the update keeps the user
+/// signed in and a rollback to the Tauri app still finds the session.
+fn shipping_session(channel: Channel, config: &CloudConfig) -> Result<Arc<dyn SessionStore>> {
+    let locations = Locations::resolve(channel.identifier())
+        .ok_or_else(|| failure("The application data directory is unavailable"))?;
+    let store = anlg_desktop_identity::session::SessionStore::for_platform(
+        AuthPaths::new(&locations),
+        channel.identifier(),
+    );
+    Ok(Arc::new(ShippingSession::new(store, &config.supabase)))
+}
+
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn channel_sign_in_returns_to_the_channel_scheme() {
+        use anlg_desktop_identity::Channel;
+        assert_eq!(
+            super::sign_in_callback(Some(Channel::Stable)),
+            "anarlog://auth/callback"
+        );
+        assert_eq!(
+            super::sign_in_callback(Some(Channel::Staging)),
+            "anarlog-staging://auth/callback"
+        );
+        assert_eq!(super::sign_in_callback(None), "anarlog-dev://auth/callback");
+    }
+
     /// `crates/desktop-identity` pins the same values on the shipping toolchain; a
     /// `DefaultHasher` change would make every user a new sync device.
     #[test]

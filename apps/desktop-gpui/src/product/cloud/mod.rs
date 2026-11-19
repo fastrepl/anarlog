@@ -36,7 +36,7 @@ use tokio::sync::Mutex;
 use zeroize::Zeroizing;
 
 use super::services::{Action, Mutation, Outcome, Panel, ProductServices, Request, Scope, Surface};
-use auth::{Auth, AuthLease, Identity, SecureAuthProvider, SecureStore};
+use auth::{Auth, AuthLease, Identity, SecureAuthProvider, SecureStore, SessionStore};
 pub use transport::CloudConfig;
 use transport::{Transport, failure};
 
@@ -72,9 +72,25 @@ impl CloudServices {
         store: Arc<dyn SecureStore>,
         host: Arc<dyn CloudHost>,
     ) -> Result<Self> {
+        Self::with_session(runtime, config, store, None, host).await
+    }
+
+    /// `session` keeps the sign-in elsewhere than in `store`, such as where the shipping app
+    /// keeps it.
+    pub async fn with_session(
+        runtime: RuntimeHandle,
+        config: CloudConfig,
+        store: Arc<dyn SecureStore>,
+        session: Option<Arc<dyn SessionStore>>,
+        host: Arc<dyn CloudHost>,
+    ) -> Result<Self> {
         let core = runtime
             .service(move |services| async move {
-                let auth = Auth::new(Transport::new(config)?, store).await?;
+                let transport = Transport::new(config)?;
+                let auth = match session {
+                    Some(session) => Auth::with_session(transport, store, session).await?,
+                    None => Auth::new(transport, store).await?,
+                };
                 let sync = sync::Sync::default();
                 services.db.set_cloudsync_sync_hook(sync.hook.clone());
                 Ok(Arc::new(Core {
