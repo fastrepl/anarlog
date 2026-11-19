@@ -78,7 +78,7 @@ fn main() -> anyhow::Result<()> {
     };
     events.open_urls(urls);
     let startup = match storage.channel {
-        Some(_) => Startup::shipping(storage.vault()),
+        Some(channel) => Startup::shipping(storage.vault(), channel.identifier()),
         None => Startup::default(),
     };
     let (runtime, ready) = RuntimeHandle::start_with(Profile { database }, startup)?;

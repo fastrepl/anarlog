@@ -96,7 +96,7 @@ async fn shipping_data_with_sqlite_sync_state_opens_in_place() {
     }
     let (runtime, ready) = RuntimeHandle::start_with(
         Profile { database },
-        Startup::shipping(dir.path().to_path_buf()),
+        Startup::shipping(dir.path().to_path_buf(), "com.hyprnote.stable"),
     )
     .unwrap();
     ready.receive().await.unwrap();
@@ -121,20 +121,21 @@ async fn shipping_data_with_sqlite_sync_state_opens_in_place() {
 
 /// An update relaunch starts this app while the replaced one still holds its locks, and a
 /// "Start fresh" the shipping app requested moves the database aside like shipping does.
+/// Staging shares its database with no other channel, yet its app holds its own lock too.
 #[tokio::test]
 async fn shipping_data_waits_for_the_replaced_app_then_applies_its_reset() {
     let dir = tempfile::tempdir().unwrap();
     let database = dir.path().join("app.db");
     std::fs::write(&database, "replaced app's database").unwrap();
     std::fs::write(dir.path().join("app.db.reset-requested"), "").unwrap();
-    let held = std::fs::File::create(dir.path().join("com.hyprnote.stable.running.lock")).unwrap();
+    let held = std::fs::File::create(dir.path().join("com.hyprnote.staging.running.lock")).unwrap();
     held.try_lock().unwrap();
 
     let (runtime, ready) = RuntimeHandle::start_with(
         Profile { database },
         Startup {
             lock_wait: Duration::from_secs(30),
-            ..Startup::shipping(dir.path().to_path_buf())
+            ..Startup::shipping(dir.path().to_path_buf(), "com.hyprnote.staging")
         },
     )
     .unwrap();
@@ -160,6 +161,40 @@ async fn shipping_data_waits_for_the_replaced_app_then_applies_its_reset() {
         .collect::<Vec<_>>();
     assert_eq!(backups, ["replaced app's database"]);
     runtime.shutdown().await.unwrap();
+}
+
+/// Quitting while the replaced app still holds the profile ends the wait at once, without
+/// opening the database or applying its reset.
+#[tokio::test]
+async fn quitting_while_waiting_for_the_replaced_app_stops_without_opening() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("app.db.reset-requested"), "").unwrap();
+    let held = std::fs::File::create(dir.path().join("launch.lock")).unwrap();
+    held.try_lock().unwrap();
+
+    let (runtime, ready) = RuntimeHandle::start_with(
+        Profile {
+            database: dir.path().join("app.db"),
+        },
+        Startup::shipping(dir.path().to_path_buf(), "com.hyprnote.stable"),
+    )
+    .unwrap();
+    let mut status = runtime.startup();
+    tokio::time::timeout(
+        Duration::from_secs(10),
+        status.wait_for(|status| *status == StartupStatus::WaitingForLock),
+    )
+    .await
+    .unwrap()
+    .unwrap();
+    tokio::time::timeout(Duration::from_secs(5), runtime.shutdown())
+        .await
+        .expect("shutdown does not wait for the lock")
+        .unwrap();
+    assert!(ready.receive().await.is_err());
+    drop(held);
+    assert!(dir.path().join("app.db.reset-requested").exists());
+    assert!(!dir.path().join("app.db").exists());
 }
 
 // Service jobs hold their own database sender, so dropping the last handle has to request

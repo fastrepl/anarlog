@@ -51,16 +51,19 @@ pub struct Startup {
     pub apply_reset: bool,
     /// Notes, recordings and attachments; `vault` beside the database when unset.
     pub vault: Option<PathBuf>,
+    /// The shipping channel whose data this is; its app holds its running lock while it runs.
+    pub channel: Option<String>,
 }
 
 impl Startup {
     /// The shipping app's data in place. Its update relaunch starts this app before the
     /// replaced one has exited, so its locks are waited for.
-    pub fn shipping(vault: PathBuf) -> Self {
+    pub fn shipping(vault: PathBuf, identifier: &str) -> Self {
         Self {
             lock_wait: Duration::from_secs(60),
             apply_reset: true,
             vault: Some(vault),
+            channel: Some(identifier.to_owned()),
         }
     }
 }
@@ -204,10 +207,15 @@ impl RuntimeHandle {
                 };
                 runtime.block_on(async move {
                     let startup = async {
-                        let lease = startup::ProfileLease::acquire(&profile, &startup, || {
-                            status_tx.send_replace(StartupStatus::WaitingForLock);
-                        })
-                        .await?;
+                        // Quitting while another process holds the profile ends the wait, and
+                        // nothing is opened or reset; a migration, once started, is never cut.
+                        let lease = tokio::select! {
+                            biased;
+                            () = shutdown_requested.cancelled() => return Ok(None),
+                            lease = startup::ProfileLease::acquire(&profile, &startup, || {
+                                status_tx.send_replace(StartupStatus::WaitingForLock);
+                            }) => lease?,
+                        };
                         status_tx.send_replace(StartupStatus::Opening);
                         startup::check_reset(&profile, &startup)?;
                         let db = startup::open(&profile, |status| {
@@ -220,7 +228,7 @@ impl RuntimeHandle {
                                 .unwrap_or_else(|_| parent.to_path_buf())
                                 .join("vault")
                         });
-                        Ok::<_, ServiceError>((
+                        Ok::<_, ServiceError>(Some((
                             lease,
                             Services {
                                 executor: DbExecutor::new(db.clone()),
@@ -235,17 +243,21 @@ impl RuntimeHandle {
                                 watch_slots: Arc::new(Semaphore::new(MAX_WATCHES)),
                                 shutdown_requested,
                             },
-                        ))
+                        )))
                     }
                     .await;
                     match startup {
-                        Ok((lease, services)) => {
+                        Ok(Some((lease, services))) => {
                             state_tx.send_replace(RuntimeState::Ready);
                             let _ = ready_tx.send(Ok(()));
                             let result =
                                 queue::run(receiver, service_receiver, services, &state_tx).await;
                             drop(lease);
                             state_tx.send_replace(RuntimeState::Closed(result));
+                        }
+                        Ok(None) => {
+                            let _ = ready_tx.send(Err(ServiceError::Closed));
+                            state_tx.send_replace(RuntimeState::Closed(Ok(())));
                         }
                         Err(error) => {
                             let _ = ready_tx.send(Err(error.clone()));

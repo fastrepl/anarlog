@@ -7,6 +7,10 @@ use std::{
 };
 
 use anlg_db_core::{Db, DbStorage};
+use anlg_desktop_identity::{
+    channel::{NIGHTLY_IDENTIFIER, STABLE_IDENTIFIER},
+    paths::{LAUNCH_LOCK_FILENAME, channel_lock_filename},
+};
 
 use crate::{Profile, Result, ServiceError, Startup, StartupStatus, types::failure};
 
@@ -50,7 +54,7 @@ impl ProfileLease {
     ) -> Result<Self> {
         let deadline = Instant::now() + startup.lock_wait;
         loop {
-            let held = match Self::try_acquire(profile)? {
+            let held = match Self::try_acquire(profile, startup.channel.as_deref())? {
                 Ok(lease) => return Ok(lease),
                 Err(held) => held,
             };
@@ -68,7 +72,10 @@ impl ProfileLease {
         }
     }
 
-    fn try_acquire(profile: &Profile) -> Result<std::result::Result<Self, PathBuf>> {
+    fn try_acquire(
+        profile: &Profile,
+        channel: Option<&str>,
+    ) -> Result<std::result::Result<Self, PathBuf>> {
         let parent = profile
             .database
             .parent()
@@ -86,13 +93,22 @@ impl ProfileLease {
                 "Database symlinks are not supported for isolated profiles",
             ));
         }
-        let mut files = Vec::new();
-        for path in [
+        let mut paths = vec![
             suffix(&canonical, ".gpui.lock"),
-            parent.join("launch.lock"),
-            parent.join("com.hyprnote.stable.running.lock"),
-            parent.join("com.hyprnote.nightly.running.lock"),
-        ] {
+            parent.join(LAUNCH_LOCK_FILENAME),
+            parent.join(channel_lock_filename(STABLE_IDENTIFIER)),
+            parent.join(channel_lock_filename(NIGHTLY_IDENTIFIER)),
+        ];
+        // Every channel's shipping app holds its own while it runs, not only the two that share
+        // a database, so this app never writes the channel's files alongside it.
+        if let Some(channel) = channel {
+            let own = parent.join(channel_lock_filename(channel));
+            if !paths.contains(&own) {
+                paths.push(own);
+            }
+        }
+        let mut files = Vec::new();
+        for path in paths {
             match lock(&path)? {
                 Some(file) => files.push(file),
                 None => return Ok(Err(path)),
