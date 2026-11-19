@@ -274,6 +274,21 @@ pub fn dropdown<T: 'static>(
     window: &mut Window,
     cx: &mut Context<T>,
 ) -> AnyElement {
+    dropdown_focusing(id, menu, align_end, None, close, window, cx)
+}
+
+/// [`dropdown`] that focuses `initial`, such as the menu's search field, when it opens. Pass it
+/// here instead of focusing it from the trigger's click handler, so the focus to give back on
+/// close is read before it moves.
+pub fn dropdown_focusing<T: 'static>(
+    id: impl Into<ElementId>,
+    menu: Option<impl IntoElement>,
+    align_end: bool,
+    initial: Option<FocusHandle>,
+    close: impl Fn(&mut T) + 'static,
+    window: &mut Window,
+    cx: &mut Context<T>,
+) -> AnyElement {
     let state = window.use_keyed_state(id, cx, |_, cx| DropdownState {
         trigger: px(0.),
         focus: cx.focus_handle(),
@@ -290,11 +305,12 @@ pub fn dropdown<T: 'static>(
         (state.focus.clone(), state.trigger, opening, closing)
     });
     if opening {
-        // Once this frame is drawn, unless focus already landed inside, as in a menu's search.
+        // Once this frame is drawn, unless focus already landed inside the menu.
+        let target = initial.unwrap_or_else(|| focus.clone());
         let focus = focus.clone();
         window.defer(cx, move |window, cx| {
             if !focus.contains_focused(window, cx) {
-                focus.focus(window, cx);
+                target.focus(window, cx);
             }
         });
     }
@@ -522,50 +538,77 @@ mod tests {
 
     struct Picker {
         open: bool,
+        /// A field outside the menu that has focus before it opens.
+        field: FocusHandle,
+        /// The menu's search field, which takes focus when it opens.
+        search: FocusHandle,
     }
 
     impl Render for Picker {
         fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
             let colors = crate::ui::theme::theme(window);
-            div().size_full().child(
-                div()
-                    .relative()
-                    .w(px(160.))
-                    .h(px(36.))
-                    .child(div().id("trigger").size_full().on_click(cx.listener(
-                        |this, _, _, cx| {
-                            this.open = !this.open;
-                            cx.notify();
-                        },
-                    )))
-                    .child(dropdown(
-                        "menu",
-                        self.open.then(|| {
-                            menu_panel(&colors)
-                                .child(menu_item("item", "Item", None, false, &colors))
-                        }),
-                        false,
-                        |this: &mut Self| this.open = false,
-                        window,
-                        cx,
-                    )),
-            )
+            div()
+                .size_full()
+                .child(
+                    div()
+                        .relative()
+                        .w(px(160.))
+                        .h(px(36.))
+                        .child(div().id("trigger").size_full().on_click(cx.listener(
+                            |this, _, _, cx| {
+                                this.open = !this.open;
+                                cx.notify();
+                            },
+                        )))
+                        .child(dropdown_focusing(
+                            "menu",
+                            self.open.then(|| {
+                                menu_panel(&colors)
+                                    .child(div().h(px(20.)).track_focus(&self.search))
+                                    .child(menu_item("item", "Item", None, false, &colors))
+                            }),
+                            false,
+                            Some(self.search.clone()),
+                            |this: &mut Self| this.open = false,
+                            window,
+                            cx,
+                        )),
+                )
+                .child(div().h(px(20.)).track_focus(&self.field))
         }
     }
 
     #[gpui::test]
     fn an_open_dropdown_closes_on_escape_and_on_a_press_outside(cx: &mut TestAppContext) {
-        let (picker, cx) = cx.add_window_view(|_, _| Picker { open: false });
+        let (picker, cx) = cx.add_window_view(|_, cx| Picker {
+            open: false,
+            field: cx.focus_handle(),
+            search: cx.focus_handle(),
+        });
         let open = |cx: &mut VisualTestContext| {
             // Draw, so the open menu takes focus once the frame is done.
             cx.update(|window, cx| window.draw(cx).clear(cx));
             cx.run_until_parked();
             picker.read_with(cx, |picker, _| picker.open)
         };
+        let focused = |handle: fn(&Picker) -> &FocusHandle, cx: &mut VisualTestContext| {
+            let handle = picker.read_with(cx, |picker, _| handle(picker).clone());
+            cx.update(|window, _| handle.is_focused(window))
+        };
+        let field = picker.read_with(cx, |picker, _| picker.field.clone());
+        cx.update(|window, cx| field.focus(window, cx));
         cx.simulate_click(point(px(20.), px(18.)), Modifiers::none());
         assert!(open(cx));
+        assert!(
+            focused(|picker| &picker.search, cx),
+            "the search field takes focus"
+        );
         cx.simulate_keystrokes("escape");
         assert!(!open(cx), "Escape closes the menu");
+        assert!(
+            focused(|picker| &picker.field, cx),
+            "focus goes back to the field that had it"
+        );
         cx.simulate_click(point(px(20.), px(18.)), Modifiers::none());
         assert!(open(cx));
         cx.simulate_mouse_down(

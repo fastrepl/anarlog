@@ -502,13 +502,12 @@ impl PreferencesView {
             })
             .aria_expanded(open)
             .when(enabled, |view| {
-                view.on_click(cx.listener(move |this, _, window, cx| {
+                view.on_click(cx.listener(move |this, _, _, cx| {
                     this.menu = Some(id);
                     if searchable {
                         this.menu_search.update(cx, |search, cx| {
                             search.set_placeholder("Search...");
                             search.set_text(String::new(), cx);
-                            search.focus_handle(cx).focus(window, cx);
                         });
                     }
                     cx.notify();
@@ -606,10 +605,11 @@ impl PreferencesView {
             .relative()
             .w_full()
             .child(trigger)
-            .child(controls::dropdown(
+            .child(controls::dropdown_focusing(
                 SharedString::from(format!("{id}-menu")),
                 menu,
                 width > controls::CONTROL_WIDTH,
+                searchable.then(|| self.menu_search.read(cx).focus_handle(cx)),
                 |this: &mut Self| this.menu = None,
                 window,
                 cx,

@@ -226,8 +226,9 @@ pub struct ProviderView {
     /// A provider picked in the menu until its choice is saved, or until a language model
     /// is entered for it. It is not an unsaved edit: leaving drops it, as in shipping.
     draft: Option<&'static str>,
-    /// Each provider's last model this session (shipping's `lastSelectedModelsRef`).
-    remembered: BTreeMap<String, String>,
+    /// Each provider's last model this session, per kind (shipping's `lastSelectedModelsRef`,
+    /// which each settings page keeps for itself).
+    remembered: std::collections::HashMap<(ProviderKind, String), String>,
     /// A choice to save once the load or save in flight finishes.
     queued: bool,
     model: Entity<TextInput>,
@@ -293,7 +294,7 @@ impl ProviderView {
             kind: ProviderKind::Stt,
             snapshot: None,
             draft: None,
-            remembered: BTreeMap::new(),
+            remembered: Default::default(),
             queued: false,
             model,
             search,
@@ -432,14 +433,16 @@ impl ProviderView {
     fn pick_provider(&mut self, provider: &'static str, cx: &mut Context<Self>) {
         self.menu = false;
         let current = self.current("provider");
-        if provider == current {
+        // While a save is in flight the stored choice is about to change, so picking it again
+        // is a new choice to queue, not a no-op.
+        if provider == current && self.operation.is_none() {
             self.restore(cx);
             cx.notify();
             return;
         }
         let saved = self.current("model");
         if !current.is_empty() && !saved.is_empty() {
-            self.remembered.insert(current, saved);
+            self.remembered.insert((self.kind, current), saved);
         }
         let model = self.next_model(provider, cx);
         self.draft = Some(provider);
@@ -463,7 +466,7 @@ impl ProviderView {
         let typed = models.is_empty()
             && (self.kind == ProviderKind::Llm || matches!(provider, "custom" | "nvidia"));
         self.remembered
-            .get(provider)
+            .get(&(self.kind, provider.to_owned()))
             .filter(|model| {
                 typed
                     || models
@@ -1376,6 +1379,8 @@ mod tests {
     #[gpui::test]
     fn picking_a_provider_saves_a_model_for_it_and_never_blocks_leaving(cx: &mut TestAppContext) {
         let fixture = fixture(cx);
+        // Leaves OpenAI's transcription model remembered for this session.
+        fixture.pick("openai", cx);
         fixture.pick("deepgram", cx);
         assert_eq!(fixture.setting("current_stt_provider").unwrap(), "deepgram");
         assert_eq!(
@@ -1384,13 +1389,43 @@ mod tests {
         );
         assert!(fixture.view.read_with(cx, |view, cx| !view.has_unsaved(cx)));
         // A language model provider whose models are typed waits for one, without
-        // holding the page.
+        // holding the page, and never takes its transcription model.
         fixture
             .view
             .update(cx, |view, cx| view.select_kind(ProviderKind::Llm, cx));
         fixture.pick("openai", cx);
         assert_eq!(fixture.setting("current_llm_provider"), None);
         assert!(fixture.view.read_with(cx, |view, cx| !view.has_unsaved(cx)));
+        fixture.shutdown();
+    }
+
+    #[gpui::test]
+    fn a_provider_picked_while_another_saves_is_saved_after_it(cx: &mut TestAppContext) {
+        let fixture = fixture(cx);
+        fixture.view.update(cx, |view, cx| {
+            view.pick_provider("deepgram", cx);
+            assert!(view.operation.is_some(), "the first choice is still saving");
+            view.pick_provider("assemblyai", cx);
+        });
+        fixture.settle(cx);
+        assert_eq!(
+            fixture.setting("current_stt_provider").unwrap(),
+            "assemblyai"
+        );
+        assert_eq!(
+            fixture.setting("current_stt_model").unwrap(),
+            "universal-3-5-pro"
+        );
+        // Picking the saved provider again before another pick's save finishes keeps it.
+        fixture.view.update(cx, |view, cx| {
+            view.pick_provider("deepgram", cx);
+            view.pick_provider("assemblyai", cx);
+        });
+        fixture.settle(cx);
+        assert_eq!(
+            fixture.setting("current_stt_provider").unwrap(),
+            "assemblyai"
+        );
         fixture.shutdown();
     }
 
