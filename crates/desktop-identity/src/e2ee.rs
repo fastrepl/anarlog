@@ -41,9 +41,8 @@ mod tests {
     #[test]
     fn e2ee_keychain_accounts_golden() {
         let user = "550E8400-E29B-41D4-A716-446655440000";
-        let account = |identifier, key: String| {
-            crate::secure_store::account(identifier, SECRET_SCOPE, &key)
-        };
+        let account =
+            |identifier, key: String| crate::secure_store::account(identifier, SECRET_SCOPE, &key);
 
         for (identifier, prefix) in [
             ("com.hyprnote.stable", ""),

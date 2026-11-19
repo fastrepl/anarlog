@@ -1,5 +1,5 @@
-use crate::chunked::{self, ChunkedError};
 pub use crate::chunked::SecretSlot;
+use crate::chunked::{self, ChunkedError};
 
 const SECURE_STORE_SUFFIX: &str = "secure-store";
 #[cfg(target_os = "macos")]
@@ -427,7 +427,10 @@ mod tests {
     fn reads_move_a_legacy_secret_to_the_current_location() {
         let keychain = Rc::new(Keychain::default());
         keychain.items.borrow_mut().insert(
-            item("com.hyprnote.stable.secure-store", "e2ee:account:a:recovery-v1"),
+            item(
+                "com.hyprnote.stable.secure-store",
+                "e2ee:account:a:recovery-v1",
+            ),
             "code".to_string(),
         );
         let store = store("com.hyprnote.stable", &keychain);

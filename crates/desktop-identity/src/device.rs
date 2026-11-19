@@ -56,13 +56,12 @@ mod tests {
             ("   ", None),
             ("日本語", None),
         ] {
-            assert_eq!(
-                sanitize_device_name(name).as_deref(),
-                expected,
-                "{name:?}"
-            );
+            assert_eq!(sanitize_device_name(name).as_deref(), expected, "{name:?}");
         }
-        assert_eq!(sanitize_device_name(&"a".repeat(200)), Some("a".repeat(128)));
+        assert_eq!(
+            sanitize_device_name(&"a".repeat(200)),
+            Some("a".repeat(128))
+        );
         assert_eq!(
             sanitize_device_name(&format!(" {}x", "b".repeat(127))),
             Some(format!("{}x", "b".repeat(127)))

@@ -228,10 +228,7 @@ mod tests {
                 local_data_dir,
                 "{channel:?}"
             );
-            assert_eq!(
-                locations.database(),
-                locations.database_dir.join("app.db")
-            );
+            assert_eq!(locations.database(), locations.database_dir.join("app.db"));
         }
         assert_eq!(LAUNCH_LOCK_FILENAME, "launch.lock");
         assert_eq!(

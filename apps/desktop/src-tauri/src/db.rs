@@ -1,9 +1,7 @@
 use std::sync::Arc;
 
 use anlg_db_core::Db;
-use anlg_desktop_identity::paths::{
-    DB_FILENAME, apply_pending_database_reset, desktop_db_dir,
-};
+use anlg_desktop_identity::paths::{DB_FILENAME, apply_pending_database_reset, desktop_db_dir};
 
 const DEFAULT_CLOUDSYNC_INTERVAL_MS: u64 = 30_000;
 const DB_OPEN_LOCK_RETRIES: u32 = 12;

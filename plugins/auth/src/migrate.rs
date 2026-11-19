@@ -2,11 +2,11 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+use anlg_desktop_identity::auth::{AuthPaths, FILENAME};
 #[cfg(all(target_os = "linux", not(test)))]
 use anlg_desktop_identity::auth::{
     LINUX_SECRET_KEY as AUTH_KEY, LINUX_SECRET_SCOPE as AUTH_SCOPE, cli_fallback_path,
 };
-use anlg_desktop_identity::auth::{AuthPaths, FILENAME};
 use tauri::Manager;
 
 pub(crate) fn auth_path<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> crate::Result<PathBuf> {
