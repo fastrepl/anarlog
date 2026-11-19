@@ -472,8 +472,8 @@ pub fn main() {
                 app_handle.on_menu_event(|app, event| {
                     if let Ok(item) = AnlgMenuItem::try_from(event.id().clone()) {
                         item.handle(app);
-                    } else {
-                        tauri_plugin_tray::handle_agenda_menu_event(app, event.id());
+                    } else if !tauri_plugin_tray::handle_agenda_menu_event(app, event.id()) {
+                        tauri_plugin_tray::handle_language_menu_event(app, event.id());
                     }
                 });
             }
