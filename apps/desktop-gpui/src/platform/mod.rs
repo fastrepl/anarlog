@@ -5,6 +5,7 @@ pub mod device_auth;
 pub mod dialogs;
 pub mod notifications;
 pub mod os;
+pub mod package;
 pub mod permissions;
 pub mod shortcuts;
 pub mod sounds;

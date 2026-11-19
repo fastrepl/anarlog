@@ -34,7 +34,11 @@ service and account names (E2EE keys and provider keys, chunked like shipping).
 Channel mode is incomplete until sign-in also uses shipping's session store; don't
 compile a channel in yet. Launch arguments the shipping app receives
 (`--background`, `--onboarding`, `--updater2-*`, deep-link URLs) are accepted, and
-unknown ones are logged and ignored.
+unknown ones are logged and ignored. A channel build also takes the
+shipping package's names: the channel identifier as Windows' AppUserModelID, the
+executable name as the Linux window class (the desktop entry's `StartupWMClass`), the
+tray ID `anlg-tray`, and on Linux it registers `<executable>-handler.desktop` for the
+channel's schemes at each start, as shipping does.
 Both modes open the database like shipping, with the bundled sqlite-sync extension
 loaded (`anlg_db_core::open_app_db`), so a database that ran sqlite-sync opens and
 migrates; slow migrations show their progress. A channel run waits up to a minute

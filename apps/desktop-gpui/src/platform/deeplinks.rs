@@ -1,9 +1,9 @@
 use std::{
     path::Path,
-    process::Command,
     sync::{Arc, Mutex},
 };
 
+use anlg_desktop_identity::Channel;
 use desktop_runtime::{
     Result, ServiceError,
     deeplink::{DeepLink, DeepLinkInbox},
@@ -66,136 +66,89 @@ pub const SCHEMES: &[&str] = &[
     "hypr",
 ];
 
-pub fn desktop_entry(executable: &Path, schemes: &[&str]) -> Result<String> {
-    validate_schemes(schemes)?;
-    let executable = executable
+/// Shipping's start-up `register_all` on Linux (tauri-plugin-deep-link): a hidden
+/// `<executable>-handler.desktop` entry for the channel's schemes, made their default handler.
+/// It names the AppImage when the app runs from one, so links follow a moved AppImage. macOS
+/// (Info.plist) and Windows (the NSIS installer) register the same schemes at install.
+pub fn register_handler(channel: Channel) {
+    #[cfg(target_os = "linux")]
+    std::thread::spawn(move || {
+        if let Err(error) = register_linux_handler(channel) {
+            tracing::warn!(%error, "failed to register deep link handlers");
+        }
+    });
+    #[cfg(not(target_os = "linux"))]
+    let _ = channel;
+}
+
+#[cfg(target_os = "linux")]
+fn register_linux_handler(channel: Channel) -> Result<()> {
+    use std::{path::PathBuf, process::Command};
+
+    let executable = std::env::current_exe().map_err(failure)?;
+    let target = std::env::var_os("APPIMAGE")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| executable.clone());
+    let directory = std::env::var_os("XDG_DATA_HOME")
+        .map(PathBuf::from)
+        .filter(|path| path.is_absolute())
+        .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".local/share")))
+        .ok_or_else(|| failure("No data directory"))?
+        .join("applications");
+    let (name, entry) = handler_entry(channel, &executable, &target)?;
+    std::fs::create_dir_all(&directory).map_err(failure)?;
+    let path = directory.join(&name);
+    if std::fs::read_to_string(&path).ok().as_deref() != Some(entry.as_str()) {
+        anlg_storage::fs::atomic_write(&path, &entry).map_err(failure)?;
+    }
+    // Like shipping, only a missing command fails; NixOS lacks update-desktop-database.
+    Command::new("update-desktop-database")
+        .arg(&directory)
+        .status()
+        .map_err(failure)?;
+    for scheme in channel.schemes() {
+        Command::new("xdg-mime")
+            .args(["default", &name, &format!("x-scheme-handler/{scheme}")])
+            .status()
+            .map_err(failure)?;
+    }
+    Ok(())
+}
+
+/// The handler entry's file name and contents.
+pub fn handler_entry(
+    channel: Channel,
+    executable: &Path,
+    target: &Path,
+) -> Result<(String, String)> {
+    let name = executable
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| failure("Executable name is not UTF-8"))?;
+    let target = target
         .to_str()
         .ok_or_else(|| failure("Executable path is not UTF-8"))?;
-    if executable.contains(['\n', '\r', '\0']) {
+    if target.contains(['\n', '\r', '\0']) {
         return Err(failure("Invalid executable path"));
     }
-    let executable = executable
+    let target = target
         .replace('\\', "\\\\\\\\")
         .replace('"', "\\\\\"")
         .replace('`', "\\\\`")
         .replace('$', "\\\\$")
         .replace('%', "%%");
-    Ok(format!(
-        "[Desktop Entry]\nType=Application\nName=Anarlog GPUI\nNoDisplay=true\nExec=\"{executable}\" %u\nMimeType={}\n",
-        schemes
-            .iter()
-            .map(|scheme| format!("x-scheme-handler/{scheme};"))
-            .collect::<String>()
+    let mime_types: String = channel
+        .schemes()
+        .iter()
+        .map(|scheme| format!("x-scheme-handler/{scheme};"))
+        .collect();
+    Ok((
+        format!("{name}-handler.desktop"),
+        format!(
+            "[Desktop Entry]\nType=Application\nName={}\nExec=\"{target}\" %u\nTerminal=false\nMimeType={mime_types}\nNoDisplay=true\n",
+            channel.product_name()
+        ),
     ))
-}
-
-fn validate_schemes(schemes: &[&str]) -> Result<()> {
-    if schemes.is_empty() || schemes.iter().any(|scheme| !SCHEMES.contains(scheme)) {
-        return Err(failure("Unknown deep-link scheme"));
-    }
-    Ok(())
-}
-
-/// Explicit opt-in registration; packaging chooses only this distribution's schemes.
-pub fn register(
-    executable: &Path,
-    bundle: &Path,
-    data_home: &Path,
-    schemes: &[&str],
-) -> Result<()> {
-    validate_schemes(schemes)?;
-    #[cfg(target_os = "linux")]
-    {
-        let _ = bundle;
-        let directory = data_home.join("applications");
-        std::fs::create_dir_all(&directory).map_err(failure)?;
-        anlg_storage::fs::atomic_write(
-            &directory.join("anarlog-gpui.desktop"),
-            &desktop_entry(executable, schemes)?,
-        )
-        .map_err(failure)?;
-        for scheme in schemes {
-            success(Command::new("xdg-mime").args([
-                "default",
-                "anarlog-gpui.desktop",
-                &format!("x-scheme-handler/{scheme}"),
-            ]))?;
-        }
-    }
-    #[cfg(target_os = "macos")]
-    {
-        let _ = (executable, data_home);
-        let output = Command::new("/usr/bin/plutil")
-            .args(["-extract", "CFBundleURLTypes", "json", "-o", "-"])
-            .arg(bundle.join("Contents/Info.plist"))
-            .output()
-            .map_err(failure)?;
-        if !output.status.success() {
-            return Err(failure("Bundle lacks CFBundleURLTypes"));
-        }
-        let entries: serde_json::Value = serde_json::from_slice(&output.stdout).map_err(failure)?;
-        for scheme in schemes {
-            if !entries.as_array().is_some_and(|entries| {
-                entries.iter().any(|entry| {
-                    entry["CFBundleURLSchemes"]
-                        .as_array()
-                        .is_some_and(|values| {
-                            values.iter().any(|value| value.as_str() == Some(scheme))
-                        })
-                })
-            }) {
-                return Err(failure("Bundle is missing a requested deep-link scheme"));
-            }
-        }
-        success(Command::new("/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister").arg("-f").arg(bundle))?;
-    }
-    #[cfg(target_os = "windows")]
-    {
-        let _ = (bundle, data_home);
-        let executable = executable
-            .to_str()
-            .ok_or_else(|| failure("Executable path is not UTF-8"))?;
-        if executable.contains(['"', '\r', '\n']) {
-            return Err(failure("Invalid executable path"));
-        }
-        for scheme in schemes {
-            let key = format!("HKCU\\Software\\Classes\\{scheme}");
-            success(Command::new("reg.exe").args([
-                "add",
-                &key,
-                "/ve",
-                "/d",
-                "URL:Anarlog GPUI",
-                "/f",
-            ]))?;
-            success(Command::new("reg.exe").args([
-                "add",
-                &key,
-                "/v",
-                "URL Protocol",
-                "/d",
-                "",
-                "/f",
-            ]))?;
-            success(Command::new("reg.exe").args([
-                "add",
-                &format!("{key}\\shell\\open\\command"),
-                "/ve",
-                "/d",
-                &format!("\"{executable}\" \"%1\""),
-                "/f",
-            ]))?;
-        }
-    }
-    Ok(())
-}
-
-fn success(command: &mut Command) -> Result<()> {
-    if command.status().map_err(failure)?.success() {
-        Ok(())
-    } else {
-        Err(failure("Native registration command failed"))
-    }
 }
 
 fn failure(error: impl std::fmt::Display) -> ServiceError {
@@ -207,20 +160,37 @@ mod tests {
     use super::*;
 
     #[test]
-    fn rejects_unregistered_schemes_and_escapes_desktop_commands() {
+    fn rejects_unregistered_schemes() {
         assert!(
             NativeDeepLinks::default()
                 .receive("https://auth/callback?code=test")
                 .is_err()
         );
-        assert!(desktop_entry(Path::new("/app\nExec=bad"), &["anarlog-dev"]).is_err());
-        assert!(desktop_entry(Path::new("/app"), &["https"]).is_err());
-        let entry = desktop_entry(
-            Path::new("/Applications/Anarlog 100%/app"),
-            &["anarlog-dev"],
+    }
+
+    #[test]
+    fn the_linux_handler_points_the_channels_schemes_at_the_app() {
+        let (name, entry) = handler_entry(
+            Channel::Staging,
+            Path::new("/tmp/.mount_anarlo/usr/bin/anarlog-staging"),
+            Path::new("/home/me/Apps/Anarlog \"100%\".AppImage"),
         )
         .unwrap();
-        assert!(entry.contains("100%%"));
-        assert!(entry.contains("x-scheme-handler/anarlog-dev;"));
+        assert_eq!(name, "anarlog-staging-handler.desktop");
+        assert_eq!(
+            entry,
+            "[Desktop Entry]\nType=Application\nName=Anarlog Staging\n\
+             Exec=\"/home/me/Apps/Anarlog \\\\\"100%%\\\\\".AppImage\" %u\nTerminal=false\n\
+             MimeType=x-scheme-handler/anarlog-staging;x-scheme-handler/hyprnote-staging;\n\
+             NoDisplay=true\n"
+        );
+        assert!(
+            handler_entry(
+                Channel::Stable,
+                Path::new("/usr/bin/anarlog"),
+                Path::new("/app\nExec=bad")
+            )
+            .is_err()
+        );
     }
 }

@@ -5,7 +5,10 @@ use desktop_gpui::launch::{self, Launch, Mode, Storage};
 use desktop_gpui::{application::ApplicationView, workspace::assets::Assets};
 use desktop_gpui::{
     native_events::{MenuState, NativeEvents},
-    platform::windows::WindowIdentity,
+    platform::{
+        package::{self, AppIds},
+        windows::WindowIdentity,
+    },
     ui::theme::UiFonts,
 };
 use desktop_runtime::{Profile, RuntimeHandle, Startup};
@@ -68,7 +71,12 @@ fn main() -> anyhow::Result<()> {
     let application = zoom.application().with_assets(Assets);
     let events = NativeEvents::install(&application);
     events.open_urls(urls);
+    if let Some(channel) = package::channel() {
+        desktop_gpui::platform::deeplinks::register_handler(channel);
+    }
     application.run(move |cx| {
+        let ids = AppIds::current();
+        cx.set_app_identity(ids.app_user_model_id, ids.name);
         cx.set_global(zoom);
         UiFonts::init(cx);
         use desktop_gpui::platform::system_settings::{Installed, NativeSettings};
