@@ -13,7 +13,7 @@ use super::{
 };
 use crate::product::settings;
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ProviderKind {
     Stt,
     Llm,

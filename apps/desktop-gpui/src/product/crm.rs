@@ -583,6 +583,7 @@ impl CrmView {
         &self,
         provider: &'static Provider,
         colors: &Theme,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let id = provider.id;
@@ -636,9 +637,11 @@ impl CrmView {
                             }),
                         ),
                 )
-                .when(open, |view| {
-                    view.child(dropdown(
-                        menu_panel(160., colors)
+                .child(dropdown(
+                    SharedString::from(format!("crm-menu-{id}")),
+                    open.then(|| {
+                        menu_panel(colors)
+                            .w(px(160.))
                             .child(
                                 menu_entry(
                                     SharedString::from(format!("crm-menu-test-{id}")),
@@ -664,10 +667,13 @@ impl CrmView {
                                         this.disconnect(provider, cx)
                                     },
                                 )),
-                            ),
-                        true,
-                    ))
-                })
+                            )
+                    }),
+                    true,
+                    |this: &mut Self| this.menu = None,
+                    window,
+                    cx,
+                ))
                 .into_any_element();
         }
         let connecting = row.is_some_and(|row| row.connecting.is_some());
@@ -708,6 +714,7 @@ impl CrmView {
         provider: &'static Provider,
         first: bool,
         colors: &Theme,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Div {
         let row = self.rows.get(provider.id);
@@ -767,7 +774,7 @@ impl CrmView {
                                     .child(status),
                             ),
                     )
-                    .child(self.control(provider, colors, cx)),
+                    .child(self.control(provider, colors, window, cx)),
             )
             .when_some(row.and_then(|row| row.error.clone()), |view, error| {
                 view.child(
@@ -810,29 +817,8 @@ impl Render for CrmView {
                         .bg(colors.card)
                         .overflow_hidden()
                         .children(PROVIDERS.iter().enumerate().map(|(index, provider)| {
-                            self.provider_row(provider, index == 0, &colors, cx)
+                            self.provider_row(provider, index == 0, &colors, window, cx)
                         })),
-                )
-            })
-            .when(self.menu.is_some(), |view| {
-                view.child(
-                    gpui::deferred(
-                        gpui::anchored().position(gpui::point(px(0.), px(0.))).child(
-                            div()
-                                .id("crm-menu-backdrop")
-                                .w(window.viewport_size().width)
-                                .h(window.viewport_size().height)
-                                .occlude()
-                                .on_mouse_down(
-                                    gpui::MouseButton::Left,
-                                    cx.listener(|this, _, _, cx| {
-                                        this.menu = None;
-                                        cx.notify();
-                                    }),
-                                ),
-                        ),
-                    )
-                    .with_priority(0),
                 )
             })
     }

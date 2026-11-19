@@ -763,6 +763,7 @@ pub const LLM: &[ProviderInfo] = &[
 /// NVIDIA take a typed model identifier instead.
 pub fn stt_models(provider: &str) -> &'static [&'static str] {
     match provider {
+        "anarlog" => &["cloud"],
         "deepgram" => &[
             "flux-general-multi",
             "flux-general-en",
@@ -843,4 +844,165 @@ pub fn stt_models(provider: &str) -> &'static [&'static str] {
         ],
         _ => &[],
     }
+}
+
+/// `displayModelId` (`settings/ai/stt/shared.tsx`): how the model menu names a model.
+pub fn stt_model_label(model: &str) -> &str {
+    match model {
+        "qwen3-asr-fast" => "Qwen3 ASR Fast",
+        "qwen3-asr" => "Qwen3 ASR",
+        "cloud" => "Pro (Cloud)",
+        "local-file" => "whisper.cpp .bin",
+        "nova-3" | "nova-3-general" => "Nova 3",
+        "nova-3-medical" => "Nova 3 Medical",
+        "flux-general-multi" => "Flux General Multilingual",
+        "flux-general-en" => "Flux General English",
+        "universal-3-5-pro-realtime" => "Universal 3.5 Pro Realtime",
+        "universal-3-5-pro" => "Universal 3.5 Pro",
+        "u3-rt-pro" => "Universal 3 Pro Realtime",
+        "universal-3-pro" | "universal" => "Universal 3 Pro",
+        "stt-v5" | "stt-rt-v5" | "stt-async-v5" => "Soniox 5",
+        "muse-voice-transcribe-1.0" => "Muse Voice Transcribe",
+        "stt-v4" | "stt-rt-v4" | "stt-async-v4" => "Soniox 4",
+        "stt-v3" | "stt-rt-v3" | "stt-async-v3" => "Soniox 3",
+        "solaria-1" => "Solaria 1",
+        "solaria-3" => "Solaria 3",
+        "scribe_v2_realtime" => "Scribe V2 Realtime",
+        "scribe_v2" => "Scribe V2",
+        "whisper-1" => "Whisper 1",
+        "gpt-live-transcribe" => "GPT Live Transcribe",
+        "gpt-transcribe" => "GPT Transcribe",
+        "ink-whisper" => "Ink Whisper",
+        "ink-2" => "Ink 2",
+        "gpt-4o-transcribe" => "GPT-4o Transcribe",
+        "gpt-4o-transcribe-diarize" => "GPT-4o Transcribe Diarize",
+        "gpt-4o-mini-transcribe" => "GPT-4o mini Transcribe",
+        "voxtral-mini-transcribe-realtime-2602" => "Voxtral Realtime",
+        "qwen-audio-3.1-asr-flash-streaming" => "Qwen-Audio 3.1 ASR Flash Streaming",
+        "qwen3-asr-flash-realtime" => "Qwen3 ASR Flash Realtime",
+        "qwen3-asr-flash-realtime-2026-02-10" => "Qwen3 ASR Flash Realtime (2026-02-10)",
+        "glm-asr-2512" => "GLM ASR",
+        "FunAudioLLM/SenseVoiceSmall" => "SenseVoice Small",
+        "TeleAI/TeleSpeechASR" => "TeleSpeech ASR",
+        "voxtral-mini-2602" => "Voxtral Mini Transcribe 2",
+        "avalon-v1.5" => "Avalon 1.5",
+        "avalon-v1-en" => "Avalon V1",
+        "cohere-transcribe-03-2026" => "Cohere Transcribe",
+        "cohere-transcribe-arabic-07-2026" => "Cohere Transcribe Arabic",
+        "whisper-large-v3-turbo" => "Whisper Large V3 Turbo",
+        "whisper-v3-turbo" => "Whisper V3 Turbo",
+        "whisper-large-v3" => "Whisper Large V3",
+        "openai/whisper-large-v3" => "Whisper Large V3",
+        "xai-stt" => "xAI Speech to Text",
+        "pulse" => "Pulse",
+        "pulse-pro" => "Pulse Pro",
+        "gemini-3.5-transcribe-live" | "gemini-3.5-transcribe-live-preview" => {
+            "3.5 Transcribe Live"
+        }
+        "gemini-3.5-transcribe" | "gemini-3.5-transcribe-preview" => "3.5 Transcribe",
+        "enhanced" => "Enhanced",
+        "standard" => "Standard",
+        "fast-transcription" => "Fast Transcription",
+        "latest_long" => "Latest Long",
+        "amazon-transcribe" => "Amazon Transcribe",
+        "machine" => "Machine Transcription",
+        "apple-speech" => "Apple Speech",
+        "soniqo-parakeet-streaming" => "Parakeet Streaming",
+        "soniqo-parakeet-batch" => "Parakeet Batch",
+        "soniqo-omnilingual" => "Omnilingual ASR",
+        "soniqo-qwen3-small" => "Qwen3 ASR 0.6B",
+        "soniqo-qwen3-large" => "Qwen3 ASR 1.7B",
+        "parakeet-tdt-0.6b-v3" => "Parakeet TDT 0.6B V3",
+        "faster-whisper-large-v3-turbo" => "Faster Whisper Large V3 Turbo",
+        "fish-audio/transcribe-1" => "Transcribe 1",
+        "x-ai/grok-stt-1.0" => "Grok STT 1.0",
+        "deepgram/nova-3" => "Nova 3",
+        "microsoft/mai-transcribe-2" => "MAI Transcribe 2",
+        "microsoft/mai-transcribe-1.5" => "MAI Transcribe 1.5",
+        "nvidia/parakeet-tdt-0.6b-v3" => "Parakeet TDT 0.6B V3",
+        "nvidia/nemotron-3-asr-streaming-0.6b" => "Nemotron 3 ASR 0.6B",
+        "nvidia/nemotron-3.5-asr-streaming-0.6b" => "Nemotron 3.5 ASR 0.6B",
+        "nvidia/nemotron-3.5-asr-streaming-multilingual-0.6b" => {
+            "Nemotron 3.5 ASR Multilingual 0.6B"
+        }
+        "mistralai/voxtral-mini-transcribe" => "Voxtral Mini Transcribe",
+        "mistralai/voxtral-mini-3b-2507" => "Voxtral Mini 3B",
+        "mistralai/voxtral-small-24b-2507-stt" => "Voxtral Small 24B",
+        "qwen/qwen3-asr-flash-2026-02-10" => "Qwen3 ASR Flash",
+        "qwen/qwen3-asr-0.6b" => "Qwen3 ASR 0.6B",
+        "qwen/qwen3-asr-1.7b" => "Qwen3 ASR 1.7B",
+        "google/chirp-3" => "Chirp 3",
+        _ => model.strip_prefix("openai/").map_or(model, stt_model_label),
+    }
+}
+
+/// `getDefaultSttModel` (`stt/model-selection.ts`): the model a provider without a model list
+/// starts with.
+pub fn default_stt_model(provider: &str) -> Option<&'static str> {
+    Some(match provider {
+        "local_file" => "local-file",
+        "deepgram" => "nova-3-general",
+        "assemblyai" => "universal-3-5-pro",
+        "openai" => "gpt-live-transcribe",
+        "openrouter" => "openai/gpt-transcribe",
+        "cartesia" => "ink-2",
+        "cloudflare_workers_ai" => "nova-3",
+        "gladia" => "solaria-1",
+        "soniox" => "stt-rt-v5",
+        "elevenlabs" => "scribe_v2",
+        "mistral" => "voxtral-mini-2602",
+        "meta" => "muse-voice-transcribe-1.0",
+        "pyannote" => "parakeet-tdt-0.6b-v3",
+        "wisprflow" => "flow",
+        "aquavoice" => "avalon-v1.5",
+        "cohere" => "cohere-transcribe-03-2026",
+        "dashscope" => "qwen3-asr-flash-realtime",
+        "zai" => "glm-asr-2512",
+        "siliconflow" => "FunAudioLLM/SenseVoiceSmall",
+        "fireworks" => "whisper-v3-turbo",
+        "groq" => "whisper-large-v3-turbo",
+        "xai" => "xai-stt",
+        "smallestai" => "pulse",
+        "inworld" => "inworld/inworld-stt-1",
+        "gradium" => "default",
+        "modulate" => "velma-2-stt-streaming-multilingual-vfast",
+        "alebex" => "alebex-asr",
+        "nvidia" => "nemotron-asr-streaming",
+        "amazon_bedrock" => "amazon.nova-2-sonic-v1:0",
+        "nari" => "qwen3-asr-fast",
+        "together" => "openai/whisper-large-v3",
+        "speechmatics" => "enhanced",
+        "azure_speech" => "fast-transcription",
+        "google_cloud" => "latest_long",
+        "google_generative_ai" => "gemini-3.5-transcribe-live",
+        "aws_transcribe" => "amazon-transcribe",
+        "revai" => "machine",
+        _ => return None,
+    })
+}
+
+/// `ANARLOG_PRO_LLM_MODELS` (`settings/ai/shared/anarlog-pro-models.ts`): the hosted
+/// language models and their labels, "Auto" first.
+pub const ANARLOG_LLM_MODELS: &[(&str, &str)] = &[
+    ("Auto", "Pro (Cloud)"),
+    ("~anthropic/claude-sonnet-latest", "Claude Sonnet"),
+    ("~anthropic/claude-opus-latest", "Claude Opus"),
+    ("~anthropic/claude-haiku-latest", "Claude Haiku"),
+    ("~openai/gpt-sol-latest", "GPT Sol"),
+    ("~openai/gpt-astra-latest", "GPT Astra"),
+    ("~openai/gpt-terra-latest", "GPT Terra"),
+    ("~openai/gpt-luna-latest", "GPT Luna"),
+    ("~google/gemini-pro-latest", "Gemini Pro"),
+    ("~google/gemini-flash-latest", "Gemini Flash"),
+    ("~x-ai/grok-latest", "Grok"),
+    ("~moonshotai/kimi-latest", "Kimi"),
+    ("~deepseek/deepseek-pro-latest", "DeepSeek Pro"),
+    ("~deepseek/deepseek-flash-latest", "DeepSeek Flash"),
+    ("~z-ai/glm-latest", "GLM"),
+    ("~z-ai/glm-flash-latest", "GLM Flash"),
+];
+
+/// A transcription provider's `description`, shown under its name in the provider menu.
+pub fn stt_description(provider: &str) -> Option<&'static str> {
+    (provider == "custom").then_some("Deepgram-compatible")
 }

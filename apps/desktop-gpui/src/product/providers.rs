@@ -55,7 +55,8 @@ impl Snapshot {
             || !provider
                 .bytes()
                 .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
-            || model.trim().is_empty()
+            // Shipping saves a transcription provider before its model is chosen.
+            || (kind == ProviderKind::Llm && model.trim().is_empty())
             || model.len() > 512
         {
             return Err(failure("Enter a provider ID and model name."));
@@ -65,14 +66,19 @@ impl Snapshot {
         }
         let key = format!("ai_provider:{}:{provider}", kind.key());
         let config = self.provider_config(kind, &key, base)?;
-        Ok([
+        let mut values = vec![
             (format!("current_{}_provider", kind.key()), json!(provider)),
             (format!("current_{}_model", kind.key()), json!(model.trim())),
             (key, config),
-        ]
-        .into_iter()
-        .map(|(key, value)| self.upsert(key, value))
-        .collect())
+        ];
+        // Effort support differs per model, so shipping resets it with every choice.
+        if kind == ProviderKind::Llm {
+            values.push(("current_llm_reasoning_effort".into(), json!("default")));
+        }
+        Ok(values
+            .into_iter()
+            .map(|(key, value)| self.upsert(key, value))
+            .collect())
     }
 
     /// Saves one provider's row (base URL) without changing the active provider.
@@ -217,8 +223,14 @@ pub struct ProviderView {
     services: ProviderServices,
     kind: ProviderKind,
     snapshot: Option<Snapshot>,
-    /// A provider picked in the menu whose model has not been saved yet.
+    /// A provider picked in the menu until its choice is saved, or until a language model
+    /// is entered for it. It is not an unsaved edit: leaving drops it, as in shipping.
     draft: Option<&'static str>,
+    /// Each provider's last model this session, per kind (shipping's `lastSelectedModelsRef`,
+    /// which each settings page keeps for itself).
+    remembered: std::collections::HashMap<(ProviderKind, String), String>,
+    /// A choice to save once the load or save in flight finishes.
+    queued: bool,
     model: Entity<TextInput>,
     search: Entity<TextInput>,
     menu: bool,
@@ -237,13 +249,19 @@ pub struct ProviderView {
 }
 
 impl ProviderView {
+    /// Shows `kind`'s page, starting from the saved choice unless edits are unsaved.
     pub fn select_kind(&mut self, kind: ProviderKind, cx: &mut Context<Self>) {
-        if self.kind != kind && !self.has_unsaved(cx) {
+        if self.has_unsaved(cx) {
+            return;
+        }
+        if self.kind != kind {
             self.kind = kind;
             self.expanded = None;
-            self.menu = false;
-            self.restore(cx);
         }
+        self.menu = false;
+        self.model_menu = false;
+        self.effort_menu = false;
+        self.restore(cx);
     }
 
     pub fn new(services: ProviderServices, cx: &mut Context<Self>) -> Self {
@@ -276,6 +294,8 @@ impl ProviderView {
             kind: ProviderKind::Stt,
             snapshot: None,
             draft: None,
+            remembered: Default::default(),
+            queued: false,
             model,
             search,
             menu: false,
@@ -298,7 +318,7 @@ impl ProviderView {
     pub fn has_unsaved(&self, cx: &gpui::App) -> bool {
         self.dirty_choice
             || self.dirty_card
-            || self.draft.is_some()
+            || self.queued
             || self.operation == Some(Operation::Saving)
             || [&self.model, &self.base, &self.secret]
                 .into_iter()
@@ -327,12 +347,19 @@ impl ProviderView {
                 match result {
                     Ok(snapshot) => {
                         this.snapshot = Some(snapshot);
-                        if restore && this.generation == generation {
+                        if restore && this.generation == generation && !this.queued {
                             this.restore(cx);
+                        }
+                        if this
+                            .draft
+                            .is_some_and(|draft| this.current("provider") == draft)
+                        {
+                            this.draft = None;
                         }
                     }
                     Err(error) => this.status = error.to_string(),
                 }
+                this.save_queued(cx);
                 cx.notify();
             });
         })
@@ -400,17 +427,86 @@ impl ProviderView {
         self.dirty_card = false;
     }
 
+    /// Shipping's `handleProviderChange`: switches to `provider` with a model chosen for it and
+    /// saves right away. A transcription provider with no model to default to is saved
+    /// without one; a language model provider waits until one is entered.
     fn pick_provider(&mut self, provider: &'static str, cx: &mut Context<Self>) {
         self.menu = false;
-        if provider == self.current("provider") {
+        let current = self.current("provider");
+        // While a save is in flight the stored choice is about to change, so picking it again
+        // is a new choice to queue, not a no-op.
+        if provider == current && self.operation.is_none() {
             self.restore(cx);
+            cx.notify();
+            return;
+        }
+        let saved = self.current("model");
+        if !current.is_empty() && !saved.is_empty() {
+            self.remembered.insert((self.kind, current), saved);
+        }
+        let model = self.next_model(provider, cx);
+        self.draft = Some(provider);
+        self.dirty_choice = false;
+        self.model
+            .update(cx, |input, cx| input.set_text(model.clone(), cx));
+        if self.kind == ProviderKind::Stt || !model.is_empty() {
+            self.save_choice(cx);
         } else {
-            self.draft = Some(provider);
-            self.model
-                .update(cx, |input, cx| input.set_text(String::new(), cx));
             self.status = "Enter a model and press Return to use this provider.".into();
         }
         cx.notify();
+    }
+
+    /// The model `provider` starts with: its last model this session if still offered, else
+    /// the first one offered, else its default (`getPreferredProviderModel` and
+    /// `getDefaultSttModel`).
+    fn next_model(&self, provider: &str, cx: &gpui::App) -> String {
+        let models = self.models(provider, cx);
+        // Typed models cannot be checked against a list; shipping keeps custom ones.
+        let typed = models.is_empty()
+            && (self.kind == ProviderKind::Llm || matches!(provider, "custom" | "nvidia"));
+        self.remembered
+            .get(&(self.kind, provider.to_owned()))
+            .filter(|model| {
+                typed
+                    || models
+                        .iter()
+                        .any(|(id, _, offered)| *offered && id == model)
+            })
+            .cloned()
+            .or_else(|| {
+                models
+                    .iter()
+                    .find(|(_, _, offered)| *offered)
+                    .map(|(id, ..)| (*id).to_owned())
+            })
+            .or_else(|| {
+                (self.kind == ProviderKind::Stt)
+                    .then(|| provider_catalog::default_stt_model(provider))
+                    .flatten()
+                    .map(str::to_owned)
+            })
+            .unwrap_or_default()
+    }
+
+    /// `provider`'s fixed models as `(id, label, offered)`; without them the model is typed.
+    /// Anarlog's transcription model is offered on a paid plan, where shipping lists it as
+    /// downloaded.
+    fn models(&self, provider: &str, cx: &gpui::App) -> Vec<(&'static str, &'static str, bool)> {
+        match self.kind {
+            ProviderKind::Stt => provider_catalog::stt_models(provider)
+                .iter()
+                .map(|id| {
+                    let offered = *id != "cloud" || super::account::is_paid(cx);
+                    (*id, provider_catalog::stt_model_label(id), offered)
+                })
+                .collect(),
+            ProviderKind::Llm if provider == "anarlog" => provider_catalog::ANARLOG_LLM_MODELS
+                .iter()
+                .map(|(id, label)| (*id, *label, true))
+                .collect(),
+            ProviderKind::Llm => Vec::new(),
+        }
     }
 
     fn toggle_card(&mut self, provider: &'static str, cx: &mut Context<Self>) {
@@ -437,8 +533,13 @@ impl ProviderView {
                 .any(|input| input.read(cx).buffer.marked.is_some())
     }
 
-    /// Saves the active provider and model ("Model being used").
+    /// Saves the active provider and model ("Model being used"), after the load or save in
+    /// flight if there is one.
     fn save_choice(&mut self, cx: &mut Context<Self>) {
+        if self.operation.is_some() {
+            self.queued = true;
+            return;
+        }
         let Some(snapshot) = self.snapshot.clone().filter(|_| !self.busy(cx)) else {
             return;
         };
@@ -461,6 +562,12 @@ impl ProviderView {
             "Provider choice saved. Credentials are checked when the provider is used.",
             cx,
         );
+    }
+
+    fn save_queued(&mut self, cx: &mut Context<Self>) {
+        if std::mem::take(&mut self.queued) {
+            self.save_choice(cx);
+        }
     }
 
     /// Saves the expanded card: its base URL row, and a new API key to the keyring.
@@ -528,10 +635,7 @@ impl ProviderView {
                         // Only what this save submitted is clean; other edits stay unsaved.
                         if this.generation == generation {
                             match part {
-                                Saved::Choice => {
-                                    this.dirty_choice = false;
-                                    this.draft = None;
-                                }
+                                Saved::Choice => this.dirty_choice = false,
                                 Saved::Card => {
                                     this.dirty_card = false;
                                     this.secret
@@ -545,7 +649,8 @@ impl ProviderView {
                     Err(error) => {
                         this.status = format!(
                             "{error}. Draft retained; reload to resolve a concurrent change."
-                        )
+                        );
+                        this.save_queued(cx);
                     }
                 }
                 cx.notify();
@@ -555,9 +660,11 @@ impl ProviderView {
         cx.notify();
     }
 
+    /// The provider `SelectContent`: each item is the provider's icon and name, with the
+    /// upgrade note or description under it (`settings/ai/{stt,llm}/select.tsx`).
     fn provider_menu(&self, colors: &Theme, cx: &mut Context<Self>) -> gpui::Stateful<Div> {
         let current = self.provider();
-        controls::menu_panel(280., colors).child(
+        controls::menu_panel(colors).child(
             div()
                 .id("provider-options")
                 .max_h(px(300.))
@@ -575,16 +682,53 @@ impl ProviderView {
                                 && !super::account::is_paid(cx);
                             let enabled = selectable(self.kind, info) && !locked;
                             let id = info.id;
-                            controls::menu_item(
+                            let note = if locked {
+                                Some("Upgrade to Pro to use this provider.")
+                            } else if self.kind == ProviderKind::Stt {
+                                provider_catalog::stt_description(id)
+                            } else {
+                                None
+                            };
+                            controls::select_item(
                                 SharedString::from(format!("provider-option-{id}")),
-                                info.name,
-                                if locked {
-                                    Some("Upgrade to Pro to use this provider.".into())
-                                } else {
-                                    info.badge.map(Into::into)
+                                match note {
+                                    Some(note) => format!("{}, {note}", info.name).into(),
+                                    None => info.name.into(),
                                 },
                                 id == current,
                                 colors,
+                            )
+                            .child(
+                                div()
+                                    .min_w_0()
+                                    .flex()
+                                    .flex_col()
+                                    .gap(px(2.))
+                                    .child(
+                                        div()
+                                            .flex()
+                                            .items_center()
+                                            .gap_2()
+                                            .child(
+                                                div()
+                                                    .size(px(20.))
+                                                    .flex_shrink_0()
+                                                    .flex()
+                                                    .items_center()
+                                                    .justify_center()
+                                                    .child(provider_logo(info, 12., colors)),
+                                            )
+                                            .child(info.name),
+                                    )
+                                    .when_some(note, |view, note| {
+                                        view.child(
+                                            div()
+                                                .text_size(px(11.))
+                                                .line_height(px(16.))
+                                                .text_color(colors.muted_foreground)
+                                                .child(note),
+                                        )
+                                    }),
                             )
                             .when(locked, |view| {
                                 view.text_color(colors.muted_foreground).cursor_default()
@@ -708,11 +852,14 @@ fn field(label: &'static str, input: Entity<TextInput>) -> Div {
 impl ProviderView {
     /// The model half of "Model being used": a menu of the provider's models when it has a
     /// fixed list, else the typed identifier.
-    fn model_select(&self, provider: &str, colors: &Theme, cx: &mut Context<Self>) -> Div {
-        let models = match self.kind {
-            ProviderKind::Stt => provider_catalog::stt_models(provider),
-            ProviderKind::Llm => &[],
-        };
+    fn model_select(
+        &self,
+        provider: &str,
+        colors: &Theme,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Div {
+        let models = self.models(provider, cx);
         let field = div().relative().flex_grow(3.).flex_basis(px(0.)).min_w_0();
         if provider.is_empty() {
             return field.child(
@@ -735,27 +882,73 @@ impl ProviderView {
         }
         if models.is_empty() {
             return field.child(
-                pill(colors)
-                    .when(provider.is_empty(), |view| view.opacity(0.5))
-                    .child(
-                        div()
-                            .flex_1()
-                            .min_w_0()
-                            .h(px(20.))
-                            .line_height(px(20.))
-                            .child(self.model.clone()),
-                    ),
+                pill(colors).child(
+                    div()
+                        .flex_1()
+                        .min_w_0()
+                        .h(px(20.))
+                        .line_height(px(20.))
+                        .child(self.model.clone()),
+                ),
             );
         }
         let current = self.model.read(cx).buffer.text.clone();
-        let selected = models.iter().find(|model| **model == current).copied();
+        let selected = models
+            .iter()
+            .find(|(id, ..)| *id == current)
+            .map(|(id, label, _)| (*id, *label));
+        let muted = colors.muted_foreground;
+        // Shipping heads Anarlog's cloud model with its "latest" category.
+        let recommended = self.kind == ProviderKind::Stt && provider == "anarlog";
+        let menu = self.model_menu.then(|| {
+            controls::menu_panel(colors).child(
+                div()
+                    .id("model-options")
+                    .max_h(px(300.))
+                    .overflow_y_scroll()
+                    .flex()
+                    .flex_col()
+                    .when(recommended, |view| {
+                        view.child(
+                            div()
+                                .px_2()
+                                .pt_2()
+                                .pb_1()
+                                .text_size(px(11.))
+                                .font_weight(crate::ui::theme::MEDIUM)
+                                .text_color(muted)
+                                .child("RECOMMENDED"),
+                        )
+                    })
+                    .children(models.into_iter().map(|(model, label, offered)| {
+                        controls::menu_item(
+                            SharedString::from(format!("model-{model}")),
+                            label,
+                            (!offered).then(|| "Upgrade to use".into()),
+                            Some(model) == selected.map(|(id, _)| id),
+                            colors,
+                        )
+                        .a11y_disabled(!offered)
+                        .when(!offered, |view| view.text_color(muted).cursor_default())
+                        .when(offered, |view| {
+                            view.on_click(cx.listener(move |this, _, _, cx| {
+                                this.model_menu = false;
+                                this.model
+                                    .update(cx, |input, cx| input.set_text(model.into(), cx));
+                                this.save_choice(cx);
+                                cx.notify();
+                            }))
+                        })
+                    })),
+            )
+        });
         field
             .child(
                 pill(colors)
                     .id("model-select")
                     .role(gpui::Role::ComboBox)
                     .aria_label("Model")
-                    .aria_value(selected.unwrap_or("Select a model"))
+                    .aria_value(selected.map_or("Select a model", |(_, label)| label))
                     .aria_expanded(self.model_menu)
                     .justify_between()
                     .cursor_pointer()
@@ -770,7 +963,7 @@ impl ProviderView {
                             .when(selected.is_none(), |view| {
                                 view.text_color(colors.muted_foreground)
                             })
-                            .child(selected.unwrap_or("Select a model")),
+                            .child(selected.map_or("Select a model", |(_, label)| label)),
                     )
                     .child(controls::icon(
                         "ArrowDown01Icon.svg",
@@ -778,38 +971,25 @@ impl ProviderView {
                         colors.foreground.opacity(0.5),
                     )),
             )
-            .when(self.model_menu, |view| {
-                view.child(controls::dropdown(
-                    controls::menu_panel(controls::CONTROL_WIDTH, colors).children(
-                        models.iter().map(|model| {
-                            let model = *model;
-                            controls::menu_item(
-                                SharedString::from(format!("model-{model}")),
-                                model,
-                                None,
-                                Some(model) == selected,
-                                colors,
-                            )
-                            .on_click(cx.listener(
-                                move |this, _, _, cx| {
-                                    this.model_menu = false;
-                                    this.model
-                                        .update(cx, |input, cx| input.set_text(model.into(), cx));
-                                    this.save_choice(cx);
-                                    cx.notify();
-                                },
-                            ))
-                        }),
-                    ),
-                    true,
-                ))
-            })
+            .child(controls::dropdown(
+                "model-select-menu",
+                menu,
+                true,
+                |this: &mut Self| this.model_menu = false,
+                window,
+                cx,
+            ))
     }
 }
 
 impl ProviderView {
     /// `Reasoning effort` (`settings/ai/llm/select.tsx`), stored for providers that take one.
-    fn reasoning_effort(&self, colors: &Theme, cx: &mut Context<Self>) -> gpui::Stateful<Div> {
+    fn reasoning_effort(
+        &self,
+        colors: &Theme,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> gpui::Stateful<Div> {
         const EFFORTS: [(&str, &str); 4] = [
             ("default", "Default"),
             ("low", "Low"),
@@ -853,10 +1033,11 @@ impl ProviderView {
                         }))
                     }),
                 )
-                .when(self.effort_menu, |view| {
-                    view.child(controls::dropdown(
-                        controls::menu_panel(controls::CONTROL_WIDTH, colors).children(
-                            EFFORTS.into_iter().map(|(value, label)| {
+                .child(controls::dropdown(
+                    "reasoning-effort-menu",
+                    self.effort_menu.then(|| {
+                        controls::menu_panel(colors).children(EFFORTS.into_iter().map(
+                            |(value, label)| {
                                 controls::menu_item(
                                     SharedString::from(format!("effort-{value}")),
                                     label,
@@ -870,11 +1051,14 @@ impl ProviderView {
                                         this.save_effort(value, cx);
                                     },
                                 ))
-                            }),
-                        ),
-                        false,
-                    ))
-                }),
+                            },
+                        ))
+                    }),
+                    false,
+                    |this: &mut Self| this.effort_menu = false,
+                    window,
+                    cx,
+                )),
             colors,
         )
     }
@@ -1000,21 +1184,23 @@ impl Render for ProviderView {
                                                 colors.foreground.opacity(0.5),
                                             )),
                                     )
-                                    .when(self.menu, |view| {
-                                        view.child(controls::dropdown(
-                                            self.provider_menu(&colors, cx),
-                                            false,
-                                        ))
-                                    }),
+                                    .child(controls::dropdown(
+                                        "provider-select-menu",
+                                        self.menu.then(|| self.provider_menu(&colors, cx)),
+                                        false,
+                                        |this: &mut Self| this.menu = false,
+                                        window,
+                                        cx,
+                                    )),
                             )
                             .child(div().text_color(colors.muted_foreground).child("/"))
-                            .child(self.model_select(&provider, &colors, cx)),
+                            .child(self.model_select(&provider, &colors, window, cx)),
                     )
                     .when(
                         self.kind == ProviderKind::Llm
                             && !provider.is_empty()
                             && !matches!(provider.as_str(), "anarlog" | "apple_foundation"),
-                        |view| view.child(self.reasoning_effort(&colors, cx)),
+                        |view| view.child(self.reasoning_effort(&colors, window, cx)),
                     ),
             )
             .child(
@@ -1082,8 +1268,13 @@ mod tests {
 
     use super::*;
 
-    #[gpui::test]
-    fn saving_the_model_keeps_an_api_key_typed_but_not_saved(cx: &mut TestAppContext) {
+    struct Fixture {
+        view: Entity<ProviderView>,
+        runtime: desktop_runtime::RuntimeHandle,
+        _directory: tempfile::TempDir,
+    }
+
+    fn fixture(cx: &mut TestAppContext) -> Fixture {
         cx.executor().allow_parking();
         let directory = tempfile::tempdir().unwrap();
         let (runtime, ready) = desktop_runtime::RuntimeHandle::start(desktop_runtime::Profile {
@@ -1100,19 +1291,68 @@ mod tests {
             secret_write: Arc::new(|_, _, _| Box::pin(async { Ok(()) })),
         };
         let view = cx.new(|cx| ProviderView::new(services, cx));
-        let settle = |cx: &mut TestAppContext| {
+        let fixture = Fixture {
+            view,
+            runtime,
+            _directory: directory,
+        };
+        fixture.settle(cx);
+        fixture
+    }
+
+    impl Fixture {
+        /// Runs until the view has loaded and nothing is in flight or queued.
+        fn settle(&self, cx: &mut TestAppContext) {
             for _ in 0..400 {
                 cx.run_until_parked();
-                if view.read_with(cx, |view, _| {
-                    view.snapshot.is_some() && view.operation.is_none()
+                if self.view.read_with(cx, |view, _| {
+                    view.snapshot.is_some() && view.operation.is_none() && !view.queued
                 }) {
                     return;
                 }
                 std::thread::sleep(std::time::Duration::from_millis(5));
             }
             panic!("provider view did not settle");
-        };
-        settle(cx);
+        }
+
+        fn pick(&self, provider: &'static str, cx: &mut TestAppContext) {
+            self.view
+                .update(cx, |view, cx| view.pick_provider(provider, cx));
+            self.settle(cx);
+        }
+
+        /// A stored setting's string value.
+        fn setting(&self, key: &'static str) -> Option<String> {
+            let rows = futures::executor::block_on(
+                self.runtime
+                    .submit(move |services| async move {
+                        services
+                            .executor
+                            .execute(
+                                "SELECT value_json FROM app_settings WHERE id = ?1".into(),
+                                vec![json!(key)],
+                            )
+                            .await
+                            .map_err(failure)
+                    })
+                    .unwrap()
+                    .receive(),
+            )
+            .unwrap();
+            rows.first().map(|row| {
+                serde_json::from_str::<String>(row["value_json"].as_str().unwrap()).unwrap()
+            })
+        }
+
+        fn shutdown(self) {
+            futures::executor::block_on(self.runtime.shutdown()).unwrap();
+        }
+    }
+
+    #[gpui::test]
+    fn saving_the_model_keeps_an_api_key_typed_but_not_saved(cx: &mut TestAppContext) {
+        let fixture = fixture(cx);
+        let view = fixture.view.clone();
         view.update(cx, |view, cx| {
             view.expanded = Some("deepgram");
             view.secret.update(cx, |input, cx| {
@@ -1128,12 +1368,98 @@ mod tests {
                 .update(cx, |input, cx| input.set_text("nova-3".into(), cx));
             view.save_choice(cx);
         });
-        settle(cx);
+        fixture.settle(cx);
         view.read_with(cx, |view, cx| {
             assert_eq!(view.secret.read(cx).buffer.text, "typed-key");
             assert!(view.has_unsaved(cx));
         });
-        futures::executor::block_on(runtime.shutdown()).unwrap();
+        fixture.shutdown();
+    }
+
+    #[gpui::test]
+    fn picking_a_provider_saves_a_model_for_it_and_never_blocks_leaving(cx: &mut TestAppContext) {
+        let fixture = fixture(cx);
+        // Leaves OpenAI's transcription model remembered for this session.
+        fixture.pick("openai", cx);
+        fixture.pick("deepgram", cx);
+        assert_eq!(fixture.setting("current_stt_provider").unwrap(), "deepgram");
+        assert_eq!(
+            fixture.setting("current_stt_model").unwrap(),
+            "flux-general-multi"
+        );
+        assert!(fixture.view.read_with(cx, |view, cx| !view.has_unsaved(cx)));
+        // A language model provider whose models are typed waits for one, without
+        // holding the page, and never takes its transcription model.
+        fixture
+            .view
+            .update(cx, |view, cx| view.select_kind(ProviderKind::Llm, cx));
+        fixture.pick("openai", cx);
+        assert_eq!(fixture.setting("current_llm_provider"), None);
+        assert!(fixture.view.read_with(cx, |view, cx| !view.has_unsaved(cx)));
+        fixture.shutdown();
+    }
+
+    #[gpui::test]
+    fn a_provider_picked_while_another_saves_is_saved_after_it(cx: &mut TestAppContext) {
+        let fixture = fixture(cx);
+        fixture.view.update(cx, |view, cx| {
+            view.pick_provider("deepgram", cx);
+            assert!(view.operation.is_some(), "the first choice is still saving");
+            view.pick_provider("assemblyai", cx);
+        });
+        fixture.settle(cx);
+        assert_eq!(
+            fixture.setting("current_stt_provider").unwrap(),
+            "assemblyai"
+        );
+        assert_eq!(
+            fixture.setting("current_stt_model").unwrap(),
+            "universal-3-5-pro"
+        );
+        // Picking the saved provider again before another pick's save finishes keeps it.
+        fixture.view.update(cx, |view, cx| {
+            view.pick_provider("deepgram", cx);
+            view.pick_provider("assemblyai", cx);
+        });
+        fixture.settle(cx);
+        assert_eq!(
+            fixture.setting("current_stt_provider").unwrap(),
+            "assemblyai"
+        );
+        fixture.shutdown();
+    }
+
+    #[gpui::test]
+    fn picking_anarlog_saves_its_hosted_model(cx: &mut TestAppContext) {
+        use super::super::account::{self, Account, Claims, User};
+        cx.update(|cx| {
+            account::set(
+                Account {
+                    user: Some(User {
+                        id: "user".into(),
+                        email: None,
+                    }),
+                    claims: Some(Claims {
+                        entitlements: vec!["hyprnote_pro".into()],
+                        subscription_status: Some("active".into()),
+                        current_period_end: Some(account::now() + 86_400),
+                        ..Claims::default()
+                    }),
+                    workspaces: Some(vec![].into()),
+                    ..Account::default()
+                },
+                cx,
+            )
+        });
+        let fixture = fixture(cx);
+        fixture.pick("anarlog", cx);
+        assert_eq!(fixture.setting("current_stt_model").unwrap(), "cloud");
+        fixture
+            .view
+            .update(cx, |view, cx| view.select_kind(ProviderKind::Llm, cx));
+        fixture.pick("anarlog", cx);
+        assert_eq!(fixture.setting("current_llm_model").unwrap(), "Auto");
+        fixture.shutdown();
     }
 
     #[test]

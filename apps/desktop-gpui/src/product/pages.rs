@@ -1170,12 +1170,12 @@ impl PreferencesView {
                                 colors,
                             )),
                     )
-                    .child(self.excluded_apps(colors, cx)),
+                    .child(self.excluded_apps(colors, window, cx)),
             )
     }
 
     /// The excluded-apps badges and their installed-apps search popover.
-    fn excluded_apps(&self, colors: &Theme, cx: &mut Context<Self>) -> Div {
+    fn excluded_apps(&self, colors: &Theme, window: &Window, cx: &mut Context<Self>) -> Div {
         use crate::meeting::automation::detect;
         const MENU: &str = "excluded-apps";
         let installed = crate::meeting::automation::installed_apps(cx);
@@ -1357,7 +1357,12 @@ impl PreferencesView {
             .w_full()
             .child(trigger)
             .when_some(menu, |view, menu| {
-                view.child(
+                view.child(controls::backdrop(
+                    |this: &mut Self| this.menu = None,
+                    window,
+                    cx,
+                ))
+                .child(
                     deferred(
                         div()
                             .absolute()

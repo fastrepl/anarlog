@@ -884,7 +884,7 @@ impl OnboardingView {
 
     /// The compact `MeetingImportScreen`. Without installed-app detection only the
     /// always-available Google Meet import is listed, as shipping does when nothing is found.
-    fn imports(&self, colors: &Theme, cx: &mut Context<Self>) -> AnyElement {
+    fn imports(&self, colors: &Theme, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         let signed_in = self.state.signed_in;
         let muted = colors.muted_foreground;
         let (group_bg, text_color) = if signed_in {
@@ -1010,27 +1010,32 @@ impl OnboardingView {
                     .child(icon("product/ArrowDown01Icon.svg", 14., text_color)),
             );
         let menu = self.import_menu.then(|| {
-            dropdown(
-                menu_panel(160., colors).child(
-                    div()
-                        .id("onboarding-import-use-files")
-                        .a11y_button("Use files")
-                        .flex()
-                        .items_center()
-                        .gap_2()
-                        .px_2()
-                        .py(px(6.))
-                        .text_size(px(14.))
-                        .line_height(px(20.))
-                        .cursor_pointer()
-                        .hover(|style| style.bg(colors.accent))
-                        .on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.import_files(cx)))
-                        .child(icon("product/Download01Icon.svg", 16., colors.foreground))
-                        .child("Use files"),
-                ),
-                true,
+            menu_panel(colors).w(px(160.)).child(
+                div()
+                    .id("onboarding-import-use-files")
+                    .a11y_button("Use files")
+                    .flex()
+                    .items_center()
+                    .gap_2()
+                    .px_2()
+                    .py(px(6.))
+                    .text_size(px(14.))
+                    .line_height(px(20.))
+                    .cursor_pointer()
+                    .hover(|style| style.bg(colors.accent))
+                    .on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.import_files(cx)))
+                    .child(icon("product/Download01Icon.svg", 16., colors.foreground))
+                    .child("Use files"),
             )
         });
+        let menu = dropdown(
+            "onboarding-import-menu",
+            menu,
+            true,
+            |this: &mut Self| this.import_menu = false,
+            window,
+            cx,
+        );
         div()
             .max_w(px(768.))
             .flex()
@@ -1087,7 +1092,7 @@ impl OnboardingView {
                                         },
                                     )),
                             )
-                            .child(div().relative().child(connect).children(menu)),
+                            .child(div().relative().child(connect).child(menu)),
                     )
                     .when(self.imports_open, |card| {
                         card.child(
@@ -1329,7 +1334,7 @@ impl Render for OnboardingView {
                 },
                 &colors,
                 cx,
-                |this, colors, cx| this.imports(colors, cx),
+                |this, colors, cx| this.imports(colors, window, cx),
             ),
             self.section(
                 Step::Final,
