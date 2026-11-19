@@ -74,9 +74,13 @@ Packaged files are found where Tauri's bundler puts them for the shipping app
 the executable. Debug builds read icons from `apps/desktop/src-tauri/resources`.
 `ANARLOG_NATIVE_RESOURCES` overrides both with one folder in the packaged layout
 (`icons/<name>.icns`, `notification-icons/`, `anarlog-cli`). The release version is
-`APP_VERSION` at build time, as for the shipping app, else Cargo's. Local engine
-executables (`argmax`, `llama-server`) sit beside the app or in
-`ANARLOG_NATIVE_RESOURCES`; Argmax also requires `ARGMAX_API_KEY`.
+`APP_VERSION` at build time, as for the shipping app, else Cargo's.
+
+Shipping runs on-device transcription only through Soniqo and Apple Speech, and an
+on-device LLM only through Apple Foundation Models, all in process; its packages
+include no Argmax or llama.cpp server. Argmax and GGUF models therefore show "Not
+available in this build" unless an `argmax` or `llama-server` executable sits beside
+the app (or in `ANARLOG_NATIVE_RESOURCES`). Argmax also requires `ARGMAX_API_KEY`.
 
 Pinned tabs are restored and saved with CAS through `app_settings.gpui_pinned_tabs`
 inside the isolated profile. Malformed persisted pin data disables pin writes.

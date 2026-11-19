@@ -221,8 +221,8 @@ impl LocalServices {
                         &format!(
                             "{} · {}{}{}",
                             model.description(),
-                            if !model.is_available_on_current_platform() {
-                                "Unavailable on this platform"
+                            if let Some(reason) = state.unavailable {
+                                reason
                             } else if state.installed {
                                 "Downloaded"
                             } else {
@@ -249,8 +249,10 @@ impl LocalServices {
                     }
                     for (suffix, label, action) in available {
                         let mut op = operation(&format!("{id}:{suffix}"), label, action, Some(id));
-                        if !model.is_available_on_current_platform() {
-                            op.disabled_reason = Some("Unavailable on this platform".into());
+                        if let Some(reason) = state.unavailable
+                            && op.action != Action::DeleteModel
+                        {
+                            op.disabled_reason = Some(reason.into());
                         } else if matches!(&model,anlg_local_model::LocalModel::Soniqo(model) if !model.supports_live())
                             && op.action == Action::StartModel
                         {
