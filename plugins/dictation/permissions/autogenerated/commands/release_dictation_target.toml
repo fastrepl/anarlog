@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-release-dictation-target"
+description = "Enables the release_dictation_target command without any pre-configured scope."
+commands.allow = ["release_dictation_target"]
+
+[[permission]]
+identifier = "deny-release-dictation-target"
+description = "Denies the release_dictation_target command without any pre-configured scope."
+commands.deny = ["release_dictation_target"]

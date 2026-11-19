@@ -14,7 +14,7 @@ import { useListener } from "./contexts";
 import { startMeetingChatCapture } from "./meeting-chat-capture";
 import {
   MEETING_DISCLOSURE_MESSAGE,
-  startMeetingRecordingDisclosure,
+  watchMeetingNotice,
 } from "./meeting-disclosure";
 import { startMeetingScreenCapture } from "./meeting-screen-capture";
 import { startPrimaryDeviceCoordination } from "./primary-device";
@@ -47,16 +47,26 @@ export {
   getPostCaptureAction,
   getPostCaptureRepairReasons,
 } from "./capture-lifecycle";
-export { sendMeetingRecordingDisclosure } from "./meeting-disclosure";
 export { useResumeListeningLifecycle } from "./resume-listening";
 
-export function useStartListening(sessionId: string) {
-  return useStartListeningState(sessionId).startListening;
+export function useStartListening(
+  sessionId: string,
+  options?: { extensionStart?: string },
+) {
+  return useStartListeningState(sessionId, options).startListening;
 }
 
 export function useStartListeningState(
   sessionId: string,
-  { automatic = false }: { automatic?: boolean } = {},
+  {
+    automatic = false,
+    extensionStart,
+  }: {
+    automatic?: boolean;
+    // The Meet extension's start request this records; only its reserved capture is the
+    // extension's.
+    extensionStart?: string;
+  } = {},
 ) {
   const {
     conn,
@@ -202,6 +212,7 @@ export function useStartListeningState(
           participant_human_ids: remoteParticipantHumanIds,
           self_human_id: session?.user_id || null,
           live_transcript: lifecycle.liveTranscript,
+          ...(extensionStart ? { extension_start: extensionStart } : {}),
         },
         {
           handlePersist: lifecycle.handlePersist,
@@ -317,7 +328,7 @@ export function useStartListeningState(
     });
 
     if (meetingDisclosureAutoSendChat) {
-      startMeetingRecordingDisclosure(
+      watchMeetingNotice(
         sessionId,
         () => getSessionMode(sessionId) === "active",
       );
@@ -342,6 +353,7 @@ export function useStartListeningState(
     conn,
     createCaptureLifecycle,
     dictionaryTerms,
+    extensionStart,
     getLiveStartError,
     getSessionMode,
     microphoneDevice,

@@ -1,0 +1,11 @@
+[default]
+description = "Default permissions for the plugin"
+permissions = [
+    "allow-get-state",
+    "allow-set-enabled",
+    "allow-set-auto-switch",
+    "allow-set-background",
+    "allow-add-extension",
+    "allow-allow-camera",
+    "allow-open-extension-settings",
+]

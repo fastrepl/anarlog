@@ -82,6 +82,7 @@
     "mcp:default",
     "messenger:default",
     "detect:default",
+    "camera-watermark:default",
     "dock:default",
     "permissions:default",
     "settings:default",

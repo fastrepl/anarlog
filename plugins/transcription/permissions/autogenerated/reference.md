@@ -46,6 +46,8 @@ Default permissions for the plugin
 - `allow-extract-voiceprint-candidates`
 - `allow-promote-voiceprint-candidates`
 - `allow-delete-processed-session-audio`
+- `allow-get-meeting-capture-capability`
+- `allow-set-meeting-account`
 - `allow-parse-subtitle`
 - `allow-export-to-vtt`
 - `allow-is-supported-languages-batch`
@@ -530,6 +532,32 @@ Enables the get_current_microphone_device command without any pre-configured sco
 <td>
 
 Denies the get_current_microphone_device command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:allow-get-meeting-capture-capability`
+
+</td>
+<td>
+
+Enables the get_meeting_capture_capability command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:deny-get-meeting-capture-capability`
+
+</td>
+<td>
+
+Denies the get_meeting_capture_capability command without any pre-configured scope.
 
 </td>
 </tr>
@@ -1128,6 +1156,32 @@ Enables the save_capture_lifecycle_marker command without any pre-configured sco
 <td>
 
 Denies the save_capture_lifecycle_marker command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:allow-set-meeting-account`
+
+</td>
+<td>
+
+Enables the set_meeting_account command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:deny-set-meeting-account`
+
+</td>
+<td>
+
+Denies the set_meeting_account command without any pre-configured scope.
 
 </td>
 </tr>

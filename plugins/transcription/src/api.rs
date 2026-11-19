@@ -109,6 +109,10 @@ pub struct CaptureParams {
     pub participant_human_ids: Vec<String>,
     #[serde(default)]
     pub self_human_id: Option<String>,
+    /// The Meet extension's start request this capture records, as its start's go answer named
+    /// it. Only that request's reservation makes it the extension's; a stale one is refused.
+    #[serde(default)]
+    pub extension_start: Option<String>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
@@ -507,6 +511,7 @@ mod tests {
             transcription_mode,
             participant_human_ids: vec![],
             self_human_id: None,
+            extension_start: None,
         }
     }
 

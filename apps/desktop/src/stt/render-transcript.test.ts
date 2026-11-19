@@ -270,6 +270,18 @@ describe("buildRenderTranscriptRequestFromRows", () => {
     expect(request?.participant_human_ids).toEqual(["remote"]);
   });
 
+  it("renders with meeting evidence even before any interval exists", () => {
+    const meetings = [{ capture_id: "capture", started_at_ms: 1_000 }];
+    const request = buildRenderTranscriptRequestFromRows(
+      [transcripts.early] as unknown as TranscriptRow[],
+      undefined,
+      undefined,
+      { intervals: [], meetings },
+    );
+
+    expect(request?.speaker_context).toEqual({ intervals: [], meetings });
+  });
+
   it("applies provider speaker hints before user assignments regardless of storage order", () => {
     const request = createRequest(["unordered"]);
 

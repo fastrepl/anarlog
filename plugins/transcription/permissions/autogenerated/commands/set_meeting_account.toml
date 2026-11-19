@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-set-meeting-account"
+description = "Enables the set_meeting_account command without any pre-configured scope."
+commands.allow = ["set_meeting_account"]
+
+[[permission]]
+identifier = "deny-set-meeting-account"
+description = "Denies the set_meeting_account command without any pre-configured scope."
+commands.deny = ["set_meeting_account"]

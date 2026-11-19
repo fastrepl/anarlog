@@ -68,4 +68,7 @@ pub enum StartSessionError {
     FailedToResolveSessionsDir,
     #[serde(rename = "failed_to_start_session")]
     FailedToStartSession,
+    /// The capture was stopped or ended before its start reached the recorder.
+    #[serde(rename = "capture_ended")]
+    CaptureEnded,
 }

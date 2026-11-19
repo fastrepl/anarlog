@@ -1,7 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  context: { intervals: [] } as { intervals: Array<Record<string, unknown>> },
+  context: { intervals: [] } as {
+    intervals: Array<Record<string, unknown>>;
+    meetings?: unknown[];
+  },
   inspect: vi.fn(),
   mic: vi.fn(),
   currentDevice: vi.fn(),
@@ -39,8 +42,15 @@ vi.mock("~/db", () => ({
             },
           ],
   },
-  executeTransaction: async (writes: Array<{ params: unknown[] }>) => {
-    mocks.context = JSON.parse(writes[0]!.params[0] as string);
+  // Each write patches one key of the stored speaker context, as the SQL's json_patch does.
+  executeTransaction: async (
+    writes: Array<{ sql: string; params: unknown[] }>,
+  ) => {
+    const key = /json_object\('(\w+)'/.exec(writes[0]!.sql)![1]!;
+    mocks.context = {
+      ...mocks.context,
+      [key]: JSON.parse(writes[0]!.params[0] as string),
+    };
   },
 }));
 
@@ -265,6 +275,19 @@ describe("capturing speaker context", () => {
     finish({ status: "ok", data: [inspection] });
     await vi.advanceTimersByTimeAsync(0);
     expect(mocks.context.intervals).toHaveLength(1);
+  });
+
+  it("keeps the plugin's stored meeting evidence between interval polls", async () => {
+    const ended = {
+      capture_id: "capture-1",
+      started_at_ms: 1000,
+      ended_at_ms: 4000,
+    };
+    mocks.context = { intervals: [], meetings: [ended] };
+    startSpeakerContextCapture("session");
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(mocks.context.meetings).toEqual([ended]);
+    expect(mocks.context.intervals.length).toBeGreaterThan(0);
   });
 
   it("does not write stale inspection results after capture stops", async () => {

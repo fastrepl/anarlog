@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-rank-dictation-terms"
+description = "Enables the rank_dictation_terms command without any pre-configured scope."
+commands.allow = ["rank_dictation_terms"]
+
+[[permission]]
+identifier = "deny-rank-dictation-terms"
+description = "Denies the rank_dictation_terms command without any pre-configured scope."
+commands.deny = ["rank_dictation_terms"]

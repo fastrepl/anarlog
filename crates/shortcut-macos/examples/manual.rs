@@ -19,6 +19,7 @@ fn main() {
         let mut p = p.lock().unwrap();
         let out = match event {
             TapEvent::Key(k) => p.process_key(k),
+            TapEvent::KeyUp(k) => p.process_key(shortcut_macos::KeyEvent::new(None, k.modifiers)),
             TapEvent::MouseClick => p.process_mouse_click(),
         };
         if let Some(o) = out {

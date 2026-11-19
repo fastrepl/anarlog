@@ -161,6 +161,7 @@ keyring = "4.1.4"
 posthog-rs = "0.5"
 progenitor-client = "0.13"
 
+dictation-core = { path = "crates/dictation-core" }
 openai-transcription = { path = "crates/openai-transcription", package = "openai-transcription" }
 owhisper-client = { path = "crates/owhisper-client", package = "owhisper-client" }
 owhisper-interface = { path = "crates/owhisper-interface", package = "owhisper-interface" }
@@ -194,6 +195,7 @@ tauri-plugin-audio-priority = { path = "plugins/audio-priority" }
 tauri-plugin-auth = { path = "plugins/auth" }
 tauri-plugin-bedrock = { path = "plugins/bedrock" }
 tauri-plugin-calendar = { path = "plugins/calendar" }
+tauri-plugin-camera-watermark = { path = "plugins/camera-watermark" }
 tauri-plugin-db = { path = "plugins/db" }
 tauri-plugin-deeplink2 = { path = "plugins/deeplink2" }
 tauri-plugin-detect = { path = "plugins/detect" }

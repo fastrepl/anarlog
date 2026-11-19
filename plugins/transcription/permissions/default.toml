@@ -43,6 +43,8 @@ permissions = [
     "allow-extract-voiceprint-candidates",
     "allow-promote-voiceprint-candidates",
     "allow-delete-processed-session-audio",
+    "allow-get-meeting-capture-capability",
+    "allow-set-meeting-account",
     "allow-parse-subtitle",
     "allow-export-to-vtt",
     "allow-is-supported-languages-batch",

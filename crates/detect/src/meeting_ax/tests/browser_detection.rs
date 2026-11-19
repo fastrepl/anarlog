@@ -248,7 +248,7 @@ fn test_meet_chat_scope_accepts_chromium_webkit_and_gecko_role_variants() {
         ];
 
         assert_eq!(
-            validated_chat_scope(&MeetingPlatform::GoogleMeet, &nodes),
+            validated_chat_capture_scope(&MeetingPlatform::GoogleMeet, &nodes),
             Some((vec![1], vec![1, 0]))
         );
     }
@@ -261,37 +261,6 @@ fn test_browser_meeting_window_scope_must_be_unique() {
     assert_eq!(unique_scope_for_count(2), UniqueMatch::Ambiguous);
     assert_eq!(unique_scope_for_search(1, true), UniqueMatch::One(0));
     assert_eq!(unique_scope_for_search(1, false), UniqueMatch::Ambiguous);
-}
-
-#[test]
-fn test_incomplete_native_webex_snapshot_is_read_only() {
-    let nodes = vec![fixture_node(
-        0,
-        "AXButton",
-        "Leave meeting or end meeting for everyone",
-        &[0],
-    )];
-
-    assert!(
-        native_meeting_root_from_snapshot(
-            &MeetingPlatform::Webex,
-            Some("John's meeting".into()),
-            nodes.clone(),
-            false,
-            false,
-        )
-        .is_some()
-    );
-    assert!(
-        native_meeting_root_from_snapshot(
-            &MeetingPlatform::Webex,
-            Some("John's meeting".into()),
-            nodes,
-            false,
-            true,
-        )
-        .is_none()
-    );
 }
 
 #[test]
@@ -313,8 +282,6 @@ fn test_native_webex_excludes_multitasking_floating_window() {
             &MeetingPlatform::Webex,
             Some("Webex multitasking floating window".into()),
             nodes,
-            true,
-            false,
         )
         .is_none()
     );
