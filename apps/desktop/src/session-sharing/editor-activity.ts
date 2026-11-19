@@ -4,7 +4,13 @@ import type { EditorView } from "prosemirror-view";
 import { flushDatabaseWrites } from "~/db/write-queue";
 import { useTabs } from "~/store/zustand/tabs";
 
-const mountedCanonicalEditors = new Map<string, Map<EditorView, () => void>>();
+const mountedCanonicalEditors = new Map<
+  string,
+  Map<
+    EditorView,
+    { flushPendingChanges: () => void; flushQueuedChange: () => void }
+  >
+>();
 const pendingEditorActivations = new Map<string, number>();
 const importLocks = new Set<string>();
 const importLockListeners = new Set<() => void>();
@@ -13,9 +19,10 @@ export function registerCanonicalSessionEditor(
   sessionId: string,
   view: EditorView,
   flushPendingChanges: () => void,
+  flushQueuedChange: () => void,
 ) {
   const editors = mountedCanonicalEditors.get(sessionId) ?? new Map();
-  editors.set(view, flushPendingChanges);
+  editors.set(view, { flushPendingChanges, flushQueuedChange });
   mountedCanonicalEditors.set(sessionId, editors);
 }
 
@@ -34,19 +41,19 @@ export async function flushCanonicalSessionEditorChanges(
 ): Promise<void> {
   const editors = mountedCanonicalEditors.get(sessionId);
   if (editors) {
-    for (const flushPendingChanges of editors.values()) {
-      flushPendingChanges();
+    for (const editor of editors.values()) {
+      editor.flushPendingChanges();
     }
   }
   await flushDatabaseWrites([`session:${sessionId}`]);
 }
 
-/** Hands every mounted editor's debounced edit to the database write queue. */
+/** Hands every mounted editor's queued local edit to the database write queue. */
 export function flushAllCanonicalSessionEditors() {
   for (const editors of mountedCanonicalEditors.values()) {
-    for (const flushPendingChanges of editors.values()) {
+    for (const editor of editors.values()) {
       try {
-        flushPendingChanges();
+        editor.flushQueuedChange();
       } catch (error) {
         console.error("Failed to flush a note editor", error);
       }

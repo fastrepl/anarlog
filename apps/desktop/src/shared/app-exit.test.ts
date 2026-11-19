@@ -82,19 +82,32 @@ describe("initializeAppExitFlush", () => {
     ).toBeLessThan(mocks.completeAppExit.mock.invocationCallOrder[0]);
   });
 
-  it("saves an editor's unsaved edit before a confirmed quit exits", async () => {
+  it("saves only queued edits before a confirmed quit exits", async () => {
     const { initializeAppExitFlush } = await import("./app-exit");
     const { enqueueDatabaseWrite } = await import("~/db/write-queue");
     const { registerCanonicalSessionEditor } =
       await import("~/session-sharing/editor-activity");
     const saved: string[] = [];
-    // Like the note editor: its last keys wait in a 500 ms debounce until flushed.
-    registerCanonicalSessionEditor("note", {} as EditorView, () => {
-      void enqueueDatabaseWrite("session:note", async () => {
+    const save = (sessionId: string, body: string) => () => {
+      void enqueueDatabaseWrite(`session:${sessionId}`, async () => {
         await new Promise((resolve) => setTimeout(resolve, 20));
-        saved.push("last keys");
+        saved.push(body);
       });
-    });
+    };
+    // Its last keys still wait in the editor's 500 ms debounce.
+    registerCanonicalSessionEditor(
+      "typed",
+      {} as EditorView,
+      save("typed", "typed: whole view"),
+      save("typed", "typed: last keys"),
+    );
+    // Focused with newer stored content deferred, and no local edit queued.
+    registerCanonicalSessionEditor(
+      "synced",
+      {} as EditorView,
+      save("synced", "synced: older view"),
+      () => {},
+    );
     let savedAtExit: string[] = [];
     mocks.completeAppExit.mockImplementation(async () => {
       savedAtExit = [...saved];
@@ -106,7 +119,7 @@ describe("initializeAppExitFlush", () => {
     await vi.waitFor(() =>
       expect(mocks.completeAppExit).toHaveBeenCalledOnce(),
     );
-    expect(savedAtExit).toEqual(["last keys"]);
+    expect(savedAtExit).toEqual(["typed: last keys"]);
   });
 
   it("still exits when flushing fails", async () => {

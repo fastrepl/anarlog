@@ -326,6 +326,7 @@ describe("NoteInput tab selection", () => {
       "session-1",
       view,
       expect.any(Function),
+      expect.any(Function),
     );
 
     props.onViewDisposed?.(view);
@@ -353,6 +354,7 @@ describe("NoteInput tab selection", () => {
     expect(hoisted.registerCanonicalSessionEditor).toHaveBeenCalledWith(
       "session-1",
       view,
+      expect.any(Function),
       expect.any(Function),
     );
   });
