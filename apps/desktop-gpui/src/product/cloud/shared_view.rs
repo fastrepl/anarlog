@@ -57,6 +57,64 @@ impl CloudServices {
             .await
     }
 
+    /// `syncDurableSharedNoteCache`: refreshes every note shared with the account and removes
+    /// cached notes it can no longer open. Rows cached while the list loads are kept.
+    pub async fn reconcile_shared(&self, cancel: CancellationToken) -> Result<()> {
+        const PAGE: usize = 8;
+        const MAX_BYTES: usize = 64 * 1024 * 1024;
+        let account = self
+            .identity()
+            .account_id
+            .ok_or_else(|| failure("Sign in to sync shared notes"))?;
+        let this = self.clone();
+        this.runtime
+            .clone()
+            .service(move |services| async move {
+                tokio::select! {
+                    biased;
+                    _ = cancel.cancelled() => Err(ServiceError::Cancelled),
+                    result = async {
+                        let invalid = || failure("Invalid shared-note snapshot list");
+                        let unwritable = |_| failure("Cannot update the shared-note cache");
+                        let pool = services.db.pool();
+                        let cached: Vec<(String, String)> = sqlx::query_as("SELECT share_id, cached_at FROM shared_session_cache WHERE viewer_user_id = ?")
+                            .bind(&*account).fetch_all(pool).await.map_err(unwritable)?;
+                        let lease = this.core.auth.lease(&account, false).await?;
+                        let (mut rows, mut bytes, mut after) = (Vec::new(), 0, None::<String>);
+                        loop {
+                            let body = json!({"p_after_share_id": after, "p_limit": PAGE});
+                            let page = this.core.rpc_page(&lease, "list_my_session_share_snapshot_page_v2", &body, None, Transport::checked).await?;
+                            let page = page.as_array().filter(|page| page.len() <= PAGE).ok_or_else(invalid)?;
+                            bytes += serde_json::to_vec(page).map_err(|_| invalid())?.len();
+                            if bytes > MAX_BYTES {
+                                return Err(failure("The shared-note list is too large"));
+                            }
+                            rows.extend(page.iter().cloned());
+                            if page.len() < PAGE {
+                                break;
+                            }
+                            let cursor = page.last().and_then(|row| row["share_id"].as_str())
+                                .filter(|id| after.as_deref().is_none_or(|after| *id > after))
+                                .ok_or_else(invalid)?;
+                            after = Some(cursor.to_owned());
+                        }
+                        let shares = rows.iter().map(|row| row["share_id"].as_str()).collect::<Option<Vec<_>>>().ok_or_else(invalid)?;
+                        for (share, cached_at) in cached.iter().filter(|(share, _)| !shares.contains(&share.as_str())) {
+                            sqlx::query("DELETE FROM shared_session_cache WHERE viewer_user_id = ? AND share_id = ? AND cached_at = ?")
+                                .bind(&*account).bind(share).bind(cached_at)
+                                .execute(pool).await.map_err(unwritable)?;
+                        }
+                        for row in &rows {
+                            cache_snapshot(&services, &account, row).await?;
+                        }
+                        Ok(())
+                    } => result,
+                }
+            })?
+            .receive()
+            .await
+    }
+
     /// `claimSharedNoteHandoff`: the anonymous, one-time preview behind a handoff link.
     pub async fn claim_preview(
         &self,

@@ -52,6 +52,8 @@ struct OrganizationPicker {
 pub(super) struct PersonPage {
     pub id: SharedString,
     fields: Vec<(Field, Entity<TextInput>)>,
+    /// The stored contact the inputs last showed, to tell edits from refreshes.
+    synced: Human,
     emails: Vec<EmailRow>,
     new_email: Option<EmailRow>,
     pub notes: Option<Vec<RelatedNote>>,
@@ -70,15 +72,7 @@ impl PersonPage {
         let fields = FIELDS
             .iter()
             .map(|&(field, label, placeholder)| {
-                let value = match field {
-                    Field::Name => &human.name,
-                    Field::JobTitle => &human.job_title,
-                    Field::Email => &human.email,
-                    Field::Phone => &human.phone,
-                    Field::LinkedIn => &human.linkedin,
-                    Field::Memo => &human.memo,
-                    Field::Organization => &human.organization_id,
-                };
+                let value = stored(human, field);
                 let input = cx.new(|cx| {
                     let mut input = TextInput::new(placeholder, cx).inline().label(label);
                     if field == Field::Memo {
@@ -109,6 +103,7 @@ impl PersonPage {
         let mut page = Self {
             id: human.id.clone(),
             fields,
+            synced: human.clone(),
             emails: Vec::new(),
             new_email: None,
             notes: None,
@@ -122,6 +117,21 @@ impl PersonPage {
         };
         page.sync_emails(human, window, cx);
         page
+    }
+
+    /// Shows a refreshed contact (for example a merge into it) in each input the user has not
+    /// edited since the last refresh, so a later edit does not write the old value back.
+    pub fn sync_fields(&mut self, human: &Human, window: &Window, cx: &mut Context<Contacts>) {
+        for (field, input) in &self.fields {
+            let (next, previous) = (stored(human, *field), stored(&self.synced, *field));
+            if next != previous
+                && !input.focus_handle(cx).is_focused(window)
+                && input.read(cx).buffer.text.as_str() == previous.as_ref()
+            {
+                input.update(cx, |input, cx| input.set_text(next.to_string(), cx));
+            }
+        }
+        self.synced = human.clone();
     }
 
     /// Keeps one input per stored additional email, reusing inputs whose value is unchanged.
@@ -152,6 +162,18 @@ impl PersonPage {
             .iter()
             .map(|row| row.committed.to_string())
             .collect()
+    }
+}
+
+fn stored(human: &Human, field: Field) -> &SharedString {
+    match field {
+        Field::Name => &human.name,
+        Field::JobTitle => &human.job_title,
+        Field::Email => &human.email,
+        Field::Phone => &human.phone,
+        Field::LinkedIn => &human.linkedin,
+        Field::Memo => &human.memo,
+        Field::Organization => &human.organization_id,
     }
 }
 
@@ -1030,6 +1052,7 @@ impl Contacts {
             linkedin: human.linkedin.to_string(),
         };
         let id = person.id.clone();
+        let before = person.clone();
         let owner = self.owner().to_string();
         let runtime = self.runtime.clone();
         self.crm.pending = Some(id.clone());
@@ -1045,15 +1068,21 @@ impl Contacts {
                 ) = (&result, &this.page)
                     && page.id.as_ref() == id
                 {
-                    for (field, value) in [
-                        (Field::Name, &changes.name),
-                        (Field::Email, &changes.email),
-                        (Field::JobTitle, &changes.job_title),
-                        (Field::Phone, &changes.phone),
-                        (Field::LinkedIn, &changes.linkedin_username),
+                    for (field, value, original) in [
+                        (Field::Name, &changes.name, &before.name),
+                        (Field::Email, &changes.email, &before.email),
+                        (Field::JobTitle, &changes.job_title, &before.job_title),
+                        (Field::Phone, &changes.phone, &before.phone),
+                        (
+                            Field::LinkedIn,
+                            &changes.linkedin_username,
+                            &before.linkedin,
+                        ),
                     ] {
+                        // An input edited while the lookup ran keeps what was typed.
                         if let (Some(value), Some((_, input))) =
                             (value, page.fields.iter().find(|(f, _)| *f == field))
+                            && input.read(cx).buffer.text == *original
                         {
                             input.update(cx, |input, cx| input.set_text(value.clone(), cx));
                         }
@@ -1542,4 +1571,77 @@ fn summary(facts: &[SharedString], colors: Theme) -> impl IntoElement {
                     }
                 }),
         )
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use desktop_runtime::{Profile, RuntimeHandle};
+
+    use super::{super::data::ContactsData, super::data::Selection, *};
+
+    /// After a merge into the shown contact its inputs kept the old values, so the next edit
+    /// wrote them back and erased what the merge brought in.
+    #[gpui::test]
+    fn a_refreshed_contact_replaces_untouched_inputs_and_keeps_edits(
+        cx: &mut gpui::TestAppContext,
+    ) {
+        cx.executor().allow_parking();
+        let directory = tempfile::tempdir().unwrap();
+        let (runtime, ready) = RuntimeHandle::start(Profile {
+            database: directory.path().join("library.sqlite"),
+        })
+        .unwrap();
+        futures::executor::block_on(ready.receive()).unwrap();
+        let cx = cx.add_empty_window();
+        let contacts = cx.update(|_, cx| cx.new(|cx| Contacts::new(runtime.clone(), cx)));
+        let before = Human {
+            id: "ada".into(),
+            name: "Ada".into(),
+            memo: "Met at the offsite".into(),
+            ..Human::default()
+        };
+        let merged = Human {
+            memo: "Met at the offsite, Prefers email".into(),
+            job_title: "Engineer".into(),
+            ..before.clone()
+        };
+        let show = |contacts: &mut Contacts,
+                    human: &Human,
+                    window: &mut Window,
+                    cx: &mut Context<Contacts>| {
+            contacts.data = Arc::new(ContactsData {
+                humans: vec![human.clone()],
+                ..ContactsData::default()
+            });
+            contacts.sync_page(window, cx);
+        };
+        let input = |contacts: &Contacts, field: Field| {
+            let Page::Person(page) = &contacts.page else {
+                panic!("the person page is shown");
+            };
+            page.fields
+                .iter()
+                .find(|(f, _)| *f == field)
+                .unwrap()
+                .1
+                .clone()
+        };
+        cx.update(|window, cx| {
+            contacts.update(cx, |contacts, cx| {
+                contacts.selected = Some(Selection::Person("ada".into()));
+                show(contacts, &before, window, cx);
+                // An edit whose write has not been read back yet.
+                input(contacts, Field::Phone)
+                    .update(cx, |input, cx| input.set_text("555".into(), cx));
+                show(contacts, &merged, window, cx);
+                let text = |field| input(contacts, field).read(cx).buffer.text.to_string();
+                assert_eq!(text(Field::Memo), merged.memo.as_ref());
+                assert_eq!(text(Field::JobTitle), "Engineer");
+                assert_eq!(text(Field::Phone), "555");
+            })
+        });
+        futures::executor::block_on(runtime.shutdown()).unwrap();
+    }
 }

@@ -229,6 +229,72 @@ async fn share_action(
 }
 
 #[tokio::test]
+async fn workspace_members_can_share_their_own_notes_but_not_someone_elses() {
+    const TEAM: &str = "5b0f2a3c-9d7e-4a51-8f6b-2c1d0e9a8b7c";
+    let server = MockServer::start().await;
+    let directory = tempfile::tempdir().unwrap();
+    let (runtime, ready) = RuntimeHandle::start(Profile {
+        database: directory.path().join("cloud.sqlite"),
+    })
+    .unwrap();
+    ready.receive().await.unwrap();
+    let cloud = fixture_cloud(&runtime, &server, Arc::new(MemoryStore::default())).await;
+    let document = json!({"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Plan"}]}]});
+    let scope = seed_summary(&runtime, document.clone()).await;
+    let set_owner = |owner: &'static str| {
+        let session = scope.session_id.clone().unwrap();
+        runtime
+            .service(move |services| async move {
+                sqlx::query("UPDATE sessions SET workspace_id = ?, owner_user_id = ? WHERE id = ?")
+                    .bind(TEAM)
+                    .bind(owner)
+                    .bind(session.0.as_ref())
+                    .execute(services.db.pool())
+                    .await
+                    .unwrap();
+                Ok(())
+            })
+            .unwrap()
+            .receive()
+    };
+    runtime
+        .service(|services| async move {
+            sqlx::query("INSERT INTO workspaces (id, owner_user_id, kind) VALUES (?, 'someone-else', 'shared')")
+                .bind(TEAM).execute(services.db.pool()).await.unwrap();
+            sqlx::query("INSERT INTO workspace_memberships (id, workspace_id, user_id, role) VALUES ('m', ?, ?, 'member')")
+                .bind(TEAM).bind(ACCOUNT).execute(services.db.pool()).await.unwrap();
+            Ok(())
+        })
+        .unwrap()
+        .receive()
+        .await
+        .unwrap();
+    set_owner("someone-else").await.unwrap();
+    let error = share_action(&cloud, &scope, Action::CreateShare)
+        .await
+        .unwrap_err();
+    assert_eq!(error.to_string(), "This account does not own this meeting");
+    set_owner(ACCOUNT).await.unwrap();
+    Mock::given(method("POST"))
+        .and(path("/rest/v1/rpc/create_session_share"))
+        .and(body_partial_json(json!({"p_workspace_id": TEAM})))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([{"share_id": SHARE}])))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("PUT"))
+        .and(path(format!("/sync/shares/{SHARE}/snapshot")))
+        .respond_with(ResponseTemplate::new(200).set_body_json(snapshot(1, document)))
+        .expect(1)
+        .mount(&server)
+        .await;
+    share_action(&cloud, &scope, Action::CreateShare)
+        .await
+        .unwrap();
+    runtime.shutdown().await.unwrap();
+}
+
+#[tokio::test]
 async fn publication_conflicts_preserve_drafts_and_require_explicit_review_after_reopen() {
     let server = MockServer::start().await;
     let directory = tempfile::tempdir().unwrap();
@@ -302,7 +368,100 @@ async fn publication_conflicts_preserve_drafts_and_require_explicit_review_after
 }
 
 #[tokio::test]
-async fn failed_publication_retries_the_identical_durable_mutation() {
+async fn paused_shares_still_open_the_web_copy_and_narrow_access_but_not_widen_it() {
+    use crate::product::sharing::Capability;
+    let server = MockServer::start().await;
+    let directory = tempfile::tempdir().unwrap();
+    let (runtime, ready) = RuntimeHandle::start(Profile {
+        database: directory.path().join("cloud.sqlite"),
+    })
+    .unwrap();
+    ready.receive().await.unwrap();
+    let cloud = fixture_cloud(&runtime, &server, Arc::new(MemoryStore::default())).await;
+    let document = json!({"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Desktop edit"}]}]});
+    let scope = seed_summary(&runtime, document.clone()).await;
+    create_share_rpc(&server).await;
+    Mock::given(method("PUT"))
+        .and(path(format!("/sync/shares/{SHARE}/snapshot")))
+        .respond_with(
+            ResponseTemplate::new(409)
+                .set_body_json(json!({"code":"snapshot_conflict","snapshot":snapshot(2,document)})),
+        )
+        .expect(1)
+        .mount(&server)
+        .await;
+    assert!(matches!(
+        share_action(&cloud, &scope, Action::CreateShare).await,
+        Err(ServiceError::Conflict)
+    ));
+    let grant = uuid::Uuid::new_v4().to_string();
+    Mock::given(method("POST"))
+        .and(path("/rest/v1/rpc/get_session_share_management"))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(json!([{"share_id":SHARE,
+            "general_scope":"restricted","general_workspace_id":null,"has_active_link":false}])),
+        )
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/rest/v1/rpc/list_session_share_access"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([{"entry_type":"grant",
+            "entry_id":grant,"user_id":uuid::Uuid::new_v4().to_string(),"user_email":"maya@northwind.example","capability":"editor"}])))
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/rest/v1/rpc/get_session_share_workspace_slug"))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(json!([{"workspace_share_slug":null}])),
+        )
+        .mount(&server)
+        .await;
+    for (capability, calls) in [("viewer", 1), ("editor", 0)] {
+        Mock::given(method("POST"))
+            .and(path("/rest/v1/rpc/update_session_access_grant"))
+            .and(body_json(
+                json!({"p_grant_id":grant,"p_capability":capability}),
+            ))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!([])))
+            .expect(calls)
+            .mount(&server)
+            .await;
+    }
+
+    let share = cloud
+        .share_command(scope.clone(), ShareCommand::OpenWebCopy)
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap();
+    assert!(share.conflict);
+    let editor = share.access[0].clone();
+    cloud
+        .share_command(
+            scope.clone(),
+            ShareCommand::SetCapability(editor.clone(), Capability::Viewer),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    let viewer = crate::product::sharing::AccessEntry {
+        capability: Capability::Viewer,
+        ..editor
+    };
+    assert!(
+        cloud
+            .share_command(
+                scope,
+                ShareCommand::SetCapability(viewer, Capability::Editor)
+            )
+            .await
+            .is_err()
+    );
+    runtime.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn failed_publication_retries_the_identical_mutation_then_publishes_later_edits() {
     let server = MockServer::start().await;
     let directory = tempfile::tempdir().unwrap();
     let profile = Profile {
@@ -345,8 +504,58 @@ async fn failed_publication_retries_the_identical_durable_mutation() {
         .expect(1)
         .mount(&server)
         .await;
-    share_action(&restored, &scope, Action::PublishShare)
+    // An edit saved after the failure is published next, so the recap carries it.
+    let edited = json!({"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Revised draft"}]}]});
+    let session = scope.session_id.clone().unwrap();
+    let body = edited.to_string();
+    runtime
+        .service(move |services| async move {
+            sqlx::query("UPDATE session_documents SET body = ? WHERE session_id = ?")
+                .bind(body)
+                .bind(session.0.as_ref())
+                .execute(services.db.pool())
+                .await
+                .unwrap();
+            Ok(())
+        })
+        .unwrap()
+        .receive()
         .await
+        .unwrap();
+    Mock::given(method("PUT"))
+        .and(path(format!("/sync/shares/{SHARE}/snapshot")))
+        .and(body_partial_json(json!({"baseRevision":1,"body":edited})))
+        .respond_with(ResponseTemplate::new(200).set_body_json(snapshot(2, edited)))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path(format!("/shared-notes/{SHARE}/recap/email")))
+        .and(body_partial_json(json!({"noteBody": "Revised draft"})))
+        .respond_with(ResponseTemplate::new(204))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/rest/v1/rpc/get_session_share_management"))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(json!([{"share_id":SHARE,
+            "general_scope":"restricted","general_workspace_id":null,"has_active_link":false}])),
+        )
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/rest/v1/rpc/list_session_share_access"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([])))
+        .mount(&server)
+        .await;
+    restored
+        .share_command(
+            scope,
+            ShareCommand::EmailRecap(vec!["lee@northwind.example".into()]),
+        )
+        .await
+        .unwrap()
         .unwrap();
     runtime.shutdown().await.unwrap();
 }
@@ -393,6 +602,68 @@ fn config(server: &MockServer, namespace: &str) -> CloudConfig {
         device_fingerprint: "fixture-device".into(),
         device_name: "Fixture device".into(),
     }
+}
+
+#[tokio::test]
+async fn shared_note_reconcile_evicts_notes_whose_access_was_revoked() {
+    const REVOKED: &str = "0b8f4a52-2c4e-4d55-9a37-5f3e1c6d7a90";
+    let server = MockServer::start().await;
+    let directory = tempfile::tempdir().unwrap();
+    let (runtime, ready) = RuntimeHandle::start(Profile {
+        database: directory.path().join("shared.sqlite"),
+    })
+    .unwrap();
+    ready.receive().await.unwrap();
+    let cloud = fixture_cloud(&runtime, &server, Arc::new(MemoryStore::default())).await;
+    let row = |share: &str, title: &str, revision: u64| {
+        json!({"share_id":share,"workspace_id":ACCOUNT,"session_id":format!("remote-{share}"),
+            "schema_version":1,"content_revision":revision,"title":title,
+            "body_json":{"type":"doc","content":[{"type":"paragraph"}]},"attachments_json":[],
+            "capability":"viewer","manage_access":false,"access_version":1,"web_editable":false,
+            "published_at":"2026-01-01T00:00:00Z"})
+    };
+    for (share, title) in [(SHARE, "Kept"), (REVOKED, "Revoked")] {
+        let read = Mock::given(method("POST"))
+            .and(path("/rest/v1/rpc/read_my_session_share_snapshot_v2"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!([row(share, title, 1)])))
+            .mount_as_scoped(&server)
+            .await;
+        cloud
+            .refresh_shared(share.into(), desktop_runtime::CancellationToken::new())
+            .await
+            .unwrap();
+        drop(read);
+    }
+    Mock::given(method("POST"))
+        .and(path("/rest/v1/rpc/list_my_session_share_snapshot_page_v2"))
+        .and(body_json(json!({"p_after_share_id":null,"p_limit":8})))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([row(
+            SHARE,
+            "Kept, edited",
+            2
+        )])))
+        .mount(&server)
+        .await;
+    cloud
+        .reconcile_shared(desktop_runtime::CancellationToken::new())
+        .await
+        .unwrap();
+    let cached = runtime
+        .service(|services| async move {
+            Ok(sqlx::query_scalar::<_, String>(
+                "SELECT title FROM shared_session_cache WHERE viewer_user_id = ? ORDER BY title",
+            )
+            .bind(ACCOUNT)
+            .fetch_all(services.db.pool())
+            .await
+            .unwrap())
+        })
+        .unwrap()
+        .receive()
+        .await
+        .unwrap();
+    assert_eq!(cached, ["Kept, edited"]);
+    runtime.shutdown().await.unwrap();
 }
 
 fn session(expiry: u64, token: &str) -> Value {
@@ -734,6 +1005,155 @@ async fn publication_projects_participant_names_and_meeting_time() {
 }
 
 #[tokio::test]
+async fn deleting_a_shared_note_revokes_its_share_and_clears_the_cache() {
+    let server = MockServer::start().await;
+    let directory = tempfile::tempdir().unwrap();
+    let (runtime, ready) = RuntimeHandle::start(Profile {
+        database: directory.path().join("cloud.sqlite"),
+    })
+    .unwrap();
+    ready.receive().await.unwrap();
+    let cloud = fixture_cloud(&runtime, &server, Arc::new(MemoryStore::default())).await;
+    let document = json!({"type":"doc","content":[{"type":"paragraph"}]});
+    let scope = seed_summary(&runtime, document.clone()).await;
+    let session = scope.session_id.clone().unwrap();
+    create_share_rpc(&server).await;
+    Mock::given(method("PUT"))
+        .and(path(format!("/sync/shares/{SHARE}/snapshot")))
+        .respond_with(ResponseTemplate::new(200).set_body_json(snapshot(1, document)))
+        .mount(&server)
+        .await;
+    share_action(&cloud, &scope, Action::CreateShare)
+        .await
+        .unwrap();
+    Mock::given(method("POST"))
+        .and(path("/rest/v1/rpc/delete_session_share_by_session"))
+        .and(body_partial_json(json!({"p_session_id": session.0.as_ref()})))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([{"share_id": SHARE, "access_version": 2, "deleted_at": "2026-01-01T00:00:00Z", "was_deleted": true}])))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let local_copies = || {
+        runtime
+            .service(|services| async move {
+                let pool = services.db.pool();
+                let count = |sql| async move {
+                    sqlx::query_scalar::<_, i64>(sql)
+                        .bind(SHARE)
+                        .fetch_one(pool)
+                        .await
+                        .unwrap()
+                };
+                let journal = count("SELECT COUNT(*) FROM app_settings WHERE id LIKE 'gpui.share.%' AND json_extract(value_json, '$.share_id') = ?").await;
+                let cache = count("SELECT COUNT(*) FROM shared_session_cache WHERE share_id = ?").await;
+                Ok((journal, cache))
+            })
+            .unwrap()
+            .receive()
+    };
+    // A live note keeps its share.
+    cloud
+        .revoke_deleted_shares(vec![session.clone()])
+        .unwrap()
+        .receive()
+        .await
+        .unwrap();
+    assert_eq!(local_copies().await.unwrap(), (1, 1));
+    let id = session.clone();
+    runtime
+        .service(move |services| async move {
+            sqlx::query("UPDATE sessions SET deleted_at = '2026-01-01T00:00:00.000Z' WHERE id = ?")
+                .bind(id.0.as_ref())
+                .execute(services.db.pool())
+                .await
+                .unwrap();
+            Ok(())
+        })
+        .unwrap()
+        .receive()
+        .await
+        .unwrap();
+    cloud
+        .revoke_deleted_shares(vec![session])
+        .unwrap()
+        .receive()
+        .await
+        .unwrap();
+    assert_eq!(local_copies().await.unwrap(), (0, 0));
+    runtime.shutdown().await.unwrap();
+}
+
+/// Only the publishing device keeps a share's journal, so deleting the note on another device
+/// once left its share live.
+#[tokio::test]
+async fn deleting_a_note_shared_from_another_device_revokes_its_share() {
+    let server = MockServer::start().await;
+    let directory = tempfile::tempdir().unwrap();
+    let (runtime, ready) = RuntimeHandle::start(Profile {
+        database: directory.path().join("cloud.sqlite"),
+    })
+    .unwrap();
+    ready.receive().await.unwrap();
+    let cloud = fixture_cloud(&runtime, &server, Arc::new(MemoryStore::default())).await;
+    let scope = seed_summary(
+        &runtime,
+        json!({"type":"doc","content":[{"type":"paragraph"}]}),
+    )
+    .await;
+    let session = scope.session_id.clone().unwrap();
+    Mock::given(method("POST"))
+        .and(path("/rest/v1/rpc/delete_session_share_by_session"))
+        .and(body_json(json!({"p_workspace_id": ACCOUNT, "p_session_id": session.0.as_ref()})))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([{"share_id": SHARE, "access_version": 2, "deleted_at": "2026-01-01T00:00:00Z", "was_deleted": true}])))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let id = session.clone();
+    let other = uuid::Uuid::new_v4().to_string();
+    let other_share = other.clone();
+    runtime
+        .service(move |services| async move {
+            // The share's cached copy, as opening its link here leaves it, beside another note's.
+            for (share, session) in [(SHARE, id.0.as_ref()), (&*other_share, "another-note")] {
+                sqlx::query("INSERT INTO shared_session_cache (share_id, viewer_user_id, workspace_id, session_id, content_revision, access_version, published_at) VALUES (?, ?, ?, ?, 1, 1, '2026-01-01T00:00:00Z')")
+                    .bind(share).bind(ACCOUNT).bind(ACCOUNT).bind(session)
+                    .execute(services.db.pool()).await.unwrap();
+            }
+            sqlx::query("UPDATE sessions SET deleted_at = '2026-01-01T00:00:00.000Z' WHERE id = ?")
+                .bind(id.0.as_ref())
+                .execute(services.db.pool())
+                .await
+                .unwrap();
+            Ok(())
+        })
+        .unwrap()
+        .receive()
+        .await
+        .unwrap();
+    cloud
+        .revoke_deleted_shares(vec![session])
+        .unwrap()
+        .receive()
+        .await
+        .unwrap();
+    let cached = runtime
+        .service(|services| async move {
+            Ok(
+                sqlx::query_scalar::<_, String>("SELECT share_id FROM shared_session_cache")
+                    .fetch_all(services.db.pool())
+                    .await
+                    .unwrap(),
+            )
+        })
+        .unwrap()
+        .receive()
+        .await
+        .unwrap();
+    assert_eq!(cached, [other]);
+    runtime.shutdown().await.unwrap();
+}
+
+#[tokio::test]
 async fn publication_preserves_existing_attachment_ids_and_cache_metadata() {
     let server = MockServer::start().await;
     let directory = tempfile::tempdir().unwrap();
@@ -1029,7 +1449,34 @@ async fn account_counts_a_paid_workspace_seat_as_pro_without_offering_a_trial() 
 }
 
 #[tokio::test]
-async fn share_popover_publishes_before_its_first_invite_and_reads_back_access() {
+async fn returning_from_checkout_renews_the_session_so_the_new_plan_shows() {
+    use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
+    let server = MockServer::start().await;
+    let directory = tempfile::tempdir().unwrap();
+    let (runtime, ready) = RuntimeHandle::start(Profile {
+        database: directory.path().join("account.sqlite"),
+    })
+    .unwrap();
+    ready.receive().await.unwrap();
+    let cloud = fixture_cloud(&runtime, &server, Arc::new(MemoryStore::default())).await;
+    let pro = format!(
+        "header.{}.signature",
+        URL_SAFE_NO_PAD.encode(json!({"entitlements": ["hyprnote_pro"]}).to_string())
+    );
+    Mock::given(method("POST"))
+        .and(path("/auth/v1/token"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(session(now() + 3600, &pro)))
+        .expect(1)
+        .mount(&server)
+        .await;
+    cloud.refresh(true).await.unwrap();
+    let account = cloud.account().await.unwrap();
+    assert!(account.is_pro(crate::product::account::now()));
+    runtime.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn share_popover_publishes_later_edits_before_sharing_or_emailing_them() {
     let server = MockServer::start().await;
     let directory = tempfile::tempdir().unwrap();
     let (runtime, ready) = RuntimeHandle::start(Profile {
@@ -1087,6 +1534,7 @@ async fn share_popover_publishes_before_its_first_invite_and_reads_back_access()
         )
         .await
         .unwrap()
+        .unwrap()
         .unwrap();
     assert_eq!(share.general, GeneralAccess::Restricted);
     let entry = share.access[0].clone();
@@ -1100,9 +1548,75 @@ async fn share_popover_publishes_before_its_first_invite_and_reads_back_access()
         .mount(&server)
         .await;
     cloud
-        .share_command(scope, ShareCommand::Remove(entry))
+        .share_command(scope.clone(), ShareCommand::Remove(entry))
+        .await
+        .unwrap()
+        .unwrap();
+    // An edit made after sharing is published before the link is copied, once.
+    let edited = json!({"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Revised decisions"}]}]});
+    let session = scope.session_id.clone().unwrap();
+    let body = edited.to_string();
+    runtime
+        .service(move |services| async move {
+            sqlx::query("UPDATE session_documents SET body = ? WHERE session_id = ?")
+                .bind(body)
+                .bind(session.0.as_ref())
+                .execute(services.db.pool())
+                .await
+                .unwrap();
+            Ok(())
+        })
+        .unwrap()
+        .receive()
         .await
         .unwrap();
+    Mock::given(method("PUT"))
+        .and(path(format!("/sync/shares/{SHARE}/snapshot")))
+        .and(body_partial_json(json!({"baseRevision":1,"body":edited})))
+        .respond_with(ResponseTemplate::new(200).set_body_json(snapshot(2, edited.clone())))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/rest/v1/rpc/get_session_share_workspace_slug"))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(json!([{"workspace_share_slug":null}])),
+        )
+        .mount(&server)
+        .await;
+    for _ in 0..2 {
+        cloud
+            .share_command(scope.clone(), ShareCommand::CopyLink)
+            .await
+            .unwrap()
+            .unwrap();
+    }
+    // The recap email carries the published note as Markdown. It was sent once, so a failed
+    // read-back of the share afterwards doesn't report it as failed and invite a second send.
+    Mock::given(method("POST"))
+        .and(path(format!("/shared-notes/{SHARE}/recap/email")))
+        .and(body_partial_json(
+            json!({"recipients": ["lee@northwind.example"],
+            "noteTitle": "Web snapshot", "noteBody": "Revised decisions"}),
+        ))
+        .respond_with(ResponseTemplate::new(204))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/rest/v1/rpc/get_session_share_management"))
+        .respond_with(ResponseTemplate::new(503))
+        .with_priority(1)
+        .mount(&server)
+        .await;
+    let refreshed = cloud
+        .share_command(
+            scope,
+            ShareCommand::EmailRecap(vec!["lee@northwind.example".into()]),
+        )
+        .await
+        .unwrap();
+    assert!(refreshed.is_err());
     runtime.shutdown().await.unwrap();
 }
 
@@ -1209,6 +1723,50 @@ async fn folder_shares_publish_the_folder_payload_then_grant_a_guest() {
         .await
         .unwrap_err();
     assert!(is_team_upsell(&error));
+    runtime.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn folder_shares_treat_underscore_and_percent_in_folder_names_literally() {
+    let directory = tempfile::tempdir().unwrap();
+    let (runtime, ready) = RuntimeHandle::start(Profile {
+        database: directory.path().join("cloud.sqlite"),
+    })
+    .unwrap();
+    ready.receive().await.unwrap();
+    let titles = |folder: &'static str| {
+        runtime
+            .service(move |services| async move {
+                let payload = super::resources::folder_payload(&services, folder).await?;
+                Ok(payload["notes"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|note| note["title"].as_str().unwrap().to_owned())
+                    .collect::<Vec<_>>())
+            })
+            .unwrap()
+            .receive()
+    };
+    runtime
+        .service(|services| async move {
+            sqlx::query(
+                "INSERT INTO sessions (id, title, folder_path, created_at) VALUES
+            ('1', 'Shared', 'Client_', '2026-01-01'), ('2', 'Nested', 'Client_/Sub', '2026-01-02'),
+            ('3', 'Private', 'ClientA/private', '2026-01-03'), ('4', 'Quota', '100%', '2026-01-04'),
+            ('5', 'Hidden', '100 days/plan', '2026-01-05')",
+            )
+            .execute(services.db.pool())
+            .await
+            .unwrap();
+            Ok(())
+        })
+        .unwrap()
+        .receive()
+        .await
+        .unwrap();
+    assert_eq!(titles("Client_").await.unwrap(), ["Shared", "Nested"]);
+    assert_eq!(titles("100%").await.unwrap(), ["Quota"]);
     runtime.shutdown().await.unwrap();
 }
 
@@ -1411,6 +1969,81 @@ async fn cloud_api_enable_uploads_existing_meetings_and_surfaces_api_errors() {
 }
 
 #[tokio::test]
+async fn cloud_api_uploads_an_edit_saved_while_the_previous_upload_was_in_flight() {
+    use super::cloud_api::{CloudApi, Revision};
+    let server = MockServer::start().await;
+    let directory = tempfile::tempdir().unwrap();
+    let (runtime, ready) = RuntimeHandle::start(Profile {
+        database: directory.path().join("cloud-api.sqlite"),
+    })
+    .unwrap();
+    ready.receive().await.unwrap();
+    let note = runtime
+        .create_note("Draft".into())
+        .unwrap()
+        .receive()
+        .await
+        .unwrap();
+    let id = note.summary.id.0.to_string();
+    let cloud = fixture_cloud(&runtime, &server, Arc::new(MemoryStore::default())).await;
+    let api = CloudApi::new(cloud, directory.path().join("cloud-api.json"));
+    Mock::given(method("GET"))
+        .and(path("/v1/cloud-api/settings"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "enabled": true })))
+        .mount(&server)
+        .await;
+    let snapshot = format!("/v1/sync-snapshots/{id}");
+    Mock::given(method("PUT"))
+        .and(path(snapshot.as_str()))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(json!({}))
+                .set_delay(std::time::Duration::from_millis(300)),
+        )
+        .mount(&server)
+        .await;
+    let revision = |revision: &str| {
+        [Revision {
+            id: id.clone(),
+            deleted_at: None,
+            revision: revision.into(),
+        }]
+    };
+    let uploaded_titles = async || {
+        let requests = server.received_requests().await.unwrap();
+        requests
+            .iter()
+            .filter(|request| request.method.as_str() == "PUT" && request.url.path() == snapshot)
+            .map(|request| request.body_json::<Value>().unwrap()["title"].clone())
+            .collect::<Vec<_>>()
+    };
+    api.observe(ACCOUNT, &revision("1"));
+    let first = tokio::spawn(api.sync(ACCOUNT.into(), false));
+    while uploaded_titles().await.is_empty() {
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    }
+    let renamed = id.clone();
+    runtime
+        .service(move |services| async move {
+            sqlx::query("UPDATE sessions SET title = 'Final' WHERE id = ?")
+                .bind(renamed)
+                .execute(services.db.pool())
+                .await
+                .unwrap();
+            Ok(())
+        })
+        .unwrap()
+        .receive()
+        .await
+        .unwrap();
+    api.observe(ACCOUNT, &revision("2"));
+    first.await.unwrap().unwrap();
+    api.sync(ACCOUNT.into(), false).await.unwrap();
+    assert_eq!(uploaded_titles().await, [json!("Draft"), json!("Final")]);
+    runtime.shutdown().await.unwrap();
+}
+
+#[tokio::test]
 async fn team_calls_show_the_servers_seat_limit_reason() {
     use super::calls::CloudCalls;
     let server = MockServer::start().await;
@@ -1436,6 +2069,143 @@ async fn team_calls_show_the_servers_seat_limit_reason() {
     assert_eq!(error.to_string(), "workspace seat limit reached");
     runtime.shutdown().await.unwrap();
 }
+#[tokio::test]
+async fn workspace_keys_are_granted_to_members_with_an_identity_without_waiting_for_the_rest() {
+    const WORKSPACE: &str = "5b0f2a3c-9d7e-4a51-8f6b-2c1d0e9a8b7c";
+    const PENDING: &str = "9c3e7d1a-4b2f-4e8a-b6c5-0d1f2e3a4b5c";
+    let server = MockServer::start().await;
+    let directory = tempfile::tempdir().unwrap();
+    let (runtime, ready) = RuntimeHandle::start(Profile {
+        database: directory.path().join("cloud.sqlite"),
+    })
+    .unwrap();
+    ready.receive().await.unwrap();
+    let cloud = fixture_cloud(&runtime, &server, Arc::new(MemoryStore::default())).await;
+    let recovery = anlg_e2ee::RecoveryKey::generate().unwrap();
+    let identity = recovery.member_identity_key().unwrap();
+    Mock::given(method("GET"))
+        .and(path(format!(
+            "/sync/e2ee/workspaces/{WORKSPACE}/recipients"
+        )))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([
+            {"userId": ACCOUNT, "publicKey": identity.public_key(), "grantedKeyIds": []},
+            {"userId": PENDING, "publicKey": null, "grantedKeyIds": []},
+        ])))
+        .mount(&server)
+        .await;
+    Mock::given(method("PUT"))
+        .and(path(format!("/sync/e2ee/workspaces/{WORKSPACE}/key")))
+        .respond_with(|request: &wiremock::Request| {
+            let body = request.body_json::<Value>().unwrap();
+            ResponseTemplate::new(200).set_body_json(json!({"keyId": body["keyId"]}))
+        })
+        .mount(&server)
+        .await;
+    let credentials = json!({"workspaces": [{"kind": "shared", "role": "owner", "id": WORKSPACE}],
+        "workspaceKeyGrants": []});
+    let lease = cloud.core.auth.lease(ACCOUNT, false).await.unwrap();
+    let published = cloud
+        .core
+        .sync
+        .provision_keys(&cloud.core, &lease, &recovery, &credentials)
+        .await
+        .unwrap();
+    assert!(published);
+    let requests = server.received_requests().await.unwrap();
+    let key = requests
+        .iter()
+        .find(|request| request.method.as_str() == "PUT")
+        .unwrap()
+        .body_json::<Value>()
+        .unwrap();
+    let granted = key["grants"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|grant| grant["userId"].clone())
+        .collect::<Vec<_>>();
+    assert_eq!(granted, [json!(ACCOUNT)]);
+    runtime.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn devices_waiting_for_approval_keep_waiting_and_syncing_devices_approve_them() {
+    use super::calls::{CloudCalls, SyncBlock};
+    let server = MockServer::start().await;
+    let directory = tempfile::tempdir().unwrap();
+    let (runtime, ready) = RuntimeHandle::start(Profile {
+        database: directory.path().join("cloud.sqlite"),
+    })
+    .unwrap();
+    ready.receive().await.unwrap();
+    let store = Arc::new(MemoryStore::default());
+    let cloud = fixture_cloud(&runtime, &server, store.clone()).await;
+    let slot = |name: &str| format!("fixture:{ACCOUNT}:{name}");
+    let enrollment = anlg_e2ee::DeviceEnrollmentKey::generate().unwrap();
+    store
+        .write(slot("sync-enabled"), Zeroizing::new("true".into()))
+        .await
+        .unwrap();
+    store
+        .write(slot("enrollment"), enrollment.expose_code())
+        .await
+        .unwrap();
+    // This device asked for approval earlier: each refresh checks again and keeps waiting.
+    let expires = (chrono::Utc::now() + chrono::Duration::minutes(10)).to_rfc3339();
+    Mock::given(method("POST"))
+        .and(path("/sync/e2ee/device-enrollments"))
+        .and(body_partial_json(json!({"publicKey": enrollment.public_key()})))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "requestId": uuid::Uuid::new_v4().to_string(), "status": "pending", "expiresAt": expires,
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+    assert!(cloud.refresh(false).await.is_err());
+    assert_eq!(
+        cloud.sync_state().await.unwrap().block,
+        Some(SyncBlock::ApprovalPending)
+    );
+    // A syncing device approves the account's other open requests.
+    let recovery = anlg_e2ee::RecoveryKey::generate().unwrap();
+    store
+        .write(slot("recovery"), recovery.expose_code())
+        .await
+        .unwrap();
+    let request = |status: &str, expires: String| {
+        json!({"requestId": uuid::Uuid::new_v4().to_string(), "deviceFingerprint": "device-fingerprint",
+            "publicKey": anlg_e2ee::DeviceEnrollmentKey::generate().unwrap().public_key(),
+            "status": status, "expiresAt": expires})
+    };
+    let open = request("pending", expires.clone());
+    Mock::given(method("GET"))
+        .and(path("/sync/devices"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(
+            json!({"devices": [], "maxDevices": 3,
+            "pendingDevices": [open, request("sealed", expires),
+                request("pending", "2026-01-01T00:00:00Z".into())]}),
+        ))
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path(format!(
+            "/sync/e2ee/device-enrollments/{}/seal",
+            open["requestId"].as_str().unwrap()
+        )))
+        .respond_with(ResponseTemplate::new(204))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let lease = cloud.core.auth.lease(ACCOUNT, false).await.unwrap();
+    cloud
+        .core
+        .sync
+        .seal_open_requests(&cloud.core, &lease)
+        .await
+        .unwrap();
+    runtime.shutdown().await.unwrap();
+}
+
 #[tokio::test]
 async fn sync_setup_claims_the_recovery_key_it_showed_and_enabling_without_one_asks_for_setup() {
     use super::calls::{CloudCalls, SyncBlock, SyncCommand};

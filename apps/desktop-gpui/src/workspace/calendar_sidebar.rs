@@ -63,7 +63,7 @@ impl Provider {
         self != Self::Apple
     }
 
-    fn visible() -> &'static [Self] {
+    pub fn visible() -> &'static [Self] {
         if cfg!(target_os = "macos") {
             &[Self::Apple, Self::Google, Self::Outlook]
         } else {
@@ -150,7 +150,7 @@ pub fn groups(provider: Provider, rows: &[CalendarRow]) -> Vec<CalendarGroup> {
     groups
 }
 
-const CALENDAR_QUERY: &str = "SELECT id, name, enabled, provider, source, color, connection_id
+pub const CALENDAR_QUERY: &str = "SELECT id, name, enabled, provider, source, color, connection_id
     FROM calendars WHERE deleted_at IS NULL ORDER BY name, id LIMIT 500";
 
 fn field(row: &Value, key: &str) -> Arc<str> {
@@ -160,7 +160,7 @@ fn field(row: &Value, key: &str) -> Arc<str> {
         .into()
 }
 
-fn rows(values: &[Value]) -> Vec<CalendarRow> {
+pub fn rows(values: &[Value]) -> Vec<CalendarRow> {
     values
         .iter()
         .map(|row| CalendarRow {

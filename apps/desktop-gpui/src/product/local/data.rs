@@ -165,6 +165,7 @@ pub async fn import_meetings(
     }
     runtime
         .submit(move |services| async move {
+            let library = Library::current(&services).await?;
             let mut statements = Vec::new();
             let mut ids = Vec::new();
             let mut humans = std::collections::BTreeMap::new();
@@ -180,7 +181,9 @@ pub async fn import_meetings(
                     .filter(|id| !id.is_empty())
                     .ok_or_else(|| failure("Missing session id"))?
                     .to_owned();
-                statements.push(insert_row(&services, "sessions", meeting.session).await?);
+                statements.push(
+                    insert_row(&services, "sessions", meeting.session, Some(&library)).await?,
+                );
                 for doc in meeting.documents {
                     if doc["session_id"].as_str() != Some(&id) {
                         return Err(failure("Mismatched document session"));
@@ -196,20 +199,31 @@ pub async fn import_meetings(
                             return Err(failure("Invalid document root"));
                         }
                     }
-                    statements.push(insert_row(&services, "session_documents", doc).await?);
+                    statements.push(
+                        insert_row(&services, "session_documents", doc, Some(&library)).await?,
+                    );
                 }
                 for transcript in meeting.transcripts {
                     if transcript["session_id"].as_str() != Some(&id) {
                         return Err(failure("Mismatched transcript session"));
                     }
-                    statements.push(insert_row(&services, "transcripts", transcript).await?);
+                    statements.push(
+                        insert_row(&services, "transcripts", transcript, Some(&library)).await?,
+                    );
                 }
                 for participant in meeting.participants {
                     if participant["session_id"].as_str() != Some(&id) {
                         return Err(failure("Mismatched participant session"));
                     }
-                    statements
-                        .push(insert_row(&services, "session_participants", participant).await?);
+                    statements.push(
+                        insert_row(
+                            &services,
+                            "session_participants",
+                            participant,
+                            Some(&library),
+                        )
+                        .await?,
+                    );
                 }
                 for human in meeting.humans {
                     let id = human["id"]
@@ -232,7 +246,7 @@ pub async fn import_meetings(
                             return Err(ServiceError::Conflict);
                         }
                     } else {
-                        statements.push(insert_row(&services, "humans", human).await?);
+                        statements.push(insert_row(&services, "humans", human, None).await?);
                     }
                 }
                 ids.push(SessionId(id.into()));
@@ -254,15 +268,65 @@ pub async fn import_meetings(
         .await
 }
 
-async fn insert_row(services: &Services, table: &str, row: Value) -> Result<TransactionStatement> {
+/// The library imported rows join, chosen like shipping's `create_session`: the device's
+/// workspace, owned by the active library connection.
+struct Library {
+    workspace: Value,
+    owner: Value,
+}
+
+impl Library {
+    async fn current(services: &Services) -> Result<Self> {
+        let rows = services.executor.execute(
+            "SELECT COALESCE((SELECT json_extract(value_json, '$.workspace_id') FROM app_settings WHERE id = 'cloudsync_workspace_binding'), '') AS workspace, COALESCE((SELECT library_workspace_id FROM local_library_connections WHERE active = 1), NULLIF((SELECT json_extract(value_json, '$.workspace_id') FROM app_settings WHERE id = 'cloudsync_workspace_binding'), ''), '') AS owner".into(),
+            vec![],
+        ).await.map_err(failure)?;
+        let row = rows
+            .first()
+            .ok_or_else(|| failure("Library lookup returned no row"))?;
+        Ok(Self {
+            workspace: row["workspace"].clone(),
+            owner: row["owner"].clone(),
+        })
+    }
+}
+
+async fn insert_row(
+    services: &Services,
+    table: &str,
+    mut row: Value,
+    library: Option<&Library>,
+) -> Result<TransactionStatement> {
     let columns = services
         .executor
         .execute(format!("PRAGMA table_info(\"{table}\")"), vec![])
         .await
         .map_err(failure)?;
     let row = row
-        .as_object()
+        .as_object_mut()
         .ok_or_else(|| failure("Expected canonical row object"))?;
+    if let Some(library) = library {
+        let has = |name: &str| columns.iter().any(|column| column["name"] == name);
+        // Rows from another library or a generated import must publish with this one.
+        for (column, value) in [
+            ("workspace_id", &library.workspace),
+            ("owner_user_id", &library.owner),
+        ] {
+            if has(column) {
+                row.insert(column.into(), value.clone());
+            }
+        }
+        for column in ["created_by", "updated_by"] {
+            if has(column)
+                && row
+                    .get(column)
+                    .and_then(Value::as_str)
+                    .is_none_or(str::is_empty)
+            {
+                row.insert(column.into(), library.owner.clone());
+            }
+        }
+    }
     if row.is_empty()
         || row.keys().any(|key| {
             !columns
@@ -372,6 +436,18 @@ fn parse_cancellable(
             if let Some(attendees) = value["attendees"].as_array().or(value["participants"].as_array()) {
                 for person in attendees { meeting.participants.push(json!({"id":Uuid::new_v4().to_string(),"session_id":meeting.session["id"],"display_name":person["name"].as_str().or(person.as_str()).unwrap_or(""),"email":person["email"].as_str().unwrap_or(""),"source":"auto"})); }
             }
+            // Shipping's `parseJsonExport`: the meeting keeps its own dates.
+            let date = |keys: &[&str]| keys.iter().find_map(|key| iso_date(&value[*key]));
+            if let Some(started) = date(&["started_at","startedAt","start_time","startTime","meeting_date","meetingDate","recording_date","recordingDate","date","created_at","createdAt"]) {
+                meeting.session["created_at"] = json!(started);
+                meeting.session["started_at"] = json!(started);
+                for row in meeting.documents.iter_mut().chain(&mut meeting.transcripts).chain(&mut meeting.participants) {
+                    row["created_at"] = json!(started);
+                }
+            }
+            if let Some(ended) = date(&["ended_at","endedAt","end_time","endTime"]) {
+                meeting.session["ended_at"] = json!(ended);
+            }
             meeting.session["metadata_json"] = json!(json!({"import_original":value}).to_string());
             Ok(meeting)
         }).collect();
@@ -436,6 +512,49 @@ fn from_markdown(title: &str, content: &str) -> Result<CanonicalMeeting> {
         participants: vec![],
         humans: vec![],
     })
+}
+
+/// Shipping's `toIsoDate`: epoch seconds or milliseconds, or a date string, as an ISO instant.
+fn iso_date(value: &Value) -> Option<String> {
+    use chrono::{DateTime, Local, NaiveDate, NaiveDateTime, TimeZone, Utc};
+    let date = match value {
+        Value::Number(number) => {
+            let number = number.as_f64()?;
+            let millis = if number < 10_000_000_000. {
+                number * 1000.
+            } else {
+                number
+            };
+            DateTime::from_timestamp_millis(millis as i64)?
+        }
+        Value::String(text) => {
+            let text = text.trim();
+            DateTime::parse_from_rfc3339(text)
+                .map(|date| date.with_timezone(&Utc))
+                .ok()
+                .or_else(|| {
+                    // Like `Date`, a time without an offset is local and a bare date is UTC.
+                    [
+                        "%Y-%m-%dT%H:%M:%S%.f",
+                        "%Y-%m-%d %H:%M:%S%.f",
+                        "%Y-%m-%dT%H:%M",
+                        "%Y-%m-%d %H:%M",
+                    ]
+                    .iter()
+                    .find_map(|format| NaiveDateTime::parse_from_str(text, format).ok())
+                    .and_then(|date| Local.from_local_datetime(&date).earliest())
+                    .map(|date| date.with_timezone(&Utc))
+                })
+                .or_else(|| {
+                    NaiveDate::parse_from_str(text, "%Y-%m-%d")
+                        .ok()?
+                        .and_hms_opt(0, 0, 0)
+                        .map(|date| date.and_utc())
+                })?
+        }
+        _ => return None,
+    };
+    Some(date.to_rfc3339_opts(chrono::SecondsFormat::Millis, true))
 }
 
 fn first_text<'a>(value: &'a Value, keys: &[&str]) -> Option<&'a str> {

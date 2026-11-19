@@ -1,13 +1,16 @@
 use std::{io::Read, path::PathBuf, sync::Arc};
 
-use anlg_db_execute::DbExecutor;
+use anlg_db_execute::{DbExecutor, TransactionStatement};
 use anlg_fs_sync_core::{FsSyncCore, normalize_folder_path};
 use desktop_runtime::{CancellationToken, Reply, Result, RuntimeHandle, ServiceError};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
-use super::mutations::{NOW, cas, failure, statement, transaction};
+use super::{
+    calendar_rules,
+    mutations::{NOW, cas, failure, statement, transaction},
+};
 
 #[derive(Clone)]
 pub struct Material {
@@ -84,6 +87,11 @@ async fn rename_row(executor: &DbExecutor, base: Value, path: &str) -> Result<()
     }
     let fs = filesystem(executor).await?;
     let old = base["path"].as_str();
+    // Read before the files move: a failed read after the rename would skip its rollback.
+    let rules = match old.filter(|old| *old != path) {
+        Some(old) => series_rules(executor, old, Some(&path)).await?,
+        None => None,
+    };
     if old != Some(&path) {
         let collision = executor
             .execute(
@@ -129,6 +137,7 @@ async fn rename_row(executor: &DbExecutor, base: Value, path: &str) -> Result<()
             statements.push(statement(format!("UPDATE {table} SET {column}=?1 || substr({column},length(?2)+1),updated_at={NOW} WHERE deleted_at IS NULL AND ({column}=?2 OR substr({column},1,length(?2)+1)=?2 || '/')"),
                 vec![json!(path),json!(old)],None));
         }
+        statements.extend(rules);
     }
     let segments = path.split('/').collect::<Vec<_>>();
     for count in 1..segments.len() {
@@ -151,6 +160,7 @@ async fn remove(executor: &DbExecutor, base: Value) -> Result<()> {
     let path = base["path"].as_str().ok_or(ServiceError::Conflict)?;
     let fs = filesystem(executor).await?;
     let rows = executor.execute("SELECT id,folder_path FROM sessions WHERE deleted_at IS NULL AND (folder_path=?1 OR substr(folder_path,1,length(?1)+1)=?1 || '/')".into(),vec![json!(path)]).await.map_err(failure)?;
+    let rules = series_rules(executor, path, None).await?;
     let mut moved = Vec::new();
     for row in &rows {
         let id = row["id"].as_str().unwrap_or("");
@@ -177,12 +187,39 @@ async fn remove(executor: &DbExecutor, base: Value) -> Result<()> {
     for row in &rows {
         statements.push(statement(format!("UPDATE sessions SET folder_path='',updated_at={NOW} WHERE id=? AND folder_path=? AND deleted_at IS NULL"),vec![row["id"].clone(),row["folder_path"].clone()],Some(1)));
     }
+    statements.extend(rules);
     if let Err(error) = transaction(executor, statements).await {
         rollback_moves(&fs, &moved)?;
         return Err(error);
     }
     // Keep material files for recovery of the soft-deleted catalog rows.
     Ok(())
+}
+
+/// Keeps recurring-meeting filing rules on a renamed folder, or drops them with a deleted one,
+/// in the same transaction as the folder change.
+async fn series_rules(
+    executor: &DbExecutor,
+    from: &str,
+    to: Option<&str>,
+) -> Result<Option<TransactionStatement>> {
+    let rows = executor
+        .execute(
+            "SELECT value_json FROM app_settings WHERE id=?".into(),
+            vec![json!(calendar_rules::RULES_ID)],
+        )
+        .await
+        .map_err(failure)?;
+    let stored = rows.first().and_then(|row| row["value_json"].as_str());
+    Ok(calendar_rules::folder_moved(stored, from, to).map(|rules| {
+        statement(
+            format!(
+                "UPDATE app_settings SET value_json=?,updated_at={NOW} WHERE id=? AND value_json=?"
+            ),
+            vec![json!(rules), json!(calendar_rules::RULES_ID), json!(stored)],
+            Some(1),
+        )
+    }))
 }
 
 fn rollback_moves(fs: &FsSyncCore, moved: &[(&str, &str)]) -> Result<()> {

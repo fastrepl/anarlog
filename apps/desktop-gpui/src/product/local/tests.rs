@@ -249,6 +249,53 @@ async fn generated_imports_and_onboarding_use_the_shipping_note_id() {
 }
 
 #[tokio::test]
+async fn imports_join_the_connected_library_with_their_own_dates() {
+    let root = tempfile::tempdir().unwrap();
+    let runtime = runtime(root.path()).await;
+    runtime
+        .submit(|services| async move {
+            for sql in [
+                "INSERT OR REPLACE INTO app_settings (id, value_json) VALUES ('cloudsync_workspace_binding', '{\"workspace_id\":\"device-workspace\"}')",
+                "INSERT INTO local_library_connections (account_user_id, library_workspace_id, active) VALUES ('account', 'connected-library', 1)",
+            ] {
+                services.executor.execute(sql.into(), vec![]).await.map_err(super::failure)?;
+            }
+            Ok(())
+        })
+        .unwrap()
+        .receive()
+        .await
+        .unwrap();
+    let content = json!({
+        "title": "Standup", "notes": "Agenda", "start_time": "2026-01-05T10:00:00+01:00",
+        "end_time": 1767607200, "transcript": [{"text": "Hello"}], "attendees": [{"name": "Ada"}],
+    });
+    let ids = data::import_meetings(
+        &runtime,
+        data::parse("json", "Standup", &content.to_string()).unwrap(),
+        CancellationToken::new(),
+    )
+    .await
+    .unwrap();
+    let imported = data::snapshot(&runtime, ids[0].clone()).await.unwrap();
+    assert_eq!(imported.session["created_at"], "2026-01-05T09:00:00.000Z");
+    assert_eq!(imported.session["started_at"], "2026-01-05T09:00:00.000Z");
+    assert_eq!(imported.session["ended_at"], "2026-01-05T10:00:00.000Z");
+    assert_eq!(imported.session["owner_user_id"], "connected-library");
+    let rows = [&imported.session]
+        .into_iter()
+        .chain(&imported.documents)
+        .chain(&imported.transcripts)
+        .chain(&imported.participants)
+        .collect::<Vec<_>>();
+    assert_eq!(rows.len(), 4);
+    for row in rows {
+        assert_eq!(row["workspace_id"], "device-workspace", "{row}");
+    }
+    runtime.shutdown().await.unwrap();
+}
+
+#[tokio::test]
 async fn canonical_import_preserves_existing_document_ids() {
     let root = tempfile::tempdir().unwrap();
     let runtime = runtime(root.path()).await;

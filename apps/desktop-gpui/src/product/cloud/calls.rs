@@ -146,6 +146,13 @@ impl CloudServices {
                 .await
         })
     }
+
+    /// Approves the account's devices waiting for approval, when this device syncs.
+    pub fn approve_devices(&self) -> BoxFuture<'static, Result<()>> {
+        self.worker(|this, _, lease| {
+            Box::pin(async move { this.core.sync.approve_pending(&this.core, &lease).await })
+        })
+    }
 }
 
 impl CloudCalls for CloudServices {

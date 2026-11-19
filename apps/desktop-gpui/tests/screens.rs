@@ -2653,7 +2653,13 @@ fn chat_composer(
         chat.event(ChatEvent::Open, window, cx)
     });
     // Voice input: without a dictation service it fails like shipping without a microphone;
-    // a stand-in service shows the recording row. No audio device is opened.
+    // a stand-in service shows the recording row. The app's own service is removed first, so
+    // no audio device is opened and no provider is called.
+    cx.update(|cx| {
+        if cx.has_global::<desktop_gpui::chat::voice::Voice>() {
+            cx.remove_global::<desktop_gpui::chat::voice::Voice>();
+        }
+    });
     click(cx, window, 858., 561.);
     capture(cx, window, out, "chat-voice-unavailable");
     cx.update(|cx| {
@@ -2857,15 +2863,22 @@ fn wheel(
 struct StandInVoice;
 
 impl desktop_gpui::chat::voice::VoiceInput for StandInVoice {
-    fn start(&self) -> futures::future::BoxFuture<'static, desktop_runtime::Result<()>> {
-        Box::pin(async { Ok(()) })
+    fn start(
+        &self,
+    ) -> (
+        Box<dyn desktop_gpui::chat::voice::VoiceRecording>,
+        futures::future::BoxFuture<'static, desktop_runtime::Result<()>>,
+    ) {
+        (Box::new(StandInVoice), Box::pin(async { Ok(()) }))
     }
+}
 
-    fn stop(&self) -> futures::future::BoxFuture<'static, desktop_runtime::Result<String>> {
+impl desktop_gpui::chat::voice::VoiceRecording for StandInVoice {
+    fn stop(
+        self: Box<Self>,
+    ) -> futures::future::BoxFuture<'static, desktop_runtime::Result<String>> {
         Box::pin(async { Ok("and the release dates".into()) })
     }
-
-    fn cancel(&self) {}
 }
 
 /// Runs a statement through the executor, so reactive watches see the change.

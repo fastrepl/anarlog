@@ -29,9 +29,21 @@ use crate::{
     },
 };
 
+/// Reads the tables `REVISIONS_SQL` reads, so it notifies on every change to them. The
+/// revisions themselves are read in full: a library outgrows one watch's 1,000 rows.
+const CHANGES_SQL: &str = "SELECT EXISTS(SELECT 1 FROM sessions) AS sessions,
+    EXISTS(SELECT 1 FROM session_documents) AS documents,
+    EXISTS(SELECT 1 FROM transcripts) AS transcripts,
+    EXISTS(SELECT 1 FROM session_participants) AS participants,
+    EXISTS(SELECT 1 FROM humans) AS humans,
+    EXISTS(SELECT 1 FROM organizations) AS organizations,
+    EXISTS(SELECT 1 FROM action_items) AS action_items";
 const UPLOAD_DELAY: Duration = Duration::from_millis(1500);
 /// Shipping retries a snapshot the API rejected as invalid after these delays.
 const INVALID_RETRIES: [u64; 2] = [5, 15];
+/// A failed revisions read is retried after this delay, doubling up to `READ_RETRY_MAX`.
+const READ_RETRY: Duration = Duration::from_millis(500);
+const READ_RETRY_MAX: Duration = Duration::from_secs(30);
 
 pub(super) fn start(native: &NativeServices, cx: &mut Context<ApplicationView>) {
     let runtime = native.local.runtime.clone();
@@ -48,7 +60,7 @@ pub(super) fn start(native: &NativeServices, cx: &mut Context<ApplicationView>) 
     );
     cx.set_global(api.clone());
     let mut identities = cloud.identities();
-    let reply = runtime.watch_query(REVISIONS_SQL.into(), vec![]);
+    let reply = runtime.watch_changes(CHANGES_SQL.into(), vec![]);
     let executor = cx.background_executor().clone();
     cx.spawn(async move |_, _| {
         let mut watch = match async { reply?.receive().await }.await {
@@ -60,6 +72,7 @@ pub(super) fn start(native: &NativeServices, cx: &mut Context<ApplicationView>) 
         };
         let generation = Arc::new(AtomicU64::new(0));
         let mut user: Option<String> = None;
+        let mut retry: Option<Duration> = None;
         loop {
             let current = identities
                 .borrow_and_update()
@@ -72,14 +85,40 @@ pub(super) fn start(native: &NativeServices, cx: &mut Context<ApplicationView>) 
                     executor.spawn(api.initialize()).detach();
                 }
             }
-            let mut failed = watch.terminal_error().is_some();
-            while watch.errors.try_recv().is_ok() {
-                failed = true;
-            }
-            let snapshot = watch.snapshots.borrow_and_update().clone();
+            // A failed refresh still signals a write; the full read below does not depend on it.
+            while watch.errors.try_recv().is_ok() {}
+            let sequence = watch.snapshots.borrow_and_update().sequence;
             // Sequence 0 is the placeholder before the first result; it is not an empty library.
-            if let Some(user) = user.as_ref().filter(|_| !failed && snapshot.sequence > 0) {
-                let changes = api.observe(user, &revisions(&snapshot.rows));
+            let rows = match user.as_ref().filter(|_| sequence > 0) {
+                Some(_) => match async {
+                    runtime
+                        .read_rows(REVISIONS_SQL.into(), vec![])?
+                        .receive()
+                        .await
+                }
+                .await
+                {
+                    Ok(rows) => {
+                        retry = None;
+                        Some(rows)
+                    }
+                    // The write that prompted this read was consumed, so nothing else would
+                    // read it again; retry until a read succeeds.
+                    Err(error) => {
+                        let delay =
+                            retry.map_or(READ_RETRY, |delay| (delay * 2).min(READ_RETRY_MAX));
+                        retry = Some(delay);
+                        tracing::warn!(%error, ?delay, "Cloud API revisions could not be read");
+                        None
+                    }
+                },
+                None => {
+                    retry = None;
+                    None
+                }
+            };
+            if let (Some(user), Some(rows)) = (user.as_ref(), rows) {
+                let changes = api.observe(user, &revisions(&rows));
                 if !changes.deletes.is_empty() {
                     executor.spawn(api.sync(user.clone(), true)).detach();
                 }
@@ -111,12 +150,18 @@ pub(super) fn start(native: &NativeServices, cx: &mut Context<ApplicationView>) 
             if watch.terminal_error().is_some() {
                 break;
             }
-            match select(
+            let changed = select(
                 identities.changed().boxed(),
                 watch.snapshots.changed().boxed(),
-            )
-            .await
-            {
+            );
+            let woke = match retry {
+                Some(delay) => match select(changed, executor.timer(delay)).await {
+                    Either::Left((woke, _)) => woke,
+                    Either::Right(_) => continue,
+                },
+                None => changed.await,
+            };
+            match woke {
                 Either::Left((Ok(()), _)) | Either::Right((Ok(()), _)) => {}
                 _ => break,
             }

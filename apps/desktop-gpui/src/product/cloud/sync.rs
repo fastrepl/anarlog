@@ -181,7 +181,22 @@ impl Sync {
 
     async fn configure(&self, core: &Core, services: &Services, lease: &AuthLease) -> Result<()> {
         let owner = account(lease)?;
-        let recovery = self.recovery(&core.auth, owner).await?;
+        let recovery = match self.recovery(&core.auth, owner).await {
+            // A device that asked another device for approval finishes enrolling once it is sealed.
+            Err(error)
+                if error.to_string().contains(SETUP_REQUIRED)
+                    && core
+                        .auth
+                        .store
+                        .read(core.auth.key(&format!("{owner}:enrollment")))
+                        .await?
+                        .is_some() =>
+            {
+                self.enroll(core, lease, None).await?;
+                self.recovery(&core.auth, owner).await?
+            }
+            result => result?,
+        };
         let mut credentials = self.credentials(core, lease, &recovery).await?;
         if self
             .provision_keys(core, lease, &recovery, &credentials)
@@ -276,7 +291,7 @@ impl Sync {
         }
     }
 
-    async fn provision_keys(
+    pub(super) async fn provision_keys(
         &self,
         core: &Core,
         lease: &AuthLease,
@@ -315,15 +330,8 @@ impl Sync {
                 .into_iter()
                 .flatten()
                 .find(|grant| grant["workspaceId"] == id && grant["isActive"] == true);
-            if active.is_none()
-                && recipients
-                    .iter()
-                    .any(|recipient| recipient["publicKey"].is_null())
-            {
-                return Err(failure(
-                    "Waiting for workspace members to set up encryption",
-                ));
-            }
+            // Members without an encryption identity are skipped; a later pass wraps the active
+            // key for them once they publish one, so they never stall everyone else's sync.
             if let Some(active) = active
                 && recipients
                     .iter()
@@ -489,23 +497,7 @@ impl Sync {
                     .and_then(|rows| rows.iter().find(|row| row["requestId"] == id))
                     .ok_or_else(|| failure("Pending device no longer exists"))?;
                 let key = self.recovery(&core.auth, owner).await?;
-                let package = anlg_e2ee::seal_recovery_key_for_device(
-                    &key,
-                    text(device, "publicKey")?,
-                    owner,
-                    id,
-                )
-                .map_err(|_| failure("Could not seal device approval"))?;
-                core.api(
-                    lease,
-                    Method::POST,
-                    &format!("/sync/e2ee/device-enrollments/{id}/seal"),
-                    Some(
-                        &serde_json::to_value(package)
-                            .map_err(|_| failure("Invalid enrollment package"))?,
-                    ),
-                )
-                .await?;
+                seal(core, lease, &key, device).await?;
             }
             Action::RenameDevice | Action::RemoveDevice => {
                 let fingerprint = target(mutation)?;
@@ -539,6 +531,41 @@ impl Sync {
                 }
             }
             _ => return Err(failure("Invalid sync action")),
+        }
+        Ok(())
+    }
+
+    /// `startAutomaticDeviceEnrollment`: once this device syncs, it approves the account's other
+    /// devices that are waiting for approval.
+    pub async fn approve_pending(&self, core: &Core, lease: &AuthLease) -> Result<()> {
+        if self.task.lock().await.is_none() {
+            return Ok(());
+        }
+        self.seal_open_requests(core, lease).await
+    }
+
+    /// Seals each open enrollment request, reading the recovery key only when one exists.
+    pub(super) async fn seal_open_requests(&self, core: &Core, lease: &AuthLease) -> Result<()> {
+        let list = core.api(lease, Method::GET, "/sync/devices", None).await?;
+        let now = chrono::Utc::now();
+        let open = list["pendingDevices"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter(|device| {
+                device["status"] == "pending"
+                    && device["expiresAt"]
+                        .as_str()
+                        .and_then(|at| chrono::DateTime::parse_from_rfc3339(at).ok())
+                        .is_some_and(|at| at > now)
+            })
+            .collect::<Vec<_>>();
+        if open.is_empty() {
+            return Ok(());
+        }
+        let key = self.recovery(&core.auth, account(lease)?).await?;
+        for device in open {
+            seal(core, lease, &key, device).await?;
         }
         Ok(())
     }
@@ -797,9 +824,31 @@ fn block_for(error: &desktop_runtime::ServiceError) -> SyncBlock {
         SyncBlock::DeviceLimit
     } else if message.contains(UPDATE_REQUIRED) {
         SyncBlock::UpdateRequired
+    } else if message.contains(APPROVAL) {
+        SyncBlock::ApprovalPending
     } else {
         SyncBlock::ActivationFailed(message)
     }
+}
+
+/// Seals this account's recovery key for a pending device's enrollment request.
+async fn seal(core: &Core, lease: &AuthLease, key: &RecoveryKey, device: &Value) -> Result<()> {
+    let id = uuid(text(device, "requestId")?)?;
+    let package = anlg_e2ee::seal_recovery_key_for_device(
+        key,
+        text(device, "publicKey")?,
+        account(lease)?,
+        id,
+    )
+    .map_err(|_| failure("Could not seal device approval"))?;
+    core.api(
+        lease,
+        Method::POST,
+        &format!("/sync/e2ee/device-enrollments/{id}/seal"),
+        Some(&serde_json::to_value(package).map_err(|_| failure("Invalid enrollment package"))?),
+    )
+    .await?;
+    Ok(())
 }
 
 fn device(fingerprint: &str) -> Result<&str> {

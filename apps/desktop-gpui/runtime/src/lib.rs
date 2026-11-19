@@ -56,6 +56,7 @@ pub struct Services {
     pub db: Arc<Db>,
     pub executor: DbExecutor,
     pub shutdown_requested: CancellationToken,
+    database: mpsc::Sender<Command>,
     watch_slots: Arc<Semaphore>,
     watches: Arc<watch::WatchRegistry>,
     metrics: Arc<metrics::Metrics>,
@@ -67,7 +68,29 @@ pub type FlushParticipant = Box<dyn FnOnce() -> BoxFuture<'static, Result<()>> +
 
 enum Command {
     Work(Work),
-    Register(ShutdownPhase, FlushParticipant, oneshot::Sender<Result<()>>),
+    Register(shutdown::Participant, oneshot::Sender<Result<()>>),
+}
+
+impl Services {
+    /// Database work for an accepted service job. Unlike `RuntimeHandle::submit`, it is still
+    /// accepted while shutdown drains service jobs, so a job that finishes then can record its
+    /// outcome; the database queue closes once every service job has ended. A database job
+    /// must not await it: the queue runs one job at a time.
+    pub fn submit<T, F, Fut>(&self, work: F) -> Result<Reply<T>>
+    where
+        T: Send + 'static,
+        F: FnOnce(Services) -> Fut + Send + 'static,
+        Fut: Future<Output = Result<T>> + Send + 'static,
+    {
+        let permit = self
+            .database
+            .try_reserve()
+            .map_err(|error| queue_error(&self.metrics, error))?;
+        let (work, reply) = job(&self.metrics, work);
+        self.metrics.admit();
+        permit.send(Command::Work(work));
+        Ok(reply)
+    }
 }
 
 pub struct Reply<T>(oneshot::Receiver<Result<T>>);
@@ -86,6 +109,17 @@ pub struct RuntimeHandle {
     shutdown_requested: CancellationToken,
     state: state::Receiver<RuntimeState>,
     metrics: Arc<metrics::Metrics>,
+    _owner: Arc<Owner>,
+}
+
+/// Requests shutdown once the last handle is dropped. `Services` keeps its own database sender so
+/// draining service jobs can still record, so the channel no longer closes when handles go away.
+struct Owner(CancellationToken);
+
+impl Drop for Owner {
+    fn drop(&mut self) {
+        self.0.cancel();
+    }
 }
 
 impl RuntimeHandle {
@@ -102,8 +136,10 @@ impl RuntimeHandle {
             shutdown_requested: shutdown_requested.clone(),
             state,
             metrics: Arc::new(metrics::Metrics::default()),
+            _owner: Arc::new(Owner(shutdown_requested.clone())),
         };
         let worker_metrics = handle.metrics.clone();
+        let database = handle.sender.clone();
         std::thread::Builder::new()
             .name("anarlog-runtime".into())
             .spawn(move || {
@@ -135,6 +171,7 @@ impl RuntimeHandle {
                                     library::Cache::new(&profile.database).await?,
                                 )),
                                 db,
+                                database,
                                 watch_slots: Arc::new(Semaphore::new(MAX_WATCHES)),
                                 shutdown_requested,
                             },
@@ -175,12 +212,13 @@ impl RuntimeHandle {
         F: FnOnce(Services) -> Fut + Send + 'static,
         Fut: Future<Output = Result<T>> + Send + 'static,
     {
-        let (work, reply) = self.work(work);
+        let (work, reply) = job(&self.metrics, work);
         self.enqueue(Command::Work(work))?;
         Ok(reply)
     }
 
-    /// Independent bounded jobs; durable producers must observe shutdown and finish persisting.
+    /// Independent bounded jobs; durable producers must observe shutdown and finish persisting
+    /// through `Services::submit`.
     pub fn service<T, F, Fut>(&self, work: F) -> Result<Reply<T>>
     where
         T: Send + 'static,
@@ -195,8 +233,8 @@ impl RuntimeHandle {
         let permit = self
             .service_sender
             .try_reserve()
-            .map_err(|error| self.queue_error(error))?;
-        let (work, reply) = self.work(work);
+            .map_err(|error| queue_error(&self.metrics, error))?;
+        let (work, reply) = job(&self.metrics, work);
         self.metrics.admit();
         permit.send(work);
         Ok(reply)
@@ -242,35 +280,6 @@ impl RuntimeHandle {
         }
     }
 
-    fn work<T, F, Fut>(&self, work: F) -> (Work, Reply<T>)
-    where
-        T: Send + 'static,
-        F: FnOnce(Services) -> Fut + Send + 'static,
-        Fut: Future<Output = Result<T>> + Send + 'static,
-    {
-        let (tx, rx) = oneshot::channel();
-        let enqueued = Instant::now();
-        let metrics = self.metrics.clone();
-        (
-            Box::new(move |services| {
-                Box::pin(async move {
-                    metrics.start(enqueued.elapsed());
-                    let started = Instant::now();
-                    let result = AssertUnwindSafe(async move { work(services).await })
-                        .catch_unwind()
-                        .await
-                        .unwrap_or_else(|_| Err(types::failure("Runtime operation panicked")));
-                    metrics.complete(started.elapsed(), result.is_err());
-                    if matches!(result, Err(ServiceError::Cancelled)) {
-                        metrics.cancelled.fetch_add(1, Ordering::Relaxed);
-                    }
-                    let _ = tx.send(result);
-                })
-            }),
-            Reply(rx),
-        )
-    }
-
     fn enqueue(&self, command: Command) -> Result<()> {
         let admission = self.admission.lock().map_err(types::failure)?;
         if !*admission {
@@ -280,22 +289,12 @@ impl RuntimeHandle {
         let permit = self
             .sender
             .try_reserve()
-            .map_err(|error| self.queue_error(error))?;
+            .map_err(|error| queue_error(&self.metrics, error))?;
         if matches!(command, Command::Work(_)) {
             self.metrics.admit();
         }
         permit.send(command);
         Ok(())
-    }
-
-    fn queue_error(&self, error: mpsc::error::TrySendError<()>) -> ServiceError {
-        match error {
-            mpsc::error::TrySendError::Full(_) => {
-                self.metrics.busy.fetch_add(1, Ordering::Relaxed);
-                ServiceError::Busy
-            }
-            mpsc::error::TrySendError::Closed(_) => ServiceError::Closed,
-        }
     }
 
     fn ensure_ready(&self) -> Result<()> {
@@ -308,4 +307,43 @@ impl RuntimeHandle {
             _ => Err(ServiceError::Closed),
         }
     }
+}
+
+fn queue_error(metrics: &metrics::Metrics, error: mpsc::error::TrySendError<()>) -> ServiceError {
+    match error {
+        mpsc::error::TrySendError::Full(_) => {
+            metrics.busy.fetch_add(1, Ordering::Relaxed);
+            ServiceError::Busy
+        }
+        mpsc::error::TrySendError::Closed(_) => ServiceError::Closed,
+    }
+}
+
+fn job<T, F, Fut>(metrics: &Arc<metrics::Metrics>, work: F) -> (Work, Reply<T>)
+where
+    T: Send + 'static,
+    F: FnOnce(Services) -> Fut + Send + 'static,
+    Fut: Future<Output = Result<T>> + Send + 'static,
+{
+    let (tx, rx) = oneshot::channel();
+    let enqueued = Instant::now();
+    let metrics = metrics.clone();
+    (
+        Box::new(move |services| {
+            Box::pin(async move {
+                metrics.start(enqueued.elapsed());
+                let started = Instant::now();
+                let result = AssertUnwindSafe(async move { work(services).await })
+                    .catch_unwind()
+                    .await
+                    .unwrap_or_else(|_| Err(types::failure("Runtime operation panicked")));
+                metrics.complete(started.elapsed(), result.is_err());
+                if matches!(result, Err(ServiceError::Cancelled)) {
+                    metrics.cancelled.fetch_add(1, Ordering::Relaxed);
+                }
+                let _ = tx.send(result);
+            })
+        }),
+        Reply(rx),
+    )
 }

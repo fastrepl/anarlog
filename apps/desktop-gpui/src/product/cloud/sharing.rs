@@ -28,6 +28,10 @@ pub(super) struct Publication {
     pub conflict: Option<Value>,
     #[serde(default)]
     pub attachments: Vec<Value>,
+    /// Fingerprint of the local content last published or kept, so sharing actions republish
+    /// only after the note changes.
+    #[serde(default)]
+    pub source: Option<String>,
 }
 
 pub(super) struct ShareSource {
@@ -132,9 +136,10 @@ impl Core {
         let owner: String = row
             .try_get("owner_user_id")
             .map_err(|_| failure("Invalid meeting owner"))?;
+        // Workspace owners and admins share any note; other active members share their own.
         let local_access: bool = sqlx::query_scalar(
-            "SELECT EXISTS(SELECT 1 FROM workspace_memberships m JOIN workspaces w ON w.id = m.workspace_id WHERE m.workspace_id = ? AND m.user_id = ? AND m.role IN ('owner', 'admin') AND m.deleted_at IS NULL AND w.deleted_at IS NULL)")
-            .bind(&workspace).bind(account(lease)?).fetch_one(services.db.pool()).await
+            "SELECT EXISTS(SELECT 1 FROM workspace_memberships m JOIN workspaces w ON w.id = m.workspace_id WHERE m.workspace_id = ? AND m.user_id = ? AND (m.role IN ('owner', 'admin') OR (w.kind = 'shared' AND m.role <> '' AND ?)) AND m.deleted_at IS NULL AND w.deleted_at IS NULL)")
+            .bind(&workspace).bind(account(lease)?).bind(owner == account(lease)?).fetch_one(services.db.pool()).await
             .map_err(|_| failure("Cannot verify workspace membership"))?;
         let routed = anlg_db_app::local_library_remote_workspace(services.db.pool(), &workspace)
             .await
@@ -251,6 +256,7 @@ impl Core {
                 pending: None,
                 conflict: None,
                 attachments: Vec::new(),
+                source: None,
             });
             self.save_share_state(services, lease, session, &publication)
                 .await?;
@@ -416,6 +422,25 @@ impl Core {
         Ok(url.to_string())
     }
 
+    /// The snapshot `publish` would send for the note's current local content.
+    pub(super) async fn draft(
+        &self,
+        services: &Services,
+        lease: &AuthLease,
+        scope: &Scope,
+        state: &Publication,
+    ) -> Result<Value> {
+        let source = self.share_source(services, lease, scope).await?;
+        let ids = state
+            .attachments
+            .iter()
+            .map(|attachment| text(attachment, "id").and_then(uuid))
+            .collect::<Result<Vec<_>>>()?;
+        Ok(
+            json!({"baseRevision": state.revision, "mutationId": uuid::Uuid::new_v4().to_string(), "title": source.title, "body": source.body, "attachmentIds": ids, "participants": source.participants, "meetingAt": source.meeting_at}),
+        )
+    }
+
     pub(super) async fn publish(
         &self,
         services: &Services,
@@ -432,19 +457,34 @@ impl Core {
                 "The web copy changed. Review the saved remote snapshot before retrying; your local draft is intact",
             ));
         }
-        if state.pending.is_none() {
-            let source = self.share_source(services, lease, scope).await?;
-            let ids = state
-                .attachments
-                .iter()
-                .map(|attachment| text(attachment, "id").and_then(uuid))
-                .collect::<Result<Vec<_>>>()?;
-            state.pending = Some(
-                json!({"baseRevision": state.revision, "mutationId": uuid::Uuid::new_v4().to_string(), "title": source.title, "body": source.body, "attachmentIds": ids, "participants": source.participants, "meetingAt": source.meeting_at}),
-            );
-            self.save_share_state(services, lease, session, &state)
+        // A mutation left pending by a failed attempt is retried as it was, then the note's
+        // current content is published if it changed since.
+        loop {
+            let retried = state.pending.is_some();
+            if !retried {
+                let pending = self.draft(services, lease, scope, &state).await?;
+                if state.source.as_deref() == Some(fingerprint(&pending).as_str()) {
+                    return Ok(());
+                }
+                state.pending = Some(pending);
+                self.save_share_state(services, lease, session, &state)
+                    .await?;
+            }
+            self.send_pending(services, lease, session, &mut state)
                 .await?;
+            if !retried {
+                return Ok(());
+            }
         }
+    }
+
+    async fn send_pending(
+        &self,
+        services: &Services,
+        lease: &AuthLease,
+        session: &SessionId,
+        state: &mut Publication,
+    ) -> Result<()> {
         let url = self
             .auth
             .transport
@@ -470,7 +510,7 @@ impl Core {
             }
             validate_snapshot(&response.body["snapshot"], &state.share_id)?;
             state.conflict = Some(response.body["snapshot"].clone());
-            self.save_share_state(services, lease, session, &state)
+            self.save_share_state(services, lease, session, state)
                 .await?;
             return Err(desktop_runtime::ServiceError::Conflict);
         }
@@ -487,14 +527,29 @@ impl Core {
         state.revision = snapshot["contentRevision"]
             .as_u64()
             .ok_or_else(|| failure("Invalid published revision"))?;
-        state.pending = None;
+        state.source = state.pending.take().as_ref().map(fingerprint);
         state.attachments = snapshot["attachments"]
             .as_array()
             .cloned()
             .ok_or_else(|| failure("Invalid attachment list"))?;
-        self.save_share_state(services, lease, session, &state)
-            .await
+        self.save_share_state(services, lease, session, state).await
     }
+}
+
+/// The published fields of a pending snapshot, without its revision base or mutation id.
+pub(super) fn fingerprint(pending: &Value) -> String {
+    use sha2::{Digest, Sha256};
+    let fields = json!([
+        pending["title"],
+        pending["body"],
+        pending["attachmentIds"],
+        pending["participants"],
+        pending["meetingAt"]
+    ]);
+    Sha256::digest(fields.to_string())
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
 }
 
 fn journal_id(account: &str, session: &SessionId) -> String {
@@ -585,6 +640,8 @@ pub enum ShareCommand {
     KeepDesktop,
     /// Opens the shared note's web copy in the browser.
     OpenWebCopy,
+    /// Emails the published summary to each address (`deliverSessionShareRecapEmail`).
+    EmailRecap(Vec<String>),
 }
 
 impl CloudServices {
@@ -624,11 +681,13 @@ impl CloudServices {
     }
 
     /// Shipping's draft panel shares the note on its first action; later actions manage it.
+    /// The outer result is the command's; the inner one is the share read back after it, whose
+    /// failure doesn't undo a command that already took effect, such as a sent email.
     pub fn share_command(
         &self,
         scope: Scope,
         command: ShareCommand,
-    ) -> BoxFuture<'static, Result<Option<ManagedShare>>> {
+    ) -> BoxFuture<'static, Result<Result<Option<ManagedShare>>>> {
         let this = self.clone();
         Box::pin(async move {
             this.runtime
@@ -646,11 +705,101 @@ impl CloudServices {
                         .session_id
                         .as_ref()
                         .ok_or_else(|| failure("Open a meeting to share"))?;
-                    this.core.managed_share(&services, &lease, session).await
+                    Ok(this.core.managed_share(&services, &lease, session).await)
                 })?
                 .receive()
                 .await
         })
+    }
+}
+
+impl CloudServices {
+    /// Shipping's `revokeManagedShare`: deletes the published shares and cached copies of
+    /// deleted notes, once their undo window has ended. Admitted now, behind the notes' queued
+    /// database work, so quitting still waits for it. Nothing is revoked while signed out or for
+    /// a note that is no longer deleted. Every note is tried; the first failure is returned.
+    pub fn revoke_deleted_shares(
+        &self,
+        sessions: Vec<SessionId>,
+    ) -> Result<desktop_runtime::Reply<()>> {
+        let deleted = self.runtime.flush()?;
+        let this = self.clone();
+        self.runtime.service(move |services| async move {
+            deleted.receive().await?;
+            if this.scope().account_id.is_none() {
+                return Ok(());
+            }
+            let mut result = Ok(());
+            for session in sessions {
+                let revoked = this.revoke_deleted_share(&services, session).await;
+                result = result.and(revoked);
+            }
+            result
+        })
+    }
+
+    async fn revoke_deleted_share(&self, services: &Services, session: SessionId) -> Result<()> {
+        let workspace: Option<String> = sqlx::query_scalar(
+            "SELECT workspace_id FROM sessions WHERE id = ? AND deleted_at IS NOT NULL",
+        )
+        .bind(session.0.as_ref())
+        .fetch_optional(services.db.pool())
+        .await
+        .map_err(|_| failure("Cannot read the deleted note"))?;
+        let Some(workspace) = workspace else {
+            return Ok(());
+        };
+        let scope = Scope {
+            session_id: Some(session.clone()),
+            ..self.scope()
+        };
+        let _guard = self.core.mutations.lock().await;
+        let lease = self.core.lease(&scope).await?;
+        if self
+            .core
+            .share_state(services, &lease, &session)
+            .await?
+            .is_some()
+        {
+            let delete = Mutation {
+                operation: super::panels::operation(Action::DeleteShare, "Delete share"),
+                fields: Arc::from([]),
+            };
+            return self
+                .core
+                .share_action(services, &lease, &scope, &delete)
+                .await;
+        }
+        // Only the publishing device keeps a journal, so the server finds a share published from
+        // another device by its note. A note outside a cloud workspace was never shared.
+        let workspace = anlg_db_app::local_library_remote_workspace(services.db.pool(), &workspace)
+            .await
+            .map_err(|_| failure("Cannot verify local library routing"))?;
+        if uuid(&workspace).is_err() {
+            return Ok(());
+        }
+        // Best effort: without a journal this device doesn't know the note was ever shared (shipping
+        // wouldn't ask the server at all), so a failure, such as being offline, is only logged
+        // rather than warning on every deletion.
+        if let Err(error) = self
+            .core
+            .rpc(
+                &lease,
+                "delete_session_share_by_session",
+                json!({"p_workspace_id": workspace, "p_session_id": session.0.as_ref()}),
+            )
+            .await
+        {
+            tracing::warn!(%error, "a deleted note's share could not be revoked by its note");
+            return Ok(());
+        }
+        sqlx::query("DELETE FROM shared_session_cache WHERE viewer_user_id = ? AND session_id = ?")
+            .bind(account(&lease)?)
+            .bind(session.0.as_ref())
+            .execute(services.db.pool())
+            .await
+            .map_err(|_| failure("Share deleted remotely; local cache cleanup needs retry"))?;
+        Ok(())
     }
 }
 
@@ -720,10 +869,31 @@ impl Core {
             self.share_action(services, lease, scope, &run(Action::CreateShare, None, &[]))
                 .await?;
         }
-        let publication = self
+        let mut publication = self
             .share_state(services, lease, session)
             .await?
             .ok_or_else(|| failure("Create a share first"))?;
+        // Like shipping's `publishLatest`: whoever gains access sees the note as it is now.
+        // Narrowing access and opening the web copy skip it, so they still work while a web
+        // edit conflict pauses publishing.
+        let publishes = match &command {
+            ShareCommand::Remove(_)
+            | ShareCommand::Review(_, false)
+            | ShareCommand::Access(GeneralAccess::Restricted | GeneralAccess::Public)
+            | ShareCommand::KeepDesktop
+            | ShareCommand::OpenWebCopy => false,
+            ShareCommand::SetCapability(entry, capability) => {
+                entry.kind != EntryKind::Grant || *capability > entry.capability
+            }
+            _ => true,
+        };
+        if publishes {
+            self.publish(services, lease, scope, publication).await?;
+            publication = self
+                .share_state(services, lease, session)
+                .await?
+                .ok_or_else(|| failure("Create a share first"))?;
+        }
         let share = publication.share_id.as_str();
         let mutation = match command {
             ShareCommand::Invite(emails) => {
@@ -746,6 +916,9 @@ impl Core {
                 return Ok(());
             }
             ShareCommand::CopyLink => return self.copy_share_url(lease, share).await,
+            ShareCommand::EmailRecap(recipients) => {
+                return self.email_recap(services, lease, share, &recipients).await;
+            }
             ShareCommand::OpenWebCopy => {
                 let url = self.share_url(lease, share, "anarlog").await?;
                 let url = Url::parse(&url).map_err(|_| failure("Share URL is unavailable"))?;
@@ -843,6 +1016,47 @@ impl Core {
             ),
         };
         self.share_action(services, lease, scope, &mutation).await
+    }
+
+    /// `deliverSessionShareRecapEmail`: the published title and summary, as Markdown, sent by
+    /// the API from the account's address.
+    async fn email_recap(
+        &self,
+        services: &Services,
+        lease: &AuthLease,
+        share: &str,
+        recipients: &[String],
+    ) -> Result<()> {
+        if recipients.is_empty() || recipients.len() > 20 {
+            return Err(failure("Email between 1 and 20 people at a time"));
+        }
+        let (title, body): (String, String) = sqlx::query_as(
+            "SELECT title, body_json FROM shared_session_cache WHERE viewer_user_id = ? AND share_id = ?",
+        )
+        .bind(account(lease)?)
+        .bind(share)
+        .fetch_optional(services.db.pool())
+        .await
+        .map_err(|_| failure("Cannot read the published note"))?
+        .ok_or_else(|| failure("Publish the note before emailing it"))?;
+        let body = serde_json::from_str(&body)
+            .ok()
+            .and_then(|body| anlg_tiptap::tiptap_json_to_md(&body).ok())
+            .ok_or_else(|| failure("The published note cannot be emailed"))?;
+        let body = body.trim();
+        if body.is_empty() || body.len() > 100 * 1024 {
+            return Err(failure("The published note cannot be emailed"));
+        }
+        self.api(
+            lease,
+            Method::POST,
+            &format!("/shared-notes/{share}/recap/email"),
+            Some(&json!({"recipients": recipients,
+                "senderName": lease.identity.email.as_deref().unwrap_or("An Anarlog user"),
+                "noteTitle": title, "noteBody": body, "deliveryId": uuid::Uuid::new_v4().to_string()})),
+        )
+        .await?;
+        Ok(())
     }
 
     /// `copySessionShareUrl`: the account URL people with access open.

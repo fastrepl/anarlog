@@ -1,5 +1,6 @@
 use std::{
     cell::RefCell,
+    collections::VecDeque,
     rc::Rc,
     sync::{Arc, Mutex, mpsc},
 };
@@ -216,6 +217,53 @@ pub struct NativeHandles {
     pub tray: Option<NativeTray>,
     _shortcuts: Option<Rc<RefCell<NativeShortcuts>>>,
     menus: Option<MenuState>,
+    waiting: Waiting,
+}
+
+impl NativeEvent {
+    /// Quitting, closing, reopening and About never need the native services, which may
+    /// start late or not at all.
+    fn without_services(&self) -> bool {
+        matches!(
+            self,
+            Self::Quit
+                | Self::CloseMain
+                | Self::About
+                | Self::Action(TrayAction::Open | TrayAction::Hide | TrayAction::QuitCompletely)
+        )
+    }
+}
+
+/// Events that need the native services wait here, in order, until they are ready.
+#[derive(Default)]
+struct Waiting(VecDeque<NativeEvent>);
+
+impl Waiting {
+    const LIMIT: usize = 64;
+
+    /// The events to handle now; a full queue hands back the event it refused.
+    fn take(
+        &mut self,
+        incoming: impl IntoIterator<Item = NativeEvent>,
+        ready: bool,
+    ) -> (Vec<NativeEvent>, Vec<NativeEvent>) {
+        let mut now: Vec<_> = if ready {
+            self.0.drain(..).collect()
+        } else {
+            Vec::new()
+        };
+        let mut refused = Vec::new();
+        for event in incoming {
+            if ready || event.without_services() {
+                now.push(event);
+            } else if self.0.len() < Self::LIMIT {
+                self.0.push_back(event);
+            } else {
+                refused.push(event);
+            }
+        }
+        (now, refused)
+    }
 }
 
 impl NativeEvents {
@@ -334,6 +382,7 @@ impl NativeEvents {
                 tray,
                 _shortcuts: shortcuts,
                 menus: Some(menus),
+                waiting: Waiting::default(),
             },
             errors,
         )
@@ -436,24 +485,28 @@ impl NativeEvents {
         main: WindowHandle<ApplicationView>,
         cx: &mut App,
     ) {
-        if !main
+        let ready = main
             .update(cx, |view, _, _| view.native_ready())
-            .unwrap_or(false)
-        {
-            return;
-        }
-        let mut events = Vec::new();
+            .unwrap_or(false);
+        let mut incoming = Vec::new();
         if let Some(tray) = &mut handles.tray {
-            if let Err(error) = tray.update(model) {
+            if ready && let Err(error) = tray.update(model) {
                 tracing::warn!(%error, "tray update failed");
             }
-            events.extend(tray.poll().into_iter().map(NativeEvent::Action));
+            incoming.extend(tray.poll().into_iter().map(NativeEvent::Action));
         }
         for _ in 0..64 {
             let Some(event) = self.next() else {
                 break;
             };
-            events.push(event);
+            incoming.push(event);
+        }
+        let (events, refused) = handles.waiting.take(incoming, ready);
+        for event in refused {
+            tracing::warn!("Native event dropped while services start");
+            if let NativeEvent::DeepLink { id, .. } = event {
+                let _ = self.links.acknowledge(id);
+            }
         }
         for event in events {
             let id = match &event {
@@ -545,5 +598,38 @@ mod quit_monitor {
         if monitor.is_null() {
             tracing::warn!("⌘Q monitor is unavailable; the app menu handles Quit");
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn quitting_works_before_services_start_and_other_events_wait_in_order() {
+        let mut waiting = Waiting::default();
+        let (now, refused) = waiting.take(
+            [
+                NativeEvent::NewNote,
+                NativeEvent::Action(TrayAction::Open),
+                NativeEvent::Action(TrayAction::Settings),
+                NativeEvent::Quit,
+            ],
+            false,
+        );
+        assert!(refused.is_empty());
+        assert!(matches!(
+            now.as_slice(),
+            [NativeEvent::Action(TrayAction::Open), NativeEvent::Quit]
+        ));
+        let (now, _) = waiting.take([NativeEvent::About], true);
+        assert!(matches!(
+            now.as_slice(),
+            [
+                NativeEvent::NewNote,
+                NativeEvent::Action(TrayAction::Settings),
+                NativeEvent::About
+            ]
+        ));
     }
 }

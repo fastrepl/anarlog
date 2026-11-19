@@ -132,7 +132,8 @@ impl CloudServices {
     }
 
     /// Call every 60 seconds and after browser checkout/focus; the worker renews credentials.
-    pub fn refresh(&self) -> BoxFuture<'static, Result<()>> {
+    /// `force` renews the session now, so a finished checkout's plan reaches the access token.
+    pub fn refresh(&self, force: bool) -> BoxFuture<'static, Result<()>> {
         let this = self.clone();
         Box::pin(async move {
             this.runtime
@@ -141,7 +142,7 @@ impl CloudServices {
                     let Some(account) = this.core.auth.identity().account_id else {
                         return Ok(());
                     };
-                    match this.core.auth.lease(&account, false).await {
+                    match this.core.auth.lease(&account, force).await {
                         Ok(lease) => {
                             if this.core.sync.enabled(&this.core.auth, &account).await? {
                                 this.core.sync.start(&this.core, &services, &lease).await?;

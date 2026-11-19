@@ -510,10 +510,7 @@ impl ChatView {
                                                     Route::Session(desktop_runtime::SessionId(
                                                         open.as_str().into(),
                                                     ));
-                                                let _ =
-                                                    this.workspace.update(cx, |workspace, cx| {
-                                                        workspace.open_route(route, true, cx)
-                                                    });
+                                                this.open_route(route, cx);
                                             }))
                                             .child(
                                                 div()

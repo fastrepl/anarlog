@@ -20,6 +20,7 @@ use crate::{
             Action, Mutation, Operation, Outcome, ProductServices, Request, Scope, Surface,
         },
     },
+    workspace::calendar_sidebar::{self, CalendarRow},
 };
 
 mod sections;
@@ -40,6 +41,8 @@ pub struct State {
     pub signing_in: bool,
     pub trial: Option<TrialPhase>,
     pub enabled_calendars: usize,
+    /// The calendars connected accounts discovered, which start out disabled.
+    pub calendars: Vec<CalendarRow>,
     pub google_connected: bool,
     pub outlook_connected: bool,
     pub calendar_opening: Option<&'static str>,
@@ -439,12 +442,7 @@ impl OnboardingView {
             .read(CancellationToken::new(), |services| async move {
                 services
                     .executor
-                    .execute(
-                        "SELECT provider, SUM(enabled = 1) AS enabled FROM calendars \
-                     WHERE deleted_at IS NULL GROUP BY provider"
-                            .into(),
-                        vec![],
-                    )
+                    .execute(calendar_sidebar::CALENDAR_QUERY.into(), vec![])
                     .await
                     .map_err(|error| ServiceError::Failed(error.to_string().into()))
             });
@@ -452,16 +450,46 @@ impl OnboardingView {
             let result = async { reply?.receive().await }.await;
             let _ = this.update(cx, |this, cx| match result {
                 Ok(rows) => {
-                    this.state.enabled_calendars = rows
-                        .iter()
-                        .map(|row| row["enabled"].as_u64().unwrap_or(0) as usize)
-                        .sum();
-                    let has = |name: &str| rows.iter().any(|row| row["provider"] == name);
+                    let calendars = calendar_sidebar::rows(&rows);
+                    this.state.enabled_calendars =
+                        calendars.iter().filter(|row| row.enabled).count();
+                    let has = |name: &str| calendars.iter().any(|row| &*row.provider == name);
                     this.state.google_connected = has("google");
                     this.state.outlook_connected = has("outlook");
+                    this.state.calendars = calendars;
                     cx.notify();
                 }
                 Err(error) => this.fail(error, cx),
+            });
+        })
+        .detach();
+    }
+
+    /// `CalendarSelection`'s toggle, as in the calendar sidebar.
+    pub(super) fn toggle_calendar(&mut self, id: Arc<str>, cx: &mut Context<Self>) {
+        if !self.live {
+            return;
+        }
+        let Some(row) = self.state.calendars.iter_mut().find(|row| row.id == id) else {
+            return;
+        };
+        row.enabled = !row.enabled;
+        let enabled = row.enabled;
+        self.state.enabled_calendars = self
+            .state
+            .calendars
+            .iter()
+            .filter(|row| row.enabled)
+            .count();
+        cx.notify();
+        let reply = calendar_sidebar::set_enabled(&self.runtime, id, enabled);
+        cx.spawn(async move |this, cx| {
+            let result = async { reply?.receive().await }.await;
+            let _ = this.update(cx, |this, cx| {
+                this.refresh_calendars(cx);
+                if let Err(error) = result {
+                    this.fail(error, cx);
+                }
             });
         })
         .detach();

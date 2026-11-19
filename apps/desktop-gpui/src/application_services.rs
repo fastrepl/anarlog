@@ -314,9 +314,12 @@ impl NativeServices {
                                 return Ok(path.to_string_lossy().into_owned());
                             }
                             let model = ModelService::resolve(&request.model)?;
-                            models
-                                .start(model, services.shutdown_requested.clone())
-                                .await
+                            let cancel = services.shutdown_requested.clone();
+                            if request.batch {
+                                models.batch(model, cancel).await
+                            } else {
+                                models.start(model, cancel).await
+                            }
                         })?
                         .receive()
                         .await

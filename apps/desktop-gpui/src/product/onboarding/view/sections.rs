@@ -22,6 +22,10 @@ use crate::{
         },
     },
     ui::theme::{Theme, system_font, theme},
+    workspace::{
+        calendar,
+        calendar_sidebar::{self, Provider},
+    },
 };
 
 const GREEN_600: u32 = 0x00a63e;
@@ -734,6 +738,9 @@ impl OnboardingView {
                         cx,
                     )),
             )
+            .when(!self.state.calendars.is_empty(), |column| {
+                column.child(self.calendar_selection(colors, cx))
+            })
             .when(self.state.enabled_calendars > 0, |column| {
                 // `w-fit`: the button keeps its own width in the column.
                 column.child(
@@ -749,6 +756,79 @@ impl OnboardingView {
                 column.child(self.troubleshooting(colors, cx))
             })
             .into_any_element()
+    }
+
+    /// Shipping's `CalendarSelection` under the providers: discovered calendars start disabled,
+    /// so each account's calendars are listed to turn on.
+    fn calendar_selection(&self, colors: &Theme, cx: &mut Context<Self>) -> Div {
+        let mut list = div()
+            .flex()
+            .flex_col()
+            .gap_3()
+            .p_4()
+            .border_1()
+            .border_color(colors.border);
+        for provider in Provider::visible() {
+            for group in calendar_sidebar::groups(*provider, &self.state.calendars) {
+                list = list.child(
+                    text(13., 18.)
+                        .font_weight(FontWeight::MEDIUM)
+                        .text_color(colors.muted_foreground)
+                        .child(group.source.to_string()),
+                );
+                for row in group.calendars {
+                    let name = SharedString::from(if row.name.is_empty() {
+                        "Untitled".into()
+                    } else {
+                        row.name.to_string()
+                    });
+                    let color =
+                        calendar::parse_color(&row.color).unwrap_or_else(|| rgb(0x888888).into());
+                    let id = row.id.clone();
+                    list = list.child(
+                        div()
+                            .id(SharedString::from(format!(
+                                "onboarding-calendar:{}",
+                                row.id
+                            )))
+                            .a11y_checkbox(name.clone(), row.enabled)
+                            .flex()
+                            .items_center()
+                            .gap_2()
+                            .cursor_pointer()
+                            .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                                this.toggle_calendar(id.clone(), cx)
+                            }))
+                            .child(
+                                div()
+                                    .size(px(16.))
+                                    .flex_shrink_0()
+                                    .flex()
+                                    .items_center()
+                                    .justify_center()
+                                    .border_1()
+                                    .border_color(color)
+                                    .when(row.enabled, |check| {
+                                        check.bg(color).child(
+                                            gpui::svg()
+                                                .path("workspace/CheckIcon.svg")
+                                                .size(px(12.))
+                                                .text_color(colors.primary_foreground),
+                                        )
+                                    }),
+                            )
+                            .child(
+                                text(14., 20.)
+                                    .min_w_0()
+                                    .truncate()
+                                    .text_color(colors.foreground)
+                                    .child(name),
+                            ),
+                    );
+                }
+            }
+        }
+        list
     }
 
     /// `TroubleShootingLink`; the native permission service has no reset.

@@ -259,6 +259,18 @@ impl ModelService {
         }
     }
 
+    /// Soniqo transcribes files in process, so a batch run needs no realtime session (which
+    /// batch-only models can't open); like shipping's `start_server`, it needs only the model.
+    pub async fn batch(&self, model: LocalModel, cancel: CancellationToken) -> Result<String> {
+        if !matches!(model, LocalModel::Soniqo(_)) {
+            return self.start(model, cancel).await;
+        }
+        if !self.state(model).await?.installed {
+            return Err(failure("Download the model before starting it"));
+        }
+        Ok(anlg_transcribe_soniqo::LOCAL_BASE_URL.into())
+    }
+
     pub async fn start(&self, model: LocalModel, cancel: CancellationToken) -> Result<String> {
         if !self.state(model.clone()).await?.installed {
             return Err(failure("Download the model before starting it"));

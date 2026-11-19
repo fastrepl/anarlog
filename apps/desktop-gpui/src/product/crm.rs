@@ -139,12 +139,15 @@ fn clean(value: Option<&str>) -> Option<String> {
 
 /// `linkedinUsernameFromUrl`.
 pub fn linkedin_username(url: Option<&str>) -> Option<String> {
+    static PROFILE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+        regex::Regex::new(r"(?i)linkedin\.com/in/([^/?#]+)").expect("valid LinkedIn pattern")
+    });
     let value = clean(url)?;
-    let lower = value.to_lowercase();
-    if let Some(index) = lower.find("linkedin.com/in/") {
-        let rest = &value[index + "linkedin.com/in/".len()..];
-        let name = rest.split(['/', '?', '#']).next().unwrap_or_default();
-        return (!name.is_empty()).then(|| decode(name));
+    if let Some(name) = PROFILE
+        .captures(&value)
+        .and_then(|captures| captures.get(1))
+    {
+        return Some(decode(name.as_str()));
     }
     (!value.contains('/') && !value.contains('.')).then_some(value)
 }
@@ -318,8 +321,11 @@ pub async fn apply(
                 ("phone", &changes.phone),
                 ("linkedin_username", &changes.linkedin_username),
             ] {
+                // The plan filled empty fields; one edited while the lookup ran keeps the edit.
                 if let Some(value) = value {
-                    assignments.push(format!("{column} = ?"));
+                    assignments.push(format!(
+                        "{column} = CASE WHEN trim({column}) = '' THEN ? ELSE {column} END"
+                    ));
                     params.push(json!(value));
                 }
             }
@@ -860,6 +866,11 @@ mod tests {
             ..Default::default()
         };
         let (contact, changes) = pick_best(&person, vec![sparse, rich.clone()]).unwrap();
+        // Case folding can change byte lengths; the username must still come from the URL.
+        assert_eq!(
+            linkedin_username(Some("https://İ.example/LinkedIn.com/in/é")),
+            Some("é".into())
+        );
         assert_eq!(contact, rich);
         assert_eq!(
             changes,
@@ -870,6 +881,50 @@ mod tests {
                 ..Default::default()
             }
         );
+    }
+
+    #[test]
+    fn enrichment_keeps_fields_edited_while_its_lookup_was_pending() {
+        let directory = tempfile::tempdir().unwrap();
+        let (runtime, ready) = RuntimeHandle::start(Profile {
+            database: directory.path().join("library.sqlite"),
+        })
+        .unwrap();
+        futures::executor::block_on(async {
+            ready.receive().await.unwrap();
+            let sql = |sql: &'static str| {
+                runtime
+                    .submit(move |services| async move {
+                        services
+                            .executor
+                            .execute(sql.into(), vec![])
+                            .await
+                            .map_err(|e| ServiceError::Failed(e.to_string().into()))
+                    })
+                    .unwrap()
+                    .receive()
+            };
+            sql("INSERT INTO humans (id, name, job_title) VALUES ('h', 'Ada', 'Founder')")
+                .await
+                .unwrap();
+            // Planned against a snapshot taken before the job title was typed.
+            let changes = Changes {
+                job_title: Some("CTO".into()),
+                phone: Some("+1 555".into()),
+                ..Default::default()
+            };
+            apply(&runtime, "h".into(), "owner".into(), changes)
+                .await
+                .unwrap();
+            let row = sql("SELECT job_title, phone FROM humans WHERE id = 'h'")
+                .await
+                .unwrap();
+            assert_eq!(
+                (&row[0]["job_title"], &row[0]["phone"]),
+                (&json!("Founder"), &json!("+1 555"))
+            );
+            runtime.shutdown().await.unwrap();
+        });
     }
 
     #[test]

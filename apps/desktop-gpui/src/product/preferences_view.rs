@@ -111,6 +111,13 @@ impl PreferencesView {
         if let Some(status) = crate::dictation::DictationStatus::global(cx) {
             subscriptions.push(cx.observe(&status, |_, _, cx| cx.notify()));
         }
+        // Leaving settings while it listens for a shortcut must not leave dictation paused.
+        cx.on_release(|this: &mut Self, cx| {
+            if this.recording_shortcut {
+                this.set_recording_shortcut(false, cx);
+            }
+        })
+        .detach();
         let mut this = Self {
             runtime,
             section: "app",
@@ -709,6 +716,25 @@ mod tests {
         assert_eq!(stored["use_24_hour_time"].value, Value::Bool(true));
         assert_eq!(stored["use_24_hour_time"].source, "Synced");
         drop(view);
+        futures::executor::block_on(runtime.shutdown()).unwrap();
+    }
+
+    #[gpui::test]
+    fn leaving_settings_while_recording_a_shortcut_resumes_dictation(cx: &mut TestAppContext) {
+        cx.executor().allow_parking();
+        let directory = tempfile::tempdir().unwrap();
+        let (runtime, ready) = RuntimeHandle::start(Profile {
+            database: directory.path().join("library.sqlite"),
+        })
+        .unwrap();
+        futures::executor::block_on(ready.receive()).unwrap();
+        let status = cx.update(crate::dictation::DictationStatus::install);
+        let view = cx.new(|cx| PreferencesView::new(runtime.clone(), cx));
+        view.update(cx, |view, cx| view.set_recording_shortcut(true, cx));
+        assert!(status.read_with(cx, |status, _| status.capturing_shortcut));
+        // Dropped entities are released when the app next flushes its effects.
+        cx.update(|_| drop(view));
+        assert!(!status.read_with(cx, |status, _| status.capturing_shortcut));
         futures::executor::block_on(runtime.shutdown()).unwrap();
     }
 
