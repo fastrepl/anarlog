@@ -5,4 +5,5 @@ edition = "2024"
 
 [dependencies]
 futures-util = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
 thiserror = { workspace = true }

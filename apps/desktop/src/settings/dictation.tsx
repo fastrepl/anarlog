@@ -8,6 +8,7 @@ import { commands as transcription } from "@anlg/plugin-transcription";
 import { Button } from "@anlg/ui/components/ui/button";
 import { Textarea } from "@anlg/ui/components/ui/textarea";
 
+import { DictationEngineSettings } from "./dictation-engine";
 import { DictationShortcut } from "./dictation-shortcut";
 
 import { useBillingAccess } from "~/auth/billing-context";
@@ -116,6 +117,7 @@ export function SettingsDictation() {
             checked={handsFree}
             onChange={setHandsFree}
           />
+          <DictationEngineSettings />
           <p className="text-muted-foreground text-xs">
             {platform() === "linux" ? (
               <Trans>

@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-attach-dictation-stream"
+description = "Enables the attach_dictation_stream command without any pre-configured scope."
+commands.allow = ["attach_dictation_stream"]
+
+[[permission]]
+identifier = "deny-attach-dictation-stream"
+description = "Denies the attach_dictation_stream command without any pre-configured scope."
+commands.deny = ["attach_dictation_stream"]

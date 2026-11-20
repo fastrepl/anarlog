@@ -108,7 +108,13 @@ pub async fn move_meetings(
                 let previous = row["folder_path"].as_str().unwrap_or_default();
                 let unchanged = normalize_folder_path(previous).ok().as_deref() == Some(&destination);
                 if !unchanged {
-                    move_notes(&services.executor, &[json!(meeting_id)], &destination).await?;
+                    move_notes(
+                        &services.executor,
+                        &services.vault,
+                        &[json!(meeting_id)],
+                        &destination,
+                    )
+                    .await?;
                 }
                 Ok(Some((row, unchanged)))
             })?
@@ -202,8 +208,7 @@ pub async fn read_material(
                         .and_then(|path| path.rsplit('/').next())
                         .unwrap_or_default()
                         .to_owned();
-                    let bytes = filesystem(&services.executor)
-                        .await?
+                    let bytes = filesystem(&services.vault)
                         .folder_attachment_read(folder, &disk)
                         .map_err(|error| error.to_string());
                     return Ok(Some((row, bytes)));

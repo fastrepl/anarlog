@@ -99,9 +99,14 @@ impl ApplicationView {
             return;
         }
         self.schedule.started = true;
-        let reply = self
-            .runtime
-            .watch_query(auto_start::MEETINGS_SQL.into(), vec![]);
+        // Every meeting in the calendars' history outgrows a watch's 1,000 rows, so a small
+        // watch signals changes and each change reads the meetings in full.
+        let reply = self.runtime.watch_changes(
+            "SELECT EXISTS(SELECT 1 FROM events) AS events, EXISTS(SELECT 1 FROM app_settings) AS settings"
+                .into(),
+            vec![],
+        );
+        let runtime = self.runtime.clone();
         self.schedule.tasks.push(cx.spawn(async move |this, cx| {
             let Ok(mut watch) = async { reply?.receive().await }.await else {
                 return;
@@ -110,16 +115,28 @@ impl ApplicationView {
                 if watch.terminal_error().is_some() || watch.errors.try_recv().is_ok() {
                     break;
                 }
-                let rows = watch.snapshots.borrow_and_update().rows.clone();
-                let meetings = rows.iter().map(Meeting::from_row).collect();
-                if this
-                    .update(cx, |this, cx| {
-                        this.schedule.scheduler.replace(meetings);
-                        this.schedule_tick(cx);
-                    })
-                    .is_err()
-                    || watch.snapshots.changed().await.is_err()
-                {
+                watch.snapshots.borrow_and_update();
+                let read = async {
+                    runtime
+                        .read_rows(auto_start::MEETINGS_SQL.into(), vec![])?
+                        .receive()
+                        .await
+                };
+                match read.await {
+                    Ok(rows) => {
+                        let meetings = rows.iter().map(Meeting::from_row).collect();
+                        let updated = this.update(cx, |this, cx| {
+                            this.schedule.scheduler.replace(meetings);
+                            this.schedule_tick(cx);
+                        });
+                        if updated.is_err() {
+                            break;
+                        }
+                    }
+                    // The last schedule stays until the next change reads it again.
+                    Err(error) => tracing::warn!(%error, "scheduled meetings could not be read"),
+                }
+                if watch.snapshots.changed().await.is_err() {
                     break;
                 }
             }
@@ -176,6 +193,14 @@ impl ApplicationView {
 
     pub(super) fn schedule_preferences(&mut self, snapshot: Arc<Snapshot>, cx: &mut Context<Self>) {
         self.schedule.preferences = Some(snapshot);
+        // Turning automatic stop off withdraws a stop it already has under way.
+        if !self.schedule.flag("auto_stop_meetings", true) {
+            self.schedule.pending = None;
+            self.schedule.pending_task = None;
+            if let (_, Some(session)) = self.live_phase() {
+                self.schedule.prompts.cancel(&session);
+            }
+        }
         if self.schedule.started {
             self.schedule_tick(cx);
         }
@@ -265,7 +290,13 @@ impl ApplicationView {
     ) -> Result<Outcome> {
         let closed = || desktop_runtime::ServiceError::Closed;
         let check = |this: &mut Self, cx: &mut Context<Self>| -> Option<Outcome> {
-            if !this.auto_start_enabled(cx) || this.services.is_none() {
+            // A storage move or quit holds writers paused; a new note would land in the old
+            // profile.
+            if !this.auto_start_enabled(cx)
+                || this.services.is_none()
+                || this.writers_paused
+                || this.closing
+            {
                 return Some(Outcome::Blocked);
             }
             match this.live_phase().0 {
@@ -399,7 +430,8 @@ impl ApplicationView {
         self.schedule.pending_task = Some(cx.spawn(async move |this, cx| {
             cx.background_executor().timer(delay).await;
             let current = |this: &Self, cx: &gpui::App| {
-                this.schedule.pending.as_ref() == Some(&pending)
+                this.schedule.flag("auto_stop_meetings", true)
+                    && this.schedule.pending.as_ref() == Some(&pending)
                     && this.live_phase() == (Phase::Listening, Some(pending.session.clone()))
                     && pending
                         .candidates
@@ -486,7 +518,13 @@ impl ApplicationView {
             return false;
         }
         // Clicking the banner only opens the app; Stop and the countdown stop listening.
-        if matches!(action, Action::Accept | Action::Timeout)
+        // The countdown stops only while automatic stop is still on.
+        let stops = match action {
+            Action::Accept => true,
+            Action::Timeout => self.schedule.flag("auto_stop_meetings", true),
+            _ => false,
+        };
+        if stops
             && let Some(session) = self.schedule.prompts.consume(key)
             && self.live_phase() == (Phase::Listening, Some(session))
         {

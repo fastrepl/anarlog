@@ -1,0 +1,13 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "bundle": {
+    "resources": {
+      "../../../target/meeting-helpers/browser-meeting-extension": "browser-meeting-extension"
+    },
+    "macOS": {
+      "files": {
+        "Helpers/Anarlog Camera.app": "../../../target/meeting-helpers/Anarlog Camera.app"
+      }
+    }
+  }
+}

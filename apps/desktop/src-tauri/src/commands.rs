@@ -8,6 +8,30 @@ const STAGING_BUNDLE_ID: &str = "com.hyprnote.staging";
 
 #[tauri::command]
 #[specta::specta]
+pub fn get_registered_desktop_schemes<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Vec<String> {
+    let Some(desktop) = app
+        .config()
+        .plugins
+        .0
+        .get("deep-link")
+        .and_then(|config| config.get("desktop"))
+    else {
+        return Vec::new();
+    };
+    let protocols = match desktop.as_array() {
+        Some(protocols) => protocols.as_slice(),
+        None => std::slice::from_ref(desktop),
+    };
+    protocols
+        .iter()
+        .filter_map(|protocol| protocol.get("schemes")?.as_array())
+        .flatten()
+        .filter_map(|scheme| scheme.as_str().map(str::to_owned))
+        .collect()
+}
+
+#[tauri::command]
+#[specta::specta]
 pub async fn get_onboarding_needed<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
 ) -> Result<bool, String> {

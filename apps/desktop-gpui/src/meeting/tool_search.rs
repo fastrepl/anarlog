@@ -49,7 +49,7 @@ async fn folder_sessions(
         for row in rows(
             runtime,
             cancellation,
-            "SELECT id, title, created_at, event_json FROM sessions WHERE deleted_at IS NULL AND (folder_path = ?1 OR folder_path LIKE ?1 || '/%') ORDER BY created_at DESC",
+            "SELECT id, title, created_at, event_json FROM sessions WHERE deleted_at IS NULL AND (folder_path = ?1 OR substr(folder_path, 1, length(?1) + 1) = ?1 || '/') ORDER BY created_at DESC",
             vec![json!(folder)],
         )
         .await?
@@ -741,5 +741,34 @@ mod tests {
             ("Participants".into(), "Ana Kim".into())
         );
         assert!(search_note(&note("Sync", &[("Raw note", "nothing")]), "budget").is_none());
+    }
+
+    #[tokio::test]
+    async fn folder_scope_treats_underscore_and_percent_literally() {
+        let directory = tempfile::tempdir().unwrap();
+        let (runtime, ready) = RuntimeHandle::start(desktop_runtime::Profile {
+            database: directory.path().join("search.sqlite"),
+        })
+        .unwrap();
+        ready.receive().await.unwrap();
+        let cancellation = CancellationToken::new();
+        runtime
+            .service(|services| async move {
+                services.executor.execute("INSERT INTO sessions (id, title, folder_path, created_at) VALUES
+                    ('in', 'In', 'Client_/Sub', '2026-01-02'), ('a', 'A', 'ClientA/private', '2026-01-03'),
+                    ('p', 'P', '100 days/plan', '2026-01-04')".into(), vec![]).await.map_err(failure)
+            })
+            .unwrap()
+            .receive()
+            .await
+            .unwrap();
+        let ids = folder_sessions(&runtime, &["Client_".into(), "100%".into()], &cancellation)
+            .await
+            .unwrap()
+            .iter()
+            .map(|row| text(row, "id"))
+            .collect::<Vec<_>>();
+        assert_eq!(ids, ["in"]);
+        runtime.shutdown().await.unwrap();
     }
 }

@@ -1,11 +1,13 @@
 use std::collections::HashSet;
 use std::path::{Component, Path, PathBuf};
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use anlg_listener_core::actors::recorder::delete_capture_audio;
 use desktop_runtime::{Result, RuntimeHandle, ServiceError, SessionId};
 use serde_json::json;
 
+use super::config;
 use super::model::{Retention, failure};
 use super::store::{integer, string};
 
@@ -93,6 +95,20 @@ pub fn session_directory(vault: &Path, session: &SessionId) -> Result<PathBuf> {
     Ok(directory)
 }
 
+/// Shipping sweeps retention every minute, so a changed policy applies within one.
+pub const SWEEP_EVERY: Duration = Duration::from_secs(60);
+
+/// One retention pass under the current policy; an unreadable policy keeps every recording.
+pub async fn sweep(runtime: &RuntimeHandle, vault: PathBuf, activities: Activities) -> Result<()> {
+    let preferences = config::preferences(runtime).await?;
+    let retention = Retention::from_setting(preferences.value("audio_retention"))?;
+    let now = chrono::Utc::now().timestamp_millis();
+    cleanup(runtime, vault, activities, retention, now).await?;
+    Ok(())
+}
+
+/// Deletes local audio whose retention expired, and tombstoned audio under any policy. Active
+/// recordings and uploads hold an activity, and pending recovery a lifecycle marker.
 pub async fn cleanup(
     runtime: &RuntimeHandle,
     vault: PathBuf,
@@ -111,7 +127,7 @@ pub async fn cleanup(
         let after = cursor.clone();
         let page = runtime.submit(move |services| async move {
             services.executor.execute(
-                "SELECT id, CAST(unixepoch(created_at) * 1000 AS INTEGER) AS created_ms, EXISTS (SELECT 1 FROM session_attachments a LEFT JOIN attachment_local_state l ON l.attachment_id = a.id WHERE a.session_id = sessions.id AND a.source_type = 'session_audio' AND a.source_id = 'primary' AND a.deleted_at IS NOT NULL AND COALESCE(l.availability, 'present') != 'absent') AS tombstone FROM sessions WHERE id > ? AND NOT EXISTS (SELECT 1 FROM app_settings WHERE id = 'capture_lifecycle_pending:' || sessions.id) ORDER BY id LIMIT 100".into(),
+                "SELECT id, CAST(unixepoch(created_at) * 1000 AS INTEGER) AS created_ms, EXISTS (SELECT 1 FROM session_attachments a LEFT JOIN attachment_local_state l ON l.attachment_id = a.id WHERE a.session_id = sessions.id AND a.source_type = 'session_audio' AND a.source_id = 'primary' AND a.deleted_at IS NOT NULL AND COALESCE(l.availability, 'present') != 'absent') AS tombstone, deleted_at IS NULL AND NOT EXISTS (SELECT 1 FROM session_attachments a WHERE a.session_id = sessions.id AND a.source_type = 'session_audio' AND a.source_id = 'primary' AND a.deleted_at IS NULL AND json_valid(a.metadata_json) AND json_extract(a.metadata_json, '$.transcript_status') = 'processing') AS expirable, EXISTS (SELECT 1 FROM transcripts t WHERE t.session_id = sessions.id AND t.deleted_at IS NULL AND json_valid(t.words_json) AND json_array_length(t.words_json) > 0) AS has_words FROM sessions WHERE id > ? AND NOT EXISTS (SELECT 1 FROM app_settings WHERE id = 'capture_lifecycle_pending:' || sessions.id) ORDER BY id LIMIT 100".into(),
                 vec![json!(after)]).await.map_err(failure)
         })?.receive().await?;
         if page.is_empty() {
@@ -119,9 +135,11 @@ pub async fn cleanup(
         }
         for row in page {
             cursor = string(&row, "id")?.to_owned();
-            if integer(&row, "tombstone")? == 0
-                && integer(&row, "created_ms").unwrap_or(i64::MAX) > cutoff
-            {
+            // Like shipping, "Don't save" waits for a transcript and trashed notes keep theirs.
+            let expired = integer(&row, "expirable")? != 0
+                && integer(&row, "created_ms").unwrap_or(i64::MAX) <= cutoff
+                && (retention != Retention::Never || integer(&row, "has_words")? != 0);
+            if integer(&row, "tombstone")? == 0 && !expired {
                 continue;
             }
             let session = SessionId(cursor.clone().into());
@@ -144,7 +162,7 @@ pub async fn cleanup(
             let id = session.clone();
             runtime.submit(move |services| async move {
                 services.executor.execute(
-                    "INSERT INTO attachment_local_state (attachment_id, session_id, relative_path, availability) SELECT id, session_id, relative_path, 'absent' FROM session_attachments WHERE session_id = ? AND source_type = 'session_audio' AND source_id = 'primary' ON CONFLICT(attachment_id) DO UPDATE SET availability = 'absent', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')".into(),
+                    "INSERT INTO attachment_local_state (attachment_id, session_id, relative_path, availability) SELECT id, session_id, relative_path, 'absent' FROM session_attachments WHERE session_id = ? AND source_type = 'session_audio' AND source_id = 'primary' ON CONFLICT(attachment_id) DO UPDATE SET availability = 'absent', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE availability != 'absent'".into(),
                     vec![json!(id)]).await.map_err(failure)?;
                 Ok(())
             })?.receive().await?;

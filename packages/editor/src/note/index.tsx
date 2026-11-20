@@ -162,6 +162,8 @@ export interface NoteEditorRef {
   view: EditorView | null;
   commands: EditorCommands;
   flushPendingChanges: () => void;
+  /** Writes a local edit still waiting in the save debounce, and nothing otherwise. */
+  flushQueuedChange: () => void;
 }
 
 export type SessionMentionDropData = {
@@ -743,6 +745,11 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
           const view = viewRef.current;
           onUpdate.cancel();
           if (view) flushChangeRef.current({ doc: view.state.doc });
+        },
+        // A focused editor defers newer stored content until it blurs, so
+        // writing its view when nothing is queued could overwrite that content.
+        flushQueuedChange: () => {
+          onUpdate.flush();
         },
       }),
       [onUpdate],

@@ -58,6 +58,8 @@ pub struct ProfileCard {
     load: Load,
     save: Save,
     loading: bool,
+    /// An edit waits out the debounce before it is written.
+    dirty: bool,
     pending: Option<Task<()>>,
     _subscriptions: Vec<Subscription>,
 }
@@ -104,6 +106,7 @@ impl ProfileCard {
             load: Load::Loading,
             save: Save::Idle,
             loading: true,
+            dirty: false,
             pending: None,
             _subscriptions: subscriptions,
         };
@@ -203,6 +206,7 @@ impl ProfileCard {
 
     /// Coalesces keystrokes into one write; the latest values always win.
     fn schedule_save(&mut self, cx: &mut Context<Self>) {
+        self.dirty = true;
         self.save = Save::Saving;
         cx.notify();
         self.pending = Some(cx.spawn(async move |this, cx| {
@@ -213,7 +217,16 @@ impl ProfileCard {
         }));
     }
 
+    /// Writes a debounced edit now, before the card goes away with its timer; the runtime
+    /// finishes accepted writes even after the card is dropped.
+    pub fn flush(&mut self, cx: &mut Context<Self>) {
+        if self.dirty {
+            self.save_now(cx);
+        }
+    }
+
     fn save_now(&mut self, cx: &mut Context<Self>) {
+        self.dirty = false;
         let Some(id) = self.human_id.clone() else {
             return;
         };
@@ -353,9 +366,10 @@ impl Render for ProfileCard {
                     cx.notify();
                 })),
             )
-            .when(self.menu, |view| {
-                view.child(controls::dropdown(
-                    controls::menu_panel(240., &colors)
+            .child(controls::dropdown(
+                "profile-company-menu",
+                self.menu.then(|| {
+                    controls::menu_panel(&colors)
                         .child(
                             controls::menu_item(
                                 "profile-company-none",
@@ -386,10 +400,13 @@ impl Render for ProfileCard {
                                     this.schedule_save(cx);
                                 },
                             ))
-                        })),
-                    false,
-                ))
-            });
+                        }))
+                }),
+                false,
+                |this: &mut Self| this.menu = false,
+                window,
+                cx,
+            ));
         div()
             .flex()
             .flex_col()
@@ -465,5 +482,60 @@ impl Render for ProfileCard {
                 }))
             })
             .into_any_element()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use desktop_runtime::Profile;
+    use gpui::{AppContext, TestAppContext};
+
+    use super::*;
+
+    #[gpui::test]
+    fn an_edit_still_in_its_debounce_is_saved_when_settings_close(cx: &mut TestAppContext) {
+        cx.executor().allow_parking();
+        let directory = tempfile::tempdir().unwrap();
+        let (runtime, ready) = RuntimeHandle::start(Profile {
+            database: directory.path().join("library.sqlite"),
+        })
+        .unwrap();
+        futures::executor::block_on(ready.receive()).unwrap();
+        let card = cx.new(|cx| ProfileCard::new(runtime.clone(), Some(("me".into(), None)), cx));
+        for _ in 0..400 {
+            cx.run_until_parked();
+            if card.read_with(cx, |card, _| matches!(card.load, Load::Ready)) {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        card.update(cx, |card, cx| {
+            card.inputs[0]
+                .2
+                .update(cx, |input, cx| input.set_text("Ada".into(), cx));
+            card.schedule_save(cx);
+            // What `ProductPane::can_close` does before settings close.
+            card.flush(cx);
+        });
+        drop(card);
+        cx.run_until_parked();
+        let rows = futures::executor::block_on(async {
+            runtime.flush()?.receive().await?;
+            runtime
+                .read(CancellationToken::new(), |services| async move {
+                    services
+                        .executor
+                        .execute("SELECT name FROM humans WHERE id = 'me'".into(), vec![])
+                        .await
+                        .map_err(failure)
+                })?
+                .receive()
+                .await
+        })
+        .unwrap();
+        assert_eq!(rows[0]["name"], "Ada");
+        futures::executor::block_on(runtime.shutdown()).unwrap();
     }
 }

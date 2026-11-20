@@ -266,6 +266,7 @@ fn legacy_app_target(target: &Path) -> bool {
     )
 }
 
+#[cfg(unix)]
 fn temporary(path: &Path) -> Result<PathBuf, String> {
     let name = path
         .file_name()

@@ -25,7 +25,7 @@ import {
 } from "./capture-result";
 import { useListener } from "./contexts";
 import { discardEmptyAutomaticCapture } from "./empty-automatic-capture";
-import { cancelMeetingRecordingDisclosure } from "./meeting-disclosure";
+import { stopWatchingMeetingNotice } from "./meeting-disclosure";
 import { createNativeTranscriptPersistence } from "./native-transcript-persistence";
 import { persistTranscriptWrite } from "./persist-retry";
 import { consumePrimaryDeviceYield } from "./primary-device";
@@ -880,7 +880,7 @@ export function useCaptureLifecycle(sessionId: string) {
           }
           return true;
         };
-        cancelMeetingRecordingDisclosure(sessionId);
+        stopWatchingMeetingNotice(sessionId);
         await stopMeetingChatTasks();
         await transcriptPersistence.flush();
         if (

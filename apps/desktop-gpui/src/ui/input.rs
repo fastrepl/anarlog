@@ -43,6 +43,8 @@ pub struct TextInput {
     inline: bool,
     breadcrumb: bool,
     muted: bool,
+    /// Typing, pasting and undo leave the text unchanged; `set_text` still replaces it.
+    read_only: bool,
     /// A single-line field's text size; 14px (`text-sm`) unless set.
     text_size: Pixels,
     /// Multi-line layout from the last paint: each source line's byte range, origin and
@@ -80,6 +82,7 @@ impl TextInput {
             inline: false,
             breadcrumb: false,
             muted: false,
+            read_only: false,
             text_size: px(14.),
             rows: Vec::new(),
             line_height: px(20.),
@@ -156,6 +159,12 @@ impl TextInput {
         self.text_size = size;
         self
     }
+
+    pub fn set_read_only(&mut self, read_only: bool, cx: &mut Context<Self>) {
+        self.read_only = read_only;
+        cx.notify();
+    }
+
     pub fn set_text(&mut self, text: String, cx: &mut Context<Self>) {
         if self.secret && !text.is_ascii() {
             self.changed(false, cx);
@@ -208,17 +217,18 @@ impl TextInput {
             }
             "enter" => cx.emit(InputEvent::Submitted),
             "z" if modifiers.secondary(cx) => {
-                let changed = if modifiers.shift {
-                    self.buffer.redo()
-                } else {
-                    self.buffer.undo()
-                };
+                let changed = !self.read_only
+                    && if modifiers.shift {
+                        self.buffer.redo()
+                    } else {
+                        self.buffer.undo()
+                    };
                 if changed {
                     self.changed(true, cx);
                 }
             }
             "y" if modifiers.secondary(cx) && !cfg!(target_os = "macos") => {
-                if self.buffer.redo() {
+                if !self.read_only && self.buffer.redo() {
                     self.changed(true, cx);
                 }
             }
@@ -405,6 +415,9 @@ impl EntityInputHandler for TextInput {
         _: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if self.read_only {
+            return;
+        }
         if self.secret && !text.is_ascii() {
             self.changed(false, cx);
             return;
@@ -425,6 +438,9 @@ impl EntityInputHandler for TextInput {
         _: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if self.read_only {
+            return;
+        }
         if self.secret && !text.is_ascii() {
             self.changed(false, cx);
             return;

@@ -344,6 +344,77 @@ fn a_template_replaces_a_pristine_memo_in_one_undo_step() {
     assert!(super::title::is_pristine(&editor.document.root.children));
 }
 
+/// Version restore once kept the current document's leading and trailing atoms and the list
+/// its first and last carets sat in.
+#[test]
+fn whole_document_restore_replaces_atoms_and_wrappers() {
+    let paragraph = |text| json!({"type":"paragraph","content":[{"type":"text","text":text}]});
+    let mut editor = fixture(json!({"type":"doc","content":[
+        {"type":"image","attrs":{"attachmentId":"a"}},
+        {"type":"bulletList","content":[{"type":"listItem","content":[paragraph("current")]}]},
+        {"type":"horizontalRule"}
+    ]}));
+    let original = editor.document.root.value();
+    let version = json!({"type":"doc","content":[paragraph("restored")]});
+    editor
+        .replace_all(Document::parse(version.to_string().into()).unwrap())
+        .unwrap();
+    assert_eq!(editor.document.root.value(), version);
+    editor.undo().unwrap();
+    assert_eq!(editor.document.root.value(), original);
+}
+
+/// Delete at a code block's end once joined the next paragraph's bold text into the code
+/// block; the save succeeded and reopening the note failed validation.
+#[test]
+fn deleting_into_a_code_block_keeps_the_saved_document_valid() {
+    let mut editor = fixture(json!({"type":"doc","content":[
+        {"type":"codeBlock","content":[{"type":"text","text":"code"}]},
+        {"type":"paragraph","content":[
+            {"type":"text","text":"bold","marks":[{"type":"bold"}]},
+            {"type":"hardBreak"},{"type":"text","text":"line"}
+        ]}
+    ]}));
+    editor.select(Selection::caret(caret_at(&editor, &[0], 4)));
+    editor.delete(true).unwrap();
+    Document::parse(editor.document.serialize().unwrap()).unwrap();
+    assert_eq!(editor.document.root.children.len(), 1);
+    assert_eq!(
+        super::document::inline_text(&editor.document.node(&[0]).unwrap().children),
+        "codebold\nline"
+    );
+}
+
+/// Select All's structural endpoints once made formatting fail with "Position is on a
+/// structural boundary".
+#[test]
+fn formatting_applies_to_a_select_all_selection() {
+    let mut editor = fixture(json!({"type":"doc","content":[
+        {"type":"paragraph","content":[{"type":"text","text":"one"}]},
+        {"type":"blockquote","content":[{"type":"paragraph","content":[{"type":"text","text":"two"}]}]}
+    ]}));
+    editor.select(Selection {
+        anchor: 0,
+        head: editor.document.units(),
+    });
+    editor.toggle_mark("bold").unwrap();
+    editor.set_link("https://example.com").unwrap();
+    for path in [&[0][..], &[1, 0][..]] {
+        let marks = editor
+            .document
+            .node(path)
+            .unwrap()
+            .children
+            .get(0)
+            .unwrap()
+            .marks()
+            .to_vec();
+        assert!(marks.iter().any(|mark| mark["type"] == "bold"), "{marks:?}");
+        assert!(marks.iter().any(|mark| mark["type"] == "link"), "{marks:?}");
+    }
+    assert!(editor.mark_active("bold"));
+}
+
 fn model(text: &str) -> EditorModel {
     EditorModel::new(Document::parse(serde_json::json!({
         "type": "doc", "content": [{"type": "paragraph", "content": [{"type": "text", "text": text}]}]
@@ -1078,7 +1149,7 @@ fn reversed_multiblock_selection_and_undo_preserve_fields() {
     let mut editor = EditorModel::new(Document::parse(doc.to_string().into()).unwrap());
     editor.select(Selection { anchor: 8, head: 2 });
     assert_eq!(
-        clipboard::copy(&editor.document, editor.selection)
+        clipboard::copy(&editor.document, editor.selection, "note")
             .unwrap()
             .text,
         "bc\n\nde"
@@ -1124,10 +1195,11 @@ fn rich_clipboard_preserves_marks_and_portable_attachment_metadata() {
             anchor: 0,
             head: document.units(),
         },
+        "note",
     )
     .unwrap();
     assert!(payload.text.contains("![\\[a\\]\\(b\\)]()"));
-    let (fragment, open) = clipboard::parse_slice(&payload.metadata).unwrap();
+    let (fragment, open) = clipboard::parse_slice(&payload.metadata, "note").unwrap();
     assert!(!open);
     let mut editor = model("replace");
     editor.select(Selection {
@@ -1149,7 +1221,10 @@ fn whole_document_cut_paste_preserves_structure_and_undo() {
             {"type":"paragraph","content":[{"type":"text","text":"bold","marks":[{"type":"bold"}]}]},
             {"type":"bulletList","content":[{"type":"listItem","content":[
                 {"type":"paragraph","content":[{"type":"text","text":"nested"}]}
-            ]}]}
+            ]}]},
+            // A cut task pasted back is the same task.
+            {"type":"taskList","content":[{"type":"taskItem","attrs":{"taskId":"task","taskItemId":"item"},
+                "content":[{"type":"paragraph","content":[{"type":"text","text":"ship"}]}]}]}
         ]),
     ] {
         let mut editor = fixture(json!({"type":"doc","content":content}));
@@ -1159,10 +1234,10 @@ fn whole_document_cut_paste_preserves_structure_and_undo() {
                 anchor: 0,
                 head: editor.document.units(),
             });
-            let payload = clipboard::copy(&editor.document, editor.selection).unwrap();
+            let payload = clipboard::copy(&editor.document, editor.selection, "note").unwrap();
             editor.replace(editor.selection.range(), "").unwrap();
             let empty = editor.document.root.value();
-            let (fragment, open) = clipboard::parse_slice(&payload.metadata).unwrap();
+            let (fragment, open) = clipboard::parse_slice(&payload.metadata, "note").unwrap();
             editor.insert_slice(fragment, open).unwrap();
             assert_eq!(editor.document.root.value(), original);
             assert_eq!(
@@ -1181,15 +1256,40 @@ fn whole_document_cut_paste_preserves_structure_and_undo() {
     }
 }
 
+/// Pasted tasks once kept their ids: a copy in the same note was dropped from its task list,
+/// and one pasted into another note moved the original's action item there.
+#[test]
+fn pasted_tasks_get_identities_of_their_own() {
+    let mut editor = fixture(json!({"type":"doc","content":[
+        {"type":"paragraph","content":[{"type":"text","text":"intro"}]},
+        {"type":"taskList","content":[{"type":"taskItem","attrs":{"taskId":"task","taskItemId":"item"},
+            "content":[{"type":"paragraph","content":[{"type":"text","text":"ship"}]}]}]}
+    ]}));
+    let everything = Selection {
+        anchor: 0,
+        head: editor.document.units(),
+    };
+    let payload = clipboard::copy(&editor.document, everything, "note").unwrap();
+    let (fragment, open) = clipboard::parse_slice(&payload.metadata, "note").unwrap();
+    editor.select(Selection::caret(caret_at(&editor, &[0], 5)));
+    editor.insert_slice(fragment, open).unwrap();
+    let tasks = super::tasks::extract(&editor.document.root.value());
+    assert_eq!(tasks.len(), 2);
+    assert!(tasks.iter().any(|task| task.id == "task"));
+    let (elsewhere, _) = clipboard::parse_slice(&payload.metadata, "other").unwrap();
+    let tasks = super::tasks::extract(&elsewhere.root.value());
+    assert!(tasks.len() == 1 && tasks[0].id != "task");
+}
+
 #[test]
 fn rich_inline_paste_inherits_slice_marks_without_losing_surroundings() {
     let mut source = model("bold");
     source.select(Selection { anchor: 1, head: 5 });
     source.toggle_mark("bold").unwrap();
-    let payload = clipboard::copy(&source.document, source.selection).unwrap();
+    let payload = clipboard::copy(&source.document, source.selection, "source").unwrap();
     let mut destination = model("ab");
     destination.select(Selection::caret(2));
-    let (fragment, open) = clipboard::parse_slice(&payload.metadata).unwrap();
+    let (fragment, open) = clipboard::parse_slice(&payload.metadata, "destination").unwrap();
     destination.insert_slice(fragment, open).unwrap();
     let value = destination.document.root.value();
     assert_eq!(value["content"][0]["content"][1]["text"], "bold");

@@ -101,6 +101,9 @@ unsafe fn register_system_termination_observer(delegate: &objc2::runtime::AnyObj
     }
 }
 
+/// Set once this delegate has started exiting through Tauri, which saves note edits first.
+static EXIT_STARTED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
 extern "C" fn system_will_terminate(
     _this: *mut objc2::runtime::AnyObject,
     _selector: objc2::runtime::Sel,
@@ -108,6 +111,7 @@ extern "C" fn system_will_terminate(
 ) {
     anlg_intercept::set_force_quit();
     if let Some(app) = crate::APP_HANDLE.get() {
+        EXIT_STARTED.store(true, std::sync::atomic::Ordering::SeqCst);
         app.exit(0);
     }
 }
@@ -120,6 +124,14 @@ extern "C" fn application_should_terminate(
     use objc2_app_kit::NSApplicationTerminateReply;
 
     if anlg_intercept::should_force_quit() {
+        // A confirmed quit (a second ⌘Q, ⌘⇧Q) exits through Tauri, whose exit handler saves
+        // note edits first. Once that exit is under way, including a logout's, end the process.
+        if !EXIT_STARTED.swap(true, std::sync::atomic::Ordering::SeqCst)
+            && let Some(app) = crate::APP_HANDLE.get()
+        {
+            app.exit(0);
+            return NSApplicationTerminateReply::TerminateCancel;
+        }
         return NSApplicationTerminateReply::TerminateNow;
     }
 

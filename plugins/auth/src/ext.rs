@@ -7,6 +7,16 @@ use crate::AccountInfo;
 #[cfg(all(any(target_os = "linux", target_os = "windows"), not(test)))]
 static SECURE_AUTH_WRITE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
+#[cfg(all(any(target_os = "linux", target_os = "windows"), not(test)))]
+fn persist_secure<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    data: &HashMap<String, String>,
+) -> Result<(), crate::Error> {
+    crate::migrate::session_store(app)?
+        .save(data)
+        .map_err(crate::Error::Storage)
+}
+
 pub(crate) fn parse_account_info(
     data: &HashMap<String, String>,
 ) -> Result<Option<AccountInfo>, crate::Error> {
@@ -47,14 +57,7 @@ impl<R: tauri::Runtime, T: tauri::Manager<R>> AuthPluginExt<R> for T {
         {
             let _guard = SECURE_AUTH_WRITE_LOCK.lock().unwrap();
             store.set(key, value)?;
-
-            #[cfg(target_os = "linux")]
-            let result = crate::migrate::persist_linux_auth(self.app_handle(), &store.snapshot());
-
-            #[cfg(target_os = "windows")]
-            let result = crate::windows::persist_auth(self.app_handle(), &store.snapshot());
-
-            result
+            persist_secure(self.app_handle(), &store.snapshot())
         }
 
         #[cfg(any(not(any(target_os = "linux", target_os = "windows")), test))]
@@ -73,12 +76,7 @@ impl<R: tauri::Runtime, T: tauri::Manager<R>> AuthPluginExt<R> for T {
             data.remove(&key);
             // Apply the removal in memory even when the secure store refuses, so a
             // reported failure cannot leave the value readable via get_item.
-            #[cfg(target_os = "linux")]
-            let result = crate::migrate::persist_linux_auth(self.app_handle(), &data);
-
-            #[cfg(target_os = "windows")]
-            let result = crate::windows::persist_auth(self.app_handle(), &data);
-
+            let result = persist_secure(self.app_handle(), &data);
             store.replace(data);
             result
         }
@@ -97,12 +95,8 @@ impl<R: tauri::Runtime, T: tauri::Manager<R>> AuthPluginExt<R> for T {
             let _guard = SECURE_AUTH_WRITE_LOCK.lock().unwrap();
             // Sign-out must drop the in-memory session even if secure persistence
             // fails; callers that ignore the error must not retain readable auth.
-            #[cfg(target_os = "linux")]
-            let result = crate::migrate::clear_linux_auth(self.app_handle());
-
-            #[cfg(target_os = "windows")]
-            let result = crate::windows::clear_auth(self.app_handle());
-
+            let result = crate::migrate::session_store(self.app_handle())
+                .and_then(|session| session.clear().map_err(crate::Error::Storage));
             store.replace(HashMap::new());
             result
         }

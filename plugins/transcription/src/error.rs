@@ -24,6 +24,10 @@ pub enum Error {
     StopSessionFailed,
     #[error("actor not found {0}")]
     ActorNotFound(String),
+    #[error("meeting capture: {0}")]
+    MeetingCapture(String),
+    #[error("native capture microphone requires restart")]
+    NativeCaptureMicrophoneRequiresRestart,
 }
 
 impl Serialize for Error {

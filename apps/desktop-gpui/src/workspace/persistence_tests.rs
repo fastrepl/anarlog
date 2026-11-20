@@ -20,26 +20,100 @@ use super::{
     pins, templates, undo_delete,
 };
 
+/// A channel run reads and writes the shipping app's own pinned tabs and recently opened
+/// notes in `store.json`, so they carry over and a rollback keeps any change.
 #[test]
-fn pins_use_cas_and_malformed_storage_cannot_become_empty_success() {
+fn channel_pins_and_recent_notes_live_in_shipping_store_json() {
+    use anlg_desktop_identity::store_json::StoreJson;
     block_on(async {
-        let (_directory, runtime) = start().await;
-        let (base, routes) = pins::load(&runtime).unwrap().receive().await.unwrap();
-        assert!(routes.is_empty());
-        let routes: Arc<[Route]> = vec![Route::Contacts, Route::Calendar].into();
-        pins::save(&runtime, base.clone(), routes.clone())
+        let (directory, runtime) = start().await;
+        let store = Arc::new(StoreJson::at(directory.path().join("store.json")));
+        let shipping_pins = json!([
+            {"type": "sessions", "id": "note", "state": {"view": null}, "pinned": true},
+            {"type": "settings", "state": {"tab": "calendar"}, "pinned": true},
+        ]);
+        store
+            .set("desktop", "PinnedTabs", json!(shipping_pins.to_string()))
+            .unwrap();
+        store
+            .set("desktop", "RecentlyOpenedSessions", json!(r#"["b","a"]"#))
+            .unwrap();
+
+        let (base, routes) = pins::load(&runtime, Some(store.clone()))
             .unwrap()
             .receive()
             .await
             .unwrap();
+        assert_eq!(
+            routes,
+            vec![
+                Route::Session(SessionId("note".into())),
+                Route::settings("calendar")
+            ]
+        );
+        let pinned: Arc<[Route]> = vec![Route::Contacts].into();
+        pins::save(&runtime, Some(store.clone()), base.clone(), pinned)
+            .unwrap()
+            .receive()
+            .await
+            .unwrap();
+        let written: Value = serde_json::from_str(
+            store
+                .get("desktop", "PinnedTabs")
+                .unwrap()
+                .unwrap()
+                .as_str()
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(written, json!([{"type": "contacts", "pinned": true}]));
         assert!(matches!(
-            pins::save(&runtime, base, Arc::from([]))
+            pins::save(&runtime, Some(store.clone()), base, Arc::from([]))
                 .unwrap()
                 .receive()
                 .await,
             Err(ServiceError::Conflict)
         ));
-        let (_, restored) = pins::load(&runtime).unwrap().receive().await.unwrap();
+
+        let recent = load_recent(&runtime, Some(store.clone()), CancellationToken::new())
+            .unwrap()
+            .receive()
+            .await
+            .unwrap();
+        assert_eq!(recent, vec![SessionId("b".into()), SessionId("a".into())]);
+        save_recent(&runtime, Some(store.clone()), vec![SessionId("c".into())])
+            .unwrap()
+            .receive()
+            .await
+            .unwrap();
+        assert_eq!(
+            store.get("desktop", "RecentlyOpenedSessions").unwrap(),
+            Some(json!(r#"["c"]"#))
+        );
+        runtime.shutdown().await.unwrap();
+    });
+}
+
+#[test]
+fn pins_use_cas_and_malformed_storage_cannot_become_empty_success() {
+    block_on(async {
+        let (_directory, runtime) = start().await;
+        let (base, routes) = pins::load(&runtime, None).unwrap().receive().await.unwrap();
+        assert!(routes.is_empty());
+        let routes: Arc<[Route]> = vec![Route::Contacts, Route::Calendar].into();
+        pins::save(&runtime, None, base.clone(), routes.clone())
+            .unwrap()
+            .receive()
+            .await
+            .unwrap();
+        assert!(matches!(
+            pins::save(&runtime, None, base, Arc::from([]))
+                .unwrap()
+                .receive()
+                .await,
+            Err(ServiceError::Conflict)
+        ));
+        let (_, restored) = pins::load(&runtime, None).unwrap().receive().await.unwrap();
         assert_eq!(restored.as_slice(), routes.as_ref());
         execute(
             &runtime,
@@ -47,7 +121,7 @@ fn pins_use_cas_and_malformed_storage_cannot_become_empty_success() {
             vec![],
         )
         .await;
-        assert!(pins::load(&runtime).unwrap().receive().await.is_err());
+        assert!(pins::load(&runtime, None).unwrap().receive().await.is_err());
         let raw = execute(
             &runtime,
             "SELECT value_json FROM app_settings WHERE id = 'gpui_pinned_tabs'",
@@ -104,7 +178,7 @@ fn recently_opened_notes_persist_and_malformed_storage_reads_as_empty() {
     block_on(async {
         let (_directory, runtime) = start().await;
         let load = || async {
-            load_recent(&runtime, CancellationToken::new())
+            load_recent(&runtime, None, CancellationToken::new())
                 .unwrap()
                 .receive()
                 .await
@@ -112,7 +186,7 @@ fn recently_opened_notes_persist_and_malformed_storage_reads_as_empty() {
         };
         assert!(load().await.is_empty());
         let recent = vec![SessionId("b".into()), SessionId("a".into())];
-        save_recent(&runtime, recent.clone())
+        save_recent(&runtime, None, recent.clone())
             .unwrap()
             .receive()
             .await
@@ -268,8 +342,10 @@ fn note_folder_resolution_follows_moved_and_locked_notes_and_rejects_deleted_not
                 .unwrap()
                 .receive()
                 .await
+                .unwrap()
+                .canonicalize()
                 .unwrap(),
-            // The resolver canonicalizes, and macOS temp directories live behind /var -> /private/var.
+            // Compare the same file despite macOS symlinks or Windows extended-length paths.
             path.canonicalize().unwrap()
         );
         execute(
@@ -422,6 +498,8 @@ fn provider_fixture(
                     Err(error) => panic!("{error}"),
                 }
             };
+            // Windows accepts inherit the listener's nonblocking mode.
+            stream.set_nonblocking(false).unwrap();
             stream
                 .set_read_timeout(Some(Duration::from_secs(5)))
                 .unwrap();
@@ -576,6 +654,224 @@ fn automation_provider_adapters_follow_openapi_and_durable_errors_never_claim_su
             &workflows[0],
             &session.0
         ));
+        runtime.shutdown().await.unwrap();
+    });
+}
+
+async fn note_with_summary(runtime: &RuntimeHandle) -> SessionId {
+    let session = runtime
+        .create_note("Weekly sync".into())
+        .unwrap()
+        .receive()
+        .await
+        .unwrap()
+        .summary
+        .id;
+    execute(runtime,"INSERT INTO session_documents(id,session_id,kind,body_format,body) VALUES ('summary',?,'summary','markdown','Summary text')",vec![json!(session.0)]).await;
+    session
+}
+
+#[test]
+fn a_slow_automation_destination_does_not_hold_the_database_queue() {
+    block_on(async {
+        let (_directory, runtime) = start().await;
+        let session = note_with_summary(&runtime).await;
+        let mut workflow = Workflow::empty(None, None, "Recap");
+        workflow.enabled = true;
+        workflow.steps = vec![Step::Target {
+            id: "channel".into(),
+            kind: StepType::Slack,
+            target: Some(Target {
+                id: "channel".into(),
+                name: "Channel".into(),
+            }),
+        }];
+        let id = workflow.id.clone();
+        automations::save(&runtime, workflow)
+            .unwrap()
+            .receive()
+            .await
+            .unwrap();
+        // A destination that accepts the request and never answers.
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let address = format!("http://{}", listener.local_addr().unwrap());
+        let client = super::automation_runner::AutomationClient::new(
+            &address,
+            "fixture-token".into(),
+            "Fixture".into(),
+        )
+        .unwrap();
+        let run = super::automation_runner::run(&runtime, id, session, Some(client)).unwrap();
+        let started = std::time::Instant::now();
+        let stream = loop {
+            match listener.accept() {
+                Ok((stream, _)) => break stream,
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                    assert!(started.elapsed() < Duration::from_secs(15));
+                    std::thread::sleep(Duration::from_millis(5));
+                }
+                Err(error) => panic!("{error}"),
+            }
+        };
+        // Note opens and saves queue behind this barrier; it must not wait for the request.
+        let barrier = runtime.flush().unwrap();
+        let (sender, receiver) = std::sync::mpsc::channel();
+        std::thread::spawn(move || sender.send(block_on(barrier.receive())));
+        assert!(matches!(
+            receiver.recv_timeout(Duration::from_secs(5)),
+            Ok(Ok(()))
+        ));
+        drop(stream);
+        assert!(run.receive().await.is_err());
+        runtime.shutdown().await.unwrap();
+    });
+}
+
+/// Quitting closed the database queue before an accepted run finished, so a Slack request that
+/// completed during the drain could not record itself and the workflow stayed "running".
+#[test]
+fn an_automation_that_finishes_while_quitting_records_its_run() {
+    block_on(async {
+        let (directory, runtime) = start().await;
+        let session = note_with_summary(&runtime).await;
+        let mut workflow = Workflow::empty(None, None, "Recap");
+        workflow.enabled = true;
+        workflow.steps = vec![Step::Target {
+            id: "channel".into(),
+            kind: StepType::Slack,
+            target: Some(Target {
+                id: "channel".into(),
+                name: "Channel".into(),
+            }),
+        }];
+        let id = workflow.id.clone();
+        automations::save(&runtime, workflow)
+            .unwrap()
+            .receive()
+            .await
+            .unwrap();
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let client = super::automation_runner::AutomationClient::new(
+            &format!("http://{}", listener.local_addr().unwrap()),
+            "fixture-token".into(),
+            "Fixture".into(),
+        )
+        .unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let run = super::automation_runner::run(&runtime, id, session, Some(client)).unwrap();
+        let started = std::time::Instant::now();
+        let mut stream = loop {
+            match listener.accept() {
+                Ok((stream, _)) => break stream,
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                    assert!(started.elapsed() < Duration::from_secs(15));
+                    std::thread::sleep(Duration::from_millis(5));
+                }
+                Err(error) => panic!("{error}"),
+            }
+        };
+        stream.set_nonblocking(false).unwrap();
+        stream
+            .set_read_timeout(Some(Duration::from_secs(5)))
+            .unwrap();
+        // Read the whole request, so answering it cannot reset the connection.
+        let mut request = Vec::new();
+        let mut buffer = [0; 4096];
+        loop {
+            let size = stream.read(&mut buffer).unwrap();
+            assert!(size > 0);
+            request.extend_from_slice(&buffer[..size]);
+            let Some(end) = request.windows(4).position(|bytes| bytes == b"\r\n\r\n") else {
+                continue;
+            };
+            let length = std::str::from_utf8(&request[..end])
+                .unwrap()
+                .lines()
+                .find_map(|line| {
+                    line.to_ascii_lowercase()
+                        .strip_prefix("content-length:")
+                        .map(|value| value.trim().parse::<usize>().unwrap())
+                })
+                .unwrap_or(0);
+            if request.len() >= end + 4 + length {
+                break;
+            }
+        }
+        // The destination answers only once quitting has begun.
+        let quitting = {
+            let runtime = runtime.clone();
+            std::thread::spawn(move || block_on(runtime.shutdown()))
+        };
+        let mut state = runtime.state();
+        while !matches!(
+            *state.borrow_and_update(),
+            desktop_runtime::RuntimeState::Draining
+        ) {
+            state.changed().await.unwrap();
+        }
+        write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 11\r\nConnection: close\r\n\r\n{{\"ok\":true}}").unwrap();
+        assert_eq!(run.receive().await.unwrap(), "#Channel");
+        quitting.join().unwrap().unwrap();
+        let (runtime, ready) = RuntimeHandle::start(Profile {
+            database: directory.path().join("workspace.sqlite"),
+        })
+        .unwrap();
+        ready.receive().await.unwrap();
+        let stored = execute(
+            &runtime,
+            "SELECT value_json FROM app_settings WHERE id='automation_workflows'",
+            vec![],
+        )
+        .await;
+        let workflows =
+            super::mutations::decode_json_text(stored[0]["value_json"].as_str().unwrap()).unwrap();
+        assert_eq!(workflows[0]["lastRun"]["status"], "success");
+        runtime.shutdown().await.unwrap();
+    });
+}
+
+#[test]
+fn a_signed_out_starter_run_leaves_the_note_for_a_later_delivery() {
+    block_on(async {
+        let (_directory, runtime) = start().await;
+        let session = note_with_summary(&runtime).await;
+        execute(
+            &runtime,
+            "INSERT INTO app_settings(id,value_json) VALUES ('automation_slack_recap_enabled','true'),('automation_slack_recap_channel',?)",
+            vec![json!(json!(r#"{"id":"C1","name":"eng"}"#).to_string())],
+        )
+        .await;
+        let run = |client| {
+            super::automation_runner::run_starters(
+                &runtime,
+                super::automation_runner::Trigger::NoteEnhanced,
+                session.clone(),
+                client,
+            )
+            .unwrap()
+            .receive()
+        };
+        let messages = run(None).await.unwrap();
+        assert!(
+            messages.len() == 1 && messages[0].contains("Sign in"),
+            "{messages:?}"
+        );
+        let (address, worker) = provider_fixture(vec![(
+            "/messenger/slack/messages",
+            200,
+            json!({"ok": true}),
+        )]);
+        let client = super::automation_runner::AutomationClient::new(
+            &address,
+            "fixture-token".into(),
+            "Fixture".into(),
+        )
+        .unwrap();
+        assert_eq!(run(Some(client)).await.unwrap(), ["#eng"]);
+        assert_eq!(worker.join().unwrap()[0]["channel"], "C1");
+        // Delivered once, so a later run skips the note.
+        assert!(run(None).await.unwrap().is_empty());
         runtime.shutdown().await.unwrap();
     });
 }
@@ -764,7 +1060,7 @@ fn undoing_a_delete_restores_only_its_tombstoned_rows_and_keeps_the_event_hidden
 }
 
 #[test]
-fn folder_route_creates_renames_updates_and_deletes_paths() {
+fn folder_route_creates_renames_updates_and_deletes_paths_with_their_series_rules() {
     block_on(async {
         let (directory, runtime) = start().await;
         for _ in 0..2 {
@@ -787,6 +1083,32 @@ fn folder_route_creates_renames_updates_and_deletes_paths() {
             folders::decode_library(&rows).paths.as_slice(),
             [Arc::<str>::from("Clients"), Arc::from("Clients/Sub")]
         );
+        // Recurring meetings filed into a renamed folder (or below it) follow it; deleting the
+        // folder drops their rules so a new folder of the old name does not inherit them.
+        execute(
+            &runtime,
+            "INSERT INTO app_settings(id,value_json) VALUES ('auto_add_series_folders',?)",
+            vec![json!(
+                json!([
+                    {"series_id": "sub", "folder_path": "Clients/Sub"},
+                    {"series_id": "deep", "folder_path": "Clients/Sub/Deep"},
+                    {"series_id": "sibling", "folder_path": "Clients/Subway"},
+                    {"series_id": "other", "folder_path": "Other"},
+                ])
+                .to_string()
+            )],
+        )
+        .await;
+        let series_rules = || async {
+            let rows = execute(&runtime, super::calendar_rules::QUERY, vec![]).await;
+            let mut rules = super::calendar_rules::SeriesRules::from_rows(&rows)
+                .folders
+                .into_iter()
+                .map(|(series, folder)| (series.to_string(), folder.to_string()))
+                .collect::<Vec<_>>();
+            rules.sort();
+            rules
+        };
         // A path only notes reference gains catalog rows when renamed.
         let renamed = folders::rename(&runtime, "Clients/Sub".into(), "Clients/Renamed".into())
             .unwrap()
@@ -802,6 +1124,16 @@ fn folder_route_creates_renames_updates_and_deletes_paths() {
             )
             .await[0]["folder_path"],
             "Clients/Renamed"
+        );
+        let pair = |series: &str, folder: &str| (series.to_owned(), folder.to_owned());
+        assert_eq!(
+            series_rules().await,
+            [
+                pair("deep", "Clients/Renamed/Deep"),
+                pair("other", "Other"),
+                pair("sibling", "Clients/Subway"),
+                pair("sub", "Clients/Renamed"),
+            ]
         );
         folders::create(&runtime, "Other".into())
             .unwrap()
@@ -859,6 +1191,37 @@ fn folder_route_creates_renames_updates_and_deletes_paths() {
         .await[0];
         assert_eq!(note["folder_path"], "");
         assert!(note["deleted_at"].is_null());
+        assert_eq!(series_rules().await, [pair("other", "Other")]);
+        runtime.shutdown().await.unwrap();
+    });
+}
+
+/// A rename whose series-rules read failed returned after the files moved but before the
+/// rollback, so the folder sat at the new path while the catalog kept the old one.
+#[test]
+fn a_folder_rename_that_fails_before_its_transaction_leaves_the_files_in_place() {
+    block_on(async {
+        let (directory, runtime) = start().await;
+        folders::create(&runtime, "Clients".into())
+            .unwrap()
+            .receive()
+            .await
+            .unwrap();
+        execute(
+            &runtime,
+            "ALTER TABLE app_settings RENAME TO app_settings_hidden",
+            vec![],
+        )
+        .await;
+        assert!(
+            folders::rename(&runtime, "Clients".into(), "Renamed".into())
+                .unwrap()
+                .receive()
+                .await
+                .is_err()
+        );
+        assert!(directory.path().join("vault/sessions/Clients").exists());
+        assert!(!directory.path().join("vault/sessions/Renamed").exists());
         runtime.shutdown().await.unwrap();
     });
 }

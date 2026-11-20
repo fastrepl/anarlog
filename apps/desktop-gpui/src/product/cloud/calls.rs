@@ -86,7 +86,7 @@ pub struct SyncHealth {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct SyncState {
-    /// The stored `sync-enabled` preference.
+    /// Shipping's `cloud_sync_enabled` device setting.
     pub enabled: bool,
     pub block: Option<SyncBlock>,
     pub status: SyncStatus,
@@ -144,6 +144,13 @@ impl CloudServices {
                 })?
                 .receive()
                 .await
+        })
+    }
+
+    /// Approves the account's devices waiting for approval, when this device syncs.
+    pub fn approve_devices(&self) -> BoxFuture<'static, Result<()>> {
+        self.worker(|this, _, lease| {
+            Box::pin(async move { this.core.sync.approve_pending(&this.core, &lease).await })
         })
     }
 }
@@ -217,8 +224,8 @@ impl CloudCalls for CloudServices {
     }
 
     fn sync_state(&self) -> BoxFuture<'static, Result<SyncState>> {
-        self.worker(move |this, services, lease| {
-            Box::pin(async move { this.core.sync.state(&this.core, &services, &lease).await })
+        self.worker(move |this, services, _| {
+            Box::pin(async move { this.core.sync.state(&this.core, &services).await })
         })
     }
 

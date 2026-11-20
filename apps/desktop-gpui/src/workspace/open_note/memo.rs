@@ -142,6 +142,7 @@ impl NoteView {
                 .child(text)
         };
         let item = |id: SharedString, glyph: AnyElement, title: SharedString| {
+            let selector = format!("{id}-title");
             div()
                 .id(id)
                 .a11y_button(title.clone())
@@ -156,13 +157,11 @@ impl NoteView {
                 .cursor_pointer()
                 .hover(move |style| style.bg(colors.accent).text_color(colors.foreground))
                 .child(glyph)
-                .overflow_hidden()
                 .child(
-                    // Not `truncate`: GPUI sizes a fit-content column from an earlier truncated
-                    // measurement, which cut short titles that fit.
                     div()
-                        .whitespace_nowrap()
-                        .overflow_hidden()
+                        .debug_selector(|| selector)
+                        .min_w_0()
+                        .truncate()
                         .text_sm()
                         .line_height(px(20.))
                         .font_weight(crate::ui::theme::MEDIUM)
@@ -173,9 +172,13 @@ impl NoteView {
                        templates: Vec<Template>,
                        cx: &mut Context<Self>| {
             (!templates.is_empty()).then(|| {
+                // Full width, like shipping's fragment: a fit-content section would size itself to
+                // its rows' margin boxes, and each row's `max_w_full` would then cut 8px (its
+                // negative margin) off the widest title.
                 div()
                     .id(label_text)
                     .a11y_group(gpui::Role::Group, label_text)
+                    .w_full()
                     .flex()
                     .flex_col()
                     .items_start()
@@ -318,6 +321,106 @@ mod tests {
             .iter()
             .map(|template| template.id.as_ref())
             .collect()
+    }
+
+    /// Template rows once came out 8px short of their titles, cutting "Project Kickoff" to
+    /// "Project Kickof" without an ellipsis at every window width. Titles show in full when
+    /// they fit and stay inside the pane when they don't.
+    #[gpui::test]
+    fn template_rows_show_titles_that_fit_in_full(cx: &mut gpui::TestAppContext) {
+        use crate::contracts::{EditorInit, LaneContext};
+
+        cx.executor().allow_parking();
+        let directory = tempfile::tempdir().unwrap();
+        let (runtime, ready) = desktop_runtime::RuntimeHandle::start(desktop_runtime::Profile {
+            database: directory.path().join("library.sqlite"),
+        })
+        .unwrap();
+        futures::executor::block_on(ready.receive()).unwrap();
+        let open =
+            futures::executor::block_on(runtime.create_note("Intro".into()).unwrap().receive())
+                .unwrap();
+        cx.update(crate::ui::theme::UiFonts::init);
+        let (note, cx) =
+            cx.add_window_view(|window, cx| NoteView::new(runtime.clone(), window, cx));
+        let session = open.summary.id.clone();
+        note.update(cx, |note, cx| note.open(session.clone(), cx));
+        let settle = |cx: &mut gpui::VisualTestContext, selector: &'static str| {
+            for _ in 0..600 {
+                cx.update(|window, cx| window.draw(cx).clear(cx));
+                cx.run_until_parked();
+                if let Some(bounds) = cx.debug_bounds(selector) {
+                    return bounds;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(5));
+            }
+            panic!("{selector} never rendered");
+        };
+        while note.read_with(cx, |note, _| note.current.is_none()) {
+            cx.run_until_parked();
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        let init = EditorInit {
+            session_id: session.clone(),
+            document: open.note.clone().unwrap(),
+            return_focus: cx.update(|_, cx| cx.focus_handle()),
+        };
+        let memo = cx.update(|window, cx| {
+            cx.new(|cx| {
+                EditorPane::new(
+                    LaneContext {
+                        runtime: runtime.clone(),
+                    },
+                    init,
+                    window,
+                    cx,
+                )
+            })
+        });
+        note.update(cx, |note, cx| note.set_content(&session, memo.into(), cx));
+        let shaped = |title: &str, cx: &mut gpui::VisualTestContext| {
+            cx.update(|window, cx| {
+                let run = gpui::TextRun {
+                    len: title.len(),
+                    font: gpui::Font {
+                        weight: crate::ui::theme::MEDIUM,
+                        ..gpui::font(crate::ui::theme::system_font(cx))
+                    },
+                    color: gpui::black(),
+                    background_color: None,
+                    underline: None,
+                    strikethrough: None,
+                };
+                window
+                    .text_system()
+                    .shape_line(title.to_owned().into(), px(14.), &[run], None)
+                    .width
+            })
+        };
+        // Wide, too narrow for the title, then wide again after the resize.
+        for width in [900., 140., 700.] {
+            cx.simulate_resize(gpui::size(px(width), px(600.)));
+            for (selector, title) in [
+                (
+                    "memo-template-default-project-kickoff-title",
+                    "Project Kickoff",
+                ),
+                ("memo-new-template-title", "New template"),
+            ] {
+                let bounds = settle(cx, selector);
+                let text = shaped(title, cx);
+                if width < 200. {
+                    assert!(bounds.right() < px(width), "{title:?} overflows {bounds:?}");
+                } else {
+                    assert!(
+                        bounds.size.width >= text,
+                        "at {width}px {title:?} got {:?} of {text:?}",
+                        bounds.size.width
+                    );
+                }
+            }
+        }
+        futures::executor::block_on(runtime.shutdown()).unwrap();
     }
 
     #[test]

@@ -8,7 +8,6 @@ default = []
 mic = []
 language = []
 list = []
-app = []
 zoom = []
 sleep = []
 screen = ["dep:xcap", "dep:image"]
@@ -31,13 +30,14 @@ image = { workspace = true, features = ["jpeg"], optional = true }
 
 [target."cfg(target_os = \"macos\")".dependencies]
 anlg-bundle = { workspace = true }
+anlg-overlay-kit = { workspace = true }
 
 plist = "1.7"
 cidre = { workspace = true, features = ["ax"] }
 block2 = { workspace = true }
 
-objc2-foundation = { workspace = true, features = ["NSArray", "NSString"] }
-objc2-app-kit = { workspace = true, features = ["NSWorkspace", "NSRunningApplication", "libc"] }
+objc2-foundation = { workspace = true, features = ["NSArray", "NSData", "NSString"] }
+objc2-app-kit = { workspace = true, features = ["NSPasteboard", "NSRunningApplication", "NSWorkspace", "libc"] }
 objc2 = { workspace = true }
 objc2-core-foundation = { workspace = true }
 objc2-application-services = { workspace = true }
@@ -45,7 +45,7 @@ macos-accessibility-client = { workspace = true }
 
 [[example]]
 name = "detector"
-required-features = ["mic", "list", "zoom", "sleep", "app", "language"]
+required-features = ["mic", "list", "zoom", "sleep", "language"]
 
 # xcap's Linux backend links libgbm/EGL/PipeWire; Linux capture is not supported yet.
 [target."cfg(any(target_os = \"macos\", target_os = \"windows\"))".dependencies]

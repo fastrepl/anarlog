@@ -190,7 +190,7 @@ pub(crate) fn parse_instant(value: &str) -> Option<DateTime<Utc>> {
         })
 }
 
-pub(super) fn parse_color(value: &str) -> Option<Hsla> {
+pub(crate) fn parse_color(value: &str) -> Option<Hsla> {
     let hex = value.trim().strip_prefix('#')?;
     let expanded = match hex.len() {
         3 => hex.chars().flat_map(|c| [c, c]).collect::<String>(),
@@ -689,6 +689,9 @@ impl CalendarView {
         let (Some(&from), Some(&to)) = (days.first(), days.last()) else {
             return;
         };
+        // The providers fill in the shown days, not only the default sync window.
+        self.sync
+            .update(cx, |sync, cx| sync.sync_range(from, to, cx));
         self.cancel.cancel();
         self.cancel = CancellationToken::new();
         let generation = self.generation.advance();
@@ -2271,6 +2274,81 @@ impl Render for CalendarView {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    type Range = Option<(DateTime<Utc>, DateTime<Utc>)>;
+
+    /// Calendar accounts that record each sync's range.
+    #[derive(Default)]
+    struct Recorder(std::sync::Mutex<Vec<Range>>);
+
+    impl super::super::calendar_accounts::CalendarAccounts for Recorder {
+        fn connections(
+            &self,
+        ) -> futures::future::BoxFuture<
+            'static,
+            Result<Vec<super::super::calendar_accounts::Connection>>,
+        > {
+            Box::pin(async { Ok(Vec::new()) })
+        }
+        fn open(
+            &self,
+            _: super::super::calendar_sidebar::Provider,
+            _: super::super::calendar_accounts::Flow,
+            _: Option<Arc<str>>,
+        ) -> futures::future::BoxFuture<'static, Result<()>> {
+            Box::pin(async { Ok(()) })
+        }
+        fn apple_access(&self) -> super::super::calendar_accounts::AppleAccess {
+            super::super::calendar_accounts::AppleAccess::NotDetermined
+        }
+        fn request_apple(&self) -> futures::future::BoxFuture<'static, Result<()>> {
+            Box::pin(async { Ok(()) })
+        }
+        fn open_apple_settings(&self) -> Result<()> {
+            Ok(())
+        }
+        fn disconnect_apple(&self) -> futures::future::BoxFuture<'static, Result<()>> {
+            Box::pin(async { Ok(()) })
+        }
+        fn sync(&self, range: Range) -> futures::future::BoxFuture<'static, Result<()>> {
+            self.0.lock().unwrap().push(range);
+            Box::pin(async { Ok(()) })
+        }
+    }
+
+    /// Provider sync covered only a week back and a month ahead of today, so other months
+    /// never fetched their events.
+    #[gpui::test]
+    fn showing_another_month_syncs_its_days_from_the_providers(cx: &mut gpui::TestAppContext) {
+        cx.executor().allow_parking();
+        let directory = tempfile::tempdir().unwrap();
+        let (runtime, ready) = RuntimeHandle::start(desktop_runtime::Profile {
+            database: directory.path().join("library.sqlite"),
+        })
+        .unwrap();
+        futures::executor::block_on(ready.receive()).unwrap();
+        let accounts = Arc::new(Recorder::default());
+        let sync = cx.new(|_| super::super::calendar_accounts::CalendarSync::new());
+        sync.update(cx, |sync, cx| sync.set_services(Some(accounts.clone()), cx));
+        let view = cx.new(|cx| CalendarView::new(runtime.clone(), sync, cx));
+        view.update(cx, |view, cx| view.load(cx));
+        cx.run_until_parked();
+        // Refreshing the same days within a minute does not fetch them again.
+        view.update(cx, |view, cx| view.load(cx));
+        cx.run_until_parked();
+        let next = view.update(cx, |view, cx| {
+            view.step(1, cx);
+            view.visible_days()
+        });
+        cx.run_until_parked();
+        let ranges = accounts.0.lock().unwrap().clone();
+        assert_eq!(ranges.len(), 2, "{ranges:?}");
+        let (from, to) = ranges[1].expect("a visible range");
+        let midnight = |day: NaiveDate| day.and_hms_opt(0, 0, 0).unwrap().and_utc();
+        assert!(from <= midnight(next[0]));
+        assert!(to >= midnight(*next.last().unwrap() + Days::new(1)));
+        futures::executor::block_on(runtime.shutdown()).unwrap();
+    }
 
     #[test]
     fn week_start_prefers_the_setting_then_the_locale_region() {

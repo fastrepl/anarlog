@@ -269,19 +269,13 @@ fn is_browser(app: &MicApp) -> bool {
     BROWSER_APP_IDS.contains(&app.id.as_str())
 }
 
-/// Shipping's notification-icons resources: the shipping sources in debug builds, else the
-/// native resources directory.
-pub fn resources_dir() -> Option<std::path::PathBuf> {
-    if cfg!(debug_assertions) {
-        return Some(Path::new(env!("CARGO_MANIFEST_DIR")).join("../desktop/src-tauri/resources"));
-    }
-    std::env::var_os("ANARLOG_NATIVE_RESOURCES")
-        .map(Into::into)
-        .or_else(|| Some(std::env::current_exe().ok()?.parent()?.join("resources")))
+/// Shipping's notification icons: the shipping sources in debug builds, else the package's.
+pub fn notification_icons() -> Option<std::path::PathBuf> {
+    crate::platform::package::Resources::current().map(|resources| resources.notification_icons())
 }
 
 fn resource_icon(resources: Option<&Path>, file: &str) -> Option<NotificationIcon> {
-    let path = resources?.join("notification-icons").join(file);
+    let path = resources?.join(file);
     path.is_file().then(|| NotificationIcon::Path {
         path: path.to_string_lossy().into_owned(),
     })

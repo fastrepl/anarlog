@@ -17,6 +17,7 @@ fn context() -> SpeakerContext {
             self_names: vec!["지헌".into()],
             participants: vec![],
         }],
+        meetings: vec![],
     }
 }
 

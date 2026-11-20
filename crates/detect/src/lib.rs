@@ -1,11 +1,11 @@
-#[cfg(feature = "app")]
-mod app;
 mod error;
 #[cfg(feature = "language")]
 mod language;
 #[cfg(feature = "list")]
 mod list;
+pub mod meeting_automation;
 mod meeting_ax;
+pub mod meeting_chat;
 #[cfg(feature = "mic")]
 mod mic;
 #[cfg(feature = "screen")]
@@ -14,6 +14,8 @@ mod screen;
 mod sleep;
 
 mod utils;
+
+pub mod meeting_camera;
 
 pub use error::Error;
 
@@ -27,8 +29,6 @@ pub use utils::BackgroundTask;
 ))]
 mod zoom;
 
-#[cfg(feature = "app")]
-pub use app::*;
 #[cfg(feature = "language")]
 pub use language::*;
 #[cfg(feature = "list")]

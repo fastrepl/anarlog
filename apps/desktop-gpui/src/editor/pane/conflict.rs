@@ -68,7 +68,9 @@ impl EditorPane {
         .detach();
     }
 
-    /// Version history's Restore: the note becomes `body` in one edit that autosaves.
+    /// Version history's Restore and the banner's "Use the other version": the note becomes
+    /// `body` in one undoable edit, and the task ends once that edit is saved (shipping awaits
+    /// the write), so a conflict is only dismissed for content that is stored.
     pub fn restore(
         &mut self,
         body: Arc<str>,
@@ -78,17 +80,22 @@ impl EditorPane {
         let job = self.parse_stored(body, format, cx);
         cx.spawn(async move |this, cx| {
             let document = job.await?;
-            this.update(cx, |this, cx| {
-                let model = this.model.as_mut().ok_or("The note is still loading.")?;
-                if model.composing() {
-                    return Err("Finish composition before restoring.".to_string());
-                }
-                let before = model.revision;
-                let result = model.replace_all(document);
-                this.edited(before, result.clone(), cx);
-                result
-            })
-            .map_err(|_| "The note was closed.".to_string())?
+            let saved = this
+                .update(cx, |this, cx| {
+                    let model = this.model.as_mut().ok_or("The note is still loading.")?;
+                    if model.composing() {
+                        return Err("Finish composition before restoring.".to_string());
+                    }
+                    let before = model.revision;
+                    let result = model.replace_all(document);
+                    this.edited(before, result.clone(), cx);
+                    result.map(|()| this.flush())
+                })
+                .map_err(|_| "The note was closed.".to_string())??;
+            saved
+                .await
+                .map_err(|_| "The note was closed.".to_string())?
+                .map_err(|error| format!("The restored version was not saved: {error}"))
         })
     }
 
@@ -242,11 +249,14 @@ mod tests {
             (true, "Mine one", "Theirs one"),
             (false, "Mine two", "Theirs two"),
         ] {
-            editor
-                .update(cx, |editor, cx| {
-                    editor.restore(paragraph(mine).into(), "prosemirror_json".into(), cx)
-                })
-                .detach();
+            // An edit left to the debounced save, unlike Restore, which saves at once.
+            editor.update(cx, |editor, cx| {
+                let model = editor.model.as_mut().unwrap();
+                let before = model.revision;
+                let result = Document::parse(paragraph(mine).into())
+                    .and_then(|document| model.replace_all(document));
+                editor.edited(before, result, cx);
+            });
             wait(cx, "edit", |cx| {
                 editor.read_with(cx, |editor, _| editor.is_dirty())
             });
@@ -278,6 +288,42 @@ mod tests {
                     })
             });
         }
+
+        // A restore once reported success before its save, so the banner dismissed a conflict
+        // whose chosen version was never stored.
+        execute(
+            &runtime,
+            "UPDATE session_documents SET body = ?,
+               updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '+2 seconds')
+             WHERE id = 's'",
+            vec![json!(paragraph("Theirs three"))],
+        );
+        wait(cx, "remote revision", |cx| {
+            editor.read_with(cx, |editor, _| editor.external.is_some())
+        });
+        let restore = editor.update(cx, |editor, cx| {
+            editor.restore(
+                paragraph("Mine three").into(),
+                "prosemirror_json".into(),
+                cx,
+            )
+        });
+        let restored = std::rc::Rc::new(std::cell::RefCell::new(None));
+        let result = restored.clone();
+        cx.spawn(|_| async move { *result.borrow_mut() = Some(restore.await) })
+            .detach();
+        wait(cx, "restore", |_| restored.borrow().is_some());
+        assert!(restored.borrow_mut().take().unwrap().is_err());
+        assert!(body().contains("Theirs three"));
+        wait(cx, "restore conflict", |cx| {
+            editor.read_with(cx, |editor, _| editor.save_conflict())
+        });
+        editor.update(cx, |editor, cx| editor.use_external(cx));
+        wait(cx, "restore resolved", |cx| {
+            editor.read_with(cx, |editor, _| {
+                !editor.is_dirty() && !editor.save_conflict()
+            })
+        });
         drop(editor);
         cx.update(|cx| {
             window

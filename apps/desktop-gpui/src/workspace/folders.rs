@@ -1,13 +1,20 @@
-use std::{io::Read, path::PathBuf, sync::Arc};
+use std::{
+    io::Read,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
-use anlg_db_execute::DbExecutor;
+use anlg_db_execute::{DbExecutor, TransactionStatement};
 use anlg_fs_sync_core::{FsSyncCore, normalize_folder_path};
 use desktop_runtime::{CancellationToken, Reply, Result, RuntimeHandle, ServiceError};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
-use super::mutations::{NOW, cas, failure, statement, transaction};
+use super::{
+    calendar_rules,
+    mutations::{NOW, cas, failure, statement, transaction},
+};
 
 #[derive(Clone)]
 pub struct Material {
@@ -44,7 +51,7 @@ pub fn material_command(
                 std::fs::File::open(&path).map_err(failure)?.take(32*1024*1024+1).read_to_end(&mut bytes).map_err(failure)?;
                 if bytes.len()>32*1024*1024 {return Err(failure("Materials are limited to 32 MiB"));}
                 let content_type=match path.extension().and_then(|ext| ext.to_str()) {Some("pdf")=>"application/pdf",Some("md")=>"text/markdown",Some("txt")=>"text/plain",_=>"application/octet-stream"};
-                let fs=filesystem(executor).await?;
+                let fs=filesystem(&services.vault);
                 let saved=fs.folder_attachment_save(&folder,&bytes,name).map_err(failure)?;
                 let checksum=Sha256::digest(&bytes).iter().map(|byte| format!("{byte:02x}")).collect::<String>();
                 let result=transaction(executor,vec![statement("INSERT INTO folder_attachments(id,folder_path,filename,relative_path,content_type,size_bytes,sha256,source_id) VALUES (?,?,?,?,?,?,?,?)".into(),vec![json!(Uuid::new_v4().to_string()),json!(folder),json!(name),json!(format!("materials/{}",saved.attachment_id)),json!(content_type),json!(bytes.len()),json!(checksum),json!(saved.attachment_id)],Some(1))]).await;
@@ -55,35 +62,24 @@ pub fn material_command(
     })
 }
 
-pub(super) async fn filesystem(executor: &DbExecutor) -> Result<FsSyncCore> {
-    let rows = executor
-        .execute(
-            "SELECT file FROM pragma_database_list WHERE name='main'".into(),
-            vec![],
-        )
-        .await
-        .map_err(failure)?;
-    let database = rows
-        .first()
-        .and_then(|row| row["file"].as_str())
-        .filter(|path| !path.is_empty())
-        .ok_or_else(|| failure("The profile has no filesystem root"))?;
-    let root = PathBuf::from(database)
-        .parent()
-        .ok_or_else(|| failure("Invalid profile path"))?
-        .join("vault");
-    Ok(FsSyncCore::new(root))
+pub(super) fn filesystem(vault: &Path) -> FsSyncCore {
+    FsSyncCore::new(vault.to_path_buf())
 }
 
 /// Renames the folder row `base` to `path` on disk and in the catalog, moving nested
 /// folders, notes and materials.
-async fn rename_row(executor: &DbExecutor, base: Value, path: &str) -> Result<()> {
+async fn rename_row(executor: &DbExecutor, vault: &Path, base: Value, path: &str) -> Result<()> {
     let path = normalize_folder_path(path.trim()).map_err(failure)?;
     if path.is_empty() {
         return Err(failure("A folder name is required"));
     }
-    let fs = filesystem(executor).await?;
+    let fs = filesystem(vault);
     let old = base["path"].as_str();
+    // Read before the files move: a failed read after the rename would skip its rollback.
+    let rules = match old.filter(|old| *old != path) {
+        Some(old) => series_rules(executor, old, Some(&path)).await?,
+        None => None,
+    };
     if old != Some(&path) {
         let collision = executor
             .execute(
@@ -129,6 +125,7 @@ async fn rename_row(executor: &DbExecutor, base: Value, path: &str) -> Result<()
             statements.push(statement(format!("UPDATE {table} SET {column}=?1 || substr({column},length(?2)+1),updated_at={NOW} WHERE deleted_at IS NULL AND ({column}=?2 OR substr({column},1,length(?2)+1)=?2 || '/')"),
                 vec![json!(path),json!(old)],None));
         }
+        statements.extend(rules);
     }
     let segments = path.split('/').collect::<Vec<_>>();
     for count in 1..segments.len() {
@@ -147,10 +144,11 @@ async fn rename_row(executor: &DbExecutor, base: Value, path: &str) -> Result<()
     Ok(())
 }
 
-async fn remove(executor: &DbExecutor, base: Value) -> Result<()> {
+async fn remove(executor: &DbExecutor, vault: &Path, base: Value) -> Result<()> {
     let path = base["path"].as_str().ok_or(ServiceError::Conflict)?;
-    let fs = filesystem(executor).await?;
+    let fs = filesystem(vault);
     let rows = executor.execute("SELECT id,folder_path FROM sessions WHERE deleted_at IS NULL AND (folder_path=?1 OR substr(folder_path,1,length(?1)+1)=?1 || '/')".into(),vec![json!(path)]).await.map_err(failure)?;
+    let rules = series_rules(executor, path, None).await?;
     let mut moved = Vec::new();
     for row in &rows {
         let id = row["id"].as_str().unwrap_or("");
@@ -177,12 +175,39 @@ async fn remove(executor: &DbExecutor, base: Value) -> Result<()> {
     for row in &rows {
         statements.push(statement(format!("UPDATE sessions SET folder_path='',updated_at={NOW} WHERE id=? AND folder_path=? AND deleted_at IS NULL"),vec![row["id"].clone(),row["folder_path"].clone()],Some(1)));
     }
+    statements.extend(rules);
     if let Err(error) = transaction(executor, statements).await {
         rollback_moves(&fs, &moved)?;
         return Err(error);
     }
     // Keep material files for recovery of the soft-deleted catalog rows.
     Ok(())
+}
+
+/// Keeps recurring-meeting filing rules on a renamed folder, or drops them with a deleted one,
+/// in the same transaction as the folder change.
+async fn series_rules(
+    executor: &DbExecutor,
+    from: &str,
+    to: Option<&str>,
+) -> Result<Option<TransactionStatement>> {
+    let rows = executor
+        .execute(
+            "SELECT value_json FROM app_settings WHERE id=?".into(),
+            vec![json!(calendar_rules::RULES_ID)],
+        )
+        .await
+        .map_err(failure)?;
+    let stored = rows.first().and_then(|row| row["value_json"].as_str());
+    Ok(calendar_rules::folder_moved(stored, from, to).map(|rules| {
+        statement(
+            format!(
+                "UPDATE app_settings SET value_json=?,updated_at={NOW} WHERE id=? AND value_json=?"
+            ),
+            vec![json!(rules), json!(calendar_rules::RULES_ID), json!(stored)],
+            Some(1),
+        )
+    }))
 }
 
 fn rollback_moves(fs: &FsSyncCore, moved: &[(&str, &str)]) -> Result<()> {
@@ -198,6 +223,7 @@ fn rollback_moves(fs: &FsSyncCore, moved: &[(&str, &str)]) -> Result<()> {
 
 pub(super) async fn move_notes(
     executor: &DbExecutor,
+    vault: &Path,
     ids: &[Value],
     destination: &str,
 ) -> Result<()> {
@@ -214,7 +240,7 @@ pub(super) async fn move_notes(
     {
         return Err(failure("Choose an existing folder"));
     }
-    let fs = filesystem(executor).await?;
+    let fs = filesystem(vault);
     let rows = executor.execute("SELECT id,folder_path,updated_at FROM sessions WHERE id IN(SELECT value FROM json_each(?)) AND deleted_at IS NULL".into(),vec![json!(ids).to_string().into()]).await.map_err(failure)?;
     if rows.len() != ids.len() {
         return Err(ServiceError::Conflict);
@@ -349,8 +375,7 @@ pub fn create(runtime: &RuntimeHandle, path: Arc<str>) -> Result<Reply<Arc<str>>
     runtime.submit(move |services| async move {
         let path = named(&path)?;
         ensure(&services.executor, &path).await?;
-        filesystem(&services.executor)
-            .await?
+        filesystem(&services.vault)
             .create_folder(&path)
             .map_err(failure)?;
         Ok(path.into())
@@ -362,7 +387,7 @@ pub fn rename(runtime: &RuntimeHandle, old: Arc<str>, new: Arc<str>) -> Result<R
     runtime.submit(move |services| async move {
         let new = named(&new)?;
         let base = ensure(&services.executor, &old).await?;
-        rename_row(&services.executor, base, &new).await?;
+        rename_row(&services.executor, &services.vault, base, &new).await?;
         Ok(new.into())
     })
 }
@@ -371,7 +396,7 @@ pub fn rename(runtime: &RuntimeHandle, old: Arc<str>, new: Arc<str>) -> Result<R
 pub fn delete(runtime: &RuntimeHandle, path: Arc<str>) -> Result<Reply<()>> {
     runtime.submit(move |services| async move {
         let base = ensure(&services.executor, &path).await?;
-        remove(&services.executor, base).await?;
+        remove(&services.executor, &services.vault, base).await?;
         Ok(())
     })
 }

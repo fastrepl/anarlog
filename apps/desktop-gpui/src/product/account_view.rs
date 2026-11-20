@@ -456,6 +456,9 @@ impl ProductPane {
             .as_ref()
             .is_none_or(|(current, _)| *current != key)
         {
+            if let Some((_, card)) = &self.profile {
+                card.update(cx, |card, cx| card.flush(cx));
+            }
             let user = account
                 .user
                 .as_ref()

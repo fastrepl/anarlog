@@ -18,6 +18,50 @@ pub fn needed(stored: Option<&serde_json::Value>) -> bool {
     stored.and_then(serde_json::Value::as_bool).unwrap_or(true)
 }
 
+/// Finishes onboarding, and in a channel run also records it in `store.json`, where the
+/// shipping app reads it after a rollback.
+pub async fn complete(
+    runtime: &desktop_runtime::RuntimeHandle,
+    shipping: Option<std::sync::Arc<anlg_desktop_identity::store_json::StoreJson>>,
+) -> desktop_runtime::Result<desktop_runtime::SessionId> {
+    let welcome = crate::product::local::data::complete_onboarding(runtime).await?;
+    if let Some(store) = shipping {
+        use crate::shipping_store::{DESKTOP, ONBOARDING_NEEDED, write};
+        runtime
+            .service(move |_| write(store, DESKTOP, ONBOARDING_NEEDED, false.into()))?
+            .receive()
+            .await?;
+    }
+    Ok(welcome)
+}
+
+/// A channel run counts an onboarding the shipping app finished, which it records only in
+/// `store.json`. Run before anything reads [`NEEDED_KEY`].
+pub async fn import_shipping(
+    runtime: &desktop_runtime::RuntimeHandle,
+    store: std::sync::Arc<anlg_desktop_identity::store_json::StoreJson>,
+) -> desktop_runtime::Result<()> {
+    use crate::shipping_store::{DESKTOP, ONBOARDING_NEEDED};
+    runtime
+        .submit(move |services| async move {
+            let stored = crate::shipping_store::read(store, DESKTOP, ONBOARDING_NEEDED).await?;
+            if needed(stored.as_ref()) {
+                return Ok(());
+            }
+            services
+                .executor
+                .execute(
+                    "INSERT INTO app_settings (id, value_json) VALUES (?1, 'false') ON CONFLICT(id) DO UPDATE SET value_json = excluded.value_json, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE app_settings.value_json IS NOT excluded.value_json".into(),
+                    vec![serde_json::json!(NEEDED_KEY)],
+                )
+                .await
+                .map(|_| ())
+                .map_err(|error| desktop_runtime::ServiceError::Failed(error.to_string().into()))
+        })?
+        .receive()
+        .await
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Step {
     Permissions,

@@ -74,8 +74,11 @@ impl Harness {
                         ApplicationView::new(
                             runtime,
                             ready,
-                            profile.clone(),
-                            profile.with_extension("storage.json"),
+                            desktop_gpui::launch::Storage {
+                                channel: None,
+                                root: profile.clone(),
+                                pointer: Some(profile.with_extension("storage.json")),
+                            },
                             window,
                             cx,
                         )
@@ -97,18 +100,24 @@ impl Harness {
 
     /// Lets runtime replies and timers land, then draws so the tree is current.
     pub fn settle(&self) {
+        // Rendering can create views that start asynchronous queries (e.g. Transcript).
+        // Start those before draining their replies, rather than on the final draw.
+        self.draw();
         for _ in 0..20 {
             self.platform
                 .dispatcher
                 .advance_clock(Duration::from_millis(50));
             self.platform.dispatcher.run_until_parked();
             std::thread::sleep(Duration::from_millis(10));
+            self.draw();
         }
-        self.draw();
     }
 
     fn draw(&self) {
-        let window: AnyWindowHandle = self.window.into();
+        self.draw_window(self.window.into());
+    }
+
+    fn draw_window(&self, window: AnyWindowHandle) {
         self.app.update(|cx| {
             cx.update_window(window, |_, window, cx| window.draw(cx).clear(cx))
                 .unwrap()
@@ -117,10 +126,15 @@ impl Harness {
     }
 
     pub fn tree(&self) -> Tree {
+        self.window_tree(self.window.into())
+    }
+
+    /// The tree of another window the app opened, such as a standalone note.
+    pub fn window_tree(&self, window: AnyWindowHandle) -> Tree {
         // The first frame after activation only turns the builder on.
-        self.draw();
-        self.draw();
-        let state = self.platform.window(self.window.into());
+        self.draw_window(window);
+        self.draw_window(window);
+        let state = self.platform.window(window);
         let state = state.borrow();
         Tree::new(state.tree.as_ref().expect("an accessibility tree update"))
     }

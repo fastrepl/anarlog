@@ -12,7 +12,7 @@ pub struct CloudConfig {
     pub web: Url,
     pub anon_key: String,
     pub callback: Url,
-    pub credential_namespace: String,
+    pub secrets: super::SecretNames,
     pub device_fingerprint: String,
     pub device_name: String,
 }
@@ -32,7 +32,7 @@ impl CloudConfig {
                 ));
             }
         }
-        if self.credential_namespace.is_empty()
+        if matches!(&self.secrets, super::SecretNames::Sandbox(namespace) if namespace.is_empty())
             || self.anon_key.is_empty()
             || self.device_fingerprint.is_empty()
             || self.callback.query().is_some()

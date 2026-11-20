@@ -2,6 +2,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::{
     hotkey::HotKey,
+    key_event::KeyEvent,
     processor::{HotKeyProcessor, Options, Output},
     tap::{EventTap, TapError, TapEvent},
 };
@@ -26,6 +27,7 @@ impl Listener {
                 let mut p = processor.lock().unwrap_or_else(|e| e.into_inner());
                 let out = match event {
                     TapEvent::Key(k) => p.process_key(k),
+                    TapEvent::KeyUp(k) => p.process_key(KeyEvent::new(None, k.modifiers)),
                     TapEvent::MouseClick => p.process_mouse_click(),
                 };
                 let consume = hotkey.is_modifier_only()
