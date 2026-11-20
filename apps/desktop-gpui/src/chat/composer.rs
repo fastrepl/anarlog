@@ -529,6 +529,9 @@ impl Composer {
         let key = event.keystroke.key.as_str();
         let modifiers = event.keystroke.modifiers;
         let secondary = modifiers.secondary(cx);
+        let macos = cfg!(target_os = "macos");
+        let line = macos && modifiers.platform;
+        let word = modifiers.alt || (!macos && modifiers.control);
         if let Some(caret) = &self.caret {
             Caret::reset_entity(caret, cx);
         }
@@ -598,7 +601,7 @@ impl Composer {
                 self.refresh(cx);
                 true
             }
-            "left" | "right" if secondary => {
+            "left" | "right" if line => {
                 if let Some(target) = self.line_edge(key == "right") {
                     self.move_to(target, shift, cx);
                 }
@@ -610,7 +613,7 @@ impl Composer {
                 }
                 true
             }
-            "left" | "right" if modifiers.alt => {
+            "left" | "right" if word => {
                 self.apply(|model| model.move_word(key == "right", shift), cx);
                 true
             }
@@ -618,7 +621,7 @@ impl Composer {
                 self.apply(|model| model.move_grapheme(key == "right", shift), cx);
                 true
             }
-            "backspace" if secondary => {
+            "backspace" if line => {
                 if self.model.selection.is_empty()
                     && let Some(start) = self.line_edge(false)
                 {
@@ -631,7 +634,7 @@ impl Composer {
                 self.apply(|model| model.replace(model.selection.range(), ""), cx);
                 true
             }
-            "backspace" | "delete" if modifiers.alt => {
+            "backspace" | "delete" if word => {
                 self.apply(
                     |model| {
                         if model.selection.is_empty() {
@@ -1800,5 +1803,49 @@ mod tests {
             std::thread::sleep(std::time::Duration::from_millis(5));
         }
         composer.read_with(cx, |composer, _| assert!(!composer.has_content()));
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    #[gpui::test]
+    fn control_moves_and_deletes_one_word_in_the_composer(cx: &mut gpui::TestAppContext) {
+        cx.executor().allow_parking();
+        let directory = tempfile::tempdir().unwrap();
+        let (runtime, ready) = RuntimeHandle::start(desktop_runtime::Profile {
+            database: directory.path().join("library.sqlite"),
+        })
+        .unwrap();
+        futures::executor::block_on(ready.receive()).unwrap();
+        cx.update(crate::ui::theme::UiFonts::init);
+        let (composer, cx) =
+            cx.add_window_view(|_, cx| Composer::new(runtime.clone(), SearchIndex::default(), cx));
+        composer.update(cx, |composer, cx| {
+            composer.set_doc(
+                &doc(json!([{"type": "paragraph", "content": [
+                    {"type": "text", "text": "one two three"}
+                ]}])),
+                true,
+                cx,
+            );
+        });
+        cx.update(|window, cx| {
+            composer.read(cx).focus_handle(cx).focus(window, cx);
+            window.draw(cx).clear(cx);
+        });
+        for key in ["ctrl-right", "ctrl-right", "ctrl-left", "ctrl-delete"] {
+            cx.update(|window, cx| {
+                window.dispatch_keystroke(gpui::Keystroke::parse(key).unwrap(), cx);
+            });
+        }
+        assert_eq!(
+            composer.read_with(cx, |composer, _| composer.text()),
+            "one  three"
+        );
+        cx.update(|window, cx| {
+            window.dispatch_keystroke(gpui::Keystroke::parse("ctrl-backspace").unwrap(), cx);
+        });
+        assert_eq!(
+            composer.read_with(cx, |composer, _| composer.text()),
+            " three"
+        );
     }
 }
