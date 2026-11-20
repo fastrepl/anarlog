@@ -37,5 +37,9 @@ anlg-dictation-ui-macos = { workspace = true }
 [target.'cfg(target_os = "linux")'.dependencies]
 atspi = { version = "0.25", default-features = false, features = ["tokio"] }
 
+[target.'cfg(target_os = "linux")'.dev-dependencies]
+tokio = { workspace = true, features = ["net"] }
+zbus = { version = "5", default-features = false, features = ["tokio", "p2p"] }
+
 [target.'cfg(target_os = "windows")'.dependencies]
 windows = { workspace = true, features = ["Win32_Foundation", "Win32_Media_Audio", "Win32_Media_Audio_Endpoints", "Win32_System_Com", "Win32_System_Com_StructuredStorage", "Win32_System_Ole", "Win32_System_Threading", "Win32_System_Variant", "Win32_UI_Accessibility", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging"] }

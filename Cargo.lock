@@ -16914,6 +16914,7 @@ dependencies = [
  "tokio-util",
  "url",
  "windows 0.62.2",
+ "zbus",
 ]
 
 [[package]]
