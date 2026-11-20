@@ -30,20 +30,7 @@ pub fn validate(text: &str) -> Result<()> {
 pub struct NativeInsertion;
 
 #[cfg(target_os = "windows")]
-#[path = "insertion_windows.rs"]
 mod windows;
-
-#[cfg(target_os = "windows")]
-impl Insertion for NativeInsertion {
-    fn capture(&self) -> Result<String> {
-        windows::capture().map_err(|error| ServiceError::Failed(error.into()))
-    }
-
-    fn insert(&self, target: &str, text: &str) -> Result<()> {
-        validate(text)?;
-        windows::insert(target, text).map_err(|error| ServiceError::Failed(error.into()))
-    }
-}
 
 #[cfg(target_os = "macos")]
 impl Insertion for NativeInsertion {
@@ -59,7 +46,8 @@ impl Insertion for NativeInsertion {
     }
 }
 
-// Shipping's AT-SPI insertion lives inside its Tauri plugin.
+// Shipping's AT-SPI insertion lives inside its Tauri plugin. Linux insertion (#8229) narrows
+// this same fallback; whichever of the two lands second excludes both platforms here.
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
 impl Insertion for NativeInsertion {
     fn capture(&self) -> Result<String> {

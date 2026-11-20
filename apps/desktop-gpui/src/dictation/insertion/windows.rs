@@ -1,11 +1,30 @@
-//! Windows UI Automation target validation and Unicode input, matching shipping's dictation plugin.
+//! Windows UI Automation target validation and Unicode input, matching shipping's dictation
+//! plugin (`plugins/dictation/src/insertion/windows.rs`).
 
 use std::time::{Duration, Instant};
 
+use desktop_runtime::{Result as ServiceResult, ServiceError};
 use windows::Win32::{
     System::{Com::*, Ole::*, Variant::VariantToBoolean},
     UI::{Accessibility::*, Input::KeyboardAndMouse::*},
 };
+
+use super::{Insertion, NativeInsertion, validate};
+
+impl Insertion for NativeInsertion {
+    fn capture(&self) -> ServiceResult<String> {
+        with_focused(|element| identity(&element)).map_err(failed)
+    }
+
+    fn insert(&self, target: &str, text: &str) -> ServiceResult<()> {
+        validate(text)?;
+        insert(target, text).map_err(failed)
+    }
+}
+
+fn failed(message: String) -> ServiceError {
+    ServiceError::Failed(message.into())
+}
 
 struct Com;
 
@@ -86,11 +105,7 @@ fn identity(element: &IUIAutomationElement) -> Result<String, String> {
     }
 }
 
-pub(super) fn capture() -> Result<String, String> {
-    with_focused(|element| identity(&element))
-}
-
-pub(super) fn insert(target: &str, text: &str) -> Result<(), String> {
+fn insert(target: &str, text: &str) -> Result<(), String> {
     let deadline = Instant::now() + Duration::from_secs(2);
     while [VK_CONTROL, VK_MENU, VK_SHIFT, VK_LWIN, VK_RWIN]
         .iter()
