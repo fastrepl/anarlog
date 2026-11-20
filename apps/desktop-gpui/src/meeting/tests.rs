@@ -22,6 +22,7 @@ struct Fixture {
     session: SessionId,
     transcript: Arc<str>,
     directory: PathBuf,
+    tempdir: tempfile::TempDir,
 }
 
 impl Fixture {
@@ -751,9 +752,8 @@ async fn interrupted_mock_capture_recovers_through_configured_batch_provider() {
 
 impl Fixture {
     async fn new() -> Self {
-        let directory =
-            std::env::temp_dir().join(format!("anarlog-meeting-{}", uuid::Uuid::new_v4()));
-        std::fs::create_dir(&directory).unwrap();
+        let tempdir = tempfile::tempdir().unwrap();
+        let directory = tempdir.path().to_path_buf();
         let (runtime, ready) = RuntimeHandle::start(Profile {
             database: directory.join("db.sqlite"),
         })
@@ -781,6 +781,7 @@ impl Fixture {
             session,
             transcript,
             directory,
+            tempdir,
         }
     }
 
@@ -811,7 +812,7 @@ impl Fixture {
 
     async fn close(self) {
         self.runtime.shutdown().await.unwrap();
-        std::fs::remove_dir_all(self.directory).unwrap();
+        self.tempdir.close().unwrap();
     }
 }
 

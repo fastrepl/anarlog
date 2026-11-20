@@ -1,9 +1,4 @@
-use std::{
-    fs,
-    path::PathBuf,
-    sync::atomic::{AtomicU64, Ordering},
-    time::Instant,
-};
+use std::time::Instant;
 
 use desktop_runtime::{Profile, RuntimeHandle};
 use futures::executor::block_on;
@@ -132,23 +127,15 @@ fn oversized_values_are_errors_not_empty_successes() {
 }
 
 struct Fixture {
-    directory: PathBuf,
+    directory: tempfile::TempDir,
     runtime: RuntimeHandle,
 }
 
 impl Fixture {
     async fn start() -> Self {
-        static SEQUENCE: AtomicU64 = AtomicU64::new(0);
-        let directory = PathBuf::from(std::env::var_os("HOME").expect("test HOME"))
-            .join(".cache/anarlog-gpui-product-tests")
-            .join(format!(
-                "{}-{}",
-                std::process::id(),
-                SEQUENCE.fetch_add(1, Ordering::Relaxed)
-            ));
-        fs::create_dir_all(&directory).unwrap();
+        let directory = tempfile::tempdir().unwrap();
         let (runtime, ready) = RuntimeHandle::start(Profile {
-            database: directory.join("library.sqlite"),
+            database: directory.path().join("library.sqlite"),
         })
         .unwrap();
         ready.receive().await.unwrap();
@@ -195,7 +182,6 @@ impl Drop for Fixture {
     fn drop(&mut self) {
         let runtime = self.runtime.clone();
         let _ = std::thread::spawn(move || block_on(runtime.shutdown())).join();
-        let _ = fs::remove_dir_all(&self.directory);
     }
 }
 
@@ -251,7 +237,7 @@ fn canonical_database_writes_are_durable_independent_and_conflict_checked() {
         );
         fixture.runtime.shutdown().await.unwrap();
         let (runtime, ready) = RuntimeHandle::start(Profile {
-            database: fixture.directory.join("library.sqlite"),
+            database: fixture.directory.path().join("library.sqlite"),
         })
         .unwrap();
         ready.receive().await.unwrap();
