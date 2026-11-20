@@ -32,6 +32,9 @@ pub struct NativeInsertion;
 #[cfg(target_os = "linux")]
 mod linux;
 
+#[cfg(target_os = "windows")]
+mod windows;
+
 #[cfg(target_os = "macos")]
 impl Insertion for NativeInsertion {
     fn capture(&self) -> Result<String> {
@@ -46,7 +49,7 @@ impl Insertion for NativeInsertion {
     }
 }
 
-#[cfg(not(any(target_os = "macos", target_os = "linux")))]
+#[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
 impl Insertion for NativeInsertion {
     fn capture(&self) -> Result<String> {
         Err(ServiceError::Unsupported(
