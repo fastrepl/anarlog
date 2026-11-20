@@ -971,6 +971,7 @@ dependencies = [
  "atspi-common 0.9.0",
  "atspi-connection",
  "atspi-proxies 0.9.0",
+ "zbus",
 ]
 
 [[package]]
@@ -3184,6 +3185,7 @@ dependencies = [
  "apple-todo",
  "arboard",
  "ashpd 0.11.1",
+ "atspi 0.25.0",
  "audio",
  "audio-actual",
  "audio-mock",
