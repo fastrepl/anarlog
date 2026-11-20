@@ -974,6 +974,7 @@ name = "audio"
 version = "0.1.0"
 dependencies = [
  "futures-util",
+ "serde",
  "thiserror 2.0.18",
 ]
 
@@ -991,7 +992,6 @@ dependencies = [
  "cidre",
  "cpal",
  "dasp",
- "ebur128",
  "futures-util",
  "libpulse-binding",
  "pin-project",
@@ -3086,6 +3086,7 @@ dependencies = [
  "db-app",
  "db-execute",
  "db-sync",
+ "desktop-identity",
  "desktop-runtime",
  "detect",
  "dictation-ui-macos",
@@ -3113,6 +3114,7 @@ dependencies = [
  "meeting-import",
  "mime_guess",
  "model-downloader",
+ "nix",
  "notification-interface",
  "notification-linux",
  "notification-macos",
@@ -3156,8 +3158,24 @@ dependencies = [
  "unicode-width",
  "url",
  "uuid",
+ "windows 0.62.2",
  "wiremock",
  "zeroize",
+]
+
+[[package]]
+name = "desktop-identity"
+version = "0.1.0"
+dependencies = [
+ "dirs",
+ "gethostname",
+ "host",
+ "keyring",
+ "security-framework",
+ "serde_json",
+ "storage",
+ "tracing",
+ "uuid",
 ]
 
 [[package]]
@@ -3168,6 +3186,7 @@ dependencies = [
  "db-core",
  "db-execute",
  "db-reactive",
+ "desktop-identity",
  "futures",
  "icu_collator",
  "icu_locale_core",
@@ -3180,6 +3199,7 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "tokio-util",
+ "tracing",
  "updater-core",
  "url",
  "uuid",
@@ -3202,6 +3222,7 @@ dependencies = [
  "objc2-application-services",
  "objc2-core-foundation",
  "objc2-foundation 0.3.2",
+ "overlay-kit",
  "plist",
  "serde",
  "specta",
@@ -3217,6 +3238,7 @@ dependencies = [
  "xcap",
  "zbus",
 ]
+
 [[package]]
 name = "deunicode"
 version = "1.6.2"
@@ -3453,18 +3475,6 @@ name = "earshot"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "88d6e21bffead7abb6d9202cfb3285b34b2e750335d8cf3460b004f886c6f6db"
-
-[[package]]
-name = "ebur128"
-version = "0.1.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e227cc62d64d6fe01abbef48134b9c1f17d470cef1e7a56337ad05b1f81df7f9"
-dependencies = [
- "bitflags 1.3.2",
- "dasp_frame",
- "dasp_sample",
- "smallvec 1.15.1",
-]
 
 [[package]]
 name = "ecow"
@@ -8064,9 +8074,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "96c1358452b371bf9f104e21ec536d37a650eb10f7ee379fff67d2e08d537f1f"
 dependencies = [
  "bitflags 2.13.2",
+ "block2 0.6.2",
+ "libc",
  "objc2 0.6.4",
  "objc2-core-foundation",
  "objc2-core-graphics",
+ "objc2-core-video",
  "objc2-foundation 0.3.2",
  "objc2-metal 0.3.2",
 ]
@@ -8436,6 +8449,20 @@ name = "outref"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1a80800c0488c3a21695ea981a54918fbb37abf04f4d0720c453632255e2ff0e"
+
+[[package]]
+name = "overlay-kit"
+version = "0.1.0"
+dependencies = [
+ "block2 0.6.2",
+ "dispatch2",
+ "objc2 0.6.4",
+ "objc2-app-kit 0.3.2",
+ "objc2-core-foundation",
+ "objc2-core-graphics",
+ "objc2-foundation 0.3.2",
+ "objc2-quartz-core 0.3.2",
+]
 
 [[package]]
 name = "owhisper-client"
@@ -12777,6 +12804,7 @@ dependencies = [
 name = "transcript"
 version = "0.1.0"
 dependencies = [
+ "audio",
  "json-patch",
  "owhisper-interface",
  "regex",

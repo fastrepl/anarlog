@@ -30,6 +30,7 @@ tauri-plugin-auth = { workspace = true }
 tauri-plugin-autostart = { workspace = true }
 tauri-plugin-bedrock = { workspace = true }
 tauri-plugin-calendar = { workspace = true }
+tauri-plugin-camera-watermark = { workspace = true }
 tauri-plugin-clipboard-manager = { workspace = true }
 tauri-plugin-db = { workspace = true }
 tauri-plugin-deep-link = { workspace = true }
@@ -85,15 +86,19 @@ tauri-plugin-updater2 = { workspace = true }
 tauri-plugin-window-state = { workspace = true }
 tauri-plugin-windows = { workspace = true }
 
+anlg-audio = { workspace = true }
 anlg-audio-actual = { workspace = true }
 anlg-audio-mock = { workspace = true, optional = true }
+anlg-bundle = { workspace = true }
 anlg-db-app = { workspace = true }
 anlg-db-core = { workspace = true }
 anlg-db-sync = { workspace = true }
+anlg-desktop-identity = { workspace = true }
 anlg-host = { workspace = true }
 anlg-intercept = { workspace = true }
 anlg-storage = { workspace = true }
 anlg-supervisor = { workspace = true }
+anlg-transcription-core = { workspace = true }
 
 chrono = { workspace = true }
 dirs = { workspace = true }

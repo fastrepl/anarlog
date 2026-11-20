@@ -98,24 +98,6 @@ pub fn plan(
 ) -> Vec<(&'static str, String)> {
     let mut rules = parse_rules(rules);
     let mut declined = parse_declined(declined);
-    // Serialized like shipping's `JSON.stringify` of `{series_id, folder_path}` entries.
-    #[derive(serde::Serialize)]
-    struct Rule<'a> {
-        series_id: &'a str,
-        folder_path: &'a str,
-    }
-    let encode_rules = |rules: &[(String, String)]| {
-        serde_json::to_string(
-            &rules
-                .iter()
-                .map(|(series_id, folder_path)| Rule {
-                    series_id,
-                    folder_path,
-                })
-                .collect::<Vec<_>>(),
-        )
-        .unwrap_or_default()
-    };
     let mut writes = vec![];
     match change {
         RuleChange::Set(folder) => {
@@ -145,6 +127,49 @@ pub fn plan(
         }
     }
     writes
+}
+
+/// Serialized like shipping's `JSON.stringify` of `{series_id, folder_path}` entries.
+fn encode_rules(rules: &[(String, String)]) -> String {
+    #[derive(serde::Serialize)]
+    struct Rule<'a> {
+        series_id: &'a str,
+        folder_path: &'a str,
+    }
+    serde_json::to_string(
+        &rules
+            .iter()
+            .map(|(series_id, folder_path)| Rule {
+                series_id,
+                folder_path,
+            })
+            .collect::<Vec<_>>(),
+    )
+    .unwrap_or_default()
+}
+
+/// Shipping's `remapSeriesFolderRules` and `clearSeriesFolderRulesForFolder`: rules filing into
+/// `from` or one of its subfolders follow a rename to `to`, or are dropped when it is deleted
+/// (`None`). The new stored rules, when any rule changed.
+pub fn folder_moved(rules: Option<&str>, from: &str, to: Option<&str>) -> Option<String> {
+    let rules = parse_rules(rules);
+    let inside = |path: &str| {
+        path.strip_prefix(from)
+            .filter(|rest| rest.is_empty() || rest.starts_with('/'))
+            .map(str::to_owned)
+    };
+    if !rules.iter().any(|(_, path)| inside(path).is_some()) {
+        return None;
+    }
+    let moved = rules
+        .into_iter()
+        .filter_map(|(series, path)| match (inside(&path), to) {
+            (None, _) => Some((series, path)),
+            (Some(rest), Some(to)) => Some((series, format!("{to}{rest}"))),
+            (Some(_), None) => None,
+        })
+        .collect::<Vec<_>>();
+    Some(encode_rules(&moved))
 }
 
 pub fn update(runtime: &RuntimeHandle, series: Arc<str>, change: RuleChange) -> Result<Reply<()>> {

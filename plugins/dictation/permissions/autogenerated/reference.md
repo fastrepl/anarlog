@@ -4,17 +4,29 @@ Default permissions for the plugin
 
 #### This default permission set includes the following:
 
-- `allow-show`
-- `allow-hide`
-- `allow-set-phase`
-- `allow-update-amplitude`
-- `allow-start-recording`
-- `allow-start-system-recording`
-- `allow-stop-recording`
-- `allow-cancel-recording`
-- `allow-discard-recording`
 - `allow-capture-target`
-- `allow-insert-text`
+- `allow-begin-dictation`
+- `allow-attach-dictation-stream`
+- `allow-finish-dictation`
+- `allow-complete-dictation`
+- `allow-release-dictation`
+- `allow-cancel-dictation`
+- `allow-retire-dictations`
+- `allow-list-dictation-recovery`
+- `allow-prepare-dictation-recovery-audio`
+- `allow-save-dictation-recovery-text`
+- `allow-claim-dictation-recovery`
+- `allow-discard-dictation-recovery`
+- `allow-fit-dictation-text`
+- `allow-prepare-dictation-refinement`
+- `allow-resolve-dictation-refinement`
+- `allow-suggest-dictation-terms`
+- `allow-rank-dictation-terms`
+- `allow-record-dictation-terms`
+- `allow-read-dictation-context`
+- `allow-insert-dictation`
+- `allow-read-dictation-kept`
+- `allow-release-dictation-target`
 
 ## Permission Table
 
@@ -28,12 +40,12 @@ Default permissions for the plugin
 <tr>
 <td>
 
-`dictation:allow-cancel-recording`
+`dictation:allow-attach-dictation-stream`
 
 </td>
 <td>
 
-Enables the cancel_recording command without any pre-configured scope.
+Enables the attach_dictation_stream command without any pre-configured scope.
 
 </td>
 </tr>
@@ -41,12 +53,64 @@ Enables the cancel_recording command without any pre-configured scope.
 <tr>
 <td>
 
-`dictation:deny-cancel-recording`
+`dictation:deny-attach-dictation-stream`
 
 </td>
 <td>
 
-Denies the cancel_recording command without any pre-configured scope.
+Denies the attach_dictation_stream command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`dictation:allow-begin-dictation`
+
+</td>
+<td>
+
+Enables the begin_dictation command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`dictation:deny-begin-dictation`
+
+</td>
+<td>
+
+Denies the begin_dictation command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`dictation:allow-cancel-dictation`
+
+</td>
+<td>
+
+Enables the cancel_dictation command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`dictation:deny-cancel-dictation`
+
+</td>
+<td>
+
+Denies the cancel_dictation command without any pre-configured scope.
 
 </td>
 </tr>
@@ -80,25 +144,12 @@ Denies the capture_target command without any pre-configured scope.
 <tr>
 <td>
 
-`dictation:allow-discard-recording`
+`dictation:allow-claim-dictation-recovery`
 
 </td>
 <td>
 
-Enables the discard_recording command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`dictation:deny-discard-recording`
-
-</td>
-<td>
-
-Denies the discard_recording command without any pre-configured scope.
+Enables the claim_dictation_recovery command without any pre-configured scope.
 
 </td>
 </tr>
@@ -106,25 +157,12 @@ Denies the discard_recording command without any pre-configured scope.
 <tr>
 <td>
 
-`dictation:allow-hide`
+`dictation:deny-claim-dictation-recovery`
 
 </td>
 <td>
 
-Enables the hide command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`dictation:deny-hide`
-
-</td>
-<td>
-
-Denies the hide command without any pre-configured scope.
+Denies the claim_dictation_recovery command without any pre-configured scope.
 
 </td>
 </tr>
@@ -132,25 +170,12 @@ Denies the hide command without any pre-configured scope.
 <tr>
 <td>
 
-`dictation:allow-insert-text`
+`dictation:allow-complete-dictation`
 
 </td>
 <td>
 
-Enables the insert_text command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`dictation:deny-insert-text`
-
-</td>
-<td>
-
-Denies the insert_text command without any pre-configured scope.
+Enables the complete_dictation command without any pre-configured scope.
 
 </td>
 </tr>
@@ -158,25 +183,12 @@ Denies the insert_text command without any pre-configured scope.
 <tr>
 <td>
 
-`dictation:allow-set-phase`
+`dictation:deny-complete-dictation`
 
 </td>
 <td>
 
-Enables the set_phase command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`dictation:deny-set-phase`
-
-</td>
-<td>
-
-Denies the set_phase command without any pre-configured scope.
+Denies the complete_dictation command without any pre-configured scope.
 
 </td>
 </tr>
@@ -184,25 +196,12 @@ Denies the set_phase command without any pre-configured scope.
 <tr>
 <td>
 
-`dictation:allow-show`
+`dictation:allow-discard-dictation-recovery`
 
 </td>
 <td>
 
-Enables the show command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`dictation:deny-show`
-
-</td>
-<td>
-
-Denies the show command without any pre-configured scope.
+Enables the discard_dictation_recovery command without any pre-configured scope.
 
 </td>
 </tr>
@@ -210,25 +209,12 @@ Denies the show command without any pre-configured scope.
 <tr>
 <td>
 
-`dictation:allow-start-recording`
+`dictation:deny-discard-dictation-recovery`
 
 </td>
 <td>
 
-Enables the start_recording command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`dictation:deny-start-recording`
-
-</td>
-<td>
-
-Denies the start_recording command without any pre-configured scope.
+Denies the discard_dictation_recovery command without any pre-configured scope.
 
 </td>
 </tr>
@@ -236,25 +222,12 @@ Denies the start_recording command without any pre-configured scope.
 <tr>
 <td>
 
-`dictation:allow-start-system-recording`
+`dictation:allow-finish-dictation`
 
 </td>
 <td>
 
-Enables the start_system_recording command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`dictation:deny-start-system-recording`
-
-</td>
-<td>
-
-Denies the start_system_recording command without any pre-configured scope.
+Enables the finish_dictation command without any pre-configured scope.
 
 </td>
 </tr>
@@ -262,25 +235,12 @@ Denies the start_system_recording command without any pre-configured scope.
 <tr>
 <td>
 
-`dictation:allow-stop-recording`
+`dictation:deny-finish-dictation`
 
 </td>
 <td>
 
-Enables the stop_recording command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`dictation:deny-stop-recording`
-
-</td>
-<td>
-
-Denies the stop_recording command without any pre-configured scope.
+Denies the finish_dictation command without any pre-configured scope.
 
 </td>
 </tr>
@@ -288,12 +248,12 @@ Denies the stop_recording command without any pre-configured scope.
 <tr>
 <td>
 
-`dictation:allow-update-amplitude`
+`dictation:allow-fit-dictation-text`
 
 </td>
 <td>
 
-Enables the update_amplitude command without any pre-configured scope.
+Enables the fit_dictation_text command without any pre-configured scope.
 
 </td>
 </tr>
@@ -301,12 +261,376 @@ Enables the update_amplitude command without any pre-configured scope.
 <tr>
 <td>
 
-`dictation:deny-update-amplitude`
+`dictation:deny-fit-dictation-text`
 
 </td>
 <td>
 
-Denies the update_amplitude command without any pre-configured scope.
+Denies the fit_dictation_text command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`dictation:allow-insert-dictation`
+
+</td>
+<td>
+
+Enables the insert_dictation command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`dictation:deny-insert-dictation`
+
+</td>
+<td>
+
+Denies the insert_dictation command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`dictation:allow-list-dictation-recovery`
+
+</td>
+<td>
+
+Enables the list_dictation_recovery command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`dictation:deny-list-dictation-recovery`
+
+</td>
+<td>
+
+Denies the list_dictation_recovery command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`dictation:allow-prepare-dictation-recovery-audio`
+
+</td>
+<td>
+
+Enables the prepare_dictation_recovery_audio command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`dictation:deny-prepare-dictation-recovery-audio`
+
+</td>
+<td>
+
+Denies the prepare_dictation_recovery_audio command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`dictation:allow-prepare-dictation-refinement`
+
+</td>
+<td>
+
+Enables the prepare_dictation_refinement command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`dictation:deny-prepare-dictation-refinement`
+
+</td>
+<td>
+
+Denies the prepare_dictation_refinement command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`dictation:allow-rank-dictation-terms`
+
+</td>
+<td>
+
+Enables the rank_dictation_terms command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`dictation:deny-rank-dictation-terms`
+
+</td>
+<td>
+
+Denies the rank_dictation_terms command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`dictation:allow-read-dictation-context`
+
+</td>
+<td>
+
+Enables the read_dictation_context command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`dictation:deny-read-dictation-context`
+
+</td>
+<td>
+
+Denies the read_dictation_context command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`dictation:allow-read-dictation-kept`
+
+</td>
+<td>
+
+Enables the read_dictation_kept command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`dictation:deny-read-dictation-kept`
+
+</td>
+<td>
+
+Denies the read_dictation_kept command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`dictation:allow-record-dictation-terms`
+
+</td>
+<td>
+
+Enables the record_dictation_terms command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`dictation:deny-record-dictation-terms`
+
+</td>
+<td>
+
+Denies the record_dictation_terms command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`dictation:allow-release-dictation`
+
+</td>
+<td>
+
+Enables the release_dictation command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`dictation:deny-release-dictation`
+
+</td>
+<td>
+
+Denies the release_dictation command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`dictation:allow-release-dictation-target`
+
+</td>
+<td>
+
+Enables the release_dictation_target command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`dictation:deny-release-dictation-target`
+
+</td>
+<td>
+
+Denies the release_dictation_target command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`dictation:allow-resolve-dictation-refinement`
+
+</td>
+<td>
+
+Enables the resolve_dictation_refinement command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`dictation:deny-resolve-dictation-refinement`
+
+</td>
+<td>
+
+Denies the resolve_dictation_refinement command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`dictation:allow-retire-dictations`
+
+</td>
+<td>
+
+Enables the retire_dictations command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`dictation:deny-retire-dictations`
+
+</td>
+<td>
+
+Denies the retire_dictations command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`dictation:allow-save-dictation-recovery-text`
+
+</td>
+<td>
+
+Enables the save_dictation_recovery_text command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`dictation:deny-save-dictation-recovery-text`
+
+</td>
+<td>
+
+Denies the save_dictation_recovery_text command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`dictation:allow-suggest-dictation-terms`
+
+</td>
+<td>
+
+Enables the suggest_dictation_terms command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`dictation:deny-suggest-dictation-terms`
+
+</td>
+<td>
+
+Denies the suggest_dictation_terms command without any pre-configured scope.
 
 </td>
 </tr>

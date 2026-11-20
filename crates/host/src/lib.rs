@@ -10,10 +10,13 @@ pub fn long_os_version() -> String {
 }
 
 pub fn fingerprint() -> String {
-    let fingerprint = machine_uid::get().unwrap_or_default();
+    fingerprint_from(&machine_uid::get().unwrap_or_default())
+}
 
+/// The fingerprint of a machine UID: unpadded hex of its `DefaultHasher` hash.
+pub fn fingerprint_from(machine_uid: &str) -> String {
     let mut hasher = DefaultHasher::new();
-    fingerprint.hash(&mut hasher);
+    machine_uid.hash(&mut hasher);
     format!("{:x}", hasher.finish())
 }
 

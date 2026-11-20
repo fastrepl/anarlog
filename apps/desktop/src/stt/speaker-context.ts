@@ -5,16 +5,45 @@ import type {
 
 export const EMPTY_SPEAKER_CONTEXT: SpeakerContext = { intervals: [] };
 
+// One capture's platform speaker evidence (`MeetingSpeakerEvidence`), written by the transcription
+// plugin. The native renderer validates the rest and drops malformed entries; keeping an entry
+// only needs these fields.
+type StoredMeetingEvidence = {
+  capture_id: string;
+  started_at_ms: number;
+  ended_at_ms?: number | null;
+};
+
+function isMeetingEvidence(value: unknown): value is StoredMeetingEvidence {
+  const item = value as Partial<StoredMeetingEvidence> | null;
+  return Boolean(
+    item &&
+    typeof item === "object" &&
+    typeof item.capture_id === "string" &&
+    item.capture_id &&
+    Number.isSafeInteger(item.started_at_ms) &&
+    (item.ended_at_ms == null || Number.isSafeInteger(item.ended_at_ms)),
+  );
+}
+
+function parseMeetingEvidence(value: unknown): StoredMeetingEvidence[] {
+  return Array.isArray(value) ? value.filter(isMeetingEvidence) : [];
+}
+
 export function parseSpeakerContext(
   value: string | null | undefined,
 ): SpeakerContext {
   try {
     const parsed = JSON.parse(value ?? "null");
-    if (!parsed || !Array.isArray(parsed.intervals))
+    const meetings = parseMeetingEvidence(parsed?.meetings);
+    if (!parsed || (!Array.isArray(parsed.intervals) && !meetings.length))
       return EMPTY_SPEAKER_CONTEXT;
-    return {
-      intervals: parsed.intervals.filter(
-        (item: SpeakerContextInterval) =>
+    const intervals = (
+      Array.isArray(parsed.intervals) ? parsed.intervals : []
+    ) as SpeakerContextInterval[];
+    const context: SpeakerContext = {
+      intervals: intervals.filter(
+        (item) =>
           item &&
           Number.isSafeInteger(item.start_ms) &&
           Number.isSafeInteger(item.end_ms) &&
@@ -36,6 +65,8 @@ export function parseSpeakerContext(
           ),
       ),
     };
+    if (meetings.length) Object.assign(context, { meetings });
+    return context;
   } catch {
     return EMPTY_SPEAKER_CONTEXT;
   }
@@ -59,12 +90,13 @@ export function appendSpeakerObservation(
       JSON.stringify(facts(last)) === JSON.stringify(facts(observation))
     ) {
       last.end_ms = observation.end_ms;
-      return { intervals };
+      return { ...context, intervals };
     }
     last.end_ms = Math.min(last.end_ms, observation.start_ms);
   }
   intervals.push(observation);
   return {
+    ...context,
     intervals: intervals.filter(
       (interval) => interval.end_ms > interval.start_ms,
     ),
@@ -76,6 +108,7 @@ export function closeSpeakerContext(
   at: number,
 ): SpeakerContext {
   return {
+    ...context,
     intervals: context.intervals
       .map((interval) => ({
         ...interval,

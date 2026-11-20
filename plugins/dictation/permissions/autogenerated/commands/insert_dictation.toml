@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-insert-dictation"
+description = "Enables the insert_dictation command without any pre-configured scope."
+commands.allow = ["insert_dictation"]
+
+[[permission]]
+identifier = "deny-insert-dictation"
+description = "Denies the insert_dictation command without any pre-configured scope."
+commands.deny = ["insert_dictation"]

@@ -412,3 +412,77 @@ fn a_plain_click_on_a_github_chip_opens_its_task_tab_and_leaves_the_caret(cx: &m
         caret
     );
 }
+
+/// A rich paste into a code block once kept only the first copied block.
+#[gpui::test]
+fn a_rich_paste_into_code_keeps_every_copied_block(cx: &mut TestAppContext) {
+    let (fixture, cx) = fixture(
+        cx,
+        vec![json!({"type": "codeBlock", "content": [{"type": "text", "text": "code"}]})],
+    );
+    let editor = fixture.editor.clone();
+    let copied = Document::parse(
+        json!({"type": "doc", "content": [paragraph("one"), paragraph("two")]})
+            .to_string()
+            .into(),
+    )
+    .unwrap();
+    let everything = super::model::Selection {
+        anchor: 0,
+        head: copied.units(),
+    };
+    let payload = super::clipboard::copy(&copied, everything, "other").unwrap();
+    editor.update(cx, |editor, cx| {
+        let model = editor.model.as_mut().unwrap();
+        model.select(super::model::Selection::caret(
+            model.document.edge_caret(true),
+        ));
+        editor.paste(payload.text, Some(payload.metadata), true, cx);
+    });
+    cx.run_until_parked();
+    assert_eq!(texts(&editor, cx), ["codeone\n\ntwo"]);
+}
+
+/// Code paste once normalized its text on the foreground thread, stalling the app on a large
+/// clipboard. Prepared off it, the paste lands only where the selection still is, in the same
+/// document.
+#[gpui::test]
+fn a_code_paste_lands_only_if_the_selection_holds_while_it_is_prepared(cx: &mut TestAppContext) {
+    let (fixture, cx) = fixture(
+        cx,
+        vec![json!({"type": "codeBlock", "content": [{"type": "text", "text": "code"}]})],
+    );
+    let editor = fixture.editor.clone();
+    let end = editor.update(cx, |editor, cx| {
+        let model = editor.model.as_mut().unwrap();
+        let end = model.document.edge_caret(true);
+        model.select(super::model::Selection::caret(end));
+        editor.paste("\r\none\rtwo".into(), None, false, cx);
+        end
+    });
+    cx.run_until_parked();
+    assert_eq!(texts(&editor, cx), ["code\none\ntwo"]);
+    editor.update(cx, |editor, cx| {
+        editor.paste("three".into(), None, false, cx);
+        let model = editor.model.as_mut().unwrap();
+        model.select(super::model::Selection::caret(end - 1));
+    });
+    cx.run_until_parked();
+    assert_eq!(texts(&editor, cx), ["code\none\ntwo"]);
+    // A remote revision loaded meanwhile is a new model that can match the revision and caret.
+    editor.update(cx, |editor, cx| {
+        editor.paste("three".into(), None, false, cx);
+        let model = editor.model.as_ref().unwrap();
+        let (revision, selection) = (model.revision, model.selection);
+        let remote = json!({"type": "doc", "content": [
+            {"type": "codeBlock", "content": [{"type": "text", "text": "edit\none\ntwo"}]}
+        ]});
+        let mut model =
+            super::model::EditorModel::new(Document::parse(remote.to_string().into()).unwrap());
+        model.revision = revision;
+        model.select(selection);
+        editor.model = Some(model);
+    });
+    cx.run_until_parked();
+    assert_eq!(texts(&editor, cx), ["edit\none\ntwo"]);
+}

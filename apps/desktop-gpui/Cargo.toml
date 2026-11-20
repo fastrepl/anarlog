@@ -25,6 +25,7 @@ anlg-db-core = { path = "../../crates/db-core", package = "db-core" }
 anlg-db-execute = { path = "../../crates/db-execute", package = "db-execute" }
 anlg-db-reactive = { path = "../../crates/db-reactive", package = "db-reactive" }
 anlg-db-sync = { path = "../../crates/db-sync", package = "db-sync" }
+anlg-desktop-identity = { path = "../../crates/desktop-identity", package = "desktop-identity" }
 anlg-detect = { path = "../../crates/detect", package = "detect" }
 anlg-dictation-ui-macos = { path = "../../crates/dictation-ui-macos", package = "dictation-ui-macos" }
 anlg-e2ee = { path = "../../crates/e2ee", package = "e2ee" }
@@ -116,6 +117,7 @@ anlg-calendar-interface = { workspace = true }
 anlg-db-app = { workspace = true }
 anlg-db-execute = { workspace = true }
 anlg-db-sync = { workspace = true }
+anlg-desktop-identity = { workspace = true }
 anlg-detect = { workspace = true, features = ["list", "mic", "screen", "sleep"] }
 anlg-e2ee = { workspace = true }
 anlg-export-core = { workspace = true }
@@ -175,7 +177,7 @@ sqlx = { workspace = true, features = ["runtime-tokio", "sqlite", "sqlite-unbund
 sys-locale = { workspace = true }
 tar = "=0.4.46"
 tempfile = { workspace = true }
-tokio = { workspace = true, features = ["rt-multi-thread", "sync", "time", "macros", "process"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "sync", "time", "macros", "process", "net", "io-util"] }
 tokio-util = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
@@ -203,6 +205,7 @@ wiremock = { workspace = true }
 [target.'cfg(target_os = "linux")'.dependencies]
 atspi = { version = "0.25", default-features = false, features = ["tokio", "zbus"] }
 gtk = "=0.18.2"
+nix = { version = "=0.30.1", features = ["user"] }
 anlg-notification-linux = { path = "../../crates/notification-linux", package = "notification-linux" }
 
 [target.'cfg(target_os = "macos")'.dependencies]
@@ -223,3 +226,6 @@ swift-rs = { workspace = true, features = ["build"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 anlg-notification-windows = { path = "../../crates/notification-windows", package = "notification-windows" }
+# The platform adapter forwards GPUI windows' HWND; keep GPUI's version. Single-instance
+# launches check the running app's user.
+windows = { version = "=0.62.2", features = ["Win32_Foundation", "Win32_Security", "Win32_System_Pipes", "Win32_System_Threading"] }

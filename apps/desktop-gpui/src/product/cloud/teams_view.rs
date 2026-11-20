@@ -1795,7 +1795,7 @@ impl TeamsView {
                 )
         });
 
-        let members = self.render_members(panel, caps, primary, &ownership, colors, cx);
+        let members = self.render_members(panel, caps, primary, &ownership, colors, window, cx);
         let admin = self.render_admin(panel, caps, window, colors, cx);
         let footer = div()
             .min_w_0()
@@ -1932,6 +1932,7 @@ impl TeamsView {
             })
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn render_members(
         &self,
         panel: &Panel,
@@ -1939,6 +1940,7 @@ impl TeamsView {
         primary: bool,
         ownership: &Option<OwnershipRequest>,
         colors: &Theme,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Div {
         let viewer = self.viewer_id();
@@ -2077,7 +2079,7 @@ impl TeamsView {
                     .on_click(cx.listener(|this, _, _, cx| this.load_panel(cx))),
                 ),
             Some(Ok(members)) => {
-                self.render_table(panel, members, caps, primary, ownership, colors, cx)
+                self.render_table(panel, members, caps, primary, ownership, colors, window, cx)
             }
         };
 
@@ -2092,6 +2094,7 @@ impl TeamsView {
     }
 
     #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::too_many_arguments)]
     fn render_table(
         &self,
         panel: &Panel,
@@ -2100,6 +2103,7 @@ impl TeamsView {
         primary: bool,
         ownership: &Option<OwnershipRequest>,
         colors: &Theme,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Div {
         let viewer = self.viewer_id();
@@ -2202,6 +2206,7 @@ impl TeamsView {
                     controls,
                     transfer_disabled,
                     colors,
+                    window,
                     cx,
                 ))
                 .when(member_primary && controls.edit_role, |view| {
@@ -2246,26 +2251,28 @@ impl TeamsView {
                                 cx.listener(move |this, _, _, cx| this.open_menu(menu.clone(), cx)),
                             ),
                         )
-                        .when(open, |view| {
-                            view.child(self.menu(
+                        .child(self.menu(
+                            SharedString::from(format!("member-menu-{}", member.user_id)),
+                            open.then(|| {
                                 vec![
-                                        menu_item(
-                                            "remove-member",
-                                            Some("product/TrashIcon.svg"),
-                                            "Remove member",
-                                            true,
-                                            colors,
-                                        )
-                                        .on_click(
-                                            cx.listener(move |this, _, _, cx| {
-                                                this.open_dialog(Dialog::Remove(target.clone()), cx)
-                                            }),
-                                        ),
-                                    ],
-                                colors,
-                                cx,
-                            ))
-                        }),
+                                    menu_item(
+                                        "remove-member",
+                                        Some("product/TrashIcon.svg"),
+                                        "Remove member",
+                                        true,
+                                        colors,
+                                    )
+                                    .on_click(cx.listener(
+                                        move |this, _, _, cx| {
+                                            this.open_dialog(Dialog::Remove(target.clone()), cx)
+                                        },
+                                    )),
+                                ]
+                            }),
+                            colors,
+                            window,
+                            cx,
+                        )),
                 )
             });
             rows.push(row([name, email, permissions, actions]));
@@ -2346,7 +2353,16 @@ impl TeamsView {
                                     }))
                                 }),
                             )
-                            .when(open, |view| view.child(self.menu(items, colors, cx))),
+                            .child(self.menu(
+                                SharedString::from(format!(
+                                    "invitation-menu-{}",
+                                    invitation.invitation_id
+                                )),
+                                open.then_some(items),
+                                colors,
+                                window,
+                                cx,
+                            )),
                     ),
                 ]));
             }
@@ -2364,6 +2380,7 @@ impl TeamsView {
     }
 
     #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::too_many_arguments)]
     fn render_role(
         &self,
         panel: &Panel,
@@ -2372,6 +2389,7 @@ impl TeamsView {
         controls: MemberControls,
         transfer_disabled: bool,
         colors: &Theme,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Div {
         let label = if member_primary {
@@ -2472,7 +2490,13 @@ impl TeamsView {
                     )
                 }),
             )
-            .when(open, |view| view.child(self.select_menu(items, colors, cx)))
+            .child(self.select_menu(
+                SharedString::from(format!("role-menu-{}", member.user_id)),
+                open.then_some(items),
+                colors,
+                window,
+                cx,
+            ))
     }
 
     fn dots(&self, id: SharedString, enabled: bool, colors: &Theme) -> Stateful<Div> {
@@ -2493,36 +2517,41 @@ impl TeamsView {
             })
     }
 
-    fn menu(&self, items: Vec<Stateful<Div>>, colors: &Theme, cx: &mut Context<Self>) -> Div {
+    /// A row's actions (`DropdownMenuContent`, `w-48`), open while `items` is `Some`.
+    fn menu(
+        &self,
+        id: SharedString,
+        items: Option<Vec<Stateful<Div>>>,
+        colors: &Theme,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
         controls::dropdown(
-            controls::menu_panel(192., colors)
-                .on_mouse_down_out(cx.listener(|this, _, _, cx| {
-                    if let Some(panel) = &mut this.panel {
-                        panel.menu = None;
-                        cx.notify();
-                    }
-                }))
-                .children(items),
+            id,
+            items.map(|items| controls::menu_panel(colors).w(px(192.)).children(items)),
             true,
+            close_menu,
+            window,
+            cx,
         )
     }
 
+    /// The role select's menu, at least as wide as its trigger.
     fn select_menu(
         &self,
-        items: Vec<Stateful<Div>>,
+        id: SharedString,
+        items: Option<Vec<Stateful<Div>>>,
         colors: &Theme,
+        window: &mut Window,
         cx: &mut Context<Self>,
-    ) -> Div {
+    ) -> AnyElement {
         controls::dropdown(
-            controls::menu_panel(160., colors)
-                .on_mouse_down_out(cx.listener(|this, _, _, cx| {
-                    if let Some(panel) = &mut this.panel {
-                        panel.menu = None;
-                        cx.notify();
-                    }
-                }))
-                .children(items),
+            id,
+            items.map(|items| controls::menu_panel(colors).children(items)),
             false,
+            close_menu,
+            window,
+            cx,
         )
     }
 
@@ -2985,6 +3014,12 @@ impl Render for TeamsView {
             .children(self.render_invitations(&colors, cx))
             .children(content)
             .children(dialog)
+    }
+}
+
+fn close_menu(this: &mut TeamsView) {
+    if let Some(panel) = &mut this.panel {
+        panel.menu = None;
     }
 }
 

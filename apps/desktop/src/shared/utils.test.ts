@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   getIdentifier: vi.fn(),
+  getRegisteredDesktopSchemes: vi.fn(),
   startCallbackServer: vi.fn(),
 }));
 
@@ -13,11 +14,17 @@ vi.mock("@anlg/plugin-deeplink2", () => ({
   commands: { startCallbackServer: mocks.startCallbackServer },
 }));
 
+vi.mock("~/types/tauri.gen", () => ({
+  commands: { getRegisteredDesktopSchemes: mocks.getRegisteredDesktopSchemes },
+}));
+
 import { buildWebAppUrl, getScheme } from "./utils";
 
 describe("getScheme", () => {
   beforeEach(() => {
     mocks.getIdentifier.mockReset();
+    mocks.getRegisteredDesktopSchemes.mockReset();
+    localStorage.clear();
   });
 
   it.each([
@@ -27,11 +34,31 @@ describe("getScheme", () => {
     ["com.hyprnote.nightly", "anarlog-nightly"],
     ["com.hyprnote.dev", "anarlog-dev"],
     ["so.anarlog.Anarlog", "anarlog"],
-    ["unknown", "anarlog"],
   ])("maps %s to %s", async (identifier, scheme) => {
     mocks.getIdentifier.mockResolvedValue(identifier);
 
     await expect(getScheme()).resolves.toBe(scheme);
+  });
+
+  it("keeps a custom build's sign-in callback on its configured supported scheme", async () => {
+    mocks.getIdentifier.mockResolvedValue("com.hyprnote.qa.cutover1118");
+    mocks.getRegisteredDesktopSchemes.mockResolvedValue([
+      "anarlog-qa-cutover1118",
+      "hypr",
+    ]);
+
+    const url = new URL(await buildWebAppUrl("/auth"));
+    expect(url.searchParams.get("scheme")).toBe("hypr");
+    expect(url.searchParams.get("desktop_state")).toBeTruthy();
+
+    localStorage.clear();
+    mocks.getRegisteredDesktopSchemes.mockResolvedValue([
+      "anarlog-qa-cutover1118",
+    ]);
+    await expect(buildWebAppUrl("/auth")).rejects.toThrow(
+      "supported sign-in callback scheme",
+    );
+    expect(localStorage.getItem("anarlog.pending-desktop-auth")).toBeNull();
   });
 });
 

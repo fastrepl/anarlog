@@ -17,6 +17,7 @@ use super::{
     clipboard,
     document::{Document, EditResult},
     find::FindOptions,
+    holds::NoteHolds,
     menu::{
         BlockCommand, EditorRequest, MentionCandidate, MentionMenu, MentionResults, MentionTarget,
         SlashMenu,
@@ -58,7 +59,10 @@ pub struct EditorPane {
     external_mention_provider: bool,
     mention_cancel: Option<CancellationToken>,
     focused: bool,
+    /// Whether edits are refused: while `locked` or while a deletion holds the note.
     read_only: bool,
+    /// Set by `set_read_only`, for a quit, a closing window or a brief being written.
+    locked: bool,
     dragging: bool,
     drag_position: Option<Point<Pixels>>,
     drag_scroll: Option<gpui::Task<()>>,
@@ -156,6 +160,11 @@ impl EditorPane {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
+        // An editor opened while its note is held, such as a summary shown during a deletion's
+        // save, starts read-only too.
+        let read_only = NoteHolds::held(cx, &init.session_id);
+        cx.observe_global::<NoteHolds>(|this, cx| this.apply_read_only(cx))
+            .detach();
         let focus = cx.focus_handle();
         cx.on_focus(&focus, window, |this, _, _| this.focused = true)
             .detach();
@@ -313,7 +322,8 @@ impl EditorPane {
             mention_cancel: None,
             focused: true,
             caret,
-            read_only: false,
+            read_only,
+            locked: false,
             dragging: false,
             drag_position: None,
             drag_scroll: None,
@@ -731,9 +741,14 @@ impl EditorPane {
     }
 
     pub fn set_read_only(&mut self, read_only: bool, cx: &mut Context<Self>) {
-        self.read_only = read_only;
+        self.locked = read_only;
+        self.apply_read_only(cx);
+    }
+
+    fn apply_read_only(&mut self, cx: &mut Context<Self>) {
+        self.read_only = self.locked || NoteHolds::held(cx, &self.init.session_id);
         if let Some(model) = &mut self.model {
-            model.read_only = read_only;
+            model.read_only = self.read_only;
         }
         cx.notify();
     }
@@ -1031,10 +1046,21 @@ impl EditorPane {
     }
 
     pub fn configure_attachments(&mut self, vault: std::path::PathBuf, cx: &mut Context<Self>) {
-        self.attachment_service = Some(super::AttachmentService::new(
-            self.context.runtime.clone(),
-            vault,
-        ));
+        let service = super::AttachmentService::new(self.context.runtime.clone(), vault);
+        self.set_attachment_service(service, cx);
+    }
+
+    /// The note's attachments, which its summary editors share with the memo.
+    pub fn attachment_service(&self) -> Option<super::AttachmentService> {
+        self.attachment_service.clone()
+    }
+
+    pub fn set_attachment_service(
+        &mut self,
+        service: super::AttachmentService,
+        cx: &mut Context<Self>,
+    ) {
+        self.attachment_service = Some(service);
         self.attachment_previews.clear();
         cx.notify();
     }
@@ -1495,11 +1521,12 @@ impl EditorPane {
         let document = model.document.clone();
         let selection = model.selection;
         let revision = model.revision;
+        let source = self.init.document.id.0.clone();
         self.clipboard_generation += 1;
         let generation = self.clipboard_generation;
         let job = cx
             .background_executor()
-            .spawn(async move { clipboard::copy(&document, selection) });
+            .spawn(async move { clipboard::copy(&document, selection, &source) });
         cx.spawn(async move |entity, cx| {
             let result = job.await;
             let _ = entity.update(cx, |this, cx| {
@@ -1538,48 +1565,63 @@ impl EditorPane {
         rich: bool,
         cx: &mut Context<Self>,
     ) {
+        enum Prepared {
+            Code(String),
+            Slice(Document, bool),
+        }
         let Some(model) = &self.model else {
             return;
         };
         let revision = model.revision;
         let selection = model.selection;
+        // The parsed source outlives edits, so it tells a loaded remote revision (a new model
+        // back at revision 0) from this document.
+        let source = model.document.original.clone();
+        self.clipboard_generation += 1;
+        let generation = self.clipboard_generation;
         let code = model
             .document
             .resolve(selection.head)
             .is_ok_and(|resolved| resolved.node.kind() == "codeBlock");
-        self.clipboard_generation += 1;
-        let generation = self.clipboard_generation;
+        let destination = self.init.document.id.0.clone();
         let job = cx.background_executor().spawn(async move {
-            if let Some(metadata) = metadata { return clipboard::parse_slice(&metadata); }
-            if rich && !code
-                && let Ok(mut clipboard) = arboard::Clipboard::new()
-                && clipboard.get_text().is_ok_and(|current| current == text)
-                && let Ok(html) = clipboard.get().html()
-            {
-                return super::html::parse(&html);
+            // Like ProseMirror, code takes the clipboard's plain text, whatever rich content came
+            // with it.
+            if code {
+                let text = text.replace("\r\n", "\n").replace('\r', "\n");
+                if text.len() > 1024 * 1024 { return Err("Paste exceeds the 1 MiB transaction limit".into()); }
+                return Ok(Prepared::Code(text));
             }
-            if text.len() > 1024 * 1024 { return Err("Paste exceeds the 1 MiB transaction limit".into()); }
-            let paragraphs = if code { vec![text.as_str()] } else { text.split('\n').collect() };
-            let content: Vec<_> = paragraphs.into_iter().map(|line| serde_json::json!({
-                "type": "paragraph", "content": if line.is_empty() { Vec::new() }
-                else { vec![serde_json::json!({"type": "text", "text": line.trim_end_matches('\r')})] }
-            })).collect();
-            Document::parse(serde_json::json!({"type":"doc","content":content}).to_string().into()).map(|document| (document, true))
+            let slice = || {
+                if let Some(metadata) = metadata { return clipboard::parse_slice(&metadata, &destination); }
+                if rich
+                    && let Ok(mut clipboard) = arboard::Clipboard::new()
+                    && clipboard.get_text().is_ok_and(|current| current == text)
+                    && let Ok(html) = clipboard.get().html()
+                {
+                    return super::html::parse(&html);
+                }
+                if text.len() > 1024 * 1024 { return Err("Paste exceeds the 1 MiB transaction limit".into()); }
+                let content: Vec<_> = text.split('\n').map(|line| serde_json::json!({
+                    "type": "paragraph", "content": if line.is_empty() { Vec::new() }
+                    else { vec![serde_json::json!({"type": "text", "text": line.trim_end_matches('\r')})] }
+                })).collect();
+                Document::parse(serde_json::json!({"type":"doc","content":content}).to_string().into()).map(|document| (document, true))
+            };
+            slice().map(|(fragment, open)| Prepared::Slice(fragment, open))
         });
         cx.spawn(async move |entity, cx| {
-            let fragment = job.await;
+            let prepared = job.await;
             let _ = entity.update(cx, |this, cx| {
                 if this.clipboard_generation != generation { return; }
                 let Some(model) = &mut this.model else { return; };
-                if model.revision != revision || model.selection != selection {
+                if model.revision != revision || model.selection != selection || !Arc::ptr_eq(&model.document.original, &source) {
                     this.message = "Selection changed while preparing paste. Paste again at the desired position.".into();
                     cx.notify(); return;
                 }
-                let result = fragment.and_then(|(fragment, open)| {
-                    if code {
-                        let text = super::document::inline_text(&fragment.root.children.get(0).expect("paragraph").children);
-                        model.replace(selection.range(), &text)
-                    } else { model.insert_slice(fragment, open) }
+                let result = prepared.and_then(|prepared| match prepared {
+                    Prepared::Code(text) => model.replace(selection.range(), &text),
+                    Prepared::Slice(fragment, open) => model.insert_slice(fragment, open),
                 });
                 this.edited(revision, result, cx);
             });
@@ -1589,21 +1631,17 @@ impl EditorPane {
     fn fetch_conflict(&mut self, cx: &mut Context<Self>) {
         self.external_generation += 1;
         let generation = self.external_generation;
-        let reply = self
-            .context
-            .runtime
-            .open_session(self.init.session_id.clone(), CancellationToken::new());
+        // This editor's own document: a summary's conflict is never the session's memo.
+        let load =
+            super::services::stored(self.context.runtime.clone(), self.init.document.clone());
         cx.spawn(async move |entity, cx| {
-            let result = match reply {
-                Ok(reply) => reply.receive().await,
-                Err(error) => Err(error),
-            };
+            let result = load.await;
             let _ = entity.update(cx, |this, cx| {
                 if this.external_generation != generation {
                     return;
                 }
                 match result {
-                    Ok(session) => this.external = session.note,
+                    Ok(snapshot) => this.external = snapshot,
                     Err(error) => {
                         this.message =
                             format!("Draft retained. Cannot load the conflicting revision: {error}")

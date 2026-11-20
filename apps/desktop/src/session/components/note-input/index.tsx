@@ -320,14 +320,21 @@ const NoteInputContent = forwardRef<
     };
 
     const handleSessionViewReady = useCallback(
-      (view: EditorView) =>
-        registerCanonicalSessionEditor(sessionId, view, () => {
+      (view: EditorView) => {
+        const editorFor = () => {
           const editor = internalEditorRef.current;
           if (!editor || editor.view !== view) {
             throw new Error("Canonical session editor changed");
           }
-          editor.flushPendingChanges();
-        }),
+          return editor;
+        };
+        registerCanonicalSessionEditor(
+          sessionId,
+          view,
+          () => editorFor().flushPendingChanges(),
+          () => editorFor().flushQueuedChange(),
+        );
+      },
       [sessionId],
     );
     const handleSessionViewDisposed = useCallback(

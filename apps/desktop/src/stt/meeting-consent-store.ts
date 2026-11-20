@@ -1,32 +1,6 @@
-import type { DisclosureAttempt, ParticipantConsent } from "./meeting-consent";
+import type { ParticipantConsent } from "./meeting-consent";
 
 import { executeTransaction } from "~/db";
-
-export async function persistDisclosureAttempt(
-  attempt: DisclosureAttempt,
-): Promise<void> {
-  await executeTransaction([
-    {
-      sql: `
-        INSERT INTO session_disclosure_attempts (
-          id, session_id, attempted_at, platform, surface,
-          message_version, message, delivery, failure_reason
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `,
-      params: [
-        attempt.id,
-        attempt.sessionId,
-        attempt.attemptedAt,
-        attempt.platform,
-        attempt.surface,
-        attempt.messageVersion,
-        attempt.message,
-        attempt.delivery,
-        attempt.failureReason,
-      ],
-    },
-  ]);
-}
 
 export async function persistParticipantConsent(
   consent: ParticipantConsent,

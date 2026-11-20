@@ -118,6 +118,57 @@ async fn tags_refresh_cached_pages_and_watch_without_modifying_notes() {
     runtime.shutdown().await.unwrap();
 }
 
+// CloudSync only uploads rows of a keyed workspace, so a new note must join the bound library
+// like shipping's `insert_session`, memo included.
+#[tokio::test]
+async fn new_notes_join_the_synced_library() {
+    let directory = tempfile::tempdir().unwrap();
+    let profile = Profile {
+        database: directory.path().join("owner.sqlite"),
+    };
+    let runtime = start(&profile).await;
+    runtime
+        .submit(|services| async move {
+            services
+                .executor
+                .execute(
+                    "INSERT INTO app_settings(id, value_json) VALUES ('cloudsync_workspace_binding', '{\"workspace_id\":\"ws-1\"}')
+                     ON CONFLICT(id) DO UPDATE SET value_json = excluded.value_json".into(),
+                    vec![],
+                )
+                .await
+                .unwrap();
+            Ok(())
+        })
+        .unwrap()
+        .receive()
+        .await
+        .unwrap();
+    let note = runtime
+        .create_note("Synced".into())
+        .unwrap()
+        .receive()
+        .await
+        .unwrap();
+    let mut external = sqlx::SqliteConnection::connect_with(
+        &SqliteConnectOptions::new().filename(&profile.database),
+    )
+    .await
+    .unwrap();
+    let owners: (String, String, String) = sqlx::query_as(
+        "SELECT s.workspace_id, s.owner_user_id, d.workspace_id
+         FROM sessions s JOIN session_documents d ON d.session_id = s.id WHERE s.id = ?",
+    )
+    .bind(note.summary.id.0.as_ref())
+    .fetch_one(&mut external)
+    .await
+    .unwrap();
+    assert_eq!(
+        owners,
+        ("ws-1".to_owned(), "ws-1".to_owned(), "ws-1".to_owned())
+    );
+}
+
 #[tokio::test]
 async fn library_folder_projection_survives_cache_slicing_and_external_moves() {
     let directory = tempfile::tempdir().unwrap();

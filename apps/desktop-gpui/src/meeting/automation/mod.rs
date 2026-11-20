@@ -374,7 +374,7 @@ impl MeetingAutomation {
                         key,
                         &detected,
                         nearby.as_ref(),
-                        apps::resources_dir().as_deref(),
+                        apps::notification_icons().as_deref(),
                     )
                 })
                 .await;

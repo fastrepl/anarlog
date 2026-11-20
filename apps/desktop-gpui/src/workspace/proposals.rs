@@ -5,7 +5,8 @@
 use std::sync::Arc;
 
 use desktop_runtime::{
-    CancellationToken, DocumentSnapshot, Result, RuntimeHandle, SaveDocument, SessionId,
+    CancellationToken, DocumentSnapshot, Result, RuntimeHandle, SaveDocument, ServiceError,
+    SessionId,
 };
 use serde_json::{Value, json};
 
@@ -162,7 +163,8 @@ async fn set_status(runtime: &RuntimeHandle, id: Arc<str>, status: &'static str)
 }
 
 /// Shipping's `applySessionProposal`: replaces the memo or summary with the proposed
-/// Markdown unless the target changed after the proposal was made.
+/// Markdown unless the target changed after the proposal was made. The revision checked is the
+/// one the conditional save replaces, so no write in between can be overwritten.
 pub async fn apply(runtime: &RuntimeHandle, id: Arc<str>) -> Result<()> {
     let proposal = load(runtime, id.clone())
         .await?
@@ -172,44 +174,56 @@ pub async fn apply(runtime: &RuntimeHandle, id: Arc<str>) -> Result<()> {
         "pending" => {}
         status => return Err(failure(format!("Proposal is {status}"))),
     }
-    let current = target_updated_at(runtime, &proposal.target_id, &proposal.session_id).await?;
-    if current
-        .as_deref()
-        .is_some_and(|current| current != proposal.base_updated_at.as_ref())
-    {
-        return Err(failure(
-            "This proposal is stale. The meeting changed after it was created.",
-        ));
-    }
+    let target = if proposal.target_id.is_empty() {
+        &proposal.session_id
+    } else {
+        &proposal.target_id
+    };
+    let stored = rows(
+        runtime,
+        "SELECT id, session_id, body_format, body, updated_at FROM session_documents WHERE id = ? AND session_id = ? AND deleted_at IS NULL".into(),
+        vec![json!(target), json!(proposal.session_id)],
+    )
+    .await?
+    .into_iter()
+    .next();
+    let base = match stored {
+        Some(row) => {
+            let base: DocumentSnapshot = serde_json::from_value(row).map_err(failure)?;
+            if base.updated_at != proposal.base_updated_at {
+                return Err(stale());
+            }
+            base
+        }
+        // A memo that was never saved: the save creates it.
+        None if proposal.memo() => {
+            let session = SessionId(proposal.session_id.clone());
+            runtime
+                .open_session(session.clone(), CancellationToken::new())?
+                .receive()
+                .await?
+                .note
+                .unwrap_or_else(|| DocumentSnapshot::unsaved_note(session))
+        }
+        None => return Err(failure("Summary not found")),
+    };
     let body: Arc<str> = anlg_tiptap::md_to_tiptap_json(&proposal.proposed)
         .map_err(failure)?
         .to_string()
         .into();
-    let session = SessionId(proposal.session_id.clone());
-    let base = if proposal.memo() {
-        runtime
-            .open_session(session.clone(), CancellationToken::new())?
-            .receive()
-            .await?
-            .note
-            .unwrap_or_else(|| DocumentSnapshot::unsaved_note(session))
-    } else {
-        let row = rows(
-            runtime,
-            "SELECT id, session_id, body_format, body, updated_at FROM session_documents WHERE id = ? AND session_id = ? AND deleted_at IS NULL".into(),
-            vec![json!(proposal.target_id), json!(proposal.session_id)],
-        )
-        .await?
-        .into_iter()
-        .next()
-        .ok_or_else(|| failure("Summary not found"))?;
-        serde_json::from_value(row).map_err(failure)?
-    };
     runtime
         .save_document(SaveDocument { base, body })?
         .receive()
-        .await?;
+        .await
+        .map_err(|error| match error {
+            ServiceError::Conflict => stale(),
+            error => error,
+        })?;
     set_status(runtime, id, "applied").await
+}
+
+fn stale() -> ServiceError {
+    failure("This proposal is stale. The meeting changed after it was created.")
 }
 
 /// Shipping's `declineSessionProposal`: only a pending proposal changes.

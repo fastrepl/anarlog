@@ -45,7 +45,7 @@ describe("canonical session editor activity", () => {
 
   it("treats a mounted editor as active whether or not it is focused", async () => {
     const focusedView = { hasFocus: () => true } as never;
-    registerCanonicalSessionEditor("session-1", focusedView, vi.fn());
+    registerCanonicalSessionEditor("session-1", focusedView, vi.fn(), vi.fn());
     await expect(isCanonicalSessionEditorActive("session-1")).resolves.toBe(
       true,
     );
@@ -54,7 +54,12 @@ describe("canonical session editor activity", () => {
     vi.useFakeTimers();
     const unfocusedView = { hasFocus: () => false } as never;
     const persistPendingChange = vi.fn();
-    registerCanonicalSessionEditor("session-1", unfocusedView, vi.fn());
+    registerCanonicalSessionEditor(
+      "session-1",
+      unfocusedView,
+      vi.fn(),
+      vi.fn(),
+    );
     setTimeout(persistPendingChange, 500);
 
     await vi.advanceTimersByTimeAsync(499);
@@ -80,8 +85,13 @@ describe("canonical session editor activity", () => {
     const secondView = { hasFocus: () => false } as never;
     const firstFlush = vi.fn();
     const secondFlush = vi.fn();
-    registerCanonicalSessionEditor("session-1", firstView, firstFlush);
-    registerCanonicalSessionEditor("session-1", secondView, secondFlush);
+    registerCanonicalSessionEditor("session-1", firstView, firstFlush, vi.fn());
+    registerCanonicalSessionEditor(
+      "session-1",
+      secondView,
+      secondFlush,
+      vi.fn(),
+    );
     mocks.flushDatabaseWrites.mockImplementationOnce(async () => {
       expect(firstFlush).toHaveBeenCalledOnce();
       expect(secondFlush).toHaveBeenCalledOnce();

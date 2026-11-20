@@ -265,7 +265,8 @@ impl Contacts {
         let cancel = self.watch_cancel.clone();
         Self::watch(
             &self.runtime,
-            data::CONTACTS_SQL,
+            data::CONTACTS_CHANGES_SQL,
+            Some(data::CONTACTS_SQL),
             vec![],
             cancel,
             cx,
@@ -392,6 +393,7 @@ impl Contacts {
         Self::watch(
             &self.runtime,
             data::NOTES_SQL,
+            None,
             vec![Value::from(id.to_string())],
             cancel,
             cx,
@@ -408,15 +410,22 @@ impl Contacts {
         );
     }
 
+    /// With `read`, `sql` only signals that the tables `read` reads changed, and each change
+    /// reads `read` in full: contacts outgrow a watch's 1,000 rows.
     fn watch(
         runtime: &RuntimeHandle,
         sql: &'static str,
+        read: Option<&'static str>,
         params: Vec<Value>,
         cancel: CancellationToken,
         cx: &mut Context<Self>,
         apply: impl Fn(&mut Self, Arc<[Value]>, &mut Context<Self>) + 'static,
     ) {
-        let reply = runtime.watch_query(sql.into(), params);
+        let reply = match read {
+            Some(_) => runtime.watch_changes(sql.into(), params.clone()),
+            None => runtime.watch_query(sql.into(), params.clone()),
+        };
+        let runtime = runtime.clone();
         cx.spawn(async move |this, cx| {
             let fail = |this: &mut Self, error: String, cx: &mut Context<Self>| {
                 this.message = format!("Could not load contacts: {error}").into();
@@ -439,10 +448,23 @@ impl Contacts {
                 if cancel.is_cancelled() {
                     break;
                 }
-                let rows = watch.snapshots.borrow_and_update().rows.clone();
-                let error = watch
+                let mut rows = watch.snapshots.borrow_and_update().rows.clone();
+                let mut error = watch
                     .terminal_error()
                     .or_else(|| watch.errors.try_recv().ok());
+                if let (Some(read), None) = (read, &error) {
+                    match async {
+                        runtime
+                            .read_rows(read.into(), params.clone())?
+                            .receive()
+                            .await
+                    }
+                    .await
+                    {
+                        Ok(read) => rows = read.into(),
+                        Err(failed) => error = Some(failed),
+                    }
+                }
                 let updated = this.update(cx, |this, cx| {
                     if cancel.is_cancelled() {
                         return;
@@ -483,6 +505,7 @@ impl Contacts {
             if let Page::Person(page) = &mut self.page
                 && let Some(human) = self.data.human(&page.id)
             {
+                page.sync_fields(human, window, cx);
                 page.sync_emails(human, window, cx);
             }
             return;
@@ -851,6 +874,63 @@ pub(super) fn focus_input(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[gpui::test]
+    fn contacts_load_and_follow_changes_past_a_watchs_row_limit(cx: &mut gpui::TestAppContext) {
+        use futures::executor::block_on;
+
+        cx.executor().allow_parking();
+        let directory = tempfile::tempdir().unwrap();
+        let (runtime, ready) = RuntimeHandle::start(desktop_runtime::Profile {
+            database: directory.path().join("library.sqlite"),
+        })
+        .unwrap();
+        block_on(ready.receive()).unwrap();
+        let insert = |sql: &'static str| {
+            let reply = runtime
+                .submit(move |services| async move {
+                    sqlx::raw_sql(sqlx::AssertSqlSafe(sql))
+                        .execute(services.db.pool())
+                        .await
+                        .map_err(|error| {
+                            desktop_runtime::ServiceError::Failed(error.to_string().into())
+                        })?;
+                    Ok(())
+                })
+                .unwrap();
+            block_on(reply.receive()).unwrap();
+        };
+        insert(
+            "WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 1001)
+             INSERT INTO humans (id, name) SELECT 'h' || i, 'Person ' || i FROM n",
+        );
+        let view = cx.new(|cx| {
+            let mut view = Contacts::new(runtime.clone(), cx);
+            view.activate(cx);
+            view
+        });
+        let humans =
+            |cx: &mut gpui::TestAppContext| view.read_with(cx, |view, _| view.data.humans.len());
+        let settle = |cx: &mut gpui::TestAppContext, count: usize| {
+            for _ in 0..400 {
+                cx.run_until_parked();
+                if humans(cx) == count {
+                    return;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(5));
+            }
+        };
+        settle(cx, 1001);
+        assert_eq!(humans(cx), 1001);
+        insert("INSERT INTO humans (id, name) VALUES ('h-new', 'Newcomer')");
+        settle(cx, 1002);
+        assert_eq!(humans(cx), 1002);
+        view.read_with(cx, |view, _| {
+            assert!(view.message.is_empty(), "{}", view.message)
+        });
+        drop(view);
+        block_on(runtime.shutdown()).unwrap();
+    }
 
     #[test]
     fn clicking_an_open_menus_trigger_closes_it_instead_of_reopening() {

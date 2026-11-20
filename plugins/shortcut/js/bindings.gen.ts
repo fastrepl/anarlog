@@ -43,6 +43,27 @@ export const commands = {
       else return { status: "error", error: e as any };
     }
   },
+  /**
+   * Like `configure`, but the shortcut reports `DictationGesture` events: hold to talk, double
+   * tap or Space to keep listening, Escape or a chord to cancel. Taps never start dictation.
+   */
+  async configureGestures(
+    shortcut: string | null,
+    options: GestureOptions,
+  ): Promise<Result<GestureCapabilities, string>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("plugin:shortcut|configure_gestures", {
+          shortcut,
+          options,
+        }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
   async validate(shortcut: string): Promise<Result<null, string>> {
     try {
       return {
@@ -70,8 +91,10 @@ export const commands = {
 /** user-defined events **/
 
 export const events = __makeEvents__<{
+  dictationGesture: DictationGesture;
   shortcutEvent: ShortcutEvent;
 }>({
+  dictationGesture: "plugin:shortcut:dictation-gesture",
   shortcutEvent: "plugin:shortcut:shortcut-event",
 });
 
@@ -79,6 +102,39 @@ export const events = __makeEvents__<{
 
 /** user-defined types **/
 
+export type DictationGesture =
+  /**
+   * A press began and may become a dictation. Prepare without prompting for anything.
+   */
+  | { type: "prime" }
+  /**
+   * The primed press ended as a tap or a chord: drop what it prepared.
+   */
+  | { type: "unprime" }
+  /**
+   * Dictation starts. A latched start after a double tap was not primed.
+   */
+  | { type: "start"; latched: boolean }
+  /**
+   * The running hold keeps listening after release.
+   */
+  | { type: "latch" }
+  | { type: "stop" }
+  | { type: "cancel" }
+  /**
+   * A single tap with no second tap after it.
+   */
+  | { type: "tap" };
+/**
+ * What the backend can observe, so settings can say which gestures work.
+ */
+export type GestureCapabilities = { spaceLatch: boolean; chordCancel: boolean };
+export type GestureOptions = {
+  holdMs?: number;
+  doubleTapMs?: number;
+  doubleTapLatch?: boolean;
+  spaceLatch?: boolean;
+};
 export type HotKey = { key: number | null; modifiers: Modifier[] };
 export type Modifier =
   | "command"

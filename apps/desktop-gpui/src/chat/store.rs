@@ -175,7 +175,7 @@ pub fn messages(
         let rows = services
             .executor
             .execute(
-                "SELECT id, role, content, parts_json, metadata_json, created_at FROM chat_messages WHERE chat_group_id = ? AND deleted_at IS NULL ORDER BY created_at, id".into(),
+                "SELECT id, role, content, parts_json, metadata_json, created_at FROM chat_messages WHERE chat_group_id = ? AND deleted_at IS NULL ORDER BY created_at, rowid".into(),
                 vec![json!(group)],
             )
             .await
@@ -417,7 +417,7 @@ pub fn mention_context(
             MentionKind::Folder => {
                 const LIMIT: usize = 50;
                 let folder = reference.id.clone();
-                let sessions = run("SELECT id, title, created_at FROM sessions WHERE deleted_at IS NULL AND (folder_path = ?1 OR folder_path LIKE ?1 || '/%') ORDER BY created_at DESC, id", vec![json!(folder)]).await.map_err(failure)?;
+                let sessions = run("SELECT id, title, created_at FROM sessions WHERE deleted_at IS NULL AND (folder_path = ?1 OR substr(folder_path, 1, length(?1) + 1) = ?1 || '/') ORDER BY created_at DESC, id", vec![json!(folder)]).await.map_err(failure)?;
                 let materials = run("SELECT id, filename FROM folder_attachments WHERE folder_path = ? AND deleted_at IS NULL ORDER BY filename, id LIMIT 100", vec![json!(folder)]).await.map_err(failure)?;
                 let instructions = run("SELECT instructions FROM folders WHERE path = ? AND deleted_at IS NULL", vec![json!(folder)]).await.map(|rows| rows.first().map(|row| text(row, "instructions")).unwrap_or_default()).unwrap_or_default();
                 let count = sessions.len();

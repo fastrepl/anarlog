@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 owhisper-interface = { workspace = true }
 
+anlg-audio = { workspace = true }
 anlg-template-app = { workspace = true }
 json-patch = "4.1"
 regex = { workspace = true }
