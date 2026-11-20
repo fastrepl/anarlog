@@ -29,6 +29,9 @@ pub fn validate(text: &str) -> Result<()> {
 
 pub struct NativeInsertion;
 
+#[cfg(target_os = "linux")]
+mod linux;
+
 #[cfg(target_os = "windows")]
 mod windows;
 
@@ -46,9 +49,7 @@ impl Insertion for NativeInsertion {
     }
 }
 
-// Shipping's AT-SPI insertion lives inside its Tauri plugin. Linux insertion (#8229) narrows
-// this same fallback; whichever of the two lands second excludes both platforms here.
-#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+#[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
 impl Insertion for NativeInsertion {
     fn capture(&self) -> Result<String> {
         Err(ServiceError::Unsupported(

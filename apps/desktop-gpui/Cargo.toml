@@ -203,6 +203,7 @@ tokio-tungstenite = { workspace = true }
 wiremock = { workspace = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
+atspi = { version = "0.25", default-features = false, features = ["tokio", "zbus"] }
 gpui_platform = { git = "https://github.com/zed-industries/zed", rev = "053d91cb14b5fd138f221ec02bd76efb15e7b2af", features = ["x11", "wayland"] }
 gtk = "=0.18.2"
 nix = { version = "=0.30.1", features = ["user"] }
