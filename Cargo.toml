@@ -75,6 +75,7 @@ anlg-db-execute = { path = "crates/db-execute", package = "db-execute" }
 anlg-db-migrate = { path = "crates/db-migrate", package = "db-migrate" }
 anlg-db-reactive = { path = "crates/db-reactive", package = "db-reactive" }
 anlg-db-sync = { path = "crates/db-sync", package = "db-sync" }
+anlg-desktop-identity = { path = "crates/desktop-identity", package = "desktop-identity" }
 anlg-detect = { path = "crates/detect", package = "detect" }
 anlg-device-monitor = { path = "crates/device-monitor", package = "device-monitor" }
 anlg-dictation-ui-macos = { path = "crates/dictation-ui-macos", package = "dictation-ui-macos" }
@@ -161,6 +162,7 @@ keyring = "4.1.4"
 posthog-rs = "0.5"
 progenitor-client = "0.13"
 
+dictation-core = { path = "crates/dictation-core" }
 openai-transcription = { path = "crates/openai-transcription", package = "openai-transcription" }
 owhisper-client = { path = "crates/owhisper-client", package = "owhisper-client" }
 owhisper-interface = { path = "crates/owhisper-interface", package = "owhisper-interface" }
@@ -194,6 +196,7 @@ tauri-plugin-audio-priority = { path = "plugins/audio-priority" }
 tauri-plugin-auth = { path = "plugins/auth" }
 tauri-plugin-bedrock = { path = "plugins/bedrock" }
 tauri-plugin-calendar = { path = "plugins/calendar" }
+tauri-plugin-camera-watermark = { path = "plugins/camera-watermark" }
 tauri-plugin-db = { path = "plugins/db" }
 tauri-plugin-deeplink2 = { path = "plugins/deeplink2" }
 tauri-plugin-detect = { path = "plugins/detect" }
@@ -265,6 +268,7 @@ codes-iso-639 = "0.1.5"
 dirs = "6.0.0"
 dotenvy = "0.15.7"
 envy = "0.4"
+gethostname = "1.1.0"
 governor = "0.10.4"
 http = "1"
 image = { version = "0.25.10", default-features = false, features = ["webp"] }

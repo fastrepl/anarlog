@@ -2,11 +2,10 @@ use ashpd::desktop::global_shortcuts::{GlobalShortcuts, NewShortcut};
 use futures_util::StreamExt;
 use tauri::Manager;
 use tauri_plugin_global_shortcut::Shortcut;
-use tauri_specta::Event;
 
 use super::trigger::portal_trigger;
 
-use crate::ShortcutEvent;
+use crate::{ShortcutEvent, gesture::Input};
 
 pub struct Registration {
     stop: tokio::sync::oneshot::Sender<()>,
@@ -74,7 +73,7 @@ pub async fn register(app: tauri::AppHandle, key: Shortcut) -> Result<Registrati
     let task = tauri::async_runtime::spawn(async move {
         let Ok(mut closed) = session.receive_closed().await else {
             let _ = session.close().await;
-            let _ = ShortcutEvent::Cancelled.emit(&app);
+            super::report(&app, Input::Lost, Some(ShortcutEvent::Cancelled));
             return;
         };
         let mut down = false;
@@ -86,9 +85,10 @@ pub async fn register(app: tauri::AppHandle, key: Shortcut) -> Result<Registrati
                     let Some(event) = event else { break };
                     if event.session_handle().as_str() != session_path { continue; }
                     match event.shortcut_id() {
-                        "dictate" if !down => { down = true; let _ = ShortcutEvent::Pressed.emit(&app); }
-                        "cancel-dictation" if app.state::<super::GlobalState>().active.load(std::sync::atomic::Ordering::SeqCst) => {
-                            let _ = ShortcutEvent::Cancelled.emit(&app);
+                        "dictate" if !down => { down = true; super::report(&app, Input::Down, Some(ShortcutEvent::Pressed)); }
+                        "cancel-dictation" => {
+                            let active = app.state::<super::GlobalState>().active.load(std::sync::atomic::Ordering::SeqCst);
+                            super::report(&app, Input::Escape, active.then_some(ShortcutEvent::Cancelled));
                         }
                         _ => {}
                     }
@@ -97,13 +97,13 @@ pub async fn register(app: tauri::AppHandle, key: Shortcut) -> Result<Registrati
                     let Some(event) = event else { break };
                     if event.session_handle().as_str() == session_path && event.shortcut_id() == "dictate" {
                         down = false;
-                        let _ = ShortcutEvent::Released.emit(&app);
+                        super::report(&app, Input::Up, Some(ShortcutEvent::Released));
                     }
                 }
             }
         }
         let _ = session.close().await;
-        let _ = ShortcutEvent::Cancelled.emit(&app);
+        super::report(&app, Input::Lost, Some(ShortcutEvent::Cancelled));
     });
     Ok(Registration { stop, task })
 }

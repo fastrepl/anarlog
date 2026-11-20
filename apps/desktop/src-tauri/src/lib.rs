@@ -5,6 +5,7 @@ mod commands;
 mod db;
 mod embedded_cli;
 mod ext;
+mod meeting_browser;
 mod search_index;
 mod startup;
 mod store;
@@ -31,6 +32,8 @@ static EXIT_FLUSH_COMPLETE: AtomicBool = AtomicBool::new(false);
 static EXIT_FLUSH_REQUESTED: AtomicBool = AtomicBool::new(false);
 static CRASH_REPORTING_ENABLED: AtomicBool = AtomicBool::new(false);
 const EXIT_FLUSH_FALLBACK_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
+/// A confirmed quit only waits for local edits; the frontend gives them 2 s.
+const QUICK_EXIT_FLUSH_FALLBACK_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(3);
 const EXIT_HARD_FALLBACK_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(12);
 
 pub(crate) struct CrashReportingState;
@@ -85,8 +88,15 @@ fn start_exit_hard_fallback() {
     });
 }
 
+/// A confirmed quit still saves first; confirming again while that save runs exits at once.
 fn should_allow_immediate_exit() -> bool {
-    EXIT_FLUSH_COMPLETE.load(Ordering::SeqCst) || anlg_intercept::should_force_quit()
+    EXIT_FLUSH_COMPLETE.load(Ordering::SeqCst)
+        || (anlg_intercept::should_force_quit() && EXIT_FLUSH_REQUESTED.load(Ordering::SeqCst))
+}
+
+#[derive(Clone, serde::Serialize)]
+struct AppExitRequest {
+    quick: bool,
 }
 
 fn create_audio_provider(_bundle_id: &str) -> std::sync::Arc<dyn anlg_audio_actual::AudioProvider> {
@@ -105,6 +115,33 @@ fn create_audio_provider(_bundle_id: &str) -> std::sync::Arc<dyn anlg_audio_actu
         }
     }
     std::sync::Arc::new(anlg_audio_actual::ActualAudio)
+}
+
+/// The meeting runtime is the only lifecycle owner; features that act on a recorded call observe it.
+fn register_meeting_observers(app: &tauri::AppHandle) {
+    use tauri::Manager;
+    use tauri_plugin_camera_watermark::CameraWatermarkPluginExt;
+
+    let Some(meeting) = app.try_state::<tauri_plugin_transcription::MeetingCapture>() else {
+        tracing::error!("meeting_runtime_unavailable");
+        return;
+    };
+    meeting
+        .runtime
+        .register_observer(app.camera_watermark().observer());
+    // The one notice dispatcher, for native captures and the Meet extension alike.
+    let notices = tauri_plugin_detect::MeetingNoticeObserver::new(app);
+    meeting.runtime.register_observer(notices.clone());
+
+    // On only when this build bundles its channel's pinned extension config; otherwise off, and
+    // any host manifest this channel left behind goes.
+    let bridge =
+        meeting_browser::MeetingBrowserBridge::new(app.clone(), meeting.inner().clone(), notices);
+    if let Err(error) = bridge.enable() {
+        tracing::info!(%error, "browser_meeting_bridge_off");
+        bridge.disable();
+    }
+    app.manage(bridge);
 }
 
 pub fn main() {
@@ -331,6 +368,7 @@ pub fn main() {
         .plugin(tauri_plugin_session::init())
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_detect::init())
+        .plugin(tauri_plugin_camera_watermark::init())
         .plugin(tauri_plugin_dock::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_notify::init())
@@ -355,7 +393,7 @@ pub fn main() {
         .plugin(
             tauri_plugin_window_state::Builder::default()
                 .with_state_flags(tauri_plugin_windows::persisted_window_state_flags())
-                .with_denylist(&["composer", "dictation-overlay"])
+                .with_denylist(&["composer"])
                 .build(),
         )
         .plugin(tauri_plugin_transcription::init())
@@ -408,6 +446,7 @@ pub fn main() {
         .setup(move |app| {
             let app_handle = app.handle().clone();
             tauri_plugin_shortcut::initialize_global_shortcuts(&app_handle);
+            register_meeting_observers(&app_handle);
 
             specta_builder.mount_events(&app_handle);
 
@@ -575,17 +614,27 @@ pub fn main() {
             }
 
             api.prevent_exit();
+            // Quit Completely, a second ⌘Q and ⌘⇧Q only save local edits, so they stay prompt.
+            let quick = anlg_intercept::should_force_quit();
             let first_request = !EXIT_FLUSH_REQUESTED.swap(true, Ordering::SeqCst);
             if first_request {
                 start_exit_hard_fallback();
             }
-            if app.emit_to("main", APP_EXIT_REQUESTED_EVENT, ()).is_err() {
+            if app
+                .emit_to("main", APP_EXIT_REQUESTED_EVENT, AppExitRequest { quick })
+                .is_err()
+            {
                 mark_exit_flush_complete();
                 app.exit(0);
             } else if first_request {
                 let app_handle = app.clone();
+                let timeout = if quick {
+                    QUICK_EXIT_FLUSH_FALLBACK_TIMEOUT
+                } else {
+                    EXIT_FLUSH_FALLBACK_TIMEOUT
+                };
                 tauri::async_runtime::spawn(async move {
-                    tokio::time::sleep(EXIT_FLUSH_FALLBACK_TIMEOUT).await;
+                    tokio::time::sleep(timeout).await;
                     if !EXIT_FLUSH_COMPLETE.swap(true, Ordering::SeqCst) {
                         tracing::warn!(
                             "forcing app exit after frontend flush acknowledgement timed out"
@@ -702,6 +751,7 @@ fn get_onboarding_flag() -> Option<bool> {
 fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
     tauri_specta::Builder::<R>::new()
         .commands(tauri_specta::collect_commands![
+            commands::get_registered_desktop_schemes::<tauri::Wry>,
             commands::get_onboarding_needed::<tauri::Wry>,
             commands::set_onboarding_needed::<tauri::Wry>,
             commands::get_dismissed_toasts::<tauri::Wry>,
@@ -730,9 +780,11 @@ mod test {
     use super::*;
 
     #[test]
-    fn complete_quit_allows_immediate_exit_without_frontend_flush() {
+    fn complete_quit_saves_edits_first_unless_confirmed_again() {
         assert!(!should_allow_immediate_exit());
         anlg_intercept::set_force_quit();
+        assert!(!should_allow_immediate_exit());
+        EXIT_FLUSH_REQUESTED.store(true, Ordering::SeqCst);
         assert!(should_allow_immediate_exit());
     }
 

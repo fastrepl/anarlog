@@ -109,7 +109,8 @@ fn tag_locale(name: Option<&str>) -> Locale {
 }
 
 pub(crate) struct Cache {
-    observer: SqliteConnection,
+    /// `None` once shutdown closed it.
+    observer: Option<SqliteConnection>,
     version: i64,
     pages: VecDeque<(PageKey, LibraryPage)>,
     bytes: usize,
@@ -126,16 +127,24 @@ impl Cache {
         .await
         .map_err(failure)?;
         Ok(Self {
-            observer,
+            observer: Some(observer),
             version: -1,
             pages: VecDeque::new(),
             bytes: 0,
         })
     }
 
+    /// Shutdown closes the observer with the pool, so no connection outlives it.
+    pub(crate) async fn close(&mut self) {
+        if let Some(observer) = self.observer.take() {
+            let _ = observer.close().await;
+        }
+    }
+
     async fn version(&mut self) -> Result<i64> {
+        let observer = self.observer.as_mut().ok_or(ServiceError::Closed)?;
         sqlx::query_scalar("PRAGMA data_version")
-            .fetch_one(&mut self.observer)
+            .fetch_one(observer)
             .await
             .map_err(failure)
     }
@@ -345,21 +354,29 @@ impl RuntimeHandle {
             services
                 .executor
                 .execute_transaction(vec![
+                    // Like shipping's `insert_session`: the note joins the synced workspace and
+                    // is owned by the active library, or CloudSync never uploads it.
                     TransactionStatement {
-                        sql: "INSERT INTO sessions (id, title, kind) VALUES (?, ?, 'note')".into(),
+                        sql: "INSERT INTO sessions (id, title, kind, workspace_id, owner_user_id)
+                              SELECT ?, ?, 'note', COALESCE(binding.workspace_id, ''),
+                                COALESCE((SELECT library_workspace_id FROM local_library_connections WHERE active = 1),
+                                         NULLIF(binding.workspace_id, ''), '')
+                              FROM (SELECT (SELECT json_extract(value_json, '$.workspace_id') FROM app_settings
+                                            WHERE id = 'cloudsync_workspace_binding') AS workspace_id) AS binding"
+                            .into(),
                         params: vec![json!(id), json!(title)],
                         expected_rows_affected: Some(1),
                     },
                     TransactionStatement {
-                        sql:
-                            "INSERT INTO session_documents (id, session_id, body) VALUES (?, ?, ?)"
-                                .into(),
+                        sql: "INSERT INTO session_documents (id, session_id, body, workspace_id)
+                              SELECT ?, id, ?, workspace_id FROM sessions WHERE id = ?"
+                            .into(),
                         params: vec![
-                            json!(id),
                             json!(id),
                             json!({"type":"doc","content":[{"type":"paragraph"}]})
                                 .to_string()
                                 .into(),
+                            json!(id),
                         ],
                         expected_rows_affected: Some(1),
                     },

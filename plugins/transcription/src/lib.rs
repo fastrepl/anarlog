@@ -16,6 +16,7 @@ mod error;
 mod listener;
 mod listener2;
 mod live_journal;
+mod meeting;
 mod session_transcript;
 mod stopped_captures;
 mod voiceprint;
@@ -36,6 +37,10 @@ pub use capture_markers::{CaptureLifecycleMarker, CapturePhase, InheritedCapture
 pub use error::{Error, Result};
 pub use listener::{Listener, ListenerPluginExt};
 pub use listener2::{Listener2, Listener2PluginExt};
+pub use meeting::{
+    MeetingCapture, MeetingCaptureAutoStopEvent, MeetingCaptureAutoStopReason,
+    MeetingCaptureCapability, MeetingCaptureEngineKind, stop_capture,
+};
 pub use stopped_captures::StoppedCaptureRegistry;
 
 use anlg_audio::AudioProvider;
@@ -52,11 +57,18 @@ pub async fn stop_capture_for_session<R: tauri::Runtime>(
         .stop_capture_for_session(session_id.to_string())
         .await;
     if stopped {
-        app.listener2()
-            .stop_transcription(format!("{session_id}:recovery"))
-            .await;
+        stop_recovery_transcription(app, session_id).await;
     }
     stopped
+}
+
+async fn stop_recovery_transcription<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    session_id: &str,
+) {
+    app.listener2()
+        .stop_transcription(format!("{session_id}:recovery"))
+        .await;
 }
 
 pub type SharedState = Arc<Mutex<PluginState>>;
@@ -191,6 +203,8 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             voiceprint::extract_voiceprint_candidates::<tauri::Wry>,
             voiceprint::promote_voiceprint_candidates::<tauri::Wry>,
             audio_retention::delete_processed_session_audio::<tauri::Wry>,
+            meeting::get_meeting_capture_capability::<tauri::Wry>,
+            meeting::set_meeting_account::<tauri::Wry>,
         ])
         .events(tauri_specta::collect_events![
             CaptureLifecycleEvent,
@@ -198,7 +212,8 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             CaptureDataEvent,
             LiveTranscriptPersistenceEvent,
             SessionAudioRetentionEvent,
-            TranscriptionEvent
+            TranscriptionEvent,
+            MeetingCaptureAutoStopEvent
         ])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }
@@ -232,7 +247,25 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             listener2::load_completed_batches(&batch_registry);
             app.manage(batch_registry);
 
-            let audio = app.state::<Arc<dyn AudioProvider>>().inner().clone();
+            let base_audio = app.state::<Arc<dyn AudioProvider>>().inner().clone();
+            let staging_root = app
+                .path()
+                .app_data_dir()
+                .map(|dir| dir.join("meeting-capture"))
+                .unwrap_or_else(|_| std::env::temp_dir().join("anarlog-meeting-capture"));
+            let meeting_runtime =
+                anlg_transcription_core::meeting::MeetingRuntime::new(staging_root);
+            let router = anlg_transcription_core::meeting::MeetingAudioRouter::new(
+                base_audio,
+                meeting_runtime.clone(),
+            );
+            meeting::stop_on_helper_end(&app_handle, &router);
+            app.manage(meeting::MeetingCapture {
+                runtime: meeting_runtime,
+                router: router.clone(),
+            });
+            // Only meeting recording goes through the router; dictation keeps the base provider.
+            let audio: Arc<dyn AudioProvider> = router;
             let session_state_cache: SessionStateCache = Arc::new(StdMutex::new(HashMap::new()));
             app.manage(session_state_cache.clone());
             let mic_isolation_cache: MicIsolationCache = Arc::new(StdMutex::new(HashMap::new()));
@@ -258,6 +291,8 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
                 .map(|_| tracing::info!("root_actor_spawned"))
                 .map_err(|e| tracing::error!(?e, "failed_to_spawn_root_actor"))
             });
+            meeting::spawn_staging_sweep(app_handle.clone());
+            meeting::spawn_evidence_recovery(app_handle.clone());
             audio_retention::spawn(app_handle);
 
             Ok(())

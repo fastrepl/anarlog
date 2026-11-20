@@ -150,7 +150,7 @@ impl WindowIdentity {
                     ..Default::default()
                 })
             },
-            app_id: Some("com.anarlog.gpui.sandbox".into()),
+            app_id: crate::platform::package::window_app_id(),
             ..Default::default()
         })
     }

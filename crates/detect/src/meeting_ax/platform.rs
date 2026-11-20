@@ -310,6 +310,7 @@ pub(super) fn classify_bundle(bundle_id: &str) -> MeetingPlatform {
     }
 }
 
+#[cfg(any(test, target_os = "macos"))]
 pub(super) fn supports_meeting_chat_mutation(bundle_id: &str) -> bool {
     cfg!(target_os = "macos") && meeting_app_family(bundle_id) == Some("slack")
 }

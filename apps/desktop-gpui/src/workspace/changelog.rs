@@ -20,11 +20,18 @@ use crate::{
 pub const BUNDLED_VERSION: &str = env!("ANLG_CHANGELOG_VERSION");
 const BUNDLED: &str = include_str!(concat!(env!("OUT_DIR"), "/changelog.md"));
 
-/// The release this build is: its `VITE_APP_VERSION`, else the newest bundled notes, as
-/// shipping's changelog plugin picks `latestVersion`.
+/// The release this build is: `APP_VERSION`, which the bundle and updater report and shipping
+/// records as last seen, else `VITE_APP_VERSION`, else the newest bundled notes, as shipping's
+/// changelog plugin picks `latestVersion`.
 pub fn current_version() -> &'static str {
-    option_env!("VITE_APP_VERSION")
-        .filter(|version| !version.is_empty())
+    release_version(option_env!("APP_VERSION"), option_env!("VITE_APP_VERSION"))
+}
+
+fn release_version(app: Option<&'static str>, vite: Option<&'static str>) -> &'static str {
+    [app, vite]
+        .into_iter()
+        .flatten()
+        .find(|version| !version.is_empty())
         .unwrap_or(BUNDLED_VERSION)
 }
 
@@ -649,6 +656,15 @@ mod tests {
         assert_eq!(body(raw), "- First");
         assert_eq!(body("---\ndate: x\n---"), "---\ndate: x\n---");
         assert_eq!(body("- No frontmatter\n"), "- No frontmatter");
+    }
+
+    /// A build made with only `APP_VERSION`, as `packaging/bundle.py` documents, records the
+    /// version its bundle reports.
+    #[test]
+    fn the_release_version_is_the_one_the_bundle_reports() {
+        assert_eq!(release_version(Some("1.5.0"), None), "1.5.0");
+        assert_eq!(release_version(Some(""), Some("1.5.0")), "1.5.0");
+        assert_eq!(release_version(None, None), BUNDLED_VERSION);
     }
 
     #[gpui::test]

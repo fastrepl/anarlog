@@ -504,7 +504,7 @@ impl super::ApplicationView {
                     return;
                 };
                 cx.spawn(async move |_, cx| {
-                    if let Err(error) = cloud.refresh().await {
+                    if let Err(error) = cloud.refresh(true).await {
                         tracing::warn!(%error, "account refresh after checkout failed");
                     }
                     cx.update(|cx| cloud.publish_account(cx));

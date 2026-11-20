@@ -9,6 +9,7 @@ mod error;
 mod events;
 mod ext;
 mod manifest;
+mod meeting_notice;
 mod mic_usage_tracker;
 mod timer_registry;
 
@@ -31,6 +32,9 @@ pub use dnd::*;
 pub use error::*;
 pub use events::*;
 pub use ext::*;
+pub use meeting_notice::{
+    MEETING_DISCLOSURE_MESSAGE, MeetingNoticeEvent, MeetingNoticeObserver, MeetingNoticeOutcome,
+};
 pub use mic_usage_tracker::MicUsageTracker;
 pub use policy::*;
 
@@ -72,14 +76,17 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::set_included_bundle_ids::<tauri::Wry>,
             commands::list_default_ignored_bundle_ids::<tauri::Wry>,
             commands::inspect_meeting_accessibility::<tauri::Wry>,
-            commands::send_meeting_chat_message::<tauri::Wry>,
             commands::capture_meeting_chat_messages::<tauri::Wry>,
             commands::capture_meeting_screen_share::<tauri::Wry>,
             commands::get_preferred_languages::<tauri::Wry>,
             commands::get_current_locale_identifier::<tauri::Wry>,
             commands::set_mic_active_threshold::<tauri::Wry>,
         ])
-        .events(tauri_specta::collect_events![DetectEvent])
+        .events(tauri_specta::collect_events![
+            DetectEvent,
+            MeetingNoticeEvent
+        ])
+        .constant("MEETING_DISCLOSURE_MESSAGE", MEETING_DISCLOSURE_MESSAGE)
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }
 

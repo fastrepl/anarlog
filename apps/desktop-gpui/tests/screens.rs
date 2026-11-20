@@ -77,8 +77,11 @@ fn main() {
                 ApplicationView::new(
                     runtime,
                     ready,
-                    profile.clone(),
-                    profile.with_extension("storage.json"),
+                    desktop_gpui::launch::Storage {
+                        channel: None,
+                        root: profile.clone(),
+                        pointer: Some(profile.with_extension("storage.json")),
+                    },
                     window,
                     cx,
                 )
@@ -261,6 +264,9 @@ fn main() {
     ] {
         open(&mut cx, window, Route::Settings(page.into()));
         capture(&mut cx, window, &out, &format!("settings-{page}"));
+        if page == "transcription" {
+            provider_menus(&mut cx, window, &runtime, &out);
+        }
     }
     developers(&mut cx, window, &runtime, &out);
     chat_edits(&mut cx, window, &runtime, &out);
@@ -273,6 +279,7 @@ fn main() {
     app_links_and_transcript_selection(&mut cx, window, &out);
     ai_features(&mut cx, window, &runtime, profile.path(), &out);
     zoom(&mut cx, window, &out);
+    memo_templates_narrow(&mut cx, window, &runtime, &out);
     capture_onboarding(&mut cx, window, &out);
 }
 
@@ -425,6 +432,29 @@ fn app_links_and_transcript_selection(
     capture(cx, window, out, "transcript-selection-speaker");
     type_text(cx, window, &["escape"]);
     click(cx, window, 330., 23.);
+}
+
+/// Settings › Transcription's provider and model menus, which are at least as wide as their
+/// triggers. Picking Deepgram saves it, so its rows are removed again afterwards.
+fn provider_menus(
+    cx: &mut HeadlessAppContext,
+    window: WindowHandle<ApplicationView>,
+    runtime: &RuntimeHandle,
+    out: &std::path::Path,
+) {
+    click(cx, window, 350., 143.);
+    capture(cx, window, out, "settings-transcription-provider-menu");
+    type_text(cx, window, &["escape"]);
+    click(cx, window, 350., 143.);
+    // Deepgram, the fifth provider.
+    click(cx, window, 350., 314.);
+    click(cx, window, 700., 143.);
+    capture(cx, window, out, "settings-transcription-model-menu");
+    type_text(cx, window, &["escape"]);
+    sql(
+        runtime,
+        "DELETE FROM app_settings WHERE id IN ('current_stt_provider', 'current_stt_model', 'ai_provider:stt:deepgram')",
+    );
 }
 
 /// A file picker that never opens: a stray click cannot show an OS dialog.
@@ -1665,6 +1695,43 @@ fn note_depth(
     open(cx, window, Route::Session(SessionId("s-intro".into())));
     capture(cx, window, out, "memo-templates");
 }
+
+/// The memo's templates in a narrow window: short titles still show in full, and a long one
+/// ends in an ellipsis. Late, because the narrow window collapses the sidebar.
+fn memo_templates_narrow(
+    cx: &mut HeadlessAppContext,
+    window: WindowHandle<ApplicationView>,
+    runtime: &RuntimeHandle,
+    out: &std::path::Path,
+) {
+    let resize = |cx: &mut HeadlessAppContext, width: f32| {
+        cx.update_window(window.into(), |_, window, cx| {
+            window.resize(size(px(width), px(WINDOW.1)));
+            window.bounds_changed(cx);
+        })
+        .unwrap();
+        settle(cx);
+    };
+    // Zoom ends in Settings; its back arrow returns to the workspace.
+    click(cx, window, 94., 23.);
+    open(cx, window, Route::Session(SessionId("s-intro".into())));
+    resize(cx, 420.);
+    capture(cx, window, out, "memo-templates-narrow");
+    sql(
+        runtime,
+        "UPDATE templates SET title = 'Weekly team sync with design, research, platform and customer success' WHERE id = 't-1-sync'",
+    );
+    settle(cx);
+    capture(cx, window, out, "memo-templates-narrow-long");
+    sql(
+        runtime,
+        "UPDATE templates SET title = 'Weekly team sync' WHERE id = 't-1-sync'",
+    );
+    resize(cx, WINDOW.0);
+    // Reopens the sidebar the narrow window collapsed.
+    click(cx, window, 94., 23.);
+}
+
 /// The note header's folder picker, Meeting info, Export modal and the summary tab's menu.
 fn note_header(
     cx: &mut HeadlessAppContext,
@@ -2653,7 +2720,13 @@ fn chat_composer(
         chat.event(ChatEvent::Open, window, cx)
     });
     // Voice input: without a dictation service it fails like shipping without a microphone;
-    // a stand-in service shows the recording row. No audio device is opened.
+    // a stand-in service shows the recording row. The app's own service is removed first, so
+    // no audio device is opened and no provider is called.
+    cx.update(|cx| {
+        if cx.has_global::<desktop_gpui::chat::voice::Voice>() {
+            cx.remove_global::<desktop_gpui::chat::voice::Voice>();
+        }
+    });
     click(cx, window, 858., 561.);
     capture(cx, window, out, "chat-voice-unavailable");
     cx.update(|cx| {
@@ -2857,15 +2930,22 @@ fn wheel(
 struct StandInVoice;
 
 impl desktop_gpui::chat::voice::VoiceInput for StandInVoice {
-    fn start(&self) -> futures::future::BoxFuture<'static, desktop_runtime::Result<()>> {
-        Box::pin(async { Ok(()) })
+    fn start(
+        &self,
+    ) -> (
+        Box<dyn desktop_gpui::chat::voice::VoiceRecording>,
+        futures::future::BoxFuture<'static, desktop_runtime::Result<()>>,
+    ) {
+        (Box::new(StandInVoice), Box::pin(async { Ok(()) }))
     }
+}
 
-    fn stop(&self) -> futures::future::BoxFuture<'static, desktop_runtime::Result<String>> {
+impl desktop_gpui::chat::voice::VoiceRecording for StandInVoice {
+    fn stop(
+        self: Box<Self>,
+    ) -> futures::future::BoxFuture<'static, desktop_runtime::Result<String>> {
         Box::pin(async { Ok("and the release dates".into()) })
     }
-
-    fn cancel(&self) {}
 }
 
 /// Runs a statement through the executor, so reactive watches see the change.

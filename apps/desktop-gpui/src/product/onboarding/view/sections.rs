@@ -22,6 +22,10 @@ use crate::{
         },
     },
     ui::theme::{Theme, system_font, theme},
+    workspace::{
+        calendar,
+        calendar_sidebar::{self, Provider},
+    },
 };
 
 const GREEN_600: u32 = 0x00a63e;
@@ -734,6 +738,9 @@ impl OnboardingView {
                         cx,
                     )),
             )
+            .when(!self.state.calendars.is_empty(), |column| {
+                column.child(self.calendar_selection(colors, cx))
+            })
             .when(self.state.enabled_calendars > 0, |column| {
                 // `w-fit`: the button keeps its own width in the column.
                 column.child(
@@ -749,6 +756,79 @@ impl OnboardingView {
                 column.child(self.troubleshooting(colors, cx))
             })
             .into_any_element()
+    }
+
+    /// Shipping's `CalendarSelection` under the providers: discovered calendars start disabled,
+    /// so each account's calendars are listed to turn on.
+    fn calendar_selection(&self, colors: &Theme, cx: &mut Context<Self>) -> Div {
+        let mut list = div()
+            .flex()
+            .flex_col()
+            .gap_3()
+            .p_4()
+            .border_1()
+            .border_color(colors.border);
+        for provider in Provider::visible() {
+            for group in calendar_sidebar::groups(*provider, &self.state.calendars) {
+                list = list.child(
+                    text(13., 18.)
+                        .font_weight(FontWeight::MEDIUM)
+                        .text_color(colors.muted_foreground)
+                        .child(group.source.to_string()),
+                );
+                for row in group.calendars {
+                    let name = SharedString::from(if row.name.is_empty() {
+                        "Untitled".into()
+                    } else {
+                        row.name.to_string()
+                    });
+                    let color =
+                        calendar::parse_color(&row.color).unwrap_or_else(|| rgb(0x888888).into());
+                    let id = row.id.clone();
+                    list = list.child(
+                        div()
+                            .id(SharedString::from(format!(
+                                "onboarding-calendar:{}",
+                                row.id
+                            )))
+                            .a11y_checkbox(name.clone(), row.enabled)
+                            .flex()
+                            .items_center()
+                            .gap_2()
+                            .cursor_pointer()
+                            .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                                this.toggle_calendar(id.clone(), cx)
+                            }))
+                            .child(
+                                div()
+                                    .size(px(16.))
+                                    .flex_shrink_0()
+                                    .flex()
+                                    .items_center()
+                                    .justify_center()
+                                    .border_1()
+                                    .border_color(color)
+                                    .when(row.enabled, |check| {
+                                        check.bg(color).child(
+                                            gpui::svg()
+                                                .path("workspace/CheckIcon.svg")
+                                                .size(px(12.))
+                                                .text_color(colors.primary_foreground),
+                                        )
+                                    }),
+                            )
+                            .child(
+                                text(14., 20.)
+                                    .min_w_0()
+                                    .truncate()
+                                    .text_color(colors.foreground)
+                                    .child(name),
+                            ),
+                    );
+                }
+            }
+        }
+        list
     }
 
     /// `TroubleShootingLink`; the native permission service has no reset.
@@ -804,7 +884,7 @@ impl OnboardingView {
 
     /// The compact `MeetingImportScreen`. Without installed-app detection only the
     /// always-available Google Meet import is listed, as shipping does when nothing is found.
-    fn imports(&self, colors: &Theme, cx: &mut Context<Self>) -> AnyElement {
+    fn imports(&self, colors: &Theme, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         let signed_in = self.state.signed_in;
         let muted = colors.muted_foreground;
         let (group_bg, text_color) = if signed_in {
@@ -930,27 +1010,32 @@ impl OnboardingView {
                     .child(icon("product/ArrowDown01Icon.svg", 14., text_color)),
             );
         let menu = self.import_menu.then(|| {
-            dropdown(
-                menu_panel(160., colors).child(
-                    div()
-                        .id("onboarding-import-use-files")
-                        .a11y_button("Use files")
-                        .flex()
-                        .items_center()
-                        .gap_2()
-                        .px_2()
-                        .py(px(6.))
-                        .text_size(px(14.))
-                        .line_height(px(20.))
-                        .cursor_pointer()
-                        .hover(|style| style.bg(colors.accent))
-                        .on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.import_files(cx)))
-                        .child(icon("product/Download01Icon.svg", 16., colors.foreground))
-                        .child("Use files"),
-                ),
-                true,
+            menu_panel(colors).w(px(160.)).child(
+                div()
+                    .id("onboarding-import-use-files")
+                    .a11y_button("Use files")
+                    .flex()
+                    .items_center()
+                    .gap_2()
+                    .px_2()
+                    .py(px(6.))
+                    .text_size(px(14.))
+                    .line_height(px(20.))
+                    .cursor_pointer()
+                    .hover(|style| style.bg(colors.accent))
+                    .on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.import_files(cx)))
+                    .child(icon("product/Download01Icon.svg", 16., colors.foreground))
+                    .child("Use files"),
             )
         });
+        let menu = dropdown(
+            "onboarding-import-menu",
+            menu,
+            true,
+            |this: &mut Self| this.import_menu = false,
+            window,
+            cx,
+        );
         div()
             .max_w(px(768.))
             .flex()
@@ -1007,7 +1092,7 @@ impl OnboardingView {
                                         },
                                     )),
                             )
-                            .child(div().relative().child(connect).children(menu)),
+                            .child(div().relative().child(connect).child(menu)),
                     )
                     .when(self.imports_open, |card| {
                         card.child(
@@ -1249,7 +1334,7 @@ impl Render for OnboardingView {
                 },
                 &colors,
                 cx,
-                |this, colors, cx| this.imports(colors, cx),
+                |this, colors, cx| this.imports(colors, window, cx),
             ),
             self.section(
                 Step::Final,

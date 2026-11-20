@@ -1,12 +1,17 @@
 use std::path::PathBuf;
 
+use anlg_desktop_identity::Locations;
+use desktop_gpui::launch::{self, Launch, Mode, Storage};
 use desktop_gpui::{application::ApplicationView, workspace::assets::Assets};
 use desktop_gpui::{
     native_events::{MenuState, NativeEvents},
-    platform::windows::WindowIdentity,
+    platform::{
+        package::{self, AppIds},
+        windows::WindowIdentity,
+    },
     ui::theme::UiFonts,
 };
-use desktop_runtime::Profile;
+use desktop_runtime::{Profile, RuntimeHandle, Startup};
 use gpui::AppContext;
 
 fn main() -> anyhow::Result<()> {
@@ -15,45 +20,78 @@ fn main() -> anyhow::Result<()> {
             tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "warn".into()),
         )
         .init();
-    let mut args = std::env::args_os().skip(1);
-    let profile = match args.next() {
-        Some(argument) if argument == "--help" => {
-            println!(
-                "Anarlog native preview\nUsage: desktop-gpui [--profile DIRECTORY]\nDefault: $HOME/.anarlog-gpui-sandbox/library.sqlite\nUse only an isolated profile or a backup copy, never the shipping app's live profile."
-            );
+    let (mode, urls) = match launch::parse(
+        std::env::args_os().skip(1),
+        launch::COMPILED_CHANNEL,
+        cfg!(debug_assertions),
+        std::env::var_os("HOME")
+            .or_else(|| std::env::var_os("USERPROFILE"))
+            .map(PathBuf::from),
+    )? {
+        Launch::Help => {
+            println!("{}", launch::HELP);
             return Ok(());
         }
-        Some(argument) if argument == "--profile" => PathBuf::from(
-            args.next()
-                .ok_or_else(|| anyhow::anyhow!("--profile requires a directory"))?,
-        ),
-        Some(_) => anyhow::bail!("Unknown option. Use --help."),
-        None => PathBuf::from(
-            std::env::var_os("HOME")
-                .or_else(|| std::env::var_os("USERPROFILE"))
-                .ok_or_else(|| anyhow::anyhow!("No home directory; pass --profile DIRECTORY"))?,
-        )
-        .join(".anarlog-gpui-sandbox"),
+        Launch::CrashReporter => return Ok(()),
+        Launch::Package => {
+            println!("{}", package::report());
+            return Ok(());
+        }
+        Launch::Run { mode, urls } => (mode, urls),
     };
-    anyhow::ensure!(args.next().is_none(), "Unexpected extra arguments");
-    let pointer = profile.with_extension("storage.json");
-    let profile = if pointer.exists() {
-        let path: PathBuf = serde_json::from_slice(&std::fs::read(&pointer)?)?;
-        anyhow::ensure!(
-            path.is_absolute() && path.is_dir(),
-            "Stored native profile location is not available"
-        );
-        path
-    } else {
-        profile
+    let (storage, database) = match mode {
+        Mode::Sandbox(profile) => {
+            let pointer = profile.with_extension("storage.json");
+            let profile = if pointer.exists() {
+                let path: PathBuf = serde_json::from_slice(&std::fs::read(&pointer)?)?;
+                anyhow::ensure!(
+                    path.is_absolute() && path.is_dir(),
+                    "Stored native profile location is not available"
+                );
+                path
+            } else {
+                profile
+            };
+            let database = profile.join("library.sqlite");
+            let storage = Storage {
+                channel: None,
+                root: profile,
+                pointer: Some(pointer),
+            };
+            (storage, database)
+        }
+        Mode::Channel(channel) => {
+            let locations = Locations::resolve(channel.identifier())
+                .ok_or_else(|| anyhow::anyhow!("The application data directory is unavailable"))?;
+            (Storage::channel(channel, &locations), locations.database())
+        }
     };
-    let (runtime, ready) = desktop_gpui::runtime_bridge::start(Profile {
-        database: profile.join("library.sqlite"),
-    })?;
-    let zoom = desktop_gpui::zoom::Zoom::load(profile.join("zoom.json"));
+    let events = NativeEvents::default();
+    // Before the runtime takes the profile, which the running instance holds.
+    #[cfg(any(target_os = "linux", target_os = "windows"))]
+    let Some(instance) = desktop_gpui::platform::single_instance::claim(&storage.root, &urls, {
+        let events = events.clone();
+        move |urls| events.relaunched(urls)
+    })?
+    else {
+        return Ok(());
+    };
+    events.open_urls(urls);
+    let startup = match storage.channel {
+        Some(channel) => Startup::shipping(storage.vault(), channel.identifier()),
+        None => Startup::default(),
+    };
+    let (runtime, ready) = RuntimeHandle::start_with(Profile { database }, startup)?;
+    let zoom = desktop_gpui::zoom::Zoom::load(storage.root.join("zoom.json"));
     let application = zoom.application().with_assets(Assets);
-    let events = NativeEvents::install(&application);
+    events.install(&application);
+    // A `--profile` run of a channel build leaves the installed app's link handler alone.
+    if let Some(channel) = storage.channel {
+        desktop_gpui::platform::deeplinks::register_handler(channel);
+    }
     application.run(move |cx| {
+        let ids = AppIds::current();
+        cx.set_app_identity(ids.app_user_model_id, ids.name);
         cx.set_global(zoom);
         UiFonts::init(cx);
         use desktop_gpui::platform::system_settings::{Installed, NativeSettings};
@@ -80,9 +118,8 @@ fn main() -> anyhow::Result<()> {
                 .options(None, cx)
                 .expect("valid default window"),
             move |window, cx| {
-                let root = cx.new(|cx| {
-                    ApplicationView::new(runtime.clone(), ready, profile, pointer, window, cx)
-                });
+                let root =
+                    cx.new(|cx| ApplicationView::new(runtime.clone(), ready, storage, window, cx));
                 let root_weak = root.downgrade();
                 // Like shipping, closing the main window hides it; the app keeps running.
                 window.on_window_should_close(cx, move |window, cx| {
@@ -139,9 +176,12 @@ fn main() -> anyhow::Result<()> {
         }
         cx.activate(true);
     });
+    // The replacement serves this profile's launches next.
+    #[cfg(any(target_os = "linux", target_os = "windows"))]
+    drop(instance);
     if desktop_gpui::platform::windows::restart_requested() {
         std::process::Command::new(std::env::current_exe()?)
-            .args(std::env::args_os().skip(1))
+            .args(launch::relaunch_args(std::env::args_os().skip(1)))
             .spawn()?;
     }
     Ok(())

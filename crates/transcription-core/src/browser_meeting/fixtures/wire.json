@@ -1,0 +1,37 @@
+{
+  "extension_messages": [
+    { "type": "meeting_start", "url": "https://meet.google.com/abc-defg-hij" },
+    { "type": "meeting_pause" },
+    { "type": "meeting_resume" },
+    { "type": "meeting_stop" },
+    { "type": "meeting_detach" },
+    {
+      "type": "meeting_cues",
+      "events": [{ "kind": "speaker", "at": 1, "participantId": "p-alice", "name": "Alice" }]
+    },
+    { "type": "meeting_chat", "outcome": "sent" },
+    { "type": "meeting_camera", "outcome": "switched" }
+  ],
+  "extension_events": [
+    { "event": "started", "pausable": false, "notice": "Anarlog is taking notes." },
+    { "event": "paused" },
+    { "event": "detached" },
+    { "event": "refused", "message": "x" }
+  ],
+  "hello": {
+    "type": "hello",
+    "protocol": 1,
+    "secret": "0123456789abcdef",
+    "origin": "chrome-extension://abcdefghijklmnopabcdefghijklmnop/",
+    "browser_pid": 77
+  },
+  "welcome": { "type": "welcome", "protocol": 1 },
+  "endpoint_record": {
+    "protocol": 1,
+    "app": "com.hyprnote.dev",
+    "pid": 4242,
+    "socket": "/tmp/anarlog-browser-meeting/s-0123abcd.sock",
+    "secret": "0123456789abcdef",
+    "allowed_origins": ["chrome-extension://abcdefghijklmnopabcdefghijklmnop/"]
+  }
+}

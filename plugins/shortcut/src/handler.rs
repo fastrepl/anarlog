@@ -11,7 +11,10 @@ pub use self::stub::Handler;
 
 #[cfg(target_os = "macos")]
 mod macos {
-    use std::{sync::Mutex, time::Duration};
+    use std::{
+        sync::{Arc, Mutex},
+        time::Duration,
+    };
 
     use anlg_shortcut_macos as sm;
     use tauri::{AppHandle, Runtime};
@@ -20,16 +23,53 @@ mod macos {
     use super::{Error, HotKey, Options};
     use crate::events::Modifier;
     use crate::events::ShortcutEvent;
+    use crate::gesture::{Driver, Input};
 
     pub struct Handler {
         listener: Mutex<Option<sm::Listener>>,
+        gestures: Mutex<Option<sm::EventTap>>,
     }
 
     impl Handler {
         pub fn new() -> Self {
             Self {
                 listener: Mutex::new(None),
+                gestures: Mutex::new(None),
             }
+        }
+
+        /// Reports the modifier-only shortcut's raw presses to the gesture driver.
+        pub fn register_gestures(&self, hotkey: HotKey, driver: Arc<Driver>) -> Result<(), Error> {
+            let tracker = Mutex::new(sm::ChordTracker::new(convert_hotkey(&hotkey)));
+            let tap = sm::EventTap::start_filtered(move |event| {
+                let mut tracker = tracker.lock().unwrap_or_else(|e| e.into_inner());
+                let tracked = tracker.track(event);
+                let Some(input) = tracked.input else {
+                    return tracked.swallow;
+                };
+                let acted = driver.input(match input {
+                    sm::ChordInput::Down => Input::Down,
+                    sm::ChordInput::Up => Input::Up,
+                    sm::ChordInput::LatchKey => Input::LatchKey,
+                    sm::ChordInput::Chord => Input::Chord,
+                    sm::ChordInput::Click => Input::Click,
+                    sm::ChordInput::Escape => Input::Escape,
+                });
+                if input == sm::ChordInput::LatchKey && acted {
+                    tracker.swallow_latch_key();
+                }
+                // The press is swallowed as the legacy listener does; Space and Escape only
+                // when they latched or cancelled something.
+                tracked.swallow
+                    || match input {
+                        sm::ChordInput::Down => true,
+                        sm::ChordInput::LatchKey | sm::ChordInput::Escape => acted,
+                        _ => false,
+                    }
+            })
+            .map_err(|e| Error::TapStart(e.to_string()))?;
+            *self.gestures.lock().unwrap_or_else(|e| e.into_inner()) = Some(tap);
+            Ok(())
         }
 
         pub fn register<R: Runtime>(
@@ -59,6 +99,10 @@ mod macos {
 
         pub fn unregister(&self) -> Result<(), Error> {
             self.listener
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .take();
+            self.gestures
                 .lock()
                 .unwrap_or_else(|e| e.into_inner())
                 .take();

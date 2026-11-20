@@ -79,7 +79,7 @@ pub async fn insert_folder_attachment(
             SELECT session.workspace_id
             FROM sessions AS session
             WHERE session.deleted_at IS NULL
-              AND (session.folder_path = ? OR session.folder_path LIKE ?)
+              AND (session.folder_path = ? OR substr(session.folder_path, 1, length(?) + 1) = ? || '/')
             ORDER BY session.updated_at DESC, session.id
             LIMIT 1
           ), ''),
@@ -104,7 +104,8 @@ pub async fn insert_folder_attachment(
     )
     .bind(id)
     .bind(folder_path)
-    .bind(format!("{folder_path}/%"))
+    .bind(folder_path)
+    .bind(folder_path)
     .bind(folder_path)
     .bind(filename)
     .bind(relative_path)
@@ -179,7 +180,7 @@ pub async fn insert_folder_if_missing(
             SELECT session.workspace_id
             FROM sessions AS session
             WHERE session.deleted_at IS NULL
-              AND (session.folder_path = ? OR session.folder_path LIKE ?)
+              AND (session.folder_path = ? OR substr(session.folder_path, 1, length(?) + 1) = ? || '/')
             ORDER BY session.updated_at DESC, session.id
             LIMIT 1
           ), ''),
@@ -193,7 +194,8 @@ pub async fn insert_folder_if_missing(
     )
     .bind(id)
     .bind(path)
-    .bind(format!("{path}/%"))
+    .bind(path)
+    .bind(path)
     .bind(path)
     .bind(path)
     .execute(&mut *conn)
@@ -236,15 +238,16 @@ pub async fn rewrite_folder_attachment_paths(
           END,
           updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
         WHERE deleted_at IS NULL
-          AND (folder_path = ? OR folder_path LIKE ? OR folder_path LIKE ?)",
+          AND (folder_path = ? OR substr(folder_path, 1, length(?) + 1) IN (? || '/', ? || '\\'))",
     )
     .bind(old_path)
     .bind(new_path)
     .bind(new_path)
     .bind(old_path)
     .bind(old_path)
-    .bind(format!("{old_path}/%"))
-    .bind(format!("{old_path}\\%"))
+    .bind(old_path)
+    .bind(old_path)
+    .bind(old_path)
     .execute(&mut *conn)
     .await?;
     Ok(result.rows_affected())
@@ -264,15 +267,16 @@ pub async fn rewrite_session_folder_paths(
           END,
           updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
         WHERE deleted_at IS NULL
-          AND (folder_path = ? OR folder_path LIKE ? OR folder_path LIKE ?)",
+          AND (folder_path = ? OR substr(folder_path, 1, length(?) + 1) IN (? || '/', ? || '\\'))",
     )
     .bind(old_path)
     .bind(new_path)
     .bind(new_path)
     .bind(old_path)
     .bind(old_path)
-    .bind(format!("{old_path}/%"))
-    .bind(format!("{old_path}\\%"))
+    .bind(old_path)
+    .bind(old_path)
+    .bind(old_path)
     .execute(&mut *conn)
     .await?;
     Ok(result.rows_affected())
@@ -288,11 +292,12 @@ pub async fn tombstone_folders_under(
           updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
           deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
         WHERE deleted_at IS NULL
-          AND (path = ? OR path LIKE ? OR path LIKE ?)",
+          AND (path = ? OR substr(path, 1, length(?) + 1) IN (? || '/', ? || '\\'))",
     )
     .bind(path)
-    .bind(format!("{path}/%"))
-    .bind(format!("{path}\\%"))
+    .bind(path)
+    .bind(path)
+    .bind(path)
     .execute(&mut *conn)
     .await?;
     Ok(result.rows_affected())
@@ -308,11 +313,12 @@ pub async fn tombstone_folder_attachments_under(
           updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
           deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
         WHERE deleted_at IS NULL
-          AND (folder_path = ? OR folder_path LIKE ? OR folder_path LIKE ?)",
+          AND (folder_path = ? OR substr(folder_path, 1, length(?) + 1) IN (? || '/', ? || '\\'))",
     )
     .bind(path)
-    .bind(format!("{path}/%"))
-    .bind(format!("{path}\\%"))
+    .bind(path)
+    .bind(path)
+    .bind(path)
     .execute(&mut *conn)
     .await?;
     Ok(result.rows_affected())
@@ -328,11 +334,12 @@ pub async fn clear_session_folder_paths(
           folder_path = '',
           updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
         WHERE deleted_at IS NULL
-          AND (folder_path = ? OR folder_path LIKE ? OR folder_path LIKE ?)",
+          AND (folder_path = ? OR substr(folder_path, 1, length(?) + 1) IN (? || '/', ? || '\\'))",
     )
     .bind(path)
-    .bind(format!("{path}/%"))
-    .bind(format!("{path}\\%"))
+    .bind(path)
+    .bind(path)
+    .bind(path)
     .execute(&mut *conn)
     .await?;
     Ok(result.rows_affected())
@@ -396,4 +403,121 @@ pub async fn update_folder_icon(
     .execute(&mut *conn)
     .await?;
     Ok(result.rows_affected())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use anlg_db_core::Db;
+
+    async fn test_db() -> Db {
+        let db = Db::connect_memory_plain().await.unwrap();
+        crate::prepare_schema(&db).await.unwrap();
+        sqlx::query(
+            "INSERT INTO sessions (id, folder_path) VALUES
+               ('own', 'Q1_2026'), ('child', 'Q1_2026/Notes'), ('lookalike', 'Q1-2026/Notes'),
+               ('cased', 'q1_2026/Notes'), ('percent', 'Q1%2026/Notes')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query("INSERT INTO folders (id, path) VALUES ('child', 'Q1_2026/Notes'), ('lookalike', 'Q1-2026/Notes')")
+            .execute(db.pool())
+            .await
+            .unwrap();
+        sqlx::query(
+            "INSERT INTO folder_attachments (id, folder_path) VALUES
+               ('child', 'Q1_2026/Notes'), ('lookalike', 'Q1-2026/Notes'), ('cased', 'q1_2026/Notes')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        db
+    }
+
+    async fn live_attachments(db: &Db) -> Vec<(String, String)> {
+        sqlx::query_as(
+            "SELECT id, folder_path FROM folder_attachments WHERE deleted_at IS NULL ORDER BY id",
+        )
+        .fetch_all(db.pool())
+        .await
+        .unwrap()
+    }
+
+    async fn session_folders(db: &Db) -> Vec<(String, String)> {
+        sqlx::query_as("SELECT id, folder_path FROM sessions ORDER BY id")
+            .fetch_all(db.pool())
+            .await
+            .unwrap()
+    }
+
+    fn pairs(rows: &[(&str, &str)]) -> Vec<(String, String)> {
+        rows.iter()
+            .map(|(id, path)| (id.to_string(), path.to_string()))
+            .collect()
+    }
+
+    // `_` and `%` are LIKE wildcards and LIKE ignores ASCII case, so renaming or deleting
+    // `Q1_2026` used to reach `Q1-2026`, `Q1%2026` and `q1_2026` too.
+    #[tokio::test]
+    async fn folder_operations_match_paths_literally() {
+        let db = test_db().await;
+        let mut conn = db.pool().acquire().await.unwrap();
+        rewrite_session_folder_paths(&mut conn, "Q1_2026", "Archive")
+            .await
+            .unwrap();
+        rewrite_folder_attachment_paths(&mut conn, "Q1_2026", "Archive")
+            .await
+            .unwrap();
+        drop(conn);
+        assert_eq!(
+            session_folders(&db).await,
+            pairs(&[
+                ("cased", "q1_2026/Notes"),
+                ("child", "Archive/Notes"),
+                ("lookalike", "Q1-2026/Notes"),
+                ("own", "Archive"),
+                ("percent", "Q1%2026/Notes"),
+            ])
+        );
+        assert_eq!(
+            live_attachments(&db).await,
+            pairs(&[
+                ("cased", "q1_2026/Notes"),
+                ("child", "Archive/Notes"),
+                ("lookalike", "Q1-2026/Notes"),
+            ])
+        );
+
+        let db = test_db().await;
+        let mut conn = db.pool().acquire().await.unwrap();
+        tombstone_folders_under(&mut conn, "Q1_2026").await.unwrap();
+        tombstone_folder_attachments_under(&mut conn, "Q1_2026")
+            .await
+            .unwrap();
+        clear_session_folder_paths(&mut conn, "Q1_2026")
+            .await
+            .unwrap();
+        drop(conn);
+        let live: Vec<String> =
+            sqlx::query_scalar("SELECT id FROM folders WHERE deleted_at IS NULL ORDER BY id")
+                .fetch_all(db.pool())
+                .await
+                .unwrap();
+        assert_eq!(live, ["lookalike"]);
+        assert_eq!(
+            live_attachments(&db).await,
+            pairs(&[("cased", "q1_2026/Notes"), ("lookalike", "Q1-2026/Notes")])
+        );
+        assert_eq!(
+            session_folders(&db).await,
+            pairs(&[
+                ("cased", "q1_2026/Notes"),
+                ("child", ""),
+                ("lookalike", "Q1-2026/Notes"),
+                ("own", ""),
+                ("percent", "Q1%2026/Notes"),
+            ])
+        );
+    }
 }

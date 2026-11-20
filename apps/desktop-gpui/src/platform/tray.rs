@@ -15,6 +15,10 @@ use desktop_runtime::{Result, ServiceError};
 
 pub use schedule::{AgendaEvent, AgendaSection, ScheduleEvent, agenda_sections, menu_bar_title};
 
+/// Shipping's tray ID. Linux names the indicator by it, and macOS keeps the menu-bar position
+/// under it (`NSStatusItem Preferred Position anlg-tray`), so both carry over from shipping.
+const TRAY_ID: &str = "anlg-tray";
+
 /// The `show_tray_icon` setting; the tray owner applies it on its next poll.
 static VISIBLE: AtomicBool = AtomicBool::new(true);
 
@@ -118,12 +122,12 @@ pub struct TrayModel {
 const RECORDING_FRAME_MS: f64 = 250.0;
 
 pub fn version_label() -> String {
-    let channel = if cfg!(debug_assertions) {
-        "dev"
-    } else {
-        "stable"
-    };
-    format!("v{} ({channel})", env!("CARGO_PKG_VERSION"))
+    use crate::platform::package;
+    format!(
+        "v{} ({})",
+        package::VERSION,
+        package::tray_channel(package::channel())
+    )
 }
 
 fn item(id: &str, label: impl Into<String>, enabled: bool) -> TrayItem {
@@ -286,6 +290,31 @@ thread_local! {
         const { std::cell::RefCell::new(None) };
 }
 
+/// Shipping's `apply_autosave_name`: the status item takes its saved menu-bar position. The
+/// saved visibility goes first, since the `show_tray_icon` setting owns visibility.
+#[cfg(target_os = "macos")]
+fn restore_position(icon: &tray_icon::TrayIcon) {
+    use objc2::{
+        class, msg_send,
+        runtime::{AnyObject, Bool},
+    };
+    let Some(item) = icon.ns_status_item() else {
+        return;
+    };
+    let item = objc2::rc::Retained::as_ptr(&item) as *mut AnyObject;
+    let string = |text: &str| -> *mut AnyObject {
+        let text = std::ffi::CString::new(text).expect("no NUL in the tray ID");
+        unsafe { msg_send![class!(NSString), stringWithUTF8String: text.as_ptr()] }
+    };
+    unsafe {
+        let defaults: *mut AnyObject = msg_send![class!(NSUserDefaults), standardUserDefaults];
+        let visible = string(&format!("NSStatusItem Visible {TRAY_ID}"));
+        let _: () = msg_send![defaults, removeObjectForKey: visible];
+        let _: () = msg_send![item, setAutosaveName: string(TRAY_ID)];
+        let _: () = msg_send![item, setVisible: Bool::YES];
+    }
+}
+
 pub struct NativeTray {
     icon: tray_icon::TrayIcon,
     model: Option<TrayModel>,
@@ -298,11 +327,14 @@ impl NativeTray {
         #[cfg(target_os = "linux")]
         gtk::init().map_err(failure)?;
         let icon = tray_icon::TrayIconBuilder::new()
+            .with_id(TRAY_ID)
             .with_icon(native_icon(TrayIcon::Default)?)
             .with_icon_as_template(true)
             .with_menu_on_left_click(true)
             .build()
             .map_err(failure)?;
+        #[cfg(target_os = "macos")]
+        restore_position(&icon);
         #[cfg(target_os = "macos")]
         tray_icon::TrayIconEvent::set_event_handler(Some(|event| {
             if let tray_icon::TrayIconEvent::Click {

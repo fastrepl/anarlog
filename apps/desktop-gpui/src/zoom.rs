@@ -3,10 +3,10 @@
 //!
 //! Views keep their literal sizes. [`Zoom::application`] wraps the GPUI platform so each window
 //! reports `1 / factor` of its real size and `factor` times its display scale, the way a webview
-//! zoom works: layout, text rasterization and hit-testing all scale together.
+//! zoom works: layout, text rasterization and hit-testing all scale together. The same adapter
+//! turns mouse-wheel notches into the distance shipping's web view scrolls.
 
 mod input;
-#[cfg(not(target_os = "windows"))]
 mod platform;
 
 use std::{
@@ -115,16 +115,19 @@ impl Zoom {
     }
 
     /// The native application with every window scaled by this zoom. Install `self` as a global
-    /// once it runs. Windows has no adapter yet, so its windows stay at 100%.
+    /// once it runs. Windows has no zoom yet, so its windows stay at 100% and the adapter only
+    /// converts wheel notches there.
     pub fn application(&self) -> Application {
-        let native = gpui_platform::current_platform(false);
-        #[cfg(not(target_os = "windows"))]
-        let native: Rc<dyn gpui::Platform> = Rc::new(platform::ZoomPlatform::new(
-            native,
-            self.factor.clone(),
+        let factor = if cfg!(target_os = "windows") {
+            Factor::new(DEFAULT)
+        } else {
+            self.factor.clone()
+        };
+        Application::with_platform(Rc::new(platform::ZoomPlatform::new(
+            gpui_platform::current_platform(false),
+            factor,
             self.min_sizes.clone(),
-        ));
-        Application::with_platform(native)
+        )))
     }
 }
 

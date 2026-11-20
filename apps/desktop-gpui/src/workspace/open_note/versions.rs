@@ -65,7 +65,8 @@ struct Entry {
 pub(super) struct Versions {
     conflicts: Vec<Conflict>,
     cancel: CancellationToken,
-    /// The memo's save conflict, mirrored so the banner re-renders only when it changes.
+    /// The memo's save conflict, mirrored so the banner re-renders only when it changes (summary
+    /// editors mirror theirs in `SummaryEditor`).
     memo_conflict: bool,
     memo_observer: Option<Subscription>,
     busy: bool,
@@ -128,8 +129,21 @@ impl NoteView {
         }));
     }
 
-    fn memo(&self) -> Option<Entity<EditorPane>> {
+    pub(super) fn memo(&self) -> Option<Entity<EditorPane>> {
         self.content.clone()?.downcast::<EditorPane>().ok()
+    }
+
+    /// The note's editors whose save lost to another revision: the memo, then its summaries.
+    pub(super) fn conflicted_editors(&self, cx: &gpui::App) -> Vec<Entity<EditorPane>> {
+        self.memo()
+            .into_iter()
+            .chain(
+                self.summary_editors
+                    .values()
+                    .map(|summary| summary.editor.clone()),
+            )
+            .filter(|editor| editor.read(cx).save_conflict())
+            .collect()
     }
 
     pub(super) fn open_history(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -191,12 +205,12 @@ impl NoteView {
     }
 
     /// "Keep this version": the shown note stays; its open conflicts are dismissed.
-    fn keep_this_version(&mut self, cx: &mut Context<Self>) {
+    pub(super) fn keep_this_version(&mut self, cx: &mut Context<Self>) {
         let Some(session) = &self.current else {
             return;
         };
-        if let Some(memo) = self.memo().filter(|memo| memo.read(cx).save_conflict()) {
-            memo.update(cx, |memo, cx| memo.keep_draft(cx));
+        for editor in self.conflicted_editors(cx) {
+            editor.update(cx, |editor, cx| editor.keep_draft(cx));
         }
         if self.versions.conflicts.is_empty() {
             return;
@@ -207,8 +221,8 @@ impl NoteView {
 
     /// "Use the other version": the newest conflicting value replaces the shown one.
     fn use_other_version(&mut self, cx: &mut Context<Self>) {
-        if let Some(memo) = self.memo().filter(|memo| memo.read(cx).save_conflict()) {
-            memo.update(cx, |memo, cx| memo.use_external(cx));
+        if let Some(editor) = self.conflicted_editors(cx).into_iter().next() {
+            editor.update(cx, |editor, cx| editor.use_external(cx));
             return;
         }
         let (Some(session), Some(conflict)) = (&self.current, self.versions.conflicts.first())
@@ -227,6 +241,7 @@ impl NoteView {
                 base: session.summary.clone(),
                 title: conflict.value.clone(),
             });
+            let shown = session.summary.id.clone();
             self.versions.busy = true;
             cx.notify();
             cx.spawn(async move |this, cx| {
@@ -236,6 +251,10 @@ impl NoteView {
                     Err(_) => Ok(()),
                 };
                 let _ = this.update(cx, |this, cx| {
+                    // Another note may be shown by now; its header and conflicts are its own.
+                    if this.session_id() != Some(&shown) {
+                        return;
+                    }
                     this.versions.busy = false;
                     // A saved title is shown even if dismissing the conflict failed.
                     let error = match renamed {
@@ -281,11 +300,17 @@ impl NoteView {
         action: impl Future<Output = Result<()>> + 'static,
         cx: &mut Context<Self>,
     ) {
+        let Some(shown) = self.session_id().cloned() else {
+            return;
+        };
         self.versions.busy = true;
         cx.notify();
         cx.spawn(async move |this, cx| {
             let result = action.await;
             let _ = this.update(cx, |this, cx| {
+                if this.session_id() != Some(&shown) {
+                    return;
+                }
                 this.versions.busy = false;
                 if let Err(error) = result {
                     this.message = format!("Could not resolve the conflict: {error}");
@@ -334,7 +359,7 @@ impl NoteView {
         cx: &mut Context<Self>,
     ) -> Option<AnyElement> {
         let synced = !self.versions.conflicts.is_empty();
-        if !synced && !self.versions.memo_conflict {
+        if !synced && self.conflicted_editors(cx).is_empty() {
             return None;
         }
         let dark = is_dark(colors);
@@ -924,5 +949,74 @@ mod tests {
             );
             runtime.shutdown().await.unwrap();
         });
+    }
+
+    /// A late title-conflict resolution for one note once renamed the note shown after it,
+    /// making the earlier note current again under the other note's header.
+    #[gpui::test]
+    fn a_late_title_resolution_leaves_the_next_note_alone(cx: &mut gpui::TestAppContext) {
+        cx.executor().allow_parking();
+        cx.update(crate::ui::theme::UiFonts::init);
+        let directory = tempfile::tempdir().unwrap();
+        let (runtime, ready) = RuntimeHandle::start(Profile {
+            database: directory.path().join("versions.sqlite"),
+        })
+        .unwrap();
+        block_on(ready.receive()).unwrap();
+        let first = block_on(runtime.create_note("First".into()).unwrap().receive()).unwrap();
+        let second = block_on(runtime.create_note("Second".into()).unwrap().receive()).unwrap();
+        let execute = |sql: &'static str, id: &SessionId| {
+            let id = id.clone();
+            let reply = runtime
+                .submit(move |services| async move {
+                    services
+                        .executor
+                        .execute(sql.into(), vec![json!(id)])
+                        .await
+                        .map_err(|error| ServiceError::Failed(error.to_string().into()))
+                })
+                .unwrap();
+            block_on(reply.receive()).unwrap()
+        };
+        execute(
+            "INSERT INTO e2ee_field_conflicts (id, table_name, row_id, field_name, value_json)
+             VALUES ('title', 'sessions', ?, 'title', '\"Their title\"')",
+            &first.summary.id,
+        );
+        let (note, cx) =
+            cx.add_window_view(|window, cx| NoteView::new(runtime.clone(), window, cx));
+        let settle = |cx: &mut gpui::VisualTestContext,
+                      done: &dyn Fn(&mut gpui::VisualTestContext) -> bool| {
+            for _ in 0..400 {
+                cx.run_until_parked();
+                if done(cx) {
+                    return;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(5));
+            }
+            panic!("the note did not settle");
+        };
+        let first_id = first.summary.id.clone();
+        note.update(cx, |note, cx| note.show(first, cx));
+        settle(cx, &|cx| {
+            note.read_with(cx, |note, _| note.versions.conflicts.len() == 1)
+        });
+        note.update(cx, |note, cx| {
+            note.use_other_version(cx);
+            note.show(second.clone(), cx);
+        });
+        settle(cx, &|_| {
+            execute(
+                "SELECT resolved_at FROM e2ee_field_conflicts WHERE row_id = ?",
+                &first_id,
+            )[0]["resolved_at"]
+                .is_string()
+        });
+        cx.run_until_parked();
+        note.read_with(cx, |note, cx| {
+            assert_eq!(note.session_id(), Some(&second.summary.id));
+            assert_eq!(note.title.read(cx).buffer.text, "Second");
+        });
+        block_on(runtime.shutdown()).unwrap();
     }
 }

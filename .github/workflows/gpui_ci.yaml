@@ -53,6 +53,8 @@ jobs:
         with:
           workspaces: apps/desktop-gpui
           prefix-key: v0-gpui-macos
+          # PRs restore main's cache; saving one per PR is slow and pushed macOS past its limit.
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - run: cargo fmt --check
       - run: cargo test --locked --workspace
       - run: cargo clippy --locked --workspace --all-targets --no-deps -- -D warnings
@@ -80,6 +82,7 @@ jobs:
         with:
           workspaces: apps/desktop-gpui
           prefix-key: v0-gpui-linux
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - run: cargo test --locked --workspace
       - run: cargo clippy --locked --workspace --all-targets --no-deps -- -D warnings
       - run: cargo build --locked

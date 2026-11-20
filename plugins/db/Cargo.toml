@@ -15,6 +15,7 @@ anlg-db-execute = { workspace = true }
 anlg-db-migrate = { workspace = true }
 anlg-db-reactive = { workspace = true, features = ["specta"] }
 anlg-db-sync = { workspace = true }
+anlg-desktop-identity = { workspace = true }
 anlg-e2ee = { workspace = true }
 anlg-fs-sync-core = { workspace = true }
 anlg-session-ingest = { workspace = true }

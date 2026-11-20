@@ -359,7 +359,9 @@ pub async fn mark_capture_audio_saved<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     session_id: String,
 ) -> Result<(), String> {
-    crate::capture_markers::mark_audio_saved(&app, &session_id).await
+    crate::capture_markers::mark_audio_saved(&app, &session_id).await?;
+    crate::meeting::adopt(&app, &session_id);
+    Ok(())
 }
 
 #[tauri::command]

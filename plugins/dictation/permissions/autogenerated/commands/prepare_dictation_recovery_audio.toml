@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-prepare-dictation-recovery-audio"
+description = "Enables the prepare_dictation_recovery_audio command without any pre-configured scope."
+commands.allow = ["prepare_dictation_recovery_audio"]
+
+[[permission]]
+identifier = "deny-prepare-dictation-recovery-audio"
+description = "Denies the prepare_dictation_recovery_audio command without any pre-configured scope."
+commands.deny = ["prepare_dictation_recovery_audio"]

@@ -158,7 +158,8 @@ export function buildRenderTranscriptRequestFromRows(
     humans,
     participantHumanIds,
   );
-  return request && speakerContext?.intervals.length
+  return request &&
+    (speakerContext?.intervals.length || speakerContext?.meetings?.length)
     ? { ...request, speaker_context: speakerContext }
     : request;
 }

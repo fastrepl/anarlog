@@ -211,6 +211,8 @@ pub(super) fn options(input: &str, humans: &[Candidate], added: &[Arc<str>]) -> 
 
 pub enum MeetingInfoEvent {
     OpenContact(Arc<str>),
+    /// The note's date was saved, which also moved its revision.
+    DateChanged,
 }
 
 struct Pending {
@@ -602,13 +604,15 @@ impl MeetingInfo {
             Ok(())
         });
         cx.spawn(async move |this, cx| {
-            if async { reply?.receive().await }.await.is_err() {
-                let _ = this.update(cx, |this, cx| {
+            let saved = async { reply?.receive().await }.await;
+            let _ = this.update(cx, |this, cx| match saved {
+                Ok(()) => cx.emit(MeetingInfoEvent::DateChanged),
+                Err(_) => {
                     this.pending_created_at = None;
                     this.message = Some("Could not update the note date.".into());
                     cx.notify();
-                });
-            }
+                }
+            });
         })
         .detach();
         cx.notify();
@@ -1559,5 +1563,183 @@ mod tests {
             );
             runtime.shutdown().await.unwrap();
         });
+    }
+
+    /// Changing the note's date once left the header holding the session's old revision, so
+    /// the next rename's conditional update reported a conflict.
+    #[gpui::test]
+    fn a_rename_after_changing_the_date_is_saved(cx: &mut gpui::TestAppContext) {
+        cx.executor().allow_parking();
+        cx.update(crate::ui::theme::UiFonts::init);
+        let directory = tempfile::tempdir().unwrap();
+        let (runtime, ready) = RuntimeHandle::start(desktop_runtime::Profile {
+            database: directory.path().join("library.sqlite"),
+        })
+        .unwrap();
+        futures::executor::block_on(ready.receive()).unwrap();
+        let open =
+            futures::executor::block_on(runtime.create_note("Sync".into()).unwrap().receive())
+                .unwrap();
+        let created_at = open.summary.created_at.clone();
+        let (note, cx) = cx
+            .add_window_view(|window, cx| super::super::NoteView::new(runtime.clone(), window, cx));
+        let settle = |cx: &mut gpui::VisualTestContext,
+                      done: &dyn Fn(&mut gpui::VisualTestContext) -> bool| {
+            for _ in 0..400 {
+                cx.run_until_parked();
+                if done(cx) {
+                    return;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(5));
+            }
+            panic!("the note did not settle");
+        };
+        note.update(cx, |note, cx| {
+            note.show(open, cx);
+            note.open_meeting_info(cx);
+        });
+        let info = note.read_with(cx, |note, _| note.meeting_info.as_ref().unwrap().0.clone());
+        cx.update(|window, cx| info.update(cx, |info, cx| info.edit_date(window, cx)));
+        info.update(cx, |info, cx| {
+            let input = info.date.as_ref().unwrap().0.clone();
+            input.update(cx, |input, cx| {
+                input.set_text("2026-01-02 10:00".into(), cx)
+            });
+            info.save_date(cx);
+        });
+        settle(cx, &|cx| {
+            note.read_with(cx, |note, _| {
+                note.current.as_ref().unwrap().summary.created_at != created_at
+            })
+        });
+        note.update(cx, |note, cx| {
+            note.title
+                .update(cx, |title, cx| title.set_text("Renamed".into(), cx));
+            note.rename(cx);
+        });
+        settle(cx, &|cx| note.read_with(cx, |note, _| !note.busy));
+        note.read_with(cx, |note, _| {
+            assert!(!note.rename_error, "{}", note.message);
+            assert_eq!(
+                note.current.as_ref().unwrap().summary.title.as_ref(),
+                "Renamed"
+            );
+        });
+        shut_down(&runtime, cx);
+    }
+
+    /// Saving the date once took another window's rename into the note but left the title
+    /// input on the old title, which then blocked navigation and could be saved back over it.
+    #[gpui::test]
+    fn a_date_change_shows_a_rename_made_in_another_window(cx: &mut gpui::TestAppContext) {
+        let (note, runtime, _directory, cx) = change_date_after_a_rename_elsewhere(None, cx);
+        note.read_with(cx, |note, cx| {
+            assert_eq!(
+                note.current.as_ref().unwrap().summary.title.as_ref(),
+                "Renamed elsewhere"
+            );
+            assert_eq!(note.title.read(cx).buffer.text, "Renamed elsewhere");
+            assert!(!note.has_unsaved_title(cx));
+        });
+        shut_down(&runtime, cx);
+    }
+
+    /// A title draft keeps the old base through the date change, but discarding it once
+    /// restored the old title instead of the rename the date change brought in.
+    #[gpui::test]
+    fn discarding_a_title_draft_after_a_date_change_shows_the_rename(
+        cx: &mut gpui::TestAppContext,
+    ) {
+        let (note, runtime, _directory, cx) =
+            change_date_after_a_rename_elsewhere(Some("Draft"), cx);
+        note.update(cx, |note, cx| {
+            assert_eq!(
+                note.current.as_ref().unwrap().summary.title.as_ref(),
+                "Sync"
+            );
+            note.restore_title(cx);
+            assert_eq!(note.title.read(cx).buffer.text, "Renamed elsewhere");
+            assert!(!note.has_unsaved_title(cx));
+        });
+        shut_down(&runtime, cx);
+    }
+
+    /// Shows a note that another window renamed to "Renamed elsewhere", types `draft` into its
+    /// title, then saves a new date and runs until the note has read the session back.
+    fn change_date_after_a_rename_elsewhere<'a>(
+        draft: Option<&str>,
+        cx: &'a mut gpui::TestAppContext,
+    ) -> (
+        Entity<super::super::NoteView>,
+        RuntimeHandle,
+        tempfile::TempDir,
+        &'a mut gpui::VisualTestContext,
+    ) {
+        cx.executor().allow_parking();
+        cx.update(crate::ui::theme::UiFonts::init);
+        let directory = tempfile::tempdir().unwrap();
+        let (runtime, ready) = RuntimeHandle::start(desktop_runtime::Profile {
+            database: directory.path().join("library.sqlite"),
+        })
+        .unwrap();
+        futures::executor::block_on(ready.receive()).unwrap();
+        let open =
+            futures::executor::block_on(runtime.create_note("Sync".into()).unwrap().receive())
+                .unwrap();
+        let renamed = desktop_runtime::RenameSession {
+            base: open.summary.clone(),
+            title: "Renamed elsewhere".into(),
+        };
+        futures::executor::block_on(runtime.rename_session(renamed).unwrap().receive()).unwrap();
+        let (note, cx) = cx
+            .add_window_view(|window, cx| super::super::NoteView::new(runtime.clone(), window, cx));
+        note.update(cx, |note, cx| {
+            note.show(open, cx);
+            if let Some(draft) = draft {
+                note.title
+                    .update(cx, |title, cx| title.set_text(draft.into(), cx));
+            }
+            note.open_meeting_info(cx);
+        });
+        let info = note.read_with(cx, |note, _| note.meeting_info.as_ref().unwrap().0.clone());
+        cx.update(|window, cx| info.update(cx, |info, cx| info.edit_date(window, cx)));
+        info.update(cx, |info, cx| {
+            let input = info.date.as_ref().unwrap().0.clone();
+            input.update(cx, |input, cx| {
+                input.set_text("2026-01-02 10:00".into(), cx)
+            });
+            info.save_date(cx);
+        });
+        for _ in 0..2000 {
+            cx.run_until_parked();
+            let refreshed = note.read_with(cx, |note, _| {
+                note.newer_session.is_some()
+                    || note.current.as_ref().unwrap().summary.title.as_ref() == "Renamed elsewhere"
+            });
+            if refreshed {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        (note, runtime, directory, cx)
+    }
+
+    /// Shuts the runtime down while GPUI's foreground tasks keep running, as blocking this thread
+    /// on the drain can deadlock when it waits on work those tasks finish.
+    fn shut_down(runtime: &RuntimeHandle, cx: &mut gpui::VisualTestContext) {
+        let (done, result) = std::sync::mpsc::channel();
+        let runtime = runtime.clone();
+        std::thread::spawn(move || {
+            let _ = done.send(futures::executor::block_on(runtime.shutdown()));
+        });
+        for _ in 0..2000 {
+            cx.run_until_parked();
+            if let Ok(result) = result.try_recv() {
+                result.unwrap();
+                return;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        panic!("shutdown timed out");
     }
 }

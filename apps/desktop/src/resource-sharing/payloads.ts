@@ -13,7 +13,11 @@ import {
   createNamedFolder,
   updateFolderInstructions,
 } from "~/session/folder-catalog";
-import { folderDisplayName, normalizeFolderPath } from "~/session/folders";
+import {
+  folderDisplayName,
+  isInFolder,
+  normalizeFolderPath,
+} from "~/session/folders";
 import { createSession } from "~/session/queries/creation";
 import { getStoredSettingValues } from "~/settings/queries";
 import {
@@ -117,14 +121,18 @@ export async function sharedFolderPayload(
     version: 1,
     path: folderDisplayName(path),
     instructions: folderRow[0]?.instructions ?? "",
-    notes: notes.map((note) => ({
-      title: note.title,
-      relativeFolderPath: relativeFolderPath(path, note.folder_path),
-      body:
-        note.body_format === "markdown"
-          ? md2json(note.body)
-          : parseJsonContent(note.body),
-    })),
+    // SQL LIKE treats `_` and `%` as wildcards and ignores case, so it can also return notes
+    // from look-alike folders; only notes literally inside this folder may be shared.
+    notes: notes
+      .filter((note) => isInFolder(note.folder_path, path))
+      .map((note) => ({
+        title: note.title,
+        relativeFolderPath: relativeFolderPath(path, note.folder_path),
+        body:
+          note.body_format === "markdown"
+            ? md2json(note.body)
+            : parseJsonContent(note.body),
+      })),
   };
   assertPayloadSize(payload);
   return payload as unknown as Record<string, unknown>;
@@ -249,14 +257,25 @@ export async function importSharedFolder(
   userId: string,
 ): Promise<string> {
   const root = await availableFolderPath(payload.path);
+  // Session creation files an invalid path (such as one now over the length limit) as unfiled,
+  // so check every destination before creating anything.
+  const folderPaths = payload.notes.map((note) => {
+    const folderPath = note.relativeFolderPath
+      ? `${root}/${note.relativeFolderPath}`
+      : root;
+    if (normalizeFolderPath(folderPath) !== folderPath) {
+      throw new Error(
+        "A note in this shared folder is nested too deeply to import",
+      );
+    }
+    return folderPath;
+  });
   await createNamedFolder(root);
   if (payload.instructions) {
     await updateFolderInstructions(root, payload.instructions);
   }
-  for (const note of payload.notes) {
-    const folderPath = note.relativeFolderPath
-      ? `${root}/${note.relativeFolderPath}`
-      : root;
+  for (const [index, note] of payload.notes.entries()) {
+    const folderPath = folderPaths[index];
     await createSession(note.title, userId, {
       folder_id: folderPath,
       raw_md: JSON.stringify(note.body),
@@ -295,11 +314,15 @@ function clearAutomationDestination(step: WorkflowStep): WorkflowStep {
   return { ...step, target: null };
 }
 
+// `child` is inside `root` (isInFolder). Only the part below the root is validated: a parent
+// rename can make the full stored path longer than new paths may be.
 function relativeFolderPath(root: string, child: string): string {
-  const normalized = normalizeFolderPath(child);
-  if (!normalized || normalized === root) return "";
-  const prefix = `${root}/`;
-  return normalized.startsWith(prefix) ? normalized.slice(prefix.length) : "";
+  if (child === root) return "";
+  const relative = normalizeFolderPath(child.slice(root.length + 1));
+  if (relative === null) {
+    throw new Error("A note in this folder has a path that can't be shared");
+  }
+  return relative;
 }
 
 function requireFolderPath(value: string): string {

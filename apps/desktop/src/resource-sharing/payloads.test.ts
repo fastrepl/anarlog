@@ -1,10 +1,32 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({
+  createNamedFolder: vi.fn(),
+  createSession: vi.fn(),
+  execute: vi.fn(),
+}));
+
+vi.mock("~/db", () => ({
+  liveQueryClient: { execute: mocks.execute },
+  useLiveQuery: () => ({ data: [] }),
+}));
+
+vi.mock("~/session/folder-catalog", () => ({
+  createNamedFolder: mocks.createNamedFolder,
+  updateFolderInstructions: vi.fn(),
+}));
+
+vi.mock("~/session/queries/creation", () => ({
+  createSession: mocks.createSession,
+}));
 
 import {
   parseSharedAutomationPayload,
   parseSharedFolderPayload,
   parseSharedTemplatePayload,
   sharedAutomationPayload,
+  importSharedFolder,
+  sharedFolderPayload,
   sharedTemplatePayload,
 } from "./payloads";
 
@@ -79,6 +101,75 @@ describe("shared resource payloads", () => {
       targets: ["engineering"],
       sections: [{ title: "Blockers", description: "What is blocked?" }],
     });
+  });
+
+  it("shares only notes literally inside the shared folder", async () => {
+    mocks.execute.mockImplementation(async (sql: string) =>
+      sql.includes("FROM folders")
+        ? [{ instructions: "" }]
+        : [
+            {
+              title: "Inside",
+              folder_path: "Q1_2026/Notes",
+              body: "",
+              body_format: "markdown",
+            },
+            {
+              title: "Look-alike",
+              folder_path: "Q1-2026/Notes",
+              body: "",
+              body_format: "markdown",
+            },
+          ],
+    );
+
+    const payload = await sharedFolderPayload("Q1_2026");
+
+    expect(
+      (payload.notes as { title: string }[]).map((note) => note.title),
+    ).toEqual(["Inside"]);
+  });
+
+  it("keeps a renamed note's subfolder even when its full path is longer than new paths may be", async () => {
+    const relative = ["a", "b", "c"].map((c) => c.repeat(64)).join("/");
+    mocks.execute.mockImplementation(async (sql: string) =>
+      sql.includes("FROM folders")
+        ? [{ instructions: "" }]
+        : [
+            {
+              title: "Deep",
+              folder_path: `Archived/${relative}`,
+              body: "",
+              body_format: "markdown",
+            },
+          ],
+    );
+
+    const payload = await sharedFolderPayload("Archived");
+
+    expect(
+      (payload.notes as { relativeFolderPath: string }[])[0]
+        ?.relativeFolderPath,
+    ).toBe(relative);
+  });
+
+  it("refuses to import a copy whose nested folder no longer fits, before creating anything", async () => {
+    mocks.execute.mockResolvedValue([]);
+    const relative = ["a", "b", "c"].map((c) => c.repeat(64)).join("/");
+
+    await expect(
+      importSharedFolder(
+        {
+          version: 1,
+          path: "Archived",
+          instructions: "",
+          notes: [{ title: "Deep", relativeFolderPath: relative, body: {} }],
+        },
+        "user-1",
+      ),
+    ).rejects.toThrow("nested too deeply");
+    expect(mocks.createNamedFolder).not.toHaveBeenCalled();
+    expect(mocks.createSession).not.toHaveBeenCalled();
   });
 
   it("accepts nested folder copies but rejects path traversal", () => {

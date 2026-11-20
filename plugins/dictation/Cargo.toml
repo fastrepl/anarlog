@@ -14,6 +14,7 @@ tokio-tungstenite = { workspace = true }
 
 [dependencies]
 anlg-audio = { workspace = true }
+dictation-core = { workspace = true }
 owhisper-client = { workspace = true }
 owhisper-interface = { workspace = true }
 url = { workspace = true }
@@ -24,7 +25,6 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 specta = { workspace = true }
 tempfile = { workspace = true }
-thiserror = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt", "sync", "time"] }
 tokio-util = { workspace = true }
 
@@ -38,4 +38,4 @@ anlg-dictation-ui-macos = { workspace = true }
 atspi = { version = "0.25", default-features = false, features = ["tokio"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
-windows = { workspace = true, features = ["Win32_Foundation", "Win32_System_Com", "Win32_System_Ole", "Win32_System_Variant", "Win32_UI_Accessibility", "Win32_UI_Input_KeyboardAndMouse"] }
+windows = { workspace = true, features = ["Win32_Foundation", "Win32_Media_Audio", "Win32_Media_Audio_Endpoints", "Win32_System_Com", "Win32_System_Com_StructuredStorage", "Win32_System_Ole", "Win32_System_Threading", "Win32_System_Variant", "Win32_UI_Accessibility", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging"] }

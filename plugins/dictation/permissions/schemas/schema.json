@@ -295,16 +295,40 @@
       "type": "string",
       "oneOf": [
         {
-          "description": "Enables the cancel_recording command without any pre-configured scope.",
+          "description": "Enables the attach_dictation_stream command without any pre-configured scope.",
           "type": "string",
-          "const": "allow-cancel-recording",
-          "markdownDescription": "Enables the cancel_recording command without any pre-configured scope."
+          "const": "allow-attach-dictation-stream",
+          "markdownDescription": "Enables the attach_dictation_stream command without any pre-configured scope."
         },
         {
-          "description": "Denies the cancel_recording command without any pre-configured scope.",
+          "description": "Denies the attach_dictation_stream command without any pre-configured scope.",
           "type": "string",
-          "const": "deny-cancel-recording",
-          "markdownDescription": "Denies the cancel_recording command without any pre-configured scope."
+          "const": "deny-attach-dictation-stream",
+          "markdownDescription": "Denies the attach_dictation_stream command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the begin_dictation command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-begin-dictation",
+          "markdownDescription": "Enables the begin_dictation command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the begin_dictation command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-begin-dictation",
+          "markdownDescription": "Denies the begin_dictation command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the cancel_dictation command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-cancel-dictation",
+          "markdownDescription": "Enables the cancel_dictation command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the cancel_dictation command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-cancel-dictation",
+          "markdownDescription": "Denies the cancel_dictation command without any pre-configured scope."
         },
         {
           "description": "Enables the capture_target command without any pre-configured scope.",
@@ -319,118 +343,238 @@
           "markdownDescription": "Denies the capture_target command without any pre-configured scope."
         },
         {
-          "description": "Enables the discard_recording command without any pre-configured scope.",
+          "description": "Enables the claim_dictation_recovery command without any pre-configured scope.",
           "type": "string",
-          "const": "allow-discard-recording",
-          "markdownDescription": "Enables the discard_recording command without any pre-configured scope."
+          "const": "allow-claim-dictation-recovery",
+          "markdownDescription": "Enables the claim_dictation_recovery command without any pre-configured scope."
         },
         {
-          "description": "Denies the discard_recording command without any pre-configured scope.",
+          "description": "Denies the claim_dictation_recovery command without any pre-configured scope.",
           "type": "string",
-          "const": "deny-discard-recording",
-          "markdownDescription": "Denies the discard_recording command without any pre-configured scope."
+          "const": "deny-claim-dictation-recovery",
+          "markdownDescription": "Denies the claim_dictation_recovery command without any pre-configured scope."
         },
         {
-          "description": "Enables the hide command without any pre-configured scope.",
+          "description": "Enables the complete_dictation command without any pre-configured scope.",
           "type": "string",
-          "const": "allow-hide",
-          "markdownDescription": "Enables the hide command without any pre-configured scope."
+          "const": "allow-complete-dictation",
+          "markdownDescription": "Enables the complete_dictation command without any pre-configured scope."
         },
         {
-          "description": "Denies the hide command without any pre-configured scope.",
+          "description": "Denies the complete_dictation command without any pre-configured scope.",
           "type": "string",
-          "const": "deny-hide",
-          "markdownDescription": "Denies the hide command without any pre-configured scope."
+          "const": "deny-complete-dictation",
+          "markdownDescription": "Denies the complete_dictation command without any pre-configured scope."
         },
         {
-          "description": "Enables the insert_text command without any pre-configured scope.",
+          "description": "Enables the discard_dictation_recovery command without any pre-configured scope.",
           "type": "string",
-          "const": "allow-insert-text",
-          "markdownDescription": "Enables the insert_text command without any pre-configured scope."
+          "const": "allow-discard-dictation-recovery",
+          "markdownDescription": "Enables the discard_dictation_recovery command without any pre-configured scope."
         },
         {
-          "description": "Denies the insert_text command without any pre-configured scope.",
+          "description": "Denies the discard_dictation_recovery command without any pre-configured scope.",
           "type": "string",
-          "const": "deny-insert-text",
-          "markdownDescription": "Denies the insert_text command without any pre-configured scope."
+          "const": "deny-discard-dictation-recovery",
+          "markdownDescription": "Denies the discard_dictation_recovery command without any pre-configured scope."
         },
         {
-          "description": "Enables the set_phase command without any pre-configured scope.",
+          "description": "Enables the finish_dictation command without any pre-configured scope.",
           "type": "string",
-          "const": "allow-set-phase",
-          "markdownDescription": "Enables the set_phase command without any pre-configured scope."
+          "const": "allow-finish-dictation",
+          "markdownDescription": "Enables the finish_dictation command without any pre-configured scope."
         },
         {
-          "description": "Denies the set_phase command without any pre-configured scope.",
+          "description": "Denies the finish_dictation command without any pre-configured scope.",
           "type": "string",
-          "const": "deny-set-phase",
-          "markdownDescription": "Denies the set_phase command without any pre-configured scope."
+          "const": "deny-finish-dictation",
+          "markdownDescription": "Denies the finish_dictation command without any pre-configured scope."
         },
         {
-          "description": "Enables the show command without any pre-configured scope.",
+          "description": "Enables the fit_dictation_text command without any pre-configured scope.",
           "type": "string",
-          "const": "allow-show",
-          "markdownDescription": "Enables the show command without any pre-configured scope."
+          "const": "allow-fit-dictation-text",
+          "markdownDescription": "Enables the fit_dictation_text command without any pre-configured scope."
         },
         {
-          "description": "Denies the show command without any pre-configured scope.",
+          "description": "Denies the fit_dictation_text command without any pre-configured scope.",
           "type": "string",
-          "const": "deny-show",
-          "markdownDescription": "Denies the show command without any pre-configured scope."
+          "const": "deny-fit-dictation-text",
+          "markdownDescription": "Denies the fit_dictation_text command without any pre-configured scope."
         },
         {
-          "description": "Enables the start_recording command without any pre-configured scope.",
+          "description": "Enables the insert_dictation command without any pre-configured scope.",
           "type": "string",
-          "const": "allow-start-recording",
-          "markdownDescription": "Enables the start_recording command without any pre-configured scope."
+          "const": "allow-insert-dictation",
+          "markdownDescription": "Enables the insert_dictation command without any pre-configured scope."
         },
         {
-          "description": "Denies the start_recording command without any pre-configured scope.",
+          "description": "Denies the insert_dictation command without any pre-configured scope.",
           "type": "string",
-          "const": "deny-start-recording",
-          "markdownDescription": "Denies the start_recording command without any pre-configured scope."
+          "const": "deny-insert-dictation",
+          "markdownDescription": "Denies the insert_dictation command without any pre-configured scope."
         },
         {
-          "description": "Enables the start_system_recording command without any pre-configured scope.",
+          "description": "Enables the list_dictation_recovery command without any pre-configured scope.",
           "type": "string",
-          "const": "allow-start-system-recording",
-          "markdownDescription": "Enables the start_system_recording command without any pre-configured scope."
+          "const": "allow-list-dictation-recovery",
+          "markdownDescription": "Enables the list_dictation_recovery command without any pre-configured scope."
         },
         {
-          "description": "Denies the start_system_recording command without any pre-configured scope.",
+          "description": "Denies the list_dictation_recovery command without any pre-configured scope.",
           "type": "string",
-          "const": "deny-start-system-recording",
-          "markdownDescription": "Denies the start_system_recording command without any pre-configured scope."
+          "const": "deny-list-dictation-recovery",
+          "markdownDescription": "Denies the list_dictation_recovery command without any pre-configured scope."
         },
         {
-          "description": "Enables the stop_recording command without any pre-configured scope.",
+          "description": "Enables the prepare_dictation_recovery_audio command without any pre-configured scope.",
           "type": "string",
-          "const": "allow-stop-recording",
-          "markdownDescription": "Enables the stop_recording command without any pre-configured scope."
+          "const": "allow-prepare-dictation-recovery-audio",
+          "markdownDescription": "Enables the prepare_dictation_recovery_audio command without any pre-configured scope."
         },
         {
-          "description": "Denies the stop_recording command without any pre-configured scope.",
+          "description": "Denies the prepare_dictation_recovery_audio command without any pre-configured scope.",
           "type": "string",
-          "const": "deny-stop-recording",
-          "markdownDescription": "Denies the stop_recording command without any pre-configured scope."
+          "const": "deny-prepare-dictation-recovery-audio",
+          "markdownDescription": "Denies the prepare_dictation_recovery_audio command without any pre-configured scope."
         },
         {
-          "description": "Enables the update_amplitude command without any pre-configured scope.",
+          "description": "Enables the prepare_dictation_refinement command without any pre-configured scope.",
           "type": "string",
-          "const": "allow-update-amplitude",
-          "markdownDescription": "Enables the update_amplitude command without any pre-configured scope."
+          "const": "allow-prepare-dictation-refinement",
+          "markdownDescription": "Enables the prepare_dictation_refinement command without any pre-configured scope."
         },
         {
-          "description": "Denies the update_amplitude command without any pre-configured scope.",
+          "description": "Denies the prepare_dictation_refinement command without any pre-configured scope.",
           "type": "string",
-          "const": "deny-update-amplitude",
-          "markdownDescription": "Denies the update_amplitude command without any pre-configured scope."
+          "const": "deny-prepare-dictation-refinement",
+          "markdownDescription": "Denies the prepare_dictation_refinement command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-show`\n- `allow-hide`\n- `allow-set-phase`\n- `allow-update-amplitude`\n- `allow-start-recording`\n- `allow-start-system-recording`\n- `allow-stop-recording`\n- `allow-cancel-recording`\n- `allow-discard-recording`\n- `allow-capture-target`\n- `allow-insert-text`",
+          "description": "Enables the rank_dictation_terms command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-rank-dictation-terms",
+          "markdownDescription": "Enables the rank_dictation_terms command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the rank_dictation_terms command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-rank-dictation-terms",
+          "markdownDescription": "Denies the rank_dictation_terms command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the read_dictation_context command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-read-dictation-context",
+          "markdownDescription": "Enables the read_dictation_context command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the read_dictation_context command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-read-dictation-context",
+          "markdownDescription": "Denies the read_dictation_context command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the read_dictation_kept command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-read-dictation-kept",
+          "markdownDescription": "Enables the read_dictation_kept command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the read_dictation_kept command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-read-dictation-kept",
+          "markdownDescription": "Denies the read_dictation_kept command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the record_dictation_terms command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-record-dictation-terms",
+          "markdownDescription": "Enables the record_dictation_terms command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the record_dictation_terms command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-record-dictation-terms",
+          "markdownDescription": "Denies the record_dictation_terms command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the release_dictation command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-release-dictation",
+          "markdownDescription": "Enables the release_dictation command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the release_dictation command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-release-dictation",
+          "markdownDescription": "Denies the release_dictation command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the release_dictation_target command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-release-dictation-target",
+          "markdownDescription": "Enables the release_dictation_target command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the release_dictation_target command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-release-dictation-target",
+          "markdownDescription": "Denies the release_dictation_target command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the resolve_dictation_refinement command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-resolve-dictation-refinement",
+          "markdownDescription": "Enables the resolve_dictation_refinement command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the resolve_dictation_refinement command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-resolve-dictation-refinement",
+          "markdownDescription": "Denies the resolve_dictation_refinement command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the retire_dictations command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-retire-dictations",
+          "markdownDescription": "Enables the retire_dictations command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the retire_dictations command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-retire-dictations",
+          "markdownDescription": "Denies the retire_dictations command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the save_dictation_recovery_text command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-save-dictation-recovery-text",
+          "markdownDescription": "Enables the save_dictation_recovery_text command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the save_dictation_recovery_text command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-save-dictation-recovery-text",
+          "markdownDescription": "Denies the save_dictation_recovery_text command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the suggest_dictation_terms command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-suggest-dictation-terms",
+          "markdownDescription": "Enables the suggest_dictation_terms command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the suggest_dictation_terms command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-suggest-dictation-terms",
+          "markdownDescription": "Denies the suggest_dictation_terms command without any pre-configured scope."
+        },
+        {
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-capture-target`\n- `allow-begin-dictation`\n- `allow-attach-dictation-stream`\n- `allow-finish-dictation`\n- `allow-complete-dictation`\n- `allow-release-dictation`\n- `allow-cancel-dictation`\n- `allow-retire-dictations`\n- `allow-list-dictation-recovery`\n- `allow-prepare-dictation-recovery-audio`\n- `allow-save-dictation-recovery-text`\n- `allow-claim-dictation-recovery`\n- `allow-discard-dictation-recovery`\n- `allow-fit-dictation-text`\n- `allow-prepare-dictation-refinement`\n- `allow-resolve-dictation-refinement`\n- `allow-suggest-dictation-terms`\n- `allow-rank-dictation-terms`\n- `allow-record-dictation-terms`\n- `allow-read-dictation-context`\n- `allow-insert-dictation`\n- `allow-read-dictation-kept`\n- `allow-release-dictation-target`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-show`\n- `allow-hide`\n- `allow-set-phase`\n- `allow-update-amplitude`\n- `allow-start-recording`\n- `allow-start-system-recording`\n- `allow-stop-recording`\n- `allow-cancel-recording`\n- `allow-discard-recording`\n- `allow-capture-target`\n- `allow-insert-text`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-capture-target`\n- `allow-begin-dictation`\n- `allow-attach-dictation-stream`\n- `allow-finish-dictation`\n- `allow-complete-dictation`\n- `allow-release-dictation`\n- `allow-cancel-dictation`\n- `allow-retire-dictations`\n- `allow-list-dictation-recovery`\n- `allow-prepare-dictation-recovery-audio`\n- `allow-save-dictation-recovery-text`\n- `allow-claim-dictation-recovery`\n- `allow-discard-dictation-recovery`\n- `allow-fit-dictation-text`\n- `allow-prepare-dictation-refinement`\n- `allow-resolve-dictation-refinement`\n- `allow-suggest-dictation-terms`\n- `allow-rank-dictation-terms`\n- `allow-record-dictation-terms`\n- `allow-read-dictation-context`\n- `allow-insert-dictation`\n- `allow-read-dictation-kept`\n- `allow-release-dictation-target`"
         }
       ]
     }

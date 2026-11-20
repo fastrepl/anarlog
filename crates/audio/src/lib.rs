@@ -1,3 +1,5 @@
+pub mod meeting;
+
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
@@ -26,6 +28,10 @@ pub enum Error {
     MicStreamEnded,
     #[error("speaker_stream_ended")]
     SpeakerStreamEnded,
+    #[error("meeting capture unavailable: {0}")]
+    MeetingCaptureUnavailable(String),
+    #[error("meeting capture failed: {0}")]
+    MeetingCaptureFailed(String),
 }
 
 #[derive(Debug, Clone)]
@@ -173,6 +179,12 @@ pub trait AudioProvider: Send + Sync {
 
     fn probe_mic(&self, device: Option<String>) -> Result<(), Error>;
     fn probe_speaker(&self) -> Result<(), Error>;
+
+    /// The native meeting engine, where this provider has one. Callers still decide whether a
+    /// capture may use it; having one never changes what `open_capture` does.
+    fn meeting_engine(&self) -> Option<Arc<dyn meeting::MeetingCaptureEngine>> {
+        None
+    }
 }
 
 #[cfg(test)]

@@ -1,7 +1,11 @@
 import { commands as fsSyncCommands } from "@anlg/plugin-fs-sync";
 import { commands } from "@anlg/plugin-session";
 
-import { ancestorFolderPaths, normalizeFolderPath } from "./folders";
+import {
+  ancestorFolderPaths,
+  isInFolder,
+  normalizeFolderPath,
+} from "./folders";
 
 import {
   clearSeriesFolderRulesForFolder,
@@ -100,7 +104,10 @@ export async function deleteNamedFolder(folderPath: string): Promise<void> {
     [path, `${path}/%`, `${path}\\%`],
   );
 
-  for (const session of sessions) {
+  // LIKE also matches look-alike folders (`_`/`%` wildcards, any case); move only this folder's notes.
+  for (const session of sessions.filter((row) =>
+    isInFolder(row.folder_path, path),
+  )) {
     const moved = await fsSyncCommands.moveSession(
       session.id,
       session.folder_path,
@@ -289,11 +296,14 @@ async function folderNameTaken(path: string): Promise<boolean> {
         SELECT folder_path
         FROM sessions
         WHERE deleted_at IS NULL
-          AND (folder_path = ? OR folder_path LIKE ? OR folder_path LIKE ?)
+          AND (
+            folder_path = ?
+            OR substr(folder_path, 1, length(?) + 1) IN (? || '/', ? || '\\')
+          )
       )
       LIMIT 1
     `,
-    [path, path, path, `${path}/%`, `${path}\\%`],
+    [path, path, path, path, path, path],
   );
   return rows.length > 0;
 }

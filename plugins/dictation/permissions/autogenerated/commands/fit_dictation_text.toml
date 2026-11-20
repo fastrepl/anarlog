@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-fit-dictation-text"
+description = "Enables the fit_dictation_text command without any pre-configured scope."
+commands.allow = ["fit_dictation_text"]
+
+[[permission]]
+identifier = "deny-fit-dictation-text"
+description = "Denies the fit_dictation_text command without any pre-configured scope."
+commands.deny = ["fit_dictation_text"]
