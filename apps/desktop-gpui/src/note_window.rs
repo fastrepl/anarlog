@@ -31,6 +31,9 @@ pub struct NoteWindow {
     chat: Entity<ChatView>,
     focus: FocusHandle,
     closing: bool,
+    /// Writers are paused (a storage move): the note and its chat are hidden, as in the main
+    /// window, so nothing here can write until the app relaunches or resumes.
+    paused: bool,
     /// Closing waits for an unsaved title to save first.
     close_after_title: bool,
     status: String,
@@ -109,6 +112,13 @@ impl NoteWindow {
                     _ => {}
                 },
             ),
+            // Summary editors' links and chips go where the memo's do.
+            cx.subscribe(&note, |_, _, event: &EditorEvent, cx| {
+                cx.emit(event.clone())
+            }),
+            cx.subscribe(&note, |_, _, event: &EditorRequest, cx| {
+                cx.emit(event.clone())
+            }),
         ];
         note.update(cx, |note, cx| note.show(session, cx));
         Self {
@@ -120,6 +130,7 @@ impl NoteWindow {
             chat,
             focus: cx.focus_handle(),
             closing: false,
+            paused: false,
             close_after_title: false,
             status: String::new(),
             widened: None,
@@ -175,20 +186,40 @@ impl NoteWindow {
         if self.note.read(cx).has_unsaved_title(cx) {
             return Box::pin(async { Err(ServiceError::Busy) });
         }
-        let Some(editor) = &self.editor else {
-            return Box::pin(async { Ok(()) });
-        };
-        let flush = editor.update(cx, |editor, cx| {
-            editor.set_read_only(read_only, cx);
-            editor.flush()
-        });
-        Box::pin(async move { flush.await.map_err(|_| ServiceError::Closed)? })
+        let mut flushes = self
+            .note
+            .update(cx, |note, cx| note.flush_summaries(read_only, cx));
+        if let Some(editor) = &self.editor {
+            flushes.push(editor.update(cx, |editor, cx| {
+                editor.set_read_only(read_only, cx);
+                editor.flush()
+            }));
+        }
+        Box::pin(async move {
+            for flush in flushes {
+                flush.await.map_err(|_| ServiceError::Closed)??;
+            }
+            Ok(())
+        })
+    }
+
+    pub fn pause(&mut self, cx: &mut Context<Self>) -> BoxFuture<'static, Result<()>> {
+        self.paused = true;
+        cx.notify();
+        self.flush(true, cx)
+    }
+
+    pub fn note(&self) -> Entity<NoteView> {
+        self.note.clone()
     }
 
     pub fn resume(&mut self, cx: &mut Context<Self>) {
+        self.paused = false;
+        cx.notify();
         if let Some(editor) = &self.editor {
             editor.update(cx, |editor, cx| editor.set_read_only(false, cx));
         }
+        self.note.update(cx, |note, cx| note.resume_summaries(cx));
     }
 
     fn close(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -255,6 +286,17 @@ impl NoteWindow {
 impl Render for NoteWindow {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let colors = theme(window);
+        // Shipping wraps every window in `AppLockGate`; the note and its chat hide with the app.
+        if let Some(gate) = crate::application::lock::gate(window, cx) {
+            return div()
+                .id("note-window")
+                .size_full()
+                .font_family(system_font(cx))
+                .child(gate);
+        }
+        if self.paused {
+            return div().id("note-window").size_full().bg(colors.background);
+        }
         let route = Route::Session(self.id.clone());
         div()
             .id("note-window")

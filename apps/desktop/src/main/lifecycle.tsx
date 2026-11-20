@@ -16,6 +16,7 @@ import { DictationLifecycle } from "~/dictation/lifecycle";
 import { takePendingWelcomeSession } from "~/onboarding/welcome-note";
 import { useSearchEngine } from "~/search/contexts/engine";
 import { initEnhancerService } from "~/services/enhancer";
+import { MeetingCaptureStopToasts } from "~/services/meeting-capture-stop";
 import { FolderDefaultAccessRunner } from "~/session-sharing/folder-default-access-runner";
 import { OwnedSharedNotePublisher } from "~/session-sharing/sync";
 import { useNotifyPlanRequired } from "~/settings/plan-gate";
@@ -28,6 +29,7 @@ import { useLatestRef } from "~/shared/hooks/useLatestRef";
 import { folderIdForNewNote, useSidebarNotes } from "~/sidebar/note-filter";
 import { useTabs } from "~/store/zustand/tabs";
 import { BatchTranscriptionRecovery } from "~/stt/batch-transcription-recovery";
+import { BrowserMeetingStartBridge } from "~/stt/browser-meeting-start";
 import { LiveCaptureRecovery } from "~/stt/live-capture-recovery";
 import { RecordingImportWorker } from "~/stt/recording-import";
 import { ScheduledMeetingAutoStart } from "~/stt/scheduled-auto-start";
@@ -70,6 +72,8 @@ export function ClassicMainServices() {
       <RecordingImportWorker />
       <ScheduledMeetingAutoStart />
       <MainListenerControlBridge />
+      <BrowserMeetingStartBridge />
+      <MeetingCaptureStopToasts />
       <DictationLifecycle />
       <ToolRegistration />
       <EnhancerInit />

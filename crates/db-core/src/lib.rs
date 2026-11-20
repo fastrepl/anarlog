@@ -1,3 +1,4 @@
+mod app_db;
 mod cloudsync;
 
 use std::path::{Path, PathBuf};
@@ -9,6 +10,10 @@ use sqlx::pool::PoolConnection;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use sqlx::{Connection, Sqlite, SqlitePool};
 
+pub use crate::app_db::{
+    APP_DB_MAX_CONNECTIONS, app_db_open_options, database_uses_cloudsync_schema, open_app_db,
+    open_app_db_without_cloudsync,
+};
 pub use crate::cloudsync::{
     CLOUDSYNC_MAX_OUTBOUND_BYTES, CLOUDSYNC_MAX_OUTBOUND_CHUNKS, CLOUDSYNC_MAX_OUTBOUND_ROWS,
     CloudsyncActivityTrigger, CloudsyncAuth, CloudsyncBeforeHookFuture, CloudsyncHookFuture,

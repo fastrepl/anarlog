@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-save-dictation-recovery-text"
+description = "Enables the save_dictation_recovery_text command without any pre-configured scope."
+commands.allow = ["save_dictation_recovery_text"]
+
+[[permission]]
+identifier = "deny-save-dictation-recovery-text"
+description = "Denies the save_dictation_recovery_text command without any pre-configured scope."
+commands.deny = ["save_dictation_recovery_text"]

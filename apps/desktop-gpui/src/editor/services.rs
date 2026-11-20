@@ -34,6 +34,39 @@ pub(super) async fn mentions(
     }).map_err(|error| error.to_string())?.receive().await.map_err(|error| error.to_string())
 }
 
+/// The stored revision of `document`. A memo not saved yet has no row of its own; another
+/// device may have created the session's memo meanwhile.
+pub(super) async fn stored(
+    runtime: RuntimeHandle,
+    document: DocumentSnapshot,
+) -> Result<Option<DocumentSnapshot>, ServiceError> {
+    if document.is_unsaved() {
+        return Ok(runtime
+            .open_session(document.session_id, CancellationToken::new())?
+            .receive()
+            .await?
+            .note);
+    }
+    let rows = runtime
+        .read(CancellationToken::new(), move |services| async move {
+            services
+                .executor
+                .execute(
+                    "SELECT id, session_id, body_format, body, updated_at FROM session_documents WHERE id = ? AND session_id = ? AND deleted_at IS NULL".into(),
+                    vec![json!(document.id), json!(document.session_id)],
+                )
+                .await
+                .map_err(|error| ServiceError::Failed(error.to_string().into()))
+        })?
+        .receive()
+        .await?;
+    rows.into_iter()
+        .next()
+        .map(serde_json::from_value)
+        .transpose()
+        .map_err(|error| ServiceError::Failed(error.to_string().into()))
+}
+
 pub(super) async fn watch(
     runtime: RuntimeHandle,
     document: DocumentId,

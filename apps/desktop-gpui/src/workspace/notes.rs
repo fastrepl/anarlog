@@ -27,7 +27,7 @@ pub fn directory(runtime: &RuntimeHandle, session: SessionId) -> Result<Reply<Pa
         if rows.is_empty() {
             return Err(failure("This note is unavailable."));
         }
-        let fs = super::folders::filesystem(&services.executor).await?;
+        let fs = super::folders::filesystem(&services.vault);
         tokio::task::spawn_blocking(move || {
             let path = fs.resolve_session_dir(&session.0).map_err(failure)?;
             let metadata = path
@@ -61,6 +61,6 @@ pub fn dispatch(runtime: &RuntimeHandle, command: NoteCommand) -> Result<Reply<(
             return Err(failure("Select between 1 and 100 notes"));
         }
         let values = ids.iter().map(|id| json!(id.0)).collect::<Vec<_>>();
-        super::folders::move_notes(&services.executor, &values, &folder).await
+        super::folders::move_notes(&services.executor, &services.vault, &values, &folder).await
     })
 }

@@ -574,6 +574,7 @@ mod tests {
                     },
                 )
                 .into(),
+            meetings: vec![],
         });
         let segments = render_rows(rows, context);
         let remote: Vec<_> = segments

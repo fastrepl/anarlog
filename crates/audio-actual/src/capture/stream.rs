@@ -37,6 +37,11 @@ const AEC_LINEAR_GAIN_SMOOTHING: f32 = 0.12;
 const AEC_DOUBLE_TALK_RESIDUAL_RATIO: f32 = 0.08;
 const AEC_ROBUST_GAIN_SEGMENTS: usize = 8;
 const AEC_ROBUST_GAIN_MIN_SEGMENTS: usize = 3;
+/// The AEC model cancels a speech fixture's speaker echo by 34-37 dB while its reference leads
+/// by up to about 120 ms, but by 10-28 dB with no lead and 4 dB with a quarter second. Placed
+/// tracks lead by the output latency, so only a later route is held back, to a 24 ms lead.
+const AEC_PLACED_MAX_LEAD_MS: usize = 100;
+const AEC_PLACED_REFERENCE_LEAD_MS: usize = 24;
 
 struct CaptureStreamInner {
     inner: ReceiverStream<Result<CaptureEvent, Error>>,
@@ -370,7 +375,7 @@ async fn emit_gap(
     true
 }
 
-struct AecReferenceAligner {
+pub(crate) struct AecReferenceAligner {
     probe: SyncProbe,
     mic_delay_line: SampleDelayLine,
     speaker_delay_line: SampleDelayLine,
@@ -378,12 +383,14 @@ struct AecReferenceAligner {
     last_logged_state: Option<SyncProbeState>,
     last_logged_stable_lag_samples: Option<isize>,
     log_probe_events: bool,
+    /// Tracks placed on one host clock, whose echo only follows its reference.
+    placed: bool,
 }
 
-struct AecAlignedPair {
-    mic: Arc<[f32]>,
-    speaker: Arc<[f32]>,
-    alignment_changed: bool,
+pub(crate) struct AecAlignedPair {
+    pub(crate) mic: Arc<[f32]>,
+    pub(crate) speaker: Arc<[f32]>,
+    pub(crate) alignment_changed: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -419,6 +426,18 @@ impl AecAlignment {
 
 impl AecReferenceAligner {
     fn new(sample_rate: u32) -> Self {
+        Self::with_placement(sample_rate, false)
+    }
+
+    /// Tracks placed on one host clock (the native engine): the echo follows its reference by
+    /// the output latency. Only the reference of a late route is held back, so the microphone
+    /// keeps its clock. A rebuilt device starts a new aligner, so a quiet call, or the call
+    /// returning this person's own voice, keeps the last lock.
+    pub(crate) fn placed(sample_rate: u32) -> Self {
+        Self::with_placement(sample_rate, true)
+    }
+
+    fn with_placement(sample_rate: u32, placed: bool) -> Self {
         let max_lag_samples = ((sample_rate as usize) * (AEC_MAX_REFERENCE_LAG_MS as usize)) / 1000;
         let min_overlap_samples =
             ((sample_rate as usize) * (AEC_MIN_REFERENCE_OVERLAP_MS as usize)) / 1000;
@@ -438,10 +457,11 @@ impl AecReferenceAligner {
             last_logged_state: None,
             last_logged_stable_lag_samples: None,
             log_probe_events: std::env::var(AUDIO_SYNC_PROBE_ENV).ok().as_deref() == Some("1"),
+            placed,
         }
     }
 
-    fn align(&mut self, raw_speaker: &[f32], raw_mic: &[f32]) -> AecAlignedPair {
+    pub(crate) fn align(&mut self, raw_speaker: &[f32], raw_mic: &[f32]) -> AecAlignedPair {
         let observed = catch_unwind(AssertUnwindSafe(|| {
             self.probe.observe(raw_speaker, raw_mic)
         }));
@@ -479,10 +499,13 @@ impl AecReferenceAligner {
 
     fn update_alignment(&mut self, event: &SyncProbeEvent) -> bool {
         let snapshot = event.snapshot();
-        let next_alignment = if matches!(
+        let locked = matches!(
             snapshot.state,
             SyncProbeState::Locked | SyncProbeState::Holdover
-        ) {
+        );
+        let next_alignment = if self.placed {
+            self.placed_alignment(locked, snapshot.stable_lag_samples)
+        } else if locked {
             AecAlignment::from_lag_samples(snapshot.stable_lag_samples)
         } else {
             AecAlignment::None
@@ -509,6 +532,21 @@ impl AecReferenceAligner {
         }
 
         false
+    }
+
+    /// Holds back only a late route's reference, to a short lead. Anything else, including a
+    /// microphone that seems to lead its reference, keeps the last alignment.
+    fn placed_alignment(&self, locked: bool, lag: Option<isize>) -> AecAlignment {
+        let Some(lag) = lag.filter(|lag| locked && *lag > 0) else {
+            return self.last_alignment;
+        };
+        let rate = self.probe.config().sample_rate as usize;
+        let lag = lag as usize;
+        if lag > rate * AEC_PLACED_MAX_LEAD_MS / 1000 {
+            AecAlignment::DelaySpeaker(lag - rate * AEC_PLACED_REFERENCE_LEAD_MS / 1000)
+        } else {
+            AecAlignment::None
+        }
     }
 
     fn log_probe_event(&mut self, event: SyncProbeEvent) {
@@ -656,13 +694,13 @@ async fn run_single_loop(
     }
 }
 
-fn build_aec() -> Option<AEC> {
+pub(crate) fn build_aec() -> Option<AEC> {
     AEC::new()
         .map_err(|error| tracing::warn!(error.message = ?error, "aec_init_failed"))
         .ok()
 }
 
-fn process_aec(
+pub(crate) fn process_aec(
     aec: &mut Option<AEC>,
     linear_echo_gain: &mut Option<f32>,
     mic: &[f32],
@@ -1039,6 +1077,43 @@ mod tests {
         let alignment = detected_alignment(&speaker, &mic);
 
         assert_eq!(alignment, AecAlignment::DelaySpeaker(9_600));
+    }
+
+    #[test]
+    fn a_placed_aligner_keeps_the_reference_ahead_and_the_microphone_on_its_clock() {
+        let speaker = test_signal(16_000 * 5);
+        let mut aligner = AecReferenceAligner::placed(16_000);
+        for (speaker, mic) in speaker
+            .chunks(1_600)
+            .zip(delayed(&speaker, 4_000).chunks(1_600))
+        {
+            aligner.align(speaker, mic);
+        }
+        assert_eq!(
+            aligner.last_alignment,
+            AecAlignment::DelaySpeaker(4_000 - 384)
+        );
+        // A quiet call keeps the lock instead of snapping the reference back.
+        let silence = vec![0.0; 16_000 * 5];
+        for chunk in silence.chunks(1_600) {
+            aligner.align(chunk, chunk);
+        }
+        assert_eq!(
+            aligner.last_alignment,
+            AecAlignment::DelaySpeaker(4_000 - 384)
+        );
+
+        // A microphone that seems to lead is never delayed; a built-in speaker's lead needs nothing.
+        for (speaker, mic) in [
+            (delayed(&speaker, 7_200), speaker.clone()),
+            (speaker.clone(), delayed(&speaker, 768)),
+        ] {
+            let mut aligner = AecReferenceAligner::placed(16_000);
+            for (speaker, mic) in speaker.chunks(1_600).zip(mic.chunks(1_600)) {
+                aligner.align(speaker, mic);
+            }
+            assert_eq!(aligner.last_alignment, AecAlignment::None);
+        }
     }
 
     #[test]

@@ -37,7 +37,10 @@ pub struct EmbeddedCliStatus {
 }
 
 pub fn check<R: tauri::Runtime, T: tauri::Manager<R>>(manager: &T) -> EmbeddedCliStatus {
-    let command_name = command_name_from_identifier(manager.config().identifier.as_ref());
+    let Some(command_name) = command_name_from_identifier(manager.config().identifier.as_ref())
+    else {
+        return unavailable_status("", "The embedded CLI is unavailable for this app identity.");
+    };
 
     if cfg!(feature = "app-store") {
         return unavailable_status(
@@ -222,14 +225,14 @@ fn unavailable_status(command_name: &str, details: &str) -> EmbeddedCliStatus {
     }
 }
 
-fn command_name_from_identifier(identifier: &str) -> &'static str {
-    match identifier {
+fn command_name_from_identifier(identifier: &str) -> Option<&'static str> {
+    Some(match identifier {
         STABLE_BUNDLE_ID | LEGACY_STABLE_BUNDLE_ID | FLATPAK_BUNDLE_ID => "anarlog",
         STAGING_BUNDLE_ID => "anarlog-staging",
         NIGHTLY_BUNDLE_ID => "anarlog-nightly",
         DEV_BUNDLE_ID => "anarlog-dev",
-        _ => "anarlog",
-    }
+        _ => return None,
+    })
 }
 
 fn install_path_for_command(command_name: &str) -> Option<PathBuf> {

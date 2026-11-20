@@ -171,6 +171,17 @@ impl Core {
             .ok_or_else(|| failure("Invalid attachment list"))?;
         state.pending = None;
         state.conflict = None;
+        // Keeping the web copy counts as publishing the current local content; publishing the
+        // local copy must send it even if it has not changed since the last publish.
+        state.source = match decision {
+            ConflictDecision::KeepRemote => self
+                .draft(services, lease, scope, &state)
+                .await
+                .ok()
+                .as_ref()
+                .map(super::sharing::fingerprint),
+            ConflictDecision::PublishLocal => None,
+        };
         self.save_share_state(services, lease, session, &state)
             .await?;
         if matches!(decision, ConflictDecision::PublishLocal) {

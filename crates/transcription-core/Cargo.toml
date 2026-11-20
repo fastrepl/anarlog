@@ -16,5 +16,22 @@ tauri-event = [
 ]
 
 [dependencies]
+anlg-audio = { workspace = true }
 anlg-listener-core = { workspace = true }
 anlg-listener2-core = { workspace = true }
+anlg-transcript = { workspace = true }
+
+futures-util = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["io-util", "macros", "net", "rt", "sync", "time"] }
+tracing = { workspace = true }
+uuid = { workspace = true, features = ["v4"] }
+
+[dev-dependencies]
+anlg-storage = { workspace = true }
+ractor = { workspace = true }
+tempfile = { workspace = true }
+tokio = { workspace = true, features = ["io-util", "macros", "net", "rt", "rt-multi-thread", "sync", "test-util", "time"] }
+tokio-tungstenite = { workspace = true }

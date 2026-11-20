@@ -1,32 +1,21 @@
 use tauri::ipc::Channel;
 
+use anlg_desktop_identity::e2ee::{
+    SECRET_SCOPE as E2EE_SECRET_SCOPE, canonical_account_user_id as canonical_e2ee_account_user_id,
+    device_key_name as e2ee_device_key_name, pending_recovery_key_name,
+    recovery_key_name as e2ee_recovery_key_name,
+};
+
 use crate::{ExecuteProxyResult, ManagedState, QueryEvent, TransactionStatement};
 
-const E2EE_SECRET_SCOPE: &str = "e2ee";
 const E2EE_SECRET_READ_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(25);
 const E2EE_SECRET_READ_TIMEOUT_ERROR: &str = "E2EE secret read timed out";
 static E2EE_DEVICE_IDENTITY_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
-
-fn canonical_e2ee_account_user_id(account_user_id: &str) -> Result<String, String> {
-    uuid::Uuid::parse_str(account_user_id.trim())
-        .map(|account_user_id| account_user_id.to_string())
-        .map_err(|_| "E2EE account ID is invalid".to_string())
-}
 
 fn canonical_e2ee_request_id(request_id: &str) -> Result<String, String> {
     uuid::Uuid::parse_str(request_id.trim())
         .map(|request_id| request_id.to_string())
         .map_err(|_| "E2EE enrollment request ID is invalid".to_string())
-}
-
-fn e2ee_recovery_key_name(account_user_id: &str) -> Result<String, String> {
-    let account_user_id = canonical_e2ee_account_user_id(account_user_id)?;
-    Ok(format!("account:{account_user_id}:recovery-v1"))
-}
-
-fn e2ee_device_key_name(account_user_id: &str) -> Result<String, String> {
-    let account_user_id = canonical_e2ee_account_user_id(account_user_id)?;
-    Ok(format!("account:{account_user_id}:device-enrollment-v1"))
 }
 
 async fn load_e2ee_recovery_key<R: tauri::Runtime>(
@@ -267,7 +256,7 @@ pub(crate) async fn create_e2ee_identity<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     account_user_id: String,
 ) -> Result<String, String> {
-    let pending_key_name = format!("{}:pending", e2ee_recovery_key_name(&account_user_id)?);
+    let pending_key_name = pending_recovery_key_name(&account_user_id)?;
     let _identity_guard = E2EE_DEVICE_IDENTITY_LOCK.lock().await;
     if load_e2ee_recovery_key(app.clone(), &account_user_id)
         .await?
@@ -926,10 +915,6 @@ mod tests {
 
     #[test]
     fn enrollment_ids_are_canonicalized_before_use() {
-        assert_eq!(
-            canonical_e2ee_account_user_id(" 550E8400-E29B-41D4-A716-446655440000 ").unwrap(),
-            "550e8400-e29b-41d4-a716-446655440000"
-        );
         assert_eq!(
             canonical_e2ee_request_id(" 6BA7B810-9DAD-11D1-80B4-00C04FD430C8 ").unwrap(),
             "6ba7b810-9dad-11d1-80b4-00c04fd430c8"

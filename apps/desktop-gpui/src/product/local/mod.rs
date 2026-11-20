@@ -56,7 +56,10 @@ pub struct LocalServices {
     pub calendar: calendar::CalendarService,
     pub developers: developers::DeveloperTools,
     pub storage_root: PathBuf,
-    pub storage_pointer: PathBuf,
+    /// `None` when the data is the shipping app's, which must stay where it expects it.
+    pub storage_pointer: Option<PathBuf>,
+    /// The shipping app's `store.json` in a channel run.
+    pub shipping_store: Option<Arc<anlg_desktop_identity::store_json::StoreJson>>,
 }
 
 impl ProductServices for LocalServices {
@@ -218,8 +221,8 @@ impl LocalServices {
                         &format!(
                             "{} · {}{}{}",
                             model.description(),
-                            if !model.is_available_on_current_platform() {
-                                "Unavailable on this platform"
+                            if let Some(reason) = state.unavailable {
+                                reason
                             } else if state.installed {
                                 "Downloaded"
                             } else {
@@ -246,8 +249,10 @@ impl LocalServices {
                     }
                     for (suffix, label, action) in available {
                         let mut op = operation(&format!("{id}:{suffix}"), label, action, Some(id));
-                        if !model.is_available_on_current_platform() {
-                            op.disabled_reason = Some("Unavailable on this platform".into());
+                        if let Some(reason) = state.unavailable
+                            && op.action != Action::DeleteModel
+                        {
+                            op.disabled_reason = Some(reason.into());
                         } else if matches!(&model,anlg_local_model::LocalModel::Soniqo(model) if !model.supports_live())
                             && op.action == Action::StartModel
                         {
@@ -333,7 +338,7 @@ impl LocalServices {
                     let enabled = calendar["enabled"].as_bool().unwrap_or(false);
                     if enabled {
                         self.calendar
-                            .refresh(&self.runtime, key.into(), request.cancel.clone())
+                            .refresh(&self.runtime, key.into(), None, request.cancel.clone())
                             .await?;
                     }
                     rows.push(row(
@@ -388,8 +393,10 @@ impl LocalServices {
                     "Where your notes and recordings are stored",
                     &self.storage_root.display().to_string(),
                 ));
-                rows.push(row("safe-copy","Change storage location","Copies and validates your data before switching. Original files remain available for rollback."));
-                actions.push(operation("move", "Change", Action::MoveStorage, None));
+                if self.storage_pointer.is_some() {
+                    rows.push(row("safe-copy","Change storage location","Copies and validates your data before switching. Original files remain available for rollback."));
+                    actions.push(operation("move", "Change", Action::MoveStorage, None));
+                }
             }
             _ => return Err(ServiceError::Conflict),
         }
@@ -415,9 +422,12 @@ impl LocalServices {
         let target = mutation.operation.target_id.as_deref().unwrap_or("");
         match (surface, &mutation.operation.action) {
             (Surface::Onboarding, Action::CompleteOnboarding) => {
-                return data::complete_onboarding(&self.runtime)
-                    .await
-                    .map(Outcome::OpenSession);
+                return crate::product::onboarding::complete(
+                    &self.runtime,
+                    self.shipping_store.clone(),
+                )
+                .await
+                .map(Outcome::OpenSession);
             }
             (Surface::Permissions, Action::RequestPermission | Action::OpenPermissionSettings) => {
                 let permission = permission(target)?;
@@ -579,6 +589,7 @@ impl LocalServices {
                     .set_page(request.scope.clone(), target.parse().map_err(failure)?)?;
             }
             (Surface::Storage, Action::MoveStorage) => {
+                let pointer = self.storage_pointer.clone().ok_or(ServiceError::Conflict)?;
                 let target = crate::platform::os::dialog(|| {
                     rfd::AsyncFileDialog::new()
                         .set_title("Choose empty storage location")
@@ -591,7 +602,6 @@ impl LocalServices {
                 self.host.flush_drafts().await?;
                 self.host.pause_writers().await?;
                 let root = self.storage_root.clone();
-                let pointer = self.storage_pointer.clone();
                 let cancel = request.cancel;
                 let result = tokio::task::spawn_blocking(move || {
                     let prepared = storage::PreparedMove::prepare(&root, &target, &cancel)?;

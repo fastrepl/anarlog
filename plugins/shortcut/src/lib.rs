@@ -2,12 +2,14 @@ mod commands;
 mod error;
 mod events;
 mod ext;
+mod gesture;
 mod global;
 mod handler;
 
 pub use error::*;
 pub use events::*;
 pub use ext::*;
+pub use gesture::{DictationGesture, GestureCapabilities, GestureOptions};
 
 use handler::Handler;
 use tauri::Manager;
@@ -21,10 +23,14 @@ fn make_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             commands::register_hotkey::<tauri::Wry>,
             commands::unregister_hotkey::<tauri::Wry>,
             global::configure,
+            global::configure_gestures,
             global::validate,
             global::set_active,
         ])
-        .events(tauri_specta::collect_events![ShortcutEvent])
+        .events(tauri_specta::collect_events![
+            ShortcutEvent,
+            DictationGesture
+        ])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }
 

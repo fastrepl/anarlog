@@ -2,6 +2,7 @@
 description = "Default permissions for the plugin"
 permissions = [
   "allow-configure",
+  "allow-configure-gestures",
   "allow-validate",
   "allow-set-active",
   "allow-register-hotkey",

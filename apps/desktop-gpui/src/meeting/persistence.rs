@@ -4,6 +4,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use anlg_listener_core::LiveTranscriptDelta;
+use anlg_transcript::WordState;
 use desktop_runtime::{Result, RuntimeHandle, ServiceError, Services};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore, mpsc, oneshot, watch};
 
@@ -13,6 +14,11 @@ use super::store;
 const BATCH_WINDOW: Duration = Duration::from_millis(250);
 const WRITE_TIMEOUT: Duration = Duration::from_secs(15);
 pub const FLUSH_TIMEOUT: Duration = Duration::from_secs(20);
+/// A channel whose final words trail the furthest channel's by more than this has gone quiet
+/// rather than awaiting a response; capture treats 90 s without final words as a stall.
+const CHANNEL_LAG_MS: i64 = 90_000;
+
+type FinalEnds = Arc<Mutex<BTreeMap<i32, i64>>>;
 
 struct Entry {
     delta: LiveTranscriptDelta,
@@ -33,6 +39,7 @@ pub struct Persistence {
     pub error: watch::Receiver<Option<ServiceError>>,
     retired: Arc<AtomicBool>,
     admission: Arc<tokio::sync::Mutex<()>>,
+    final_ends: FinalEnds,
 }
 
 impl Persistence {
@@ -41,7 +48,14 @@ impl Persistence {
             .submit(move |services| async move {
                 let (sender, receiver) = mpsc::channel(16);
                 let (error, state) = watch::channel(None);
-                tokio::spawn(run(services, transcript, receiver, error));
+                let final_ends = FinalEnds::default();
+                tokio::spawn(run(
+                    services,
+                    transcript,
+                    receiver,
+                    error,
+                    final_ends.clone(),
+                ));
                 Ok(Self {
                     sender,
                     words: Arc::new(Semaphore::new(MAX_WORDS)),
@@ -50,6 +64,7 @@ impl Persistence {
                     error: state,
                     retired: Arc::new(AtomicBool::new(false)),
                     admission: Arc::new(tokio::sync::Mutex::new(())),
+                    final_ends,
                 })
             })?
             .receive()
@@ -147,6 +162,20 @@ impl Persistence {
             })
     }
 
+    /// Through when every channel's speech is durably journaled (shipping's
+    /// `persisted_through_ms`, per channel): final words arrive per channel, so audio a slower
+    /// channel hasn't finalized yet stays.
+    pub fn persisted_through(&self) -> i64 {
+        let ends = self
+            .final_ends
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        match (ends.values().min(), ends.values().max()) {
+            (Some(earliest), Some(latest)) => (*earliest).max(latest - CHANNEL_LAG_MS),
+            _ => i64::MIN,
+        }
+    }
+
     pub async fn retire(&self) -> Result<()> {
         let _admission = self.admission.lock().await;
         self.flush().await?;
@@ -237,6 +266,7 @@ async fn run(
     transcript: Arc<str>,
     mut receiver: mpsc::Receiver<Command>,
     errors: watch::Sender<Option<ServiceError>>,
+    final_ends: FinalEnds,
 ) {
     while let Some(first) = receiver.recv().await {
         let mut entries = Vec::new();
@@ -281,6 +311,15 @@ async fn run(
                 match result {
                     Ok(()) => {
                         errors.send_replace(None);
+                        let mut ends = final_ends
+                            .lock()
+                            .unwrap_or_else(|poison| poison.into_inner());
+                        for word in &delta.new_words {
+                            if word.state == WordState::Final {
+                                let end = ends.entry(word.channel).or_insert(word.end_ms);
+                                *end = (*end).max(word.end_ms);
+                            }
+                        }
                         break;
                     }
                     Err(error) => {

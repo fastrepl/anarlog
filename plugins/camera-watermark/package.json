@@ -1,0 +1,12 @@
+{
+  "name": "@anlg/plugin-camera-watermark",
+  "private": true,
+  "main": "./js/index.ts",
+  "scripts": {
+    "codegen": "cargo test -p tauri-plugin-camera-watermark",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.10.1"
+  }
+}

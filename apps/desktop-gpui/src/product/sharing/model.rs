@@ -8,7 +8,8 @@ use desktop_runtime::SessionId;
 use gpui::{App, Global};
 use serde_json::Value;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// Ordered from least to most access.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Capability {
     Viewer,
     Commenter,

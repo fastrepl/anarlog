@@ -15,6 +15,7 @@ const SCHEMES: &[&str] = &[
     "hyprnote-staging",
     "hyprnote-nightly",
     "hypr",
+    "char",
 ];
 
 #[derive(Clone, Default, Deserialize)]

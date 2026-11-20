@@ -120,7 +120,7 @@ impl QuitOverlay {
             is_resizable: false,
             is_minimizable: false,
             window_background: WindowBackgroundAppearance::Transparent,
-            app_id: Some("com.anarlog.gpui.sandbox".into()),
+            app_id: crate::platform::package::window_app_id(),
             ..Default::default()
         };
         self.0 = cx

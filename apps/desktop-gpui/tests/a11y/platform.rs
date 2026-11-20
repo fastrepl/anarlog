@@ -36,6 +36,8 @@ pub struct A11yPlatform {
     text_system: Arc<dyn PlatformTextSystem>,
     pub windows: RefCell<Vec<(AnyWindowHandle, Rc<RefCell<WindowState>>)>>,
     clipboard: RefCell<Option<ClipboardItem>>,
+    /// The app asked to quit.
+    pub quit: std::cell::Cell<bool>,
 }
 
 impl A11yPlatform {
@@ -49,6 +51,7 @@ impl A11yPlatform {
             text_system: Arc::new(NoopTextSystem::new()),
             windows: RefCell::default(),
             clipboard: RefCell::default(),
+            quit: Default::default(),
         })
     }
 
@@ -125,7 +128,9 @@ impl Platform for A11yPlatform {
         on_finish_launching();
     }
 
-    fn quit(&self) {}
+    fn quit(&self) {
+        self.quit.set(true);
+    }
 
     fn restart(&self, _: Option<PathBuf>, _: Vec<std::ffi::OsString>) {}
 

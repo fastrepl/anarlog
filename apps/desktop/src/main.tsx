@@ -29,6 +29,7 @@ import { AppI18nProvider } from "./i18n/provider";
 import { AppLockGate } from "./lock/gate";
 import { FloatingMeetingWindowHost } from "./meeting-float/host";
 import { routeTree } from "./routeTree.gen";
+import { CameraGuidanceToasts } from "./services/camera-guidance";
 import { EventListeners } from "./services/event-listeners";
 import { TaskManager } from "./services/task-manager";
 import {
@@ -125,6 +126,7 @@ function ReadyApp() {
             {isMainWindow ? <TaskManager /> : null}
             {isMainWindow ? <FloatingMeetingWindowHost /> : null}
             {isMainWindow ? <EventListeners /> : null}
+            {isMainWindow ? <CameraGuidanceToasts /> : null}
             {isMainWindow ? <TrayScheduleSync /> : null}
             {isMainWindow ? <TrayRecordingSync /> : null}
             {isMainWindow && !isAppStoreBuild() ? <UpdaterMeetingSync /> : null}

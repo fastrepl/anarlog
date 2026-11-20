@@ -12,7 +12,7 @@ use futures::{
 };
 use gpui::{
     AnyView, App, AppContext, Context, Entity, EventEmitter, FocusHandle, Focusable, KeyDownEvent,
-    Subscription, Window,
+    Subscription, Task, Window,
 };
 
 use super::{
@@ -29,7 +29,8 @@ use super::{
 };
 use crate::{
     chat::{ChatView, state::ChatEvent},
-    contracts::{LaneContext, MeetingIntent, ProductRoute, WorkspaceEvent},
+    contracts::{EditorEvent, LaneContext, MeetingIntent, ProductRoute, WorkspaceEvent},
+    editor::menu::EditorRequest,
 };
 
 #[derive(Clone)]
@@ -293,6 +294,36 @@ impl WorkspaceView {
         let forward_subscription = cx.subscribe(&note, |_, _, event: &WorkspaceEvent, cx| {
             cx.emit(event.clone())
         });
+        // A summary editor's links, mentions and chips, as the main window routes the memo's.
+        let summary_links = cx.subscribe(&note, |this, _, event: &EditorEvent, cx| match event {
+            EditorEvent::OpenLink(url)
+                if url.starts_with("https://")
+                    || url.starts_with("http://")
+                    || url.starts_with("mailto:") =>
+            {
+                cx.open_url(url)
+            }
+            EditorEvent::OpenLink(_) => this.set_status(
+                "This link scheme is not supported by the native preview.".into(),
+                cx,
+            ),
+            EditorEvent::MentionHuman(id) => this.open_route(Route::Human(id.0.clone()), false, cx),
+            _ => {}
+        });
+        let summary_requests =
+            cx.subscribe(
+                &note,
+                |this, _, request: &EditorRequest, cx| match request {
+                    EditorRequest::OpenSession(id) => {
+                        this.open_session(SessionId(id.clone().into()), cx)
+                    }
+                    EditorRequest::OpenOrganization(id) => {
+                        this.open_route(Route::Organization(id.clone().into()), false, cx)
+                    }
+                    EditorRequest::OpenTask(route) => this.open_route(route.clone(), true, cx),
+                    EditorRequest::MentionSearch { .. } => {}
+                },
+            );
         let note_subscription = cx.subscribe(&note, |this, _, event: &NoteEvent, cx| match event {
             NoteEvent::Opened(session) => {
                 this.cache_title(session.summary.id.clone(), session.summary.title.clone());
@@ -439,6 +470,8 @@ impl WorkspaceView {
             subscriptions: vec![
                 open_subscription,
                 forward_subscription,
+                summary_links,
+                summary_requests,
                 note_subscription,
                 picker_subscription,
                 calendar_subscription,
@@ -576,6 +609,10 @@ impl WorkspaceView {
 
     pub fn chat(&self) -> &Entity<ChatView> {
         &self.chat
+    }
+
+    pub fn note(&self) -> &Entity<NoteView> {
+        &self.note
     }
 
     /// Whether the open note shows a summary with content, for chat's rewrite suggestions.
@@ -753,6 +790,12 @@ impl WorkspaceView {
         self.sync_route(cx);
     }
 
+    /// Saves edits that wait on a debounce (the open template), for the quit flush.
+    pub fn save_pending(&mut self, cx: &mut Context<Self>) -> Task<desktop_runtime::Result<()>> {
+        self.templates
+            .update(cx, |templates, cx| templates.flush(cx))
+    }
+
     pub fn can_close(&mut self, cx: &mut Context<Self>) -> bool {
         if !self.recording.is_empty() {
             self.set_status(
@@ -765,7 +808,12 @@ impl WorkspaceView {
     }
 
     fn can_navigate(&mut self, cx: &mut Context<Self>) -> bool {
-        if self.creating || self.note.read(cx).has_unsaved_title(cx) || !self.dirty.is_empty() {
+        let note = self.note.read(cx);
+        if self.creating
+            || note.has_unsaved_title(cx)
+            || note.has_unsaved_summary(cx)
+            || !self.dirty.is_empty()
+        {
             self.set_status(
                 "Save or restore unsaved edits before closing or changing tabs.".into(),
                 cx,

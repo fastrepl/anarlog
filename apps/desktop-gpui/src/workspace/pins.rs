@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
+use anlg_desktop_identity::store_json::StoreJson;
 use desktop_runtime::{Reply, RuntimeHandle, ServiceError, SessionId};
 use serde_json::{Value, json};
+
+use crate::shipping_store::{DESKTOP, PINNED_TABS};
 
 use super::navigation::Route;
 
@@ -11,14 +14,27 @@ const MAX_BYTES: usize = 64 * 1024;
 #[derive(Clone)]
 pub struct Revision(Option<String>);
 
-pub fn load(runtime: &RuntimeHandle) -> desktop_runtime::Result<Reply<(Revision, Vec<Route>)>> {
+/// A channel run keeps pins where the shipping app does, in `store.json`; a sandbox in its
+/// own settings row. Both hold shipping's `PinnedTab` JSON.
+pub fn load(
+    runtime: &RuntimeHandle,
+    shipping: Option<Arc<StoreJson>>,
+) -> desktop_runtime::Result<Reply<(Revision, Vec<Route>)>> {
     runtime.submit(|services| async move {
-        let rows = services.executor.execute(
-            "SELECT CASE WHEN length(CAST(value_json AS BLOB)) <= ? THEN value_json END AS value_json FROM app_settings WHERE id = ?".into(),
-            vec![json!(MAX_BYTES), json!(SETTINGS_KEY)],
-        ).await.map_err(|error| ServiceError::Failed(error.to_string().into()))?;
-        let raw = rows.first().map(|row| row["value_json"].as_str().map(str::to_owned)
-            .ok_or_else(|| ServiceError::Unsupported("Pinned tabs exceed the read limit; stored data retained.".into()))).transpose()?;
+        let raw = match shipping {
+            Some(store) => crate::shipping_store::read(store, DESKTOP, PINNED_TABS).await?
+                .map(|value| value.as_str().filter(|raw| raw.len() <= MAX_BYTES).map(str::to_owned)
+                    .ok_or_else(|| ServiceError::Unsupported("Pinned tabs exceed the read limit; stored data retained.".into())))
+                .transpose()?,
+            None => {
+                let rows = services.executor.execute(
+                    "SELECT CASE WHEN length(CAST(value_json AS BLOB)) <= ? THEN value_json END AS value_json FROM app_settings WHERE id = ?".into(),
+                    vec![json!(MAX_BYTES), json!(SETTINGS_KEY)],
+                ).await.map_err(|error| ServiceError::Failed(error.to_string().into()))?;
+                rows.first().map(|row| row["value_json"].as_str().map(str::to_owned)
+                    .ok_or_else(|| ServiceError::Unsupported("Pinned tabs exceed the read limit; stored data retained.".into()))).transpose()?
+            }
+        };
         let routes = raw.as_deref().map(decode).transpose()
             .map_err(|error| ServiceError::Failed(format!("Pinned tabs are malformed; stored data retained: {error}").into()))?.unwrap_or_default();
         Ok((Revision(raw), routes))
@@ -27,6 +43,7 @@ pub fn load(runtime: &RuntimeHandle) -> desktop_runtime::Result<Reply<(Revision,
 
 pub fn save(
     runtime: &RuntimeHandle,
+    shipping: Option<Arc<StoreJson>>,
     base: Revision,
     routes: Arc<[Route]>,
 ) -> desktop_runtime::Result<Reply<Revision>> {
@@ -35,11 +52,19 @@ pub fn save(
         if raw.len() > MAX_BYTES {
             return Err(ServiceError::Unsupported("Pinned tabs exceed the 64 KiB limit.".into()));
         }
-        let rows = services.executor.execute(
-            "INSERT INTO app_settings (id, value_json, updated_at) SELECT ?1, ?2, strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE (SELECT value_json FROM app_settings WHERE id = ?1) IS ?3 ON CONFLICT(id) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at RETURNING id".into(),
-            vec![json!(SETTINGS_KEY), json!(raw), json!(base.0)],
-        ).await.map_err(|error| ServiceError::Failed(error.to_string().into()))?;
-        if rows.is_empty() { return Err(ServiceError::Conflict); }
+        let saved = match shipping {
+            Some(store) => {
+                let (expected, value) = (base.0.map(Value::String), Value::String(raw.clone()));
+                tokio::task::spawn_blocking(move || store.compare_and_set(DESKTOP, PINNED_TABS, expected.as_ref(), value))
+                    .await.map_err(|error| ServiceError::Failed(error.to_string().into()))?
+                    .map_err(|error| ServiceError::Failed(format!("store.json: {error}").into()))?
+            }
+            None => !services.executor.execute(
+                "INSERT INTO app_settings (id, value_json, updated_at) SELECT ?1, ?2, strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE (SELECT value_json FROM app_settings WHERE id = ?1) IS ?3 ON CONFLICT(id) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at RETURNING id".into(),
+                vec![json!(SETTINGS_KEY), json!(raw), json!(base.0)],
+            ).await.map_err(|error| ServiceError::Failed(error.to_string().into()))?.is_empty(),
+        };
+        if !saved { return Err(ServiceError::Conflict); }
         Ok(Revision(Some(raw)))
     })
 }

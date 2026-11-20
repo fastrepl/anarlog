@@ -18,7 +18,9 @@ use tokio::sync::{mpsc, oneshot};
 
 use super::model::{Retention, failure};
 use super::persistence::{Persistence, PersistenceGroup};
-use super::recovery::{Recovery, RecoveryResolver};
+use super::recovery::{
+    Recovery, RecoveryResolver, chunk_interval, delete_transcribed, page, release,
+};
 use super::retention::{Activities, Activity, session_directory};
 use super::store::{TranscriptStore, statement, string};
 
@@ -74,7 +76,8 @@ pub struct CaptureUpdate {
 #[derive(Clone)]
 struct RepairContext {
     recovery: Recovery,
-    resolver: RecoveryResolver,
+    /// Without one, an incomplete transcript can't be repaired, but chunks are still released.
+    resolver: Option<RecoveryResolver>,
     directory: PathBuf,
     started: u64,
     job: Arc<tokio::sync::Mutex<()>>,
@@ -400,6 +403,37 @@ mod callback_tests {
         assert!(state.error.is_some());
     }
 
+    #[tokio::test]
+    async fn a_capture_that_fails_to_finish_frees_its_note() {
+        let directory =
+            std::env::temp_dir().join(format!("anarlog-capture-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir(&directory).unwrap();
+        let (runtime, ready) = RuntimeHandle::start(desktop_runtime::Profile {
+            database: directory.join("db.sqlite"),
+        })
+        .unwrap();
+        ready.receive().await.unwrap();
+        let activities = Activities::default();
+        let session = SessionId("fixture".into());
+        let state = Arc::new(Mutex::new(State {
+            session: Some(session.clone()),
+            phase: Phase::Listening,
+            activity: Some(activities.acquire(session.clone()).unwrap()),
+            ..State::default()
+        }));
+        // Stop handles this itself when the session ended before it drained the queue.
+        let ended = SessionLifecycleEvent::Inactive {
+            session_id: "fixture".into(),
+            audio_path: None,
+            error: Some("audio_stream_failed".into()),
+        };
+        handle_lifecycle(&runtime, &state, ended).await.unwrap_err();
+        assert_eq!(state.lock().unwrap().phase, Phase::Failed);
+        activities.acquire(session).unwrap();
+        runtime.shutdown().await.unwrap();
+        std::fs::remove_dir_all(directory).unwrap();
+    }
+
     #[test]
     fn lost_channels_are_health_warnings_that_still_mark_recovery() {
         let (events, _receiver) = mpsc::channel(1);
@@ -489,17 +523,7 @@ impl CaptureService {
                             }
                         }
                         Some(event) = lifecycle.recv() => {
-                            let inactive = matches!(event, SessionLifecycleEvent::Inactive { .. });
                             if let Err(error) = handle_lifecycle(&runtime, &shared, event).await {
-                                if inactive {
-                                    let repair = {
-                                        let mut state = shared.lock().unwrap_or_else(|poison| poison.into_inner());
-                                        state.phase = Phase::Failed;
-                                        state.activity.take();
-                                        state.repair.clone()
-                                    };
-                                    if let Some(repair) = repair { repair.recovery.stop().await; }
-                                }
                                 adapter.fail(error);
                             }
                         }
@@ -529,11 +553,6 @@ impl CaptureService {
                                 let _ = reply.send(result);
                             }
                             Some(Command::Stop(reply)) => {
-                                let recovery = {
-                                    let state = shared.lock().unwrap_or_else(|poison| poison.into_inner());
-                                    if state.retention == Retention::Never { state.repair.clone() } else { None }
-                                };
-                                if let Some(repair) = recovery { repair.recovery.stop().await; }
                                 let mut result = root.call(RootMsg::StopSession, Some(Duration::from_secs(30))).await
                                     .map_err(failure).and_then(|reply| reply.success_or_else(|| failure("Capture stop timed out; finalization is still pending.")));
                                 while let Ok(event) = lifecycle.try_recv() {
@@ -773,9 +792,9 @@ async fn start(
         state.provider = config.provider.as_str().into();
         state.capture_start = Instant::now();
         state.activity = Some(activity);
-        state.repair = config.recovery.map(|resolver| RepairContext {
+        state.repair = Some(RepairContext {
             recovery: Recovery::default(),
-            resolver,
+            resolver: config.recovery,
             directory,
             started,
             job: Arc::new(tokio::sync::Mutex::new(())),
@@ -801,7 +820,11 @@ async fn start(
                     break;
                 }
             }
-            if let Err(error) = repair_once(&background_runtime, &background_state).await
+            let result = match repair_once(&background_runtime, &background_state).await {
+                Ok(()) => release_chunks(&background_state, false).await,
+                error => error,
+            };
+            if let Err(error) = result
                 && !matches!(error, ServiceError::Cancelled)
             {
                 let mut state = background_state
@@ -904,70 +927,97 @@ async fn handle_lifecycle(
         SessionLifecycleEvent::Inactive {
             session_id, error, ..
         } => {
-            let (persistence, transcript, retained) = {
-                let mut state = shared.lock().unwrap_or_else(|poison| poison.into_inner());
-                if !matches_session(&state, &session_id) {
-                    if let Some(error) = error {
-                        state.error = Some(failure(error));
-                        state.revision += 1;
-                    }
-                    return Ok(());
+            let result = finish(runtime, shared, session_id, error).await;
+            // A capture that fails to finish must not stay busy, wherever its event was handled.
+            if result.is_err() {
+                let repair = {
+                    let mut state = shared.lock().unwrap_or_else(|poison| poison.into_inner());
+                    state.phase = Phase::Failed;
+                    state.activity.take();
+                    state.repair.clone()
+                };
+                if let Some(repair) = repair {
+                    repair.recovery.stop().await;
                 }
-                state.phase = Phase::Finalizing;
-                (
-                    state.persistence.clone(),
-                    state.transcript.clone(),
-                    state.retention != Retention::Never,
-                )
-            };
-            if let Some(persistence) = persistence {
-                persistence.retire().await?;
             }
-            if let Some(error) = error {
-                return Err(failure(error));
-            }
-            if retained {
-                repair_once(runtime, shared).await?;
-            }
-            let (incomplete, recovery) = {
-                let state = shared.lock().unwrap_or_else(|poison| poison.into_inner());
-                (state.incomplete, state.repair.clone())
-            };
-            if let Some(repair) = recovery {
-                repair.recovery.stop().await;
-            }
-            if incomplete {
-                shared
-                    .lock()
-                    .unwrap_or_else(|poison| poison.into_inner())
-                    .phase = Phase::Failed;
-                return Err(failure(
-                    "Recording stopped with an incomplete transcript. Recovery marker retained; Don’t save audio is deleted by the recorder.",
-                ));
-            }
-            if let Some(transcript) = transcript {
-                runtime.submit(move |services| async move {
-                    services.executor.execute_transaction(vec![
-                        statement("UPDATE transcripts SET ended_at_ms = CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER) WHERE id = ?", vec![json!(transcript)], Some(1)),
-                        statement("DELETE FROM app_settings WHERE id = ? AND json_valid(value_json) AND json_extract(value_json, '$.transcriptId') = ?",
-                            vec![json!(format!("capture_lifecycle_pending:{session_id}")), json!(transcript)], Some(1)),
-                    ]).await.map_err(failure)?;
-                    Ok(())
-                })?.receive().await?;
-            }
-            let mut state = shared.lock().unwrap_or_else(|poison| poison.into_inner());
-            state.phase = Phase::Idle;
-            state.activity = None;
-            state.status = "Recording saved".into();
-            state.persistence = None;
-            state.revision += 1;
+            return result;
         }
     }
     Ok(())
 }
 
+async fn finish(
+    runtime: &RuntimeHandle,
+    shared: &Arc<Mutex<State>>,
+    session_id: String,
+    error: Option<String>,
+) -> Result<()> {
+    let (persistence, transcript, retained) = {
+        let mut state = shared.lock().unwrap_or_else(|poison| poison.into_inner());
+        if !matches_session(&state, &session_id) {
+            if let Some(error) = error {
+                state.error = Some(failure(error));
+                state.revision += 1;
+            }
+            return Ok(());
+        }
+        state.phase = Phase::Finalizing;
+        (
+            state.persistence.clone(),
+            state.transcript.clone(),
+            state.retention != Retention::Never,
+        )
+    };
+    if let Some(persistence) = persistence {
+        persistence.retire().await?;
+    }
+    if let Some(error) = error {
+        return Err(failure(error));
+    }
+    repair_once(runtime, shared).await?;
+    let (incomplete, recovery) = {
+        let state = shared.lock().unwrap_or_else(|poison| poison.into_inner());
+        (state.incomplete, state.repair.clone())
+    };
+    if let Some(repair) = &recovery {
+        repair.recovery.stop().await;
+    }
+    if incomplete {
+        return Err(failure(
+            "Recording stopped with an incomplete transcript; its audio is kept for recovery.",
+        ));
+    }
+    release_chunks(shared, true).await?;
+    // "Don't save" counts as saved only once its audio is gone.
+    if !retained
+        && let Some(repair) = recovery
+        && !delete_transcribed(repair.directory).await?
+    {
+        return Err(failure(
+            "Don’t save audio is still waiting for transcription; it is kept for recovery.",
+        ));
+    }
+    if let Some(transcript) = transcript {
+        runtime.submit(move |services| async move {
+            services.executor.execute_transaction(vec![
+                statement("UPDATE transcripts SET ended_at_ms = CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER) WHERE id = ?", vec![json!(transcript)], Some(1)),
+                statement("DELETE FROM app_settings WHERE id = ? AND json_valid(value_json) AND json_extract(value_json, '$.transcriptId') = ?",
+                    vec![json!(format!("capture_lifecycle_pending:{session_id}")), json!(transcript)], Some(1)),
+            ]).await.map_err(failure)?;
+            Ok(())
+        })?.receive().await?;
+    }
+    let mut state = shared.lock().unwrap_or_else(|poison| poison.into_inner());
+    state.phase = Phase::Idle;
+    state.activity = None;
+    state.status = "Recording saved".into();
+    state.persistence = None;
+    state.revision += 1;
+    Ok(())
+}
+
 async fn repair_once(runtime: &RuntimeHandle, shared: &Arc<Mutex<State>>) -> Result<()> {
-    let (repair, session, transcript, persistence, through) = {
+    let (repair, resolver, session, transcript, persistence, through) = {
         let mut state = shared.lock().unwrap_or_else(|poison| poison.into_inner());
         let stalled = state.phase == Phase::Listening
             && state.audible.elapsed() < Duration::from_secs(45)
@@ -993,8 +1043,14 @@ async fn repair_once(runtime: &RuntimeHandle, shared: &Arc<Mutex<State>>) -> Res
                 "Transcript is incomplete and this provider has no batch recovery adapter.",
             ));
         };
+        let Some(resolver) = repair.resolver.clone() else {
+            return Err(failure(
+                "Transcript is incomplete and this provider has no batch recovery adapter.",
+            ));
+        };
         (
             repair,
+            resolver,
             session,
             transcript,
             persistence,
@@ -1009,27 +1065,30 @@ async fn repair_once(runtime: &RuntimeHandle, shared: &Arc<Mutex<State>>) -> Res
         }
     }
     let generation = repair.recovery.generation();
-    let chunks = Recovery::chunks(repair.directory.clone()).await?;
+    let store = TranscriptStore(runtime.clone());
     let mut recovered_through = 0;
-    for chunk in chunks
-        .into_iter()
-        .filter(|chunk| chunk.capture_started_at >= repair.started)
-    {
-        let gap = super::recovery::chunk_interval(&chunk, repair.started as i64);
-        let end = gap.end.max(0) as u64;
-        persistence.flush().await?;
-        repair
-            .recovery
-            .repair(
-                &TranscriptStore(runtime.clone()),
-                session.clone(),
-                transcript.clone(),
-                chunk,
-                vec![gap],
-                &repair.resolver,
-            )
-            .await?;
-        recovered_through = recovered_through.max(end);
+    loop {
+        let chunks = page(&repair.directory, repair.started).await?;
+        if chunks.is_empty() {
+            break;
+        }
+        for chunk in chunks {
+            let gap = chunk_interval(&chunk, repair.started as i64);
+            let end = gap.end.max(0) as u64;
+            persistence.flush().await?;
+            repair
+                .recovery
+                .repair(
+                    &store,
+                    session.clone(),
+                    transcript.clone(),
+                    chunk,
+                    vec![gap],
+                    &resolver,
+                )
+                .await?;
+            recovered_through = recovered_through.max(end);
+        }
     }
     let mut state = shared.lock().unwrap_or_else(|poison| poison.into_inner());
     if recovered_through > through && repair.recovery.generation() == generation {
@@ -1038,4 +1097,35 @@ async fn repair_once(runtime: &RuntimeHandle, shared: &Arc<Mutex<State>>) -> Res
         state.revision += 1;
     }
     Ok(())
+}
+
+/// Shipping's `createCaptureAudioRecovery`: a complete capture releases each recovery chunk once
+/// its speech is persisted, and the rest after its final flush (`settled`). Incomplete captures
+/// keep theirs for `repair_once`.
+async fn release_chunks(shared: &Arc<Mutex<State>>, settled: bool) -> Result<()> {
+    let (repair, persistence) = {
+        let state = shared.lock().unwrap_or_else(|poison| poison.into_inner());
+        if state.incomplete || state.batch {
+            return Ok(());
+        }
+        let (Some(repair), Some(persistence)) = (state.repair.clone(), state.persistence.clone())
+        else {
+            return Ok(());
+        };
+        (repair, persistence)
+    };
+    let _job = repair.job.lock().await;
+    let through = persistence.persisted_through();
+    loop {
+        let chunks = page(&repair.directory, repair.started).await?;
+        if chunks.is_empty() {
+            return Ok(());
+        }
+        for chunk in chunks {
+            if !settled && chunk_interval(&chunk, repair.started as i64).end > through {
+                return Ok(());
+            }
+            release(&repair.directory, chunk.id).await?;
+        }
+    }
 }

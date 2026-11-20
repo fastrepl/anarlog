@@ -198,6 +198,17 @@ impl LocalSettingsView {
     }
 }
 
+/// Shipping's `handleButtonClick`: request a permission macOS can still prompt for; otherwise
+/// open System Settings, where accessibility and denied grants are made.
+fn permission_action(id: &str, detail: &str, granted: bool) -> &'static str {
+    let denied = cfg!(target_os = "macos") && detail != crate::platform::permissions::NOT_REQUESTED;
+    if granted || denied || id == "accessibility" {
+        "settings"
+    } else {
+        "request"
+    }
+}
+
 impl LocalSettingsView {
     /// `settings/general/permissions.tsx`: grouped rows whose title turns red with a warning
     /// until granted; the button requests access, or opens System Settings once granted.
@@ -207,12 +218,7 @@ impl LocalSettingsView {
             let found = panel.rows.iter().find(|row| row.id.as_ref() == id)?;
             let granted = found.detail.as_ref() == super::PERMISSION_ALLOWED
                 || found.detail.as_ref() == super::PERMISSION_NOT_REQUIRED;
-            // Accessibility is granted in System Settings, which shipping's assistant opens.
-            let action = if granted || id == "accessibility" {
-                "settings"
-            } else {
-                "request"
-            };
+            let action = permission_action(id, &found.detail, granted);
             let operation = panel
                 .operations
                 .iter()
@@ -594,5 +600,28 @@ impl Render for LocalSettingsView {
                     view.on_click(cx.listener(|this, _, _, cx| this.reload(cx)))
                 }),
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::platform::permissions::NOT_REQUESTED;
+
+    #[test]
+    fn a_denied_permission_opens_system_settings_instead_of_a_prompt_that_cannot_show() {
+        let denied = "Microphone access denied in System Settings";
+        let expected = if cfg!(target_os = "macos") {
+            "settings"
+        } else {
+            "request"
+        };
+        assert_eq!(
+            super::permission_action("microphone", denied, false),
+            expected
+        );
+        assert_eq!(
+            super::permission_action("microphone", NOT_REQUESTED, false),
+            "request"
+        );
     }
 }

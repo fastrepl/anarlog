@@ -10,6 +10,7 @@ import { CircleNotch } from "@anlg/ui/components/icons";
 export { SettingsAccount } from "./account";
 import { AppSettingsView } from "./app-settings";
 import { AudioSettingsView } from "./audio-settings";
+import { CameraWatermarkSettings } from "./camera-watermark";
 import {
   CORE_TRANSCRIPTION_LANGUAGE_CODES,
   getAdditionalSpokenLanguages,
@@ -383,6 +384,8 @@ function SettingsSectionContent({
               }}
             />
           </div>
+
+          <CameraWatermarkSettings />
         </>
       )}
     </div>

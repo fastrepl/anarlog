@@ -347,6 +347,12 @@ fn summary(row: &Value) -> Vec<SharedString> {
     facts
 }
 
+/// Reads the tables `CONTACTS_SQL` reads, so it notifies on every change to them.
+pub const CONTACTS_CHANGES_SQL: &str = "SELECT EXISTS(SELECT 1 FROM humans) AS humans,
+    EXISTS(SELECT 1 FROM organizations) AS organizations,
+    EXISTS(SELECT 1 FROM sessions) AS sessions,
+    EXISTS(SELECT 1 FROM chat_groups) AS chat_groups";
+
 pub const CONTACTS_SQL: &str = "SELECT 'human' AS kind, id, created_at, organization_id, name,
     email, phone, job_title, linkedin_username, memo, pinned, pin_order,
     CASE WHEN json_valid(metadata_json) THEN json_extract(metadata_json, '$.avatarDataUrl') END AS avatar,

@@ -145,15 +145,8 @@ fn build_render_request(
 }
 
 fn parse_speaker_context(value: &Value) -> Option<SpeakerContext> {
-    let intervals = value.get("intervals")?.as_array()?;
-    let intervals = intervals
-        .iter()
-        .filter_map(|interval| {
-            serde_json::from_value::<anlg_transcript::SpeakerContextInterval>(interval.clone()).ok()
-        })
-        .filter(|interval| interval.start_ms < interval.end_ms)
-        .collect::<Vec<_>>();
-    (!intervals.is_empty()).then_some(SpeakerContext { intervals })
+    let context = SpeakerContext::from_stored_value(value);
+    (!context.is_empty()).then_some(context)
 }
 
 fn normalize_transcript(transcript: &Transcript) -> Option<RenderTranscriptInput> {

@@ -218,6 +218,32 @@ impl RuntimeHandle {
         self.watch_query_policy(sql, params, false)
     }
 
+    /// Notifies after every write to the tables `sql` reads, even when its rows stay equal.
+    /// For results that can outgrow a watch: watch a small query over the same tables, then
+    /// [`Self::read_rows`] the full result on each notification.
+    pub fn watch_changes(&self, sql: String, params: Vec<Value>) -> Result<Reply<QueryWatch>> {
+        self.watch_query_policy(sql, params, true)
+    }
+
+    /// Every row of `sql` in one queued read, bounded by size like a watch snapshot but not
+    /// by row count.
+    pub fn read_rows(&self, sql: String, params: Vec<Value>) -> Result<Reply<Vec<Value>>> {
+        self.read(
+            crate::CancellationToken::new(),
+            move |services| async move {
+                let rows = services
+                    .executor
+                    .execute(sql, params)
+                    .await
+                    .map_err(failure)?;
+                if serde_json::to_writer(&mut SizeBound(0), &rows).is_err() {
+                    return Err(ServiceError::Unsupported("Result exceeds 16 MiB".into()));
+                }
+                Ok(rows)
+            },
+        )
+    }
+
     fn watch_query_policy(
         &self,
         sql: String,

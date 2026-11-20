@@ -1,4 +1,3 @@
-mod chunked;
 mod commands;
 mod error;
 mod ext;
@@ -97,17 +96,25 @@ mod test {
                 std::env::set_var("XDG_DATA_HOME", &primary);
             }
 
-            let mut paths = vec![primary.clone()];
-            if let Some(default_base) = anlg_storage::global::compute_default_base(&identifier) {
-                paths.push(default_base);
-            }
-
-            Self {
+            let mut vault = Self {
                 identifier,
                 previous_home,
                 previous_xdg_data_home,
-                paths,
+                paths: vec![primary.clone()],
+            };
+            // Windows' data folder ignores HOME, and a release build maps the synthetic identifier
+            // to the real `anarlog` folder there, which these tests would write and then delete.
+            let base = anlg_storage::global::compute_default_base(&vault.identifier)
+                .expect("a data directory");
+            assert!(
+                base.starts_with(&primary) || base.ends_with(&vault.identifier),
+                "store2 tests would use the real app data at {}",
+                base.display()
+            );
+            if !base.starts_with(&primary) {
+                vault.paths.push(base);
             }
+            vault
         }
 
         fn store_file(&self) -> PathBuf {
@@ -223,6 +230,41 @@ mod test {
         let restarted = create_app(tauri::test::mock_builder(), &vault.identifier);
         let reloaded = restarted.store2().scoped_store::<TestKey>("test")?;
         assert_eq!(reloaded.get::<u8>(TestKey::KeyA)?, Some(1));
+        Ok(())
+    }
+
+    /// The native app reads and writes this file through `desktop-identity`; each side must
+    /// read what the other wrote, so a rollback to this app keeps the state.
+    #[test]
+    fn shares_the_store_with_the_identity_crate() -> anyhow::Result<()> {
+        let _guard = TEST_MUTEX.lock().unwrap();
+        let vault = TestVault::new("identity-crate");
+        let shared = anlg_desktop_identity::store_json::StoreJson::at(vault.store_file());
+        shared.set("desktop", "OnboardingNeeded2", serde_json::json!(false))?;
+        shared.set("desktop", "PinnedTabs", serde_json::json!("[]"))?;
+
+        let app = create_app(tauri::test::mock_builder(), &vault.identifier);
+        let desktop = app.store2().scoped_store::<String>("desktop")?;
+        assert_eq!(
+            desktop.get::<bool>("OnboardingNeeded2".into())?,
+            Some(false)
+        );
+        assert_eq!(
+            desktop.get::<String>("PinnedTabs".into())?,
+            Some("[]".into())
+        );
+
+        app.store2()
+            .scoped_store::<String>("updater2")?
+            .set("LastSeenVersion".into(), "1.4.35")?;
+        assert_eq!(
+            shared.get("updater2", "LastSeenVersion")?,
+            Some(serde_json::json!("1.4.35"))
+        );
+        assert_eq!(
+            shared.get("desktop", "OnboardingNeeded2")?,
+            Some(serde_json::json!(false))
+        );
         Ok(())
     }
 

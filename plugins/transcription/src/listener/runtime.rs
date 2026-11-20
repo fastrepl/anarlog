@@ -42,7 +42,19 @@ impl anlg_storage::StorageRuntime for TauriRuntime {
 }
 
 impl ListenerRuntime for TauriRuntime {
+    fn capture_is_current(&self, capture_id: &str) -> bool {
+        crate::meeting::is_current_capture(&self.app, capture_id)
+    }
+
     fn emit_lifecycle(&self, event: anlg_transcription_core::listener::SessionLifecycleEvent) {
+        self.emit_capture_lifecycle(event, None);
+    }
+
+    fn emit_capture_lifecycle(
+        &self,
+        event: anlg_transcription_core::listener::SessionLifecycleEvent,
+        capture_id: Option<&str>,
+    ) {
         use tauri_plugin_tray::TrayPluginExt;
         match &event {
             anlg_transcription_core::listener::SessionLifecycleEvent::Active { error, .. } => {
@@ -50,7 +62,18 @@ impl ListenerRuntime for TauriRuntime {
                 let _ = self.app.tray().set_degraded(error.is_some());
                 let _ = self.app.tray().set_recording(true);
             }
-            anlg_transcription_core::listener::SessionLifecycleEvent::Inactive { .. } => {
+            anlg_transcription_core::listener::SessionLifecycleEvent::Inactive {
+                error, ..
+            } => {
+                crate::meeting::finish_recorded(
+                    &self.app,
+                    capture_id,
+                    if error.is_some() {
+                        anlg_audio::meeting::CaptureEndReason::CaptureFailed
+                    } else {
+                        anlg_audio::meeting::CaptureEndReason::UserStopped
+                    },
+                );
                 let app = self.app.clone();
                 tauri::async_runtime::spawn(async move {
                     match current_root_state().await {
@@ -67,7 +90,14 @@ impl ListenerRuntime for TauriRuntime {
                     }
                 });
             }
-            anlg_transcription_core::listener::SessionLifecycleEvent::Finalizing { .. } => {}
+            anlg_transcription_core::listener::SessionLifecycleEvent::Finalizing { .. } => {
+                // The recording stopped: nothing may act for it any more, even while it finalizes.
+                crate::meeting::finish_recorded(
+                    &self.app,
+                    capture_id,
+                    anlg_audio::meeting::CaptureEndReason::UserStopped,
+                );
+            }
         }
 
         let capture_event = match event {
@@ -188,6 +218,7 @@ impl ListenerRuntime for TauriRuntime {
             ..
         } = &event
         {
+            crate::meeting::transcription_connected(&self.app, session_id);
             self.capture_gap_registry
                 .connected(session_id, crate::capture_gaps::unix_now_ms());
         }

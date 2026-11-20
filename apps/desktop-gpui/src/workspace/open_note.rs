@@ -36,6 +36,9 @@ use crate::{
     editor::{
         EditorPane,
         find::{FindBar, FindTarget},
+        holds::NoteHolds,
+        menu::EditorRequest,
+        persistence::Flush,
         title::first_line_title,
         transcript::{TranscriptEvent, TranscriptView},
     },
@@ -70,6 +73,9 @@ pub struct NoteView {
     cancellation: CancellationToken,
     rename_pending: bool,
     rename_error: bool,
+    /// A newer stored session found while a title draft kept `current` as its base, paired with
+    /// that base. Discarding the draft takes the newer one while `current` is still the base.
+    newer_session: Option<(Arc<OpenSession>, Arc<OpenSession>)>,
     /// The open session's live capture mode.
     mode: SessionMode,
     /// Saved audio for the open session, which enables the transcript tab and its player.
@@ -87,7 +93,8 @@ pub struct NoteView {
     return_focus: Option<FocusHandle>,
     details: Details,
     view: Option<NoteTab>,
-    summary_editor: Option<(DocumentId, Entity<EditorPane>, Subscription)>,
+    /// Every summary editor opened for the shown note, kept until another note shows.
+    summary_editors: HashMap<DocumentId, SummaryEditor>,
     transcript: Option<Entity<TranscriptView>>,
     details_task: Option<Task<()>>,
     compact_folder: bool,
@@ -128,6 +135,18 @@ pub struct NoteView {
     _subscriptions: Vec<Subscription>,
 }
 
+/// A summary tab's editor. It outlives switching tabs, so a draft whose save failed stays
+/// until it is resolved, and the note's guards and flushes see it like the memo's.
+struct SummaryEditor {
+    editor: Entity<EditorPane>,
+    /// The first line as last saved: only an edit of that line renames the note, so a save
+    /// after a header rename does not rename it back.
+    heading: Option<String>,
+    /// Mirrors the editor's save conflict for the note's banner.
+    conflict: bool,
+    _subscriptions: [Subscription; 3],
+}
+
 /// The right-click menus of the active Memos and Summary tabs.
 #[derive(Clone, Debug, PartialEq)]
 enum TabMenu {
@@ -136,6 +155,9 @@ enum TabMenu {
 }
 
 impl EventEmitter<WorkspaceEvent> for NoteView {}
+/// A summary editor's links, mentions and task chips, routed like the memo's.
+impl EventEmitter<EditorEvent> for NoteView {}
+impl EventEmitter<EditorRequest> for NoteView {}
 
 #[derive(Clone)]
 pub enum NoteEvent {
@@ -379,6 +401,7 @@ impl NoteView {
             input,
             blur,
             cx.observe_global::<MeetingServices>(|this, cx| this.load_audio(cx)),
+            cx.observe_global::<NoteHolds>(|this, cx| this.hold_title(cx)),
             cx.observe(&uploads, |this, _, cx| this.sync_batch(cx)),
             cx.subscribe(&uploads, |this, _, event, cx| match event {
                 UploadEvent::AudioChanged(session) => {
@@ -430,6 +453,7 @@ impl NoteView {
             cancellation: CancellationToken::new(),
             rename_pending: false,
             rename_error: false,
+            newer_session: None,
             mode: SessionMode::Inactive,
             audio: None,
             batch: None,
@@ -442,7 +466,7 @@ impl NoteView {
             return_focus: None,
             details: Details::default(),
             view: None,
-            summary_editor: None,
+            summary_editors: HashMap::new(),
             transcript: None,
             details_task: None,
             compact_folder: false,
@@ -585,6 +609,13 @@ impl NoteView {
         {
             if let Ok(editor) = content.clone().downcast::<EditorPane>() {
                 self.adopt_brief_editor(&editor, cx);
+                if let Some(service) = editor.read(cx).attachment_service() {
+                    for summary in self.summary_editors.values() {
+                        summary.editor.update(cx, |summary, cx| {
+                            summary.set_attachment_service(service.clone(), cx)
+                        });
+                    }
+                }
             }
             self.memo_saved = content.clone().downcast::<EditorPane>().ok().map(|editor| {
                 let session = session_id.clone();
@@ -634,7 +665,7 @@ impl NoteView {
         self.details = Details::default();
         self.details_task = None;
         self.view = None;
-        self.summary_editor = None;
+        self.summary_editors.clear();
         self.transcript = None;
         self.audio = None;
         self.player = None;
@@ -650,6 +681,15 @@ impl NoteView {
         if self.rename_error {
             self.reload_title(cx);
             return;
+        }
+        if let Some((base, newer)) = self.newer_session.take()
+            && self
+                .current
+                .as_ref()
+                .is_some_and(|current| Arc::ptr_eq(current, &base))
+        {
+            self.current = Some(newer.clone());
+            cx.emit(NoteEvent::TitleUpdated(newer));
         }
         if let Some(session) = &self.current {
             self.title.update(cx, |title, cx| {
@@ -717,6 +757,11 @@ impl NoteView {
             cx.notify();
             return;
         }
+        if self.has_unsaved_summary(cx) {
+            self.message = "Save or restore your summary edits before changing notes.".into();
+            cx.notify();
+            return;
+        }
         self.cancellation.cancel();
         self.cancellation = CancellationToken::new();
         let generation = self.generation.advance();
@@ -736,9 +781,9 @@ impl NoteView {
                 this.loading = false;
                 match result {
                     Ok(session) => {
-                        if this.has_unsaved_title(cx) {
+                        if this.has_unsaved_title(cx) || this.has_unsaved_summary(cx) {
                             this.message =
-                                "The title changed while opening a note. Save or restore it first."
+                                "The note changed while opening another. Save or restore it first."
                                     .into();
                             cx.emit(NoteEvent::Failed);
                             cx.notify();
@@ -787,6 +832,7 @@ impl NoteView {
         self.pending_edits
             .update(cx, |banner, cx| banner.set_session(Some(id), cx));
         self.current = Some(session);
+        self.hold_title(cx);
         self.sync_batch(cx);
         self.load_audio(cx);
         self.load_model(cx);
@@ -886,6 +932,12 @@ impl NoteView {
             .as_str()
             .and_then(|json| serde_json::from_str(json).ok())
             .unwrap_or_default();
+        // A deleted summary's editor has nothing left to show or save.
+        self.summary_editors.retain(|id, _| {
+            summaries
+                .iter()
+                .any(|row| row["id"].as_str() == Some(id.0.as_ref()))
+        });
         let visible = summary_ids(&summaries, &SessionId("".into()), false);
         let summary_meta = summaries
             .iter()
@@ -973,6 +1025,42 @@ impl NoteView {
 
     pub fn session_id(&self) -> Option<&SessionId> {
         self.current.as_ref().map(|session| &session.summary.id)
+    }
+
+    /// The shown note's memo and summary editors.
+    fn editors(&self) -> Vec<Entity<EditorPane>> {
+        self.content
+            .clone()
+            .and_then(|content| content.downcast::<EditorPane>().ok())
+            .into_iter()
+            .chain(
+                self.summary_editors
+                    .values()
+                    .map(|summary| summary.editor.clone()),
+            )
+            .collect()
+    }
+
+    /// When the shown note is one of `ids`, starts saving its title and unsaved editor drafts,
+    /// so they land before a deletion's tombstone, which rejects later saves.
+    pub fn flush_drafts(&mut self, ids: &[SessionId], cx: &mut Context<Self>) -> Vec<Flush> {
+        if !self.session_id().is_some_and(|id| ids.contains(id)) {
+            return Vec::new();
+        }
+        self.rename(cx);
+        self.editors()
+            .into_iter()
+            .filter_map(|editor| {
+                editor.update(cx, |editor, _| editor.is_dirty().then(|| editor.flush()))
+            })
+            .collect()
+    }
+
+    /// The title, like the editors, takes no edits while a deletion holds the shown note.
+    fn hold_title(&mut self, cx: &mut Context<Self>) {
+        let held = self.session_id().is_some_and(|id| NoteHolds::held(cx, id));
+        self.title
+            .update(cx, |title, cx| title.set_read_only(held, cx));
     }
 
     /// The summary the note shows, which chat edits and corrections target by default.
@@ -1163,9 +1251,56 @@ impl NoteView {
                 cx.emit(NoteEvent::Open(Route::Human(human.clone())));
                 cx.notify();
             }
+            MeetingInfoEvent::DateChanged => this.refresh_session(cx),
         });
         self.meeting_info = Some((info, subscription));
         cx.notify();
+    }
+
+    /// Takes the stored session after a write that moved its revision, so the next rename's
+    /// conditional update does not report a conflict.
+    fn refresh_session(&mut self, cx: &mut Context<Self>) {
+        let Some(id) = self.session_id().cloned() else {
+            return;
+        };
+        let reply = self
+            .runtime
+            .open_session(id.clone(), CancellationToken::new());
+        cx.spawn(async move |this, cx| {
+            let Ok(session) = async { reply?.receive().await }.await else {
+                return;
+            };
+            let _ = this.update(cx, |this, cx| {
+                // A rename in flight brings its own session back.
+                if this.busy || this.session_id() != Some(&id) {
+                    return;
+                }
+                let previous = this.current.as_ref().map(|s| s.summary.title.clone());
+                let stored = session.summary.title.clone();
+                if previous.as_ref() != Some(&stored) {
+                    // Another window renamed the note. A draft keeps the old base, so saving it
+                    // reports the conflict instead of overwriting the new title; discarding it
+                    // shows the new title.
+                    let input = this.title.read(cx).buffer.text.clone();
+                    if input != *stored {
+                        if previous.as_deref() != Some(input.as_str()) {
+                            this.newer_session =
+                                this.current.clone().map(|base| (base, Arc::new(session)));
+                            return;
+                        }
+                        this.title
+                            .update(cx, |title, cx| title.set_text(stored.to_string(), cx));
+                    }
+                    let session = Arc::new(session);
+                    this.current = Some(session.clone());
+                    cx.emit(NoteEvent::TitleUpdated(session));
+                } else {
+                    this.current = Some(Arc::new(session));
+                }
+                cx.notify();
+            });
+        })
+        .detach();
     }
 
     fn toggle_always_on_top(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -1200,15 +1335,8 @@ impl NoteView {
         };
         let runtime = self.runtime.clone();
         let editors = self
-            .content
-            .clone()
-            .and_then(|content| content.downcast::<EditorPane>().ok())
-            .into_iter()
-            .chain(
-                self.summary_editor
-                    .as_ref()
-                    .map(|(_, editor, _)| editor.clone()),
-            )
+            .editors()
+            .iter()
             .map(|editor| editor.downgrade())
             .collect();
         let modal = cx.new(|cx| {
@@ -1581,10 +1709,9 @@ impl NoteView {
     fn find_target(&self, tab: &NoteTab) -> Option<(FindTarget, bool)> {
         match tab {
             NoteTab::Summary(id) => self
-                .summary_editor
-                .as_ref()
-                .filter(|(document, _, _)| &document.0 == id)
-                .map(|(_, editor, _)| (FindTarget::Editor(editor.downgrade()), true)),
+                .summary_editors
+                .get(&DocumentId(id.clone()))
+                .map(|summary| (FindTarget::Editor(summary.editor.downgrade()), true)),
             NoteTab::Memos => self
                 .content
                 .clone()
@@ -1631,36 +1758,14 @@ impl NoteView {
         }
         let document = document?;
         // A clean editor opened before a generated revision landed reopens on it.
-        let current = |editor: &Entity<EditorPane>| {
-            let editor = editor.read(cx);
-            editor.is_dirty() || editor.init.document.updated_at >= document.updated_at
-        };
-        let editor = match &self.summary_editor {
-            Some((id, editor, _)) if id == &document.id && current(editor) => editor.clone(),
-            _ => {
-                let return_focus = self.title.focus_handle(cx);
-                let runtime = self.runtime.clone();
-                let init = EditorInit {
-                    session_id: session.summary.id.clone(),
-                    document: document.clone(),
-                    return_focus,
-                };
-                // Shipping's summary editor leads with the note title and shows no other
-                // placeholder.
-                let editor = cx.new(|cx| {
-                    let mut editor =
-                        EditorPane::titled(LaneContext { runtime }, init, title.into(), window, cx);
-                    editor.set_placeholder(None);
-                    editor
-                });
-                let saved = cx.subscribe(&editor, |this, _, event: &EditorEvent, cx| {
-                    if let EditorEvent::Saved(snapshot) = event {
-                        this.rename_from_summary(&snapshot.body, cx);
-                    }
-                });
-                self.summary_editor = Some((document.id.clone(), editor.clone(), saved));
-                editor
+        let editor = match self.summary_editors.get(&document.id) {
+            Some(summary)
+                if summary.editor.read(cx).is_dirty()
+                    || summary.editor.read(cx).init.document.updated_at >= document.updated_at =>
+            {
+                summary.editor.clone()
             }
+            _ => self.open_summary_editor(&session.summary.id, document, title, window, cx),
         };
         Some(
             div()
@@ -1674,11 +1779,99 @@ impl NoteView {
         )
     }
 
-    /// Shipping renames the note from the summary's first line on every save.
-    fn rename_from_summary(&mut self, body: &str, cx: &mut Context<Self>) {
-        let Some(title) = first_line_title(body) else {
-            return;
+    fn open_summary_editor(
+        &mut self,
+        session_id: &SessionId,
+        document: DocumentSnapshot,
+        title: String,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Entity<EditorPane> {
+        let init = EditorInit {
+            session_id: session_id.clone(),
+            document: document.clone(),
+            return_focus: self.title.focus_handle(cx),
         };
+        let runtime = self.runtime.clone();
+        // The memo's session-scoped attachments, so previews, drops and pasted images work.
+        let attachments = self
+            .memo()
+            .and_then(|memo| memo.read(cx).attachment_service());
+        // Shipping's summary editor leads with the note title and shows no other placeholder.
+        let editor = cx.new(|cx| {
+            let mut editor = EditorPane::titled(
+                LaneContext { runtime },
+                init,
+                title.clone().into(),
+                window,
+                cx,
+            );
+            editor.set_placeholder(None);
+            if let Some(service) = attachments {
+                editor.set_attachment_service(service, cx);
+            }
+            editor
+        });
+        let id = document.id.clone();
+        let subscriptions = [
+            cx.subscribe(&editor, {
+                let id = id.clone();
+                move |this, _, event: &EditorEvent, cx| this.summary_event(&id, event, cx)
+            }),
+            cx.subscribe(&editor, |_, _, request: &EditorRequest, cx| {
+                cx.emit(request.clone())
+            }),
+            cx.observe(&editor, {
+                let id = id.clone();
+                move |this, editor, cx| {
+                    let conflict = editor.read(cx).save_conflict();
+                    if let Some(summary) = this.summary_editors.get_mut(&id)
+                        && summary.conflict != conflict
+                    {
+                        summary.conflict = conflict;
+                        cx.notify();
+                    }
+                }
+            }),
+        ];
+        // The editor shows the note title as its first line whenever the note has one.
+        let heading = match title.trim() {
+            "" => first_line_title(&document.body),
+            title => Some(title.to_owned()),
+        };
+        self.summary_editors.insert(
+            id,
+            SummaryEditor {
+                editor: editor.clone(),
+                heading,
+                conflict: false,
+                _subscriptions: subscriptions,
+            },
+        );
+        editor
+    }
+
+    fn summary_event(&mut self, id: &DocumentId, event: &EditorEvent, cx: &mut Context<Self>) {
+        match event {
+            // Shipping renames the note from the summary's first line when it is edited.
+            EditorEvent::Saved(snapshot) => {
+                let heading = first_line_title(&snapshot.body);
+                if let Some(summary) = self.summary_editors.get_mut(id)
+                    && summary.heading != heading
+                {
+                    summary.heading = heading.clone();
+                    if let Some(title) = heading {
+                        self.rename_from_summary(title, cx);
+                    }
+                }
+                cx.notify();
+            }
+            EditorEvent::Dirty { .. } | EditorEvent::SaveFailed { .. } => cx.notify(),
+            event => cx.emit(event.clone()),
+        }
+    }
+
+    fn rename_from_summary(&mut self, title: String, cx: &mut Context<Self>) {
         if self
             .current
             .as_ref()
@@ -1686,6 +1879,37 @@ impl NoteView {
         {
             self.title.update(cx, |input, cx| input.set_text(title, cx));
             self.rename(cx);
+        }
+    }
+
+    /// A summary editor's edits that are not saved yet, which keep the note open.
+    pub fn has_unsaved_summary(&self, cx: &gpui::App) -> bool {
+        self.summary_editors
+            .values()
+            .any(|summary| summary.editor.read(cx).is_dirty())
+    }
+
+    /// Saves the summary editors' edits, as quitting and closing a window do the memo's;
+    /// `read_only` holds the editors until `resume_summaries`.
+    pub fn flush_summaries(&mut self, read_only: bool, cx: &mut Context<Self>) -> Vec<Flush> {
+        self.summary_editors
+            .values()
+            .filter_map(|summary| {
+                summary.editor.update(cx, |editor, cx| {
+                    if read_only {
+                        editor.set_read_only(true, cx);
+                    }
+                    editor.is_dirty().then(|| editor.flush())
+                })
+            })
+            .collect()
+    }
+
+    pub fn resume_summaries(&mut self, cx: &mut Context<Self>) {
+        for summary in self.summary_editors.values() {
+            summary
+                .editor
+                .update(cx, |editor, cx| editor.set_read_only(false, cx));
         }
     }
 
@@ -3029,6 +3253,252 @@ mod tests {
             "summary editor collapsed to {summary:?}"
         );
         futures::executor::block_on(runtime.shutdown()).unwrap();
+    }
+
+    /// A note with a memo and real summaries, shown in a test window.
+    struct SummaryFixture {
+        runtime: RuntimeHandle,
+        open: OpenSession,
+        note: Entity<NoteView>,
+        _directory: tempfile::TempDir,
+    }
+
+    fn summary_body(title: &str, text: &str) -> String {
+        json!({"type": "doc", "content": [
+            {"type": "heading", "attrs": {"level": 1}, "content": [{"type": "text", "text": title}]},
+            {"type": "paragraph", "content": [{"type": "text", "text": text}]}
+        ]})
+        .to_string()
+    }
+
+    fn execute(runtime: &RuntimeHandle, sql: &'static str, params: Vec<Value>) -> Vec<Value> {
+        let reply = runtime
+            .submit(move |services| async move {
+                services
+                    .executor
+                    .execute(sql.into(), params)
+                    .await
+                    .map_err(|error| {
+                        desktop_runtime::ServiceError::Failed(error.to_string().into())
+                    })
+            })
+            .unwrap();
+        futures::executor::block_on(reply.receive()).unwrap()
+    }
+
+    fn stored_body(runtime: &RuntimeHandle, id: &str) -> String {
+        execute(
+            runtime,
+            "SELECT body FROM session_documents WHERE id = ?",
+            vec![json!(id)],
+        )[0]["body"]
+            .as_str()
+            .unwrap_or_default()
+            .to_owned()
+    }
+
+    fn settle(
+        cx: &mut gpui::VisualTestContext,
+        done: impl Fn(&mut gpui::VisualTestContext) -> bool,
+    ) {
+        for _ in 0..600 {
+            cx.update(|window, cx| window.draw(cx).clear(cx));
+            cx.run_until_parked();
+            if done(cx) {
+                return;
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        panic!("the note did not settle");
+    }
+
+    fn summary_fixture<'a>(
+        cx: &'a mut gpui::TestAppContext,
+        title: &str,
+        summaries: &[&'static str],
+    ) -> (SummaryFixture, &'a mut gpui::VisualTestContext) {
+        cx.executor().allow_parking();
+        let directory = tempfile::tempdir().unwrap();
+        let (runtime, ready) = RuntimeHandle::start(desktop_runtime::Profile {
+            database: directory.path().join("library.sqlite"),
+        })
+        .unwrap();
+        futures::executor::block_on(ready.receive()).unwrap();
+        let open =
+            futures::executor::block_on(runtime.create_note(title.into()).unwrap().receive())
+                .unwrap();
+        for (order, id) in summaries.iter().enumerate() {
+            execute(
+                &runtime,
+                "INSERT INTO session_documents (id, session_id, kind, title, body_format, body, sort_order)
+                 VALUES (?, ?, 'summary', '', 'prosemirror_json', ?, ?)",
+                vec![
+                    json!(id),
+                    json!(open.summary.id),
+                    json!(summary_body(title, "Body")),
+                    json!(order),
+                ],
+            );
+        }
+        cx.update(crate::ui::theme::UiFonts::init);
+        let (note, cx) =
+            cx.add_window_view(|window, cx| NoteView::new(runtime.clone(), window, cx));
+        note.update(cx, |note, cx| note.open(open.summary.id.clone(), cx));
+        let first = DocumentId(summaries[0].into());
+        settle(cx, |cx| {
+            note.read_with(cx, |note, _| note.summary_editors.contains_key(&first))
+        });
+        let fixture = SummaryFixture {
+            runtime,
+            open,
+            note,
+            _directory: directory,
+        };
+        (fixture, cx)
+    }
+
+    fn summary_editor(
+        note: &Entity<NoteView>,
+        id: &str,
+        cx: &mut gpui::VisualTestContext,
+    ) -> Entity<EditorPane> {
+        note.read_with(cx, |note, _| {
+            note.summary_editors[&DocumentId(id.into())].editor.clone()
+        })
+    }
+
+    /// Replaces a summary's content once its editor has loaded it.
+    fn edit_summary(editor: &Entity<EditorPane>, body: String, cx: &mut gpui::VisualTestContext) {
+        settle(cx, |cx| {
+            editor.update(cx, |editor, cx| {
+                if !editor.is_dirty() {
+                    editor.replace_content(&body, cx)
+                }
+            });
+            editor.read_with(cx, |editor, _| editor.is_dirty())
+        });
+    }
+
+    /// Switching summaries once dropped a summary whose save had lost to another revision,
+    /// and its conflict loaded the memo, so neither the banner nor the guards saw it.
+    #[gpui::test]
+    fn a_summary_draft_that_lost_its_save_survives_switching_summaries(
+        cx: &mut gpui::TestAppContext,
+    ) {
+        let (fixture, cx) = summary_fixture(cx, "Sync", &["first", "second"]);
+        let (note, runtime) = (fixture.note.clone(), fixture.runtime.clone());
+        let memo = stored_body(&runtime, &fixture.open.summary.id.0);
+        let editor = summary_editor(&note, "first", cx);
+        edit_summary(&editor, summary_body("Sync", "Mine"), cx);
+        // Another device saves the summary before the draft's debounced save runs.
+        execute(
+            &runtime,
+            "UPDATE session_documents SET body = ?,
+               updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '+1 second')
+             WHERE id = 'first'",
+            vec![json!(summary_body("Sync", "Theirs"))],
+        );
+        settle(cx, |cx| {
+            note.read_with(cx, |note, cx| !note.conflicted_editors(cx).is_empty())
+        });
+        note.update(cx, |note, cx| {
+            note.select_tab(NoteTab::Summary("second".into()), cx)
+        });
+        let second = DocumentId("second".into());
+        settle(cx, |cx| {
+            note.read_with(cx, |note, _| note.summary_editors.contains_key(&second))
+        });
+        let other =
+            futures::executor::block_on(runtime.create_note("Other".into()).unwrap().receive())
+                .unwrap();
+        note.update(cx, |note, cx| note.open(other.summary.id, cx));
+        cx.run_until_parked();
+        assert_eq!(
+            note.read_with(cx, |note, _| note.session_id().cloned()),
+            Some(fixture.open.summary.id.clone()),
+            "the unsaved summary holds the note open"
+        );
+        note.update(cx, |note, cx| note.keep_this_version(cx));
+        settle(cx, |cx| {
+            stored_body(&runtime, "first").contains("Mine")
+                && !note.read_with(cx, |note, cx| note.has_unsaved_summary(cx))
+        });
+        assert_eq!(stored_body(&runtime, &fixture.open.summary.id.0), memo);
+    }
+
+    /// A summary saved after a header rename once renamed the note back to the old title its
+    /// first line still showed.
+    #[gpui::test]
+    fn a_summary_save_after_a_header_rename_keeps_the_new_title(cx: &mut gpui::TestAppContext) {
+        let (fixture, cx) = summary_fixture(cx, "Old", &["summary"]);
+        let note = fixture.note.clone();
+        let title = |cx: &mut gpui::VisualTestContext| {
+            note.read_with(cx, |note, _| {
+                note.current.as_ref().unwrap().summary.title.to_string()
+            })
+        };
+        note.update(cx, |note, cx| {
+            note.title
+                .update(cx, |title, cx| title.set_text("New".into(), cx));
+            note.rename(cx);
+        });
+        settle(cx, |cx| title(cx) == "New");
+        let editor = summary_editor(&note, "summary", cx);
+        edit_summary(&editor, summary_body("Old", "Edited"), cx);
+        settle(cx, |cx| {
+            stored_body(&fixture.runtime, "summary").contains("Edited")
+                && !editor.read_with(cx, |editor, _| editor.is_dirty())
+        });
+        cx.run_until_parked();
+        assert_eq!(title(cx), "New");
+        // Editing the first line itself still names the note.
+        edit_summary(&editor, summary_body("Newest", "Edited"), cx);
+        settle(cx, |cx| title(cx) == "Newest");
+    }
+
+    /// Summary editors once had no attachment service, so local images never resolved, and
+    /// their links, mentions and chips went nowhere.
+    #[gpui::test]
+    fn summary_editors_share_the_memo_attachments_and_route_their_links(
+        cx: &mut gpui::TestAppContext,
+    ) {
+        let (fixture, cx) = summary_fixture(cx, "Sync", &["summary"]);
+        let note = fixture.note.clone();
+        let session = fixture.open.summary.id.clone();
+        let init = EditorInit {
+            session_id: session.clone(),
+            document: fixture.open.note.clone().unwrap(),
+            return_focus: cx.update(|_, cx| cx.focus_handle()),
+        };
+        let runtime = fixture.runtime.clone();
+        let vault = fixture._directory.path().join("vault");
+        let memo = cx.update(|window, cx| {
+            cx.new(|cx| {
+                let mut memo = EditorPane::new(LaneContext { runtime }, init, window, cx);
+                memo.configure_attachments(vault, cx);
+                memo
+            })
+        });
+        note.update(cx, |note, cx| note.set_content(&session, memo.into(), cx));
+        let summary = summary_editor(&note, "summary", cx);
+        assert!(summary.read_with(cx, |summary, _| summary.attachment_service().is_some()));
+        let mentioned = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+        cx.update(|_, cx| {
+            let mentioned = mentioned.clone();
+            cx.subscribe(&note, move |_, event: &EditorEvent, _| {
+                if let EditorEvent::MentionHuman(id) = event {
+                    mentioned.borrow_mut().push(id.clone());
+                }
+            })
+            .detach();
+        });
+        summary.update(cx, |_, cx| {
+            cx.emit(EditorEvent::MentionHuman(desktop_runtime::HumanId(
+                "maya".into(),
+            )))
+        });
+        cx.run_until_parked();
+        assert_eq!(mentioned.borrow().len(), 1);
     }
 
     #[test]

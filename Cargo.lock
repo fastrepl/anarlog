@@ -1585,6 +1585,7 @@ name = "audio"
 version = "0.1.0"
 dependencies = [
  "futures-util",
+ "serde",
  "thiserror 2.0.18",
 ]
 
@@ -1603,7 +1604,6 @@ dependencies = [
  "cpal",
  "dasp",
  "data",
- "ebur128",
  "futures-util",
  "hound",
  "libpulse-binding",
@@ -4694,12 +4694,15 @@ dependencies = [
 name = "desktop"
 version = "0.0.0"
 dependencies = [
+ "audio",
  "audio-actual",
  "audio-mock",
+ "bundle",
  "chrono",
  "db-app",
  "db-core",
  "db-sync",
+ "desktop-identity",
  "dirs 6.0.0",
  "host",
  "intercept",
@@ -4726,6 +4729,7 @@ dependencies = [
  "tauri-plugin-autostart",
  "tauri-plugin-bedrock",
  "tauri-plugin-calendar",
+ "tauri-plugin-camera-watermark",
  "tauri-plugin-clipboard-manager",
  "tauri-plugin-db",
  "tauri-plugin-deep-link",
@@ -4783,8 +4787,25 @@ dependencies = [
  "tempfile",
  "tokio",
  "tracing",
+ "transcription-core",
  "windows 0.62.2",
  "windows-registry 0.5.3",
+]
+
+[[package]]
+name = "desktop-identity"
+version = "0.1.0"
+dependencies = [
+ "dirs 6.0.0",
+ "gethostname",
+ "host",
+ "keyring",
+ "security-framework",
+ "serde_json",
+ "storage",
+ "tempfile",
+ "tracing",
+ "uuid",
 ]
 
 [[package]]
@@ -4804,6 +4825,7 @@ dependencies = [
  "objc2-application-services",
  "objc2-core-foundation",
  "objc2-foundation",
+ "overlay-kit",
  "plist",
  "serde",
  "specta",
@@ -4837,12 +4859,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "dictation-core"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "specta",
+ "unicode-script",
+]
+
+[[package]]
 name = "dictation-ui-macos"
 version = "0.1.0"
 dependencies = [
- "objc2",
- "objc2-app-kit",
- "objc2-foundation",
  "serde",
  "serde_json",
  "swift-rs 1.0.7 (git+https://github.com/Brendonovich/swift-rs?rev=41a1605)",
@@ -5187,18 +5217,6 @@ name = "earshot"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "88d6e21bffead7abb6d9202cfb3285b34b2e750335d8cf3460b004f886c6f6db"
-
-[[package]]
-name = "ebur128"
-version = "0.1.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e227cc62d64d6fe01abbef48134b9c1f17d470cef1e7a56337ad05b1f81df7f9"
-dependencies = [
- "bitflags 1.3.2",
- "dasp_frame",
- "dasp_sample",
- "smallvec 1.15.1",
-]
 
 [[package]]
 name = "ecdsa"
@@ -16617,19 +16635,17 @@ dependencies = [
 name = "tauri-plugin-auth"
 version = "0.1.0"
 dependencies = [
+ "desktop-identity",
  "serde",
  "serde_json",
  "sha2 0.11.0",
  "specta",
  "specta-typescript",
- "storage",
  "supabase-auth",
  "tauri",
  "tauri-plugin",
  "tauri-plugin-settings",
- "tauri-plugin-store2",
  "tauri-specta",
- "tempfile",
  "thiserror 2.0.18",
  "tracing",
 ]
@@ -16708,6 +16724,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "tauri-plugin-camera-watermark"
+version = "0.1.0"
+dependencies = [
+ "audio",
+ "detect",
+ "serde",
+ "serde_json",
+ "specta",
+ "specta-typescript",
+ "tauri",
+ "tauri-plugin",
+ "tauri-specta",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "tauri-plugin-clipboard-manager"
 version = "2.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -16734,6 +16770,7 @@ dependencies = [
  "db-migrate",
  "db-reactive",
  "db-sync",
+ "desktop-identity",
  "e2ee",
  "fs-sync-core",
  "serde",
@@ -16805,7 +16842,10 @@ dependencies = [
 name = "tauri-plugin-detect"
 version = "0.1.0"
 dependencies = [
+ "audio",
  "base64 0.22.1",
+ "db-app",
+ "db-core",
  "detect",
  "notification-interface",
  "objc2",
@@ -16815,12 +16855,15 @@ dependencies = [
  "serde_json",
  "specta",
  "specta-typescript",
+ "sqlx",
  "tauri",
  "tauri-plugin",
+ "tauri-plugin-db",
  "tauri-plugin-detect",
  "tauri-plugin-settings",
  "tauri-plugin-windows",
  "tauri-specta",
+ "tempfile",
  "thiserror 2.0.18",
  "tokio",
  "tokio-util",
@@ -16852,6 +16895,7 @@ version = "0.1.0"
 dependencies = [
  "atspi",
  "audio",
+ "dictation-core",
  "dictation-ui-macos",
  "futures-util",
  "hound",
@@ -16865,7 +16909,6 @@ dependencies = [
  "tauri-plugin",
  "tauri-specta",
  "tempfile",
- "thiserror 2.0.18",
  "tokio",
  "tokio-tungstenite 0.29.0",
  "tokio-util",
@@ -17576,9 +17619,8 @@ name = "tauri-plugin-store2"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "keyring",
+ "desktop-identity",
  "objc2-security",
- "security-framework",
  "serde",
  "serde_json",
  "specta",
@@ -18937,6 +18979,7 @@ dependencies = [
 name = "transcript"
 version = "0.1.0"
 dependencies = [
+ "audio",
  "json-patch 4.1.0",
  "owhisper-interface",
  "regex",
@@ -18952,8 +18995,21 @@ dependencies = [
 name = "transcription-core"
 version = "0.1.0"
 dependencies = [
+ "audio",
+ "futures-util",
  "listener-core",
  "listener2-core",
+ "ractor",
+ "serde",
+ "serde_json",
+ "storage",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tokio",
+ "tokio-tungstenite 0.29.0",
+ "tracing",
+ "transcript",
+ "uuid",
 ]
 
 [[package]]

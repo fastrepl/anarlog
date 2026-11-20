@@ -12,8 +12,16 @@ pub fn compute_vault_config_path(base: &Path) -> PathBuf {
 
 pub fn compute_default_base(bundle_id: &str) -> Option<PathBuf> {
     let data_dir = dirs::data_dir()?;
-    let app_folder = resolve_app_folder(&data_dir, bundle_id, cfg!(debug_assertions));
-    Some(data_dir.join(app_folder))
+    Some(compute_default_base_in(
+        &data_dir,
+        bundle_id,
+        cfg!(debug_assertions),
+    ))
+}
+
+/// `compute_default_base` for an explicit data directory and build kind.
+pub fn compute_default_base_in(data_dir: &Path, bundle_id: &str, is_debug: bool) -> PathBuf {
+    data_dir.join(resolve_app_folder(data_dir, bundle_id, is_debug))
 }
 
 // This base holds settings, the store, and the vault config. Nightly keeps its
