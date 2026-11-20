@@ -7,7 +7,7 @@ use gtk::prelude::*;
 
 #[test]
 #[ignore = "requires an isolated X11 display and AT-SPI session bus (https://linear.app/fastrepl-inc/issue/ANLG-320/replace-the-taurireact-desktop-with-rust-and-gpui-on-macos-windows-and)"]
-fn inserts_into_the_focused_field_and_preserves_unsafe_targets() {
+fn inserts_into_the_focused_field_and_replaces_its_selection() {
     gtk::init().unwrap();
     let window = gtk::Window::new(gtk::WindowType::Toplevel);
     let fields = gtk::Box::new(gtk::Orientation::Vertical, 0);
@@ -45,16 +45,19 @@ fn inserts_into_the_focused_field_and_preserves_unsafe_targets() {
     assert_eq!(entry.position(), 9);
 
     entry.select_region(0, 5);
-    let error = drive(&runtime, {
-        let target = target.clone();
-        move || NativeInsertion.insert(&target, "do not replace")
-    })
-    .unwrap_err();
-    assert!(error.to_string().contains("Clear the text selection"));
-    assert_eq!(entry.text().as_str(), "Hello, 世界 world");
+    assert!(
+        drive(&runtime, {
+            let target = target.clone();
+            move || NativeInsertion.insert(&target, "Hi")
+        })
+        .is_ok()
+    );
+    assert_eq!(entry.text().as_str(), "Hi, 世界 world");
+    assert_eq!(entry.position(), 2);
+    assert_eq!(entry.selection_bounds(), None);
 
-    entry.select_region(9, 9);
-    entry.set_max_length(17);
+    entry.select_region(6, 6);
+    entry.set_max_length(14);
     let error = drive(&runtime, {
         let target = target.clone();
         move || NativeInsertion.insert(&target, "XYZ")
@@ -65,12 +68,12 @@ fn inserts_into_the_focused_field_and_preserves_unsafe_targets() {
             .to_string()
             .contains("did not insert the full dictation")
     );
-    assert_eq!(entry.text().as_str(), "Hello, 世界XY world");
+    assert_eq!(entry.text().as_str(), "Hi, 世界XY world");
 
     password.grab_focus();
     assert!(drive(&runtime, || NativeInsertion.capture()).is_err());
     assert!(drive(&runtime, move || NativeInsertion.insert(&target, "stale")).is_err());
-    assert_eq!(entry.text().as_str(), "Hello, 世界XY world");
+    assert_eq!(entry.text().as_str(), "Hi, 世界XY world");
     assert!(password.text().is_empty());
 }
 

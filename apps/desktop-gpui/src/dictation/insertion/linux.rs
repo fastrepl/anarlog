@@ -133,7 +133,8 @@ async fn check_toolkit(target: &ObjectRef, connection: &AccessibilityConnection)
         .toolkit_name()
         .await
         .map_err(failed)?;
-    // Qt can resize the transcript and rewrite the entire field when inserting via AT-SPI.
+    // Qt resizes InsertText's string to the length argument in UTF-16 units, while the AT-SPI
+    // spec and GTK count bytes, so non-ASCII dictation would gain stray characters.
     if toolkit.eq_ignore_ascii_case("Qt") {
         return Err(failed(
             "Dictation insertion is unavailable in Qt text fields.",
@@ -180,20 +181,36 @@ async fn insert(target: ObjectRef, text: &str) -> Result<()> {
         .call("GetNSelections", &())
         .await
         .map_err(failed)?;
-    if selections > 0 {
-        return Err(failed(
-            "Clear the text selection before dictating, or copy your last dictation to replace it.",
-        ));
-    }
-    let caret = text_proxy.caret_offset().await.map_err(failed)?;
+    let (start, end) = if selections > 0 {
+        let (a, b) = text_proxy.get_selection(0).await.map_err(failed)?;
+        (a.min(b), a.max(b))
+    } else {
+        let caret = text_proxy.caret_offset().await.map_err(failed)?;
+        (caret, caret)
+    };
     let original_length = text_proxy.character_count().await.map_err(failed)?;
     let states = accessible.get_state().await.map_err(failed)?;
-    if caret < 0 || !states.contains(State::Focused) || !editable(&accessible, states).await? {
+    if start < 0
+        || end > original_length
+        || !states.contains(State::Focused)
+        || !editable(&accessible, states).await?
+    {
         return Err(failed(FIELD_CHANGED));
+    }
+    // Dictation replaces the selection, as typing would: delete it, then insert at its start.
+    if start != end
+        && !editable_text
+            .delete_text(start, end)
+            .await
+            .map_err(failed)?
+    {
+        return Err(failed(
+            "This app could not replace the selected text. Copy your last dictation from Settings > Dictation.",
+        ));
     }
     // AT-SPI takes the inserted string length in bytes and text offsets in characters.
     if !editable_text
-        .insert_text(caret, text, text.len() as i32)
+        .insert_text(start, text, text.len() as i32)
         .await
         .map_err(failed)?
     {
@@ -201,17 +218,18 @@ async fn insert(target: ObjectRef, text: &str) -> Result<()> {
             "This app could not insert text. Copy your last dictation from Settings > Dictation.",
         ));
     }
+    // Length-limited fields report success but keep only the characters that fit.
     let inserted_length = text.chars().count() as i32;
     let updated_length = text_proxy.character_count().await.map_err(|_| {
         failed("Could not verify the inserted dictation. Review the field or copy the transcript from Settings > Dictation.")
     })?;
-    if updated_length.checked_sub(original_length) != Some(inserted_length) {
+    if updated_length.checked_sub(original_length - (end - start)) != Some(inserted_length) {
         return Err(failed(
             "The app did not insert the full dictation. Review the field or copy the transcript from Settings > Dictation.",
         ));
     }
     if let Err(error) = text_proxy
-        .set_caret_offset(caret.saturating_add(inserted_length))
+        .set_caret_offset(start.saturating_add(inserted_length))
         .await
     {
         tracing::debug!(%error, "could not move caret after dictation");
