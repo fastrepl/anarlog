@@ -327,19 +327,25 @@ impl ApplicationView {
         )
     }
 
-    /// Shipping's main-window close: hide and keep running. Platforms that cannot hide one
-    /// window quit through the drain instead.
+    /// Shipping's main-window close: hide and keep running. A platform that cannot hide one
+    /// window quits through the drain instead; a hide that fails leaves the window open with
+    /// the error rather than ending capture.
     pub fn close_main(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.closing {
             return;
         }
         self.main_window_hidden(cx);
-        if crate::platform::windows::hide_main(window, cx).is_err() {
-            self.request_quit(cx);
+        match crate::platform::windows::hide_main(window, cx) {
+            Ok(()) => {}
+            Err(ServiceError::Unsupported(_)) => self.request_quit(cx),
+            Err(error) => self.status(&error.to_string(), cx),
         }
     }
 
     pub(super) fn show_main(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if let Err(error) = crate::platform::windows::show_main(window) {
+            tracing::warn!(%error, "Could not show the main window");
+        }
         cx.activate(true);
         window.activate_window();
     }
