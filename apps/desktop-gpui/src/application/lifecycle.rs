@@ -340,7 +340,6 @@ impl ApplicationView {
     }
 
     pub(super) fn show_main(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        #[cfg(target_os = "windows")]
         if let Err(error) = crate::platform::windows::show_main(window) {
             tracing::warn!(%error, "Could not show the main window");
         }

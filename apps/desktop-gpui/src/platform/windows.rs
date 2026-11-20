@@ -175,7 +175,7 @@ pub fn hide_main(window: &Window, cx: &App) -> Result<()> {
     #[cfg(target_os = "windows")]
     {
         let _ = cx;
-        win32::show(window, windows_sys::Win32::UI::WindowsAndMessaging::SW_HIDE)
+        win32::show(window, windows::Win32::UI::WindowsAndMessaging::SW_HIDE)
     }
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     {
@@ -186,10 +186,18 @@ pub fn hide_main(window: &Window, cx: &App) -> Result<()> {
     }
 }
 
-/// GPUI's Windows activation restores minimized windows but does not show hidden ones.
-#[cfg(target_os = "windows")]
+/// Shows a main window `hide_main` hid, before GPUI activates it: GPUI's Windows activation
+/// restores minimized windows but does not show hidden ones.
 pub fn show_main(window: &Window) -> Result<()> {
-    win32::show(window, windows_sys::Win32::UI::WindowsAndMessaging::SW_SHOW)
+    #[cfg(target_os = "windows")]
+    {
+        win32::show(window, windows::Win32::UI::WindowsAndMessaging::SW_SHOW)
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = window;
+        Ok(())
+    }
 }
 
 /// GPUI's pinned Windows backend only maximizes; the titlebar must also restore.
@@ -234,7 +242,7 @@ pub fn set_min_size(window: &Window, minimum: gpui::Size<Pixels>) -> Result<()> 
 #[cfg(target_os = "windows")]
 mod win32 {
     use raw_window_handle::{HasWindowHandle, RawWindowHandle};
-    use windows_sys::Win32::{
+    use windows::Win32::{
         Foundation::HWND,
         UI::WindowsAndMessaging::{
             IsZoomed, SHOW_WINDOW_CMD, SW_MAXIMIZE, SW_RESTORE, ShowWindowAsync,
@@ -249,14 +257,14 @@ mod win32 {
         let RawWindowHandle::Win32(handle) = handle.as_raw() else {
             return Err(unavailable());
         };
-        Ok(handle.hwnd.get() as HWND)
+        Ok(HWND(handle.hwnd.get() as *mut _))
     }
 
     pub fn show(window: &Window, command: SHOW_WINDOW_CMD) -> Result<()> {
         let native = hwnd(window)?;
         // SAFETY: GPUI owns this open HWND. Post the visibility change to avoid reentering
         // its window callbacks while the application view is borrowed.
-        if unsafe { ShowWindowAsync(native, command) } == 0 {
+        if !unsafe { ShowWindowAsync(native, command) }.as_bool() {
             return Err(ServiceError::Failed(
                 "Could not change native window visibility".into(),
             ));
@@ -266,7 +274,7 @@ mod win32 {
 
     pub fn toggle_maximize(window: &Window) -> Result<()> {
         // SAFETY: GPUI owns the open HWND; IsZoomed only reads its maximized state.
-        let maximized = unsafe { IsZoomed(hwnd(window)?) } != 0;
+        let maximized = unsafe { IsZoomed(hwnd(window)?) }.as_bool();
         show(window, if maximized { SW_RESTORE } else { SW_MAXIMIZE })
     }
 }
