@@ -226,21 +226,35 @@ mod linux {
     use raw_window_handle::{HasWindowHandle, RawWindowHandle};
     use x11rb::{connection::Connection, protocol::xproto::ConnectionExt};
 
+    /// What GPUI still has to do after the native visibility change.
+    #[derive(Debug, PartialEq)]
+    enum Followup {
+        None,
+        /// Wayland cannot hide a toplevel. Minimizing is the closest match to shipping's hide,
+        /// and GPUI's activation asks the compositor to bring the window back.
+        Minimize,
+    }
+
     pub(super) fn set_visible(window: &gpui::Window, visible: bool) -> Result<()> {
         let handle = HasWindowHandle::window_handle(window)
             .map_err(|error| ServiceError::Failed(error.to_string().into()))?;
-        set_handle_visible(handle.as_raw(), visible)
+        if set_handle_visible(handle.as_raw(), visible)? == Followup::Minimize {
+            window.minimize_window();
+        }
+        Ok(())
     }
 
-    fn set_handle_visible(handle: RawWindowHandle, visible: bool) -> Result<()> {
-        let RawWindowHandle::Xcb(handle) = handle else {
-            // Other backends already activate through GPUI; only X11 needs remapping.
-            if visible {
-                return Ok(());
+    fn set_handle_visible(handle: RawWindowHandle, visible: bool) -> Result<Followup> {
+        let handle = match handle {
+            RawWindowHandle::Xcb(handle) => handle,
+            RawWindowHandle::Wayland(_) if !visible => return Ok(Followup::Minimize),
+            // GPUI's activation shows these backends' windows.
+            _ if visible => return Ok(Followup::None),
+            _ => {
+                return Err(ServiceError::Unsupported(
+                    "Hiding a window to the tray is not supported by this display backend".into(),
+                ));
             }
-            return Err(ServiceError::Unsupported(
-                "Hiding a window to the tray is not supported by this display backend".into(),
-            ));
         };
         let failed = |error: &dyn std::fmt::Display| ServiceError::Failed(error.to_string().into());
         let (connection, _) = x11rb::connect(None).map_err(|error| failed(&error))?;
@@ -253,7 +267,7 @@ mod linux {
         .map_err(|error| failed(&error))?;
         request.check().map_err(|error| failed(&error))?;
         connection.flush().map_err(|error| failed(&error))?;
-        Ok(())
+        Ok(Followup::None)
     }
 
     #[cfg(test)]
@@ -261,15 +275,15 @@ mod linux {
         use super::*;
 
         #[test]
-        fn activating_a_visible_wayland_window_does_not_report_a_tray_error() {
+        fn closing_a_wayland_window_minimizes_it_instead_of_failing() {
             let handle = RawWindowHandle::Wayland(raw_window_handle::WaylandWindowHandle::new(
                 std::ptr::NonNull::dangling(),
             ));
-            assert!(set_handle_visible(handle, true).is_ok());
-            assert!(matches!(
-                set_handle_visible(handle, false),
-                Err(ServiceError::Unsupported(_))
-            ));
+            assert_eq!(
+                set_handle_visible(handle, false).unwrap(),
+                Followup::Minimize
+            );
+            assert_eq!(set_handle_visible(handle, true).unwrap(), Followup::None);
         }
 
         #[test]

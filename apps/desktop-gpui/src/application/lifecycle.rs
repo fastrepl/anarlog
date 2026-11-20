@@ -327,20 +327,18 @@ impl ApplicationView {
         )
     }
 
-    /// Shipping's main-window close: hide and keep running. An unsupported Linux backend
-    /// leaves the window open with an error instead of turning Close into Quit Completely.
+    /// Shipping's main-window close: hide and keep running. A platform that cannot hide one
+    /// window quits through the drain instead; a hide that fails leaves the window open with
+    /// the error rather than ending capture.
     pub fn close_main(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.closing {
             return;
         }
         self.main_window_hidden(cx);
-        if let Err(error) = crate::platform::windows::hide_main(window, cx) {
-            #[cfg(target_os = "linux")]
-            self.status(&error.to_string(), cx);
-            #[cfg(not(target_os = "linux"))]
-            let _ = error;
-            #[cfg(not(target_os = "linux"))]
-            self.request_quit(cx);
+        match crate::platform::windows::hide_main(window, cx) {
+            Ok(()) => {}
+            Err(ServiceError::Unsupported(_)) => self.request_quit(cx),
+            Err(error) => self.status(&error.to_string(), cx),
         }
     }
 
