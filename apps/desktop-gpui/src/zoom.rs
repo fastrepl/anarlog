@@ -325,6 +325,21 @@ mod tests {
         });
         cx.run_until_parked();
 
+        if cfg!(target_os = "windows") {
+            // Windows deliberately has no zoom adapter yet (ANLG-320).
+            assert_eq!(cx.update(|cx| factor(cx)), DEFAULT);
+            assert!(!path.exists(), "a no-op must not persist a zoom change");
+            for window in [main, note] {
+                assert_eq!(
+                    window
+                        .update(cx, |probe, _, _| probe.bounds_changes)
+                        .unwrap(),
+                    0
+                );
+            }
+            return;
+        }
+
         assert_eq!(cx.update(|cx| factor(cx)), 1.25);
         for window in [main, note] {
             let changes = window
