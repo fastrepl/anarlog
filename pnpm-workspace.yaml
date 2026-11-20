@@ -4,6 +4,7 @@ packages:
   - plugins/*
   - examples/plugins/*
   - e2e/*
+  - browser-meeting-extension
 
 publicHoistPattern:
   - "!bun-types"

@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "Anarlog",
+  "version": "1.0.0",
+  "description": "Record the Google Meet call in this tab with Anarlog, only after you click the toolbar button.",
+  "minimum_chrome_version": "116",
+  "icons": {
+    "32": "icons/icon-32.png",
+    "128": "icons/icon-128.png"
+  },
+  "permissions": ["activeTab", "contextMenus", "nativeMessaging", "scripting"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Record this Google Meet call with Anarlog"
+  }
+}

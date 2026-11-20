@@ -1163,9 +1163,23 @@ fn styled_text(text: &Inline, style: &Style, id: &str) -> (AnyElement, TextLayou
     }
     let ranges = links.iter().map(|(range, _)| range.clone()).collect();
     let element = InteractiveText::new(SharedString::from(id.to_owned()), styled)
-        .on_click(ranges, move |index, _, cx| cx.open_url(&links[index].1))
+        .on_click(ranges, move |index, _, cx| {
+            let url = &links[index].1;
+            if opens_externally(url) {
+                cx.open_url(url);
+            }
+        })
         .into_any_element();
     (element, layout)
+}
+
+/// Model-written links open only on the web or in mail, like the editor's: never `file:` or
+/// another app's URL handler.
+pub(crate) fn opens_externally(url: &str) -> bool {
+    ["https://", "http://", "mailto:"].iter().any(|scheme| {
+        url.get(..scheme.len())
+            .is_some_and(|prefix| prefix.eq_ignore_ascii_case(scheme))
+    })
 }
 
 #[cfg(test)]
@@ -1264,5 +1278,24 @@ mod tests {
         let widths = column_widths(header, rows);
         assert_eq!(widths[0], (4. * 8. + 32., 4.));
         assert!(widths[1].1 > widths[0].1);
+    }
+
+    #[test]
+    fn chat_links_open_only_web_and_mail_targets() {
+        for url in [
+            "https://anarlog.so",
+            "HTTP://example.com",
+            "mailto:team@example.com",
+        ] {
+            assert!(opens_externally(url), "{url}");
+        }
+        for url in [
+            "file:///etc/passwd",
+            "x-apple.systempreferences:",
+            "javascript:x",
+            "anarlog://",
+        ] {
+            assert!(!opens_externally(url), "{url}");
+        }
     }
 }

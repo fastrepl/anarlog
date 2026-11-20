@@ -173,6 +173,7 @@ mod capture_lifecycle;
 mod consent;
 mod encrypted_replica;
 mod entities;
+mod meeting_notice;
 mod migrations;
 mod search_index;
 mod session_audio;

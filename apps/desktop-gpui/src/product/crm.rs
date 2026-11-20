@@ -139,12 +139,15 @@ fn clean(value: Option<&str>) -> Option<String> {
 
 /// `linkedinUsernameFromUrl`.
 pub fn linkedin_username(url: Option<&str>) -> Option<String> {
+    static PROFILE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+        regex::Regex::new(r"(?i)linkedin\.com/in/([^/?#]+)").expect("valid LinkedIn pattern")
+    });
     let value = clean(url)?;
-    let lower = value.to_lowercase();
-    if let Some(index) = lower.find("linkedin.com/in/") {
-        let rest = &value[index + "linkedin.com/in/".len()..];
-        let name = rest.split(['/', '?', '#']).next().unwrap_or_default();
-        return (!name.is_empty()).then(|| decode(name));
+    if let Some(name) = PROFILE
+        .captures(&value)
+        .and_then(|captures| captures.get(1))
+    {
+        return Some(decode(name.as_str()));
     }
     (!value.contains('/') && !value.contains('.')).then_some(value)
 }
@@ -318,8 +321,11 @@ pub async fn apply(
                 ("phone", &changes.phone),
                 ("linkedin_username", &changes.linkedin_username),
             ] {
+                // The plan filled empty fields; one edited while the lookup ran keeps the edit.
                 if let Some(value) = value {
-                    assignments.push(format!("{column} = ?"));
+                    assignments.push(format!(
+                        "{column} = CASE WHEN trim({column}) = '' THEN ? ELSE {column} END"
+                    ));
                     params.push(json!(value));
                 }
             }
@@ -577,6 +583,7 @@ impl CrmView {
         &self,
         provider: &'static Provider,
         colors: &Theme,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let id = provider.id;
@@ -630,9 +637,11 @@ impl CrmView {
                             }),
                         ),
                 )
-                .when(open, |view| {
-                    view.child(dropdown(
-                        menu_panel(160., colors)
+                .child(dropdown(
+                    SharedString::from(format!("crm-menu-{id}")),
+                    open.then(|| {
+                        menu_panel(colors)
+                            .w(px(160.))
                             .child(
                                 menu_entry(
                                     SharedString::from(format!("crm-menu-test-{id}")),
@@ -658,10 +667,13 @@ impl CrmView {
                                         this.disconnect(provider, cx)
                                     },
                                 )),
-                            ),
-                        true,
-                    ))
-                })
+                            )
+                    }),
+                    true,
+                    |this: &mut Self| this.menu = None,
+                    window,
+                    cx,
+                ))
                 .into_any_element();
         }
         let connecting = row.is_some_and(|row| row.connecting.is_some());
@@ -702,6 +714,7 @@ impl CrmView {
         provider: &'static Provider,
         first: bool,
         colors: &Theme,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Div {
         let row = self.rows.get(provider.id);
@@ -761,7 +774,7 @@ impl CrmView {
                                     .child(status),
                             ),
                     )
-                    .child(self.control(provider, colors, cx)),
+                    .child(self.control(provider, colors, window, cx)),
             )
             .when_some(row.and_then(|row| row.error.clone()), |view, error| {
                 view.child(
@@ -804,29 +817,8 @@ impl Render for CrmView {
                         .bg(colors.card)
                         .overflow_hidden()
                         .children(PROVIDERS.iter().enumerate().map(|(index, provider)| {
-                            self.provider_row(provider, index == 0, &colors, cx)
+                            self.provider_row(provider, index == 0, &colors, window, cx)
                         })),
-                )
-            })
-            .when(self.menu.is_some(), |view| {
-                view.child(
-                    gpui::deferred(
-                        gpui::anchored().position(gpui::point(px(0.), px(0.))).child(
-                            div()
-                                .id("crm-menu-backdrop")
-                                .w(window.viewport_size().width)
-                                .h(window.viewport_size().height)
-                                .occlude()
-                                .on_mouse_down(
-                                    gpui::MouseButton::Left,
-                                    cx.listener(|this, _, _, cx| {
-                                        this.menu = None;
-                                        cx.notify();
-                                    }),
-                                ),
-                        ),
-                    )
-                    .with_priority(0),
                 )
             })
     }
@@ -860,6 +852,11 @@ mod tests {
             ..Default::default()
         };
         let (contact, changes) = pick_best(&person, vec![sparse, rich.clone()]).unwrap();
+        // Case folding can change byte lengths; the username must still come from the URL.
+        assert_eq!(
+            linkedin_username(Some("https://İ.example/LinkedIn.com/in/é")),
+            Some("é".into())
+        );
         assert_eq!(contact, rich);
         assert_eq!(
             changes,
@@ -870,6 +867,50 @@ mod tests {
                 ..Default::default()
             }
         );
+    }
+
+    #[test]
+    fn enrichment_keeps_fields_edited_while_its_lookup_was_pending() {
+        let directory = tempfile::tempdir().unwrap();
+        let (runtime, ready) = RuntimeHandle::start(Profile {
+            database: directory.path().join("library.sqlite"),
+        })
+        .unwrap();
+        futures::executor::block_on(async {
+            ready.receive().await.unwrap();
+            let sql = |sql: &'static str| {
+                runtime
+                    .submit(move |services| async move {
+                        services
+                            .executor
+                            .execute(sql.into(), vec![])
+                            .await
+                            .map_err(|e| ServiceError::Failed(e.to_string().into()))
+                    })
+                    .unwrap()
+                    .receive()
+            };
+            sql("INSERT INTO humans (id, name, job_title) VALUES ('h', 'Ada', 'Founder')")
+                .await
+                .unwrap();
+            // Planned against a snapshot taken before the job title was typed.
+            let changes = Changes {
+                job_title: Some("CTO".into()),
+                phone: Some("+1 555".into()),
+                ..Default::default()
+            };
+            apply(&runtime, "h".into(), "owner".into(), changes)
+                .await
+                .unwrap();
+            let row = sql("SELECT job_title, phone FROM humans WHERE id = 'h'")
+                .await
+                .unwrap();
+            assert_eq!(
+                (&row[0]["job_title"], &row[0]["phone"]),
+                (&json!("Founder"), &json!("+1 555"))
+            );
+            runtime.shutdown().await.unwrap();
+        });
     }
 
     #[test]

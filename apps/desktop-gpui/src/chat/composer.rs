@@ -82,7 +82,9 @@ pub struct Composer {
     generation: u64,
     search: CancellationToken,
     dragging: bool,
-    /// Dropped images' thumbnails, by attachment id.
+    /// Bumped when the draft is replaced, so files still being read land only in their draft.
+    draft: u64,
+    /// The draft's image thumbnails, by attachment id.
     thumbnails: std::collections::HashMap<String, Arc<gpui::Image>>,
     /// Room kept clear for the send controls drawn over the draft's right edge.
     pub padding_right: f32,
@@ -130,6 +132,7 @@ impl Composer {
             generation: 0,
             search: CancellationToken::new(),
             dragging: false,
+            draft: 0,
             thumbnails: Default::default(),
             padding_right: 0.,
             paragraph_gap: 0.,
@@ -144,6 +147,7 @@ impl Composer {
 
     /// Replaces the draft, placing the caret at its start or end, like `replaceContent`.
     pub fn set_doc(&mut self, doc: &Value, at_start: bool, cx: &mut Context<Self>) {
+        self.draft += 1;
         self.model = model(doc);
         self.model.move_document_boundary(!at_start, false);
         self.refresh(cx);
@@ -160,6 +164,45 @@ impl Composer {
 
     pub fn has_text(&self) -> bool {
         !self.text().trim().is_empty()
+    }
+
+    /// Shipping's `hasDraftContent`: text, mentions or an attachment.
+    pub fn has_content(&self) -> bool {
+        self.has_text() || self.attachments().next().is_some()
+    }
+
+    fn attachments(&self) -> impl Iterator<Item = &NodeRef> {
+        self.rows
+            .iter()
+            .flat_map(|row| &row.spans)
+            .map(|span| &span.node)
+            .filter(|node| node.kind() == "attachment")
+    }
+
+    /// Keeps thumbnails only for the draft's own images, decoding a restored draft's again.
+    fn sync_thumbnails(&mut self) {
+        let mut kept = std::collections::HashMap::new();
+        for node in self.attachments() {
+            let attr = |key| node.attr(key).and_then(Value::as_str);
+            let Some(id) = attr("id") else {
+                continue;
+            };
+            let thumbnail = self.thumbnails.get(id).cloned().or_else(|| {
+                let format = gpui::ImageFormat::from_mime_type(attr("mimeType")?)?;
+                let data = attr("url")?
+                    .strip_prefix("data:")?
+                    .split_once(";base64,")?
+                    .1;
+                let bytes =
+                    base64::Engine::decode(&base64::engine::general_purpose::STANDARD, data)
+                        .ok()?;
+                Some(Arc::new(gpui::Image::from_bytes(format, bytes)))
+            });
+            if let Some(thumbnail) = thumbnail {
+                kept.insert(id.to_owned(), thumbnail);
+            }
+        }
+        self.thumbnails = kept;
     }
 
     pub fn context_refs(&self) -> Vec<ContextRef> {
@@ -205,6 +248,7 @@ impl Composer {
 
     fn refresh(&mut self, cx: &mut Context<Self>) {
         self.rows = project(&self.model);
+        self.sync_thumbnails();
         self.reveal = true;
         if let Some(caret) = &self.caret {
             Caret::reset_entity(caret, cx);
@@ -654,6 +698,7 @@ impl Composer {
         cx: &mut Context<Self>,
     ) {
         self.focus.focus(window, cx);
+        let draft = self.draft;
         let job = cx.background_executor().spawn(async move {
             let mut too_large = false;
             let files = paths
@@ -683,6 +728,9 @@ impl Composer {
         cx.spawn(async move |this, cx| {
             let (files, too_large) = job.await;
             let _ = this.update(cx, |this, cx| {
+                if this.draft != draft {
+                    return;
+                }
                 if too_large {
                     crate::application::toasts::error("Images must be 8 MB or smaller.", cx);
                 }
@@ -1705,7 +1753,7 @@ mod tests {
         cx.update(|window, cx| window.draw(cx).clear(cx));
         cx.simulate_event(gpui::FileDropEvent::Entered {
             position,
-            paths: gpui::ExternalPaths(vec![photo, notes].into()),
+            paths: gpui::ExternalPaths(vec![photo, notes.clone()].into()),
         });
         cx.simulate_event(gpui::FileDropEvent::Submit { position });
         let mut chips = Vec::new();
@@ -1741,5 +1789,16 @@ mod tests {
             composer.insert_text("Summarize these", cx);
             assert_eq!(composer.text().trim(), "Summarize these");
         });
+        // Files still being read when the draft is replaced, as by a chat switch, stay out of
+        // the next draft.
+        composer.update_in(cx, |composer, window, cx| {
+            composer.drop_files(vec![notes], window, cx);
+            composer.clear(cx);
+        });
+        for _ in 0..20 {
+            cx.run_until_parked();
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        composer.read_with(cx, |composer, _| assert!(!composer.has_content()));
     }
 }

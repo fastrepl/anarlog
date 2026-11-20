@@ -24,6 +24,12 @@ const EVIDENCE_LEASE_MS = 10_000;
 // Apps a scheduled meeting link can be joined from; browsers cover Meet and web clients.
 const MEETING_CAPABLE_MIC_APP =
   /zoom|teams|slack|webex|chrome|chromium|safari|thebrowser|aside|firefox|brave|edge|vivaldi|opera/i;
+const SPEAKER_CONTEXT_SQL =
+  "SELECT json_extract(metadata_json, '$.speaker_context') AS context FROM sessions WHERE id = ? AND deleted_at IS NULL";
+// Interval polling patches only its own key: the transcription plugin writes `meetings` evidence
+// to the same context, and a stale copy here must never overwrite it.
+const PATCH_SPEAKER_INTERVALS_SQL =
+  "UPDATE sessions SET metadata_json = json_set(metadata_json, '$.speaker_context', json_patch(COALESCE(json_extract(metadata_json, '$.speaker_context'), '{}'), json_object('intervals', json(?)))), updated_at = ? WHERE id = ? AND deleted_at IS NULL";
 
 export function startSpeakerContextCapture(sessionId: string) {
   if (getCurrentWebviewWindow().label !== "main") return;
@@ -66,7 +72,7 @@ function createCapture(sessionId: string) {
   ) =>
     enqueueDatabaseWrite(`session:${sessionId}`, async () => {
       const rows = await liveQueryClient.execute<{ context: string | null }>(
-        "SELECT json_extract(metadata_json, '$.speaker_context') AS context FROM sessions WHERE id = ? AND deleted_at IS NULL",
+        SPEAKER_CONTEXT_SQL,
         [sessionId],
       );
       if (
@@ -80,8 +86,12 @@ function createCapture(sessionId: string) {
         : closeSpeakerContext(previous, at);
       await executeTransaction([
         {
-          sql: "UPDATE sessions SET metadata_json = json_set(metadata_json, '$.speaker_context', json(?)), updated_at = ? WHERE id = ? AND deleted_at IS NULL",
-          params: [JSON.stringify(next), new Date().toISOString(), sessionId],
+          sql: PATCH_SPEAKER_INTERVALS_SQL,
+          params: [
+            JSON.stringify(next.intervals),
+            new Date().toISOString(),
+            sessionId,
+          ],
         },
       ]);
     });

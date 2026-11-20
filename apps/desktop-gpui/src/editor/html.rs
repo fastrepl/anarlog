@@ -180,10 +180,14 @@ fn convert(
                 _ => "todo",
             };
             node_attrs = json!({
-                "taskId": attr("data-task-id").map(str::to_owned).unwrap_or_else(|| uuid::Uuid::new_v4().to_string()),
+                // Pasted tasks are new tasks: the copied one keeps its own identity.
+                "taskId": uuid::Uuid::new_v4().to_string(),
                 "taskItemId": uuid::Uuid::new_v4().to_string(),
                 "checked": status == "done", "status": status
-            }).as_object().expect("attrs").clone();
+            })
+            .as_object()
+            .expect("attrs")
+            .clone();
         }
         "image" => {
             for (html, name) in [

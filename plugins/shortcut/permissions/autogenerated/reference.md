@@ -5,6 +5,7 @@ Default permissions for the plugin
 #### This default permission set includes the following:
 
 - `allow-configure`
+- `allow-configure-gestures`
 - `allow-validate`
 - `allow-set-active`
 - `allow-register-hotkey`
@@ -41,6 +42,32 @@ Enables the configure command without any pre-configured scope.
 <td>
 
 Denies the configure command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`shortcut:allow-configure-gestures`
+
+</td>
+<td>
+
+Enables the configure_gestures command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`shortcut:deny-configure-gestures`
+
+</td>
+<td>
+
+Denies the configure_gestures command without any pre-configured scope.
 
 </td>
 </tr>

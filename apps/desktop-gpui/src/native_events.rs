@@ -1,5 +1,6 @@
 use std::{
     cell::RefCell,
+    collections::VecDeque,
     rc::Rc,
     sync::{Arc, Mutex, mpsc},
 };
@@ -216,41 +217,124 @@ pub struct NativeHandles {
     pub tray: Option<NativeTray>,
     _shortcuts: Option<Rc<RefCell<NativeShortcuts>>>,
     menus: Option<MenuState>,
+    waiting: Waiting,
 }
 
-impl NativeEvents {
-    pub fn install(application: &Application) -> Self {
-        let (sender, receiver) = mpsc::sync_channel(64);
-        let events = Self {
+impl NativeEvent {
+    /// Quitting, closing, reopening and About never need the native services, which may
+    /// start late or not at all.
+    fn without_services(&self) -> bool {
+        matches!(
+            self,
+            Self::Quit
+                | Self::CloseMain
+                | Self::About
+                | Self::Action(TrayAction::Open | TrayAction::Hide | TrayAction::QuitCompletely)
+        )
+    }
+}
+
+/// Events that need the native services wait here, in order, until they are ready.
+#[derive(Default)]
+struct Waiting(VecDeque<NativeEvent>);
+
+impl Waiting {
+    const LIMIT: usize = 64;
+
+    /// The events to handle now; a full queue hands back the event it refused.
+    fn take(
+        &mut self,
+        incoming: impl IntoIterator<Item = NativeEvent>,
+        ready: bool,
+    ) -> (Vec<NativeEvent>, Vec<NativeEvent>) {
+        let mut now: Vec<_> = if ready {
+            self.0.drain(..).collect()
+        } else {
+            Vec::new()
+        };
+        let mut refused = Vec::new();
+        for event in incoming {
+            if ready || event.without_services() {
+                now.push(event);
+            } else if self.0.len() < Self::LIMIT {
+                self.0.push_back(event);
+            } else {
+                refused.push(event);
+            }
+        }
+        (now, refused)
+    }
+}
+
+const QUEUE: usize = 64;
+
+impl Default for NativeEvents {
+    fn default() -> Self {
+        let (sender, receiver) = mpsc::sync_channel(QUEUE);
+        Self {
             sender,
             receiver: Arc::new(Mutex::new(receiver)),
             links: NativeDeepLinks::default(),
-        };
-        let links = events.clone();
-        application.on_open_urls(move |urls| {
-            for url in urls.into_iter().take(64) {
-                match links.links.receive(&url) {
-                    Ok(id) => {
-                        if links
-                            .sender
-                            .try_send(NativeEvent::DeepLink { id, raw: url })
-                            .is_err()
-                        {
-                            let _ = links.links.acknowledge(id);
-                            tracing::warn!("Native event queue is full");
-                        }
+        }
+    }
+}
+
+impl NativeEvents {
+    /// Queues deep links, from the OS or from launch arguments on Windows and Linux, and says
+    /// whether it took them all.
+    pub fn open_urls(&self, urls: Vec<String>) -> bool {
+        if urls.len() > QUEUE {
+            tracing::warn!(count = urls.len(), "Too many deep links at once");
+            return false;
+        }
+        let mut taken = true;
+        for url in urls {
+            match self.links.receive(&url) {
+                Ok(id) => {
+                    if self
+                        .sender
+                        .try_send(NativeEvent::DeepLink { id, raw: url })
+                        .is_err()
+                    {
+                        let _ = self.links.acknowledge(id);
+                        tracing::warn!("Native event queue is full");
+                        taken = false;
                     }
-                    Err(error) => tracing::warn!("Deep link rejected: {error}"),
+                }
+                Err(error) => {
+                    tracing::warn!("Deep link rejected: {error}");
+                    taken = false;
                 }
             }
+        }
+        taken
+    }
+
+    /// A later launch of this app: like shipping's single-instance callback, it shows the main
+    /// window, and its links open here.
+    pub fn relaunched(&self, urls: Vec<String>) -> bool {
+        let shown = self
+            .sender
+            .try_send(NativeEvent::Action(TrayAction::Open))
+            .is_ok();
+        if !shown {
+            tracing::warn!("Native event queue is full");
+        }
+        // A plain relaunch only shows the window, so it fails when that can't be queued.
+        if urls.is_empty() {
+            shown
+        } else {
+            self.open_urls(urls)
+        }
+    }
+
+    pub fn install(&self, application: &Application) {
+        let links = self.clone();
+        application.on_open_urls(move |urls| {
+            links.open_urls(urls);
         });
-        let reopen = events.clone();
-        application.on_reopen(move |_| {
-            let _ = reopen
-                .sender
-                .try_send(NativeEvent::Action(TrayAction::Open));
-        });
-        events
+        let reopen = self.clone();
+        application.on_reopen(move |_| reopen.send(NativeEvent::Action(TrayAction::Open)));
     }
 
     pub fn next(&self) -> Option<NativeEvent> {
@@ -334,6 +418,7 @@ impl NativeEvents {
                 tray,
                 _shortcuts: shortcuts,
                 menus: Some(menus),
+                waiting: Waiting::default(),
             },
             errors,
         )
@@ -436,24 +521,28 @@ impl NativeEvents {
         main: WindowHandle<ApplicationView>,
         cx: &mut App,
     ) {
-        if !main
+        let ready = main
             .update(cx, |view, _, _| view.native_ready())
-            .unwrap_or(false)
-        {
-            return;
-        }
-        let mut events = Vec::new();
+            .unwrap_or(false);
+        let mut incoming = Vec::new();
         if let Some(tray) = &mut handles.tray {
-            if let Err(error) = tray.update(model) {
+            if ready && let Err(error) = tray.update(model) {
                 tracing::warn!(%error, "tray update failed");
             }
-            events.extend(tray.poll().into_iter().map(NativeEvent::Action));
+            incoming.extend(tray.poll().into_iter().map(NativeEvent::Action));
         }
         for _ in 0..64 {
             let Some(event) = self.next() else {
                 break;
             };
-            events.push(event);
+            incoming.push(event);
+        }
+        let (events, refused) = handles.waiting.take(incoming, ready);
+        for event in refused {
+            tracing::warn!("Native event dropped while services start");
+            if let NativeEvent::DeepLink { id, .. } = event {
+                let _ = self.links.acknowledge(id);
+            }
         }
         for event in events {
             let id = match &event {
@@ -545,5 +634,59 @@ mod quit_monitor {
         if monitor.is_null() {
             tracing::warn!("⌘Q monitor is unavailable; the app menu handles Quit");
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn quitting_works_before_services_start_and_other_events_wait_in_order() {
+        let mut waiting = Waiting::default();
+        let (now, refused) = waiting.take(
+            [
+                NativeEvent::NewNote,
+                NativeEvent::Action(TrayAction::Open),
+                NativeEvent::Action(TrayAction::Settings),
+                NativeEvent::Quit,
+            ],
+            false,
+        );
+        assert!(refused.is_empty());
+        assert!(matches!(
+            now.as_slice(),
+            [NativeEvent::Action(TrayAction::Open), NativeEvent::Quit]
+        ));
+        let (now, _) = waiting.take([NativeEvent::About], true);
+        assert!(matches!(
+            now.as_slice(),
+            [
+                NativeEvent::NewNote,
+                NativeEvent::Action(TrayAction::Settings),
+                NativeEvent::About
+            ]
+        ));
+    }
+
+    /// A launch the running app can't take fails, so it isn't reported as opened.
+    #[test]
+    fn a_relaunch_fails_when_the_running_app_cant_take_it() {
+        let events = NativeEvents::default();
+        let links = |count: usize| {
+            (0..count)
+                .map(|n| format!("anarlog-staging://auth/callback?code={n}"))
+                .collect::<Vec<_>>()
+        };
+        assert!(!events.open_urls(links(QUEUE + 1)));
+        assert!(
+            events.next().is_none(),
+            "a batch is taken whole or not at all"
+        );
+
+        for _ in 0..QUEUE {
+            events.sender.try_send(NativeEvent::NewNote).unwrap();
+        }
+        assert!(!events.relaunched(Vec::new()));
     }
 }

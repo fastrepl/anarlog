@@ -81,6 +81,10 @@ struct Account {
     upserts: BTreeSet<String>,
     deletes: BTreeSet<String>,
     revisions: Option<HashMap<String, String>>,
+    /// How often each session changed since launch: an upload clears its pending entry only if
+    /// no newer revision arrived while it was in flight.
+    #[serde(skip)]
+    changes: HashMap<String, u64>,
 }
 
 #[derive(Default)]
@@ -291,6 +295,7 @@ impl CloudApi {
             for id in &found.upserts {
                 if !account.deletes.contains(id) {
                     account.upserts.insert(id.clone());
+                    *account.changes.entry(id.clone()).or_default() += 1;
                 }
             }
             account.revisions = Some(next);
@@ -462,9 +467,20 @@ impl CloudApi {
         if !deletes_only {
             let pool = services.db.pool();
             for id in self.with(user, |account| account.upserts.clone()) {
-                if self.with(user, |account| account.deletes.contains(&id)) {
+                let (deleted, seen) = self.with(user, |account| {
+                    (
+                        account.deletes.contains(&id),
+                        account.changes.get(&id).copied(),
+                    )
+                });
+                if deleted {
                     continue;
                 }
+                let acknowledge = |account: &mut Account| {
+                    if account.changes.get(&id).copied() == seen {
+                        account.upserts.remove(&id);
+                    }
+                };
                 let result = match local_snapshot(pool, &id).await {
                     Ok(snapshot) => {
                         let path = format!("/v1/sync-snapshots/{}", encode(&id));
@@ -488,14 +504,10 @@ impl CloudApi {
                     Err(error) => Err(ApiError::new("local_snapshot_unavailable", error)),
                 };
                 match result {
-                    Ok(()) => self.update(user, |account| {
-                        account.upserts.remove(&id);
-                    }),
+                    Ok(()) => self.update(user, acknowledge),
                     Err(error) => {
                         if !error.retryable() && error.code != "invalid_request" {
-                            self.update(user, |account| {
-                                account.upserts.remove(&id);
-                            });
+                            self.update(user, acknowledge);
                         }
                         first_error.get_or_insert(error);
                     }

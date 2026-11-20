@@ -16,7 +16,6 @@ import {
   CLOUDSYNC_CAPTURE_LEASE_ATTEMPTS,
   getPostCaptureAction,
   getPostCaptureRepairReasons,
-  sendMeetingRecordingDisclosure,
   useResumeListeningLifecycle,
   useStartListening,
   useStartListeningState,
@@ -74,7 +73,6 @@ const {
   setLeftSidebarExpandedMock,
   deleteProcessedAudioForRetentionMock,
   listMicUsingApplicationsMock,
-  sendMeetingChatMessageMock,
   audioPathMock,
   audioSourceMetadataMock,
   toastWarningMock,
@@ -138,7 +136,6 @@ const {
   setLeftSidebarExpandedMock: vi.fn(),
   deleteProcessedAudioForRetentionMock: vi.fn(),
   listMicUsingApplicationsMock: vi.fn(),
-  sendMeetingChatMessageMock: vi.fn(),
   audioPathMock: vi.fn(),
   audioSourceMetadataMock: vi.fn(),
   toastWarningMock: vi.fn(),
@@ -217,12 +214,13 @@ vi.mock("@anlg/plugin-permissions", () => ({
 vi.mock("@anlg/plugin-detect", () => ({
   commands: {
     listMicUsingApplications: listMicUsingApplicationsMock,
-    sendMeetingChatMessage: sendMeetingChatMessageMock,
+  },
+  events: {
+    meetingNoticeEvent: { listen: vi.fn(async () => () => {}) },
   },
 }));
 
 vi.mock("./meeting-consent-store", () => ({
-  persistDisclosureAttempt: vi.fn(async () => {}),
   persistParticipantConsent: vi.fn(async () => {}),
 }));
 
@@ -386,13 +384,6 @@ vi.mock("~/stt/queries", () => ({
   useSessionParticipantHumanIds: useSessionParticipantHumanIdsMock,
   getSessionParticipantHumanIds: getSessionParticipantHumanIdsMock,
 }));
-
-let disclosureSessionSequence = 0;
-
-function nextDisclosureSessionId() {
-  disclosureSessionSequence += 1;
-  return `disclosure-session-${disclosureSessionSequence}`;
-}
 
 function failNextNativePersistenceFlush() {
   createNativeTranscriptPersistenceMock.mockImplementationOnce(
@@ -665,13 +656,6 @@ describe("useStartListening", () => {
     listMicUsingApplicationsMock.mockResolvedValue({
       status: "ok",
       data: [{ id: "com.tinyspeck.slackmacgap", name: "Slack" }],
-    });
-    sendMeetingChatMessageMock.mockResolvedValue({
-      status: "ok",
-      data: {
-        sent: true,
-        warnings: [],
-      },
     });
     audioPathMock.mockResolvedValue({
       status: "ok",
@@ -1539,8 +1523,11 @@ describe("useStartListening", () => {
     consoleError.mockRestore();
   });
 
-  test("manual recording stays manual while a scheduled start is waiting for the same note", async () => {
+  test("manual recording stays manual while a scheduled or extension start is waiting for the same note", async () => {
     renderHook(() => useStartListeningState("session-1", { automatic: true }));
+    const { result: extension } = renderHook(() =>
+      useStartListening("session-1", { extensionStart: "request-1" }),
+    );
     const { result } = renderHook(() => useStartListening("session-1"));
     await act(async () => {
       await result.current();
@@ -1549,6 +1536,18 @@ describe("useStartListening", () => {
       expect.objectContaining({
         automatic: false,
         preserveExistingAudio: true,
+      }),
+    );
+    expect(startMock.mock.calls[0][0]).not.toHaveProperty("extension_start");
+
+    // Only the extension's own start names its request, so only it can take the reservation.
+    await act(async () => {
+      await extension.current();
+    });
+    expect(startMock.mock.calls[1][0]).toEqual(
+      expect.objectContaining({
+        session_id: "session-1",
+        extension_start: "request-1",
       }),
     );
   });
@@ -4169,192 +4168,6 @@ describe("useStartListening", () => {
       type: "settings",
       state: { tab: "transcription" },
     });
-  });
-
-  test("does not send the recording disclosure when auto-post is disabled", async () => {
-    const { result } = renderHook(() => useStartListening("session-1"));
-
-    await act(async () => {
-      await result.current();
-    });
-
-    expect(sendMeetingChatMessageMock).not.toHaveBeenCalled();
-    expect(listMicUsingApplicationsMock).not.toHaveBeenCalled();
-  });
-
-  test("retries until a conferencing app is mic-active without reporting intermediate failures", async () => {
-    listMicUsingApplicationsMock
-      .mockResolvedValueOnce({
-        status: "ok",
-        data: [{ id: "com.anarlog.dev", name: "Anarlog Dev" }],
-      })
-      .mockResolvedValueOnce({
-        status: "ok",
-        data: [{ id: "us.zoom.xos", name: "zoom.us" }],
-      });
-    sendMeetingChatMessageMock
-      .mockResolvedValueOnce({
-        status: "ok",
-        data: {
-          sent: false,
-          platform: "unknown",
-          surface: "unknown",
-          warnings: [
-            "refusing to send because the mic-active apps contain 0 recognized meeting app bundles; expected exactly one",
-          ],
-        },
-      })
-      .mockResolvedValueOnce({
-        status: "ok",
-        data: { sent: true, platform: "zoom", surface: "native", warnings: [] },
-      });
-
-    await expect(
-      sendMeetingRecordingDisclosure({
-        maxAttempts: 2,
-        retryIntervalMs: 0,
-      }),
-    ).resolves.toEqual({ status: "sent" });
-
-    expect(listMicUsingApplicationsMock).toHaveBeenCalledTimes(2);
-    expect(sendMeetingChatMessageMock).toHaveBeenNthCalledWith(
-      1,
-      expect.stringContaining("https://anarlog.so"),
-      ["com.anarlog.dev"],
-    );
-    expect(sendMeetingChatMessageMock).toHaveBeenNthCalledWith(
-      2,
-      expect.stringContaining("https://anarlog.so"),
-      ["us.zoom.xos"],
-    );
-    expect(toastWarningMock).not.toHaveBeenCalled();
-  });
-
-  test("reports one terminal failure after the bounded retry window", async () => {
-    listMicUsingApplicationsMock.mockResolvedValue({
-      status: "error",
-      error: "audio process query failed",
-    });
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-
-    await expect(
-      sendMeetingRecordingDisclosure({
-        maxAttempts: 3,
-        retryIntervalMs: 0,
-      }),
-    ).resolves.toEqual({
-      status: "notSent",
-      reason: "audio process query failed",
-    });
-
-    expect(listMicUsingApplicationsMock).toHaveBeenCalledTimes(3);
-    expect(sendMeetingChatMessageMock).not.toHaveBeenCalled();
-    expect(warn).toHaveBeenCalledTimes(1);
-    expect(toastWarningMock).toHaveBeenCalledTimes(1);
-    warn.mockRestore();
-  });
-
-  test("cancels disclosure before chat mutation when listening stops", async () => {
-    useConfigValueMock.mockImplementation((key: string) =>
-      key === "ai_language"
-        ? "en"
-        : key === "consent_auto_send_chat"
-          ? true
-          : [],
-    );
-    let resolveMicApps:
-      | ((value: {
-          status: "ok";
-          data: { id: string; name: string }[];
-        }) => void)
-      | undefined;
-    listMicUsingApplicationsMock.mockImplementationOnce(
-      () =>
-        new Promise((resolve) => {
-          resolveMicApps = resolve;
-        }),
-    );
-    const sessionId = nextDisclosureSessionId();
-    const { result } = renderHook(() => useStartListening(sessionId));
-
-    await act(async () => {
-      await result.current();
-    });
-    await waitFor(() => {
-      expect(listMicUsingApplicationsMock).toHaveBeenCalledOnce();
-    });
-
-    const onStopped = startMock.mock.calls[0]?.[1]?.onStopped;
-    await act(async () => {
-      await onStopped?.(sessionId, {
-        durationSeconds: 1,
-        audioPath: null,
-        requestedLiveTranscription: false,
-        liveTranscriptionActive: false,
-      });
-    });
-
-    await act(async () => {
-      resolveMicApps?.({
-        status: "ok",
-        data: [{ id: "com.tinyspeck.slackmacgap", name: "Slack" }],
-      });
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-
-    expect(sendMeetingChatMessageMock).not.toHaveBeenCalled();
-    expect(toastWarningMock).not.toHaveBeenCalled();
-  });
-
-  test("does not overlap disclosure sends after a quick stop and restart", async () => {
-    useConfigValueMock.mockImplementation((key: string) =>
-      key === "ai_language"
-        ? "en"
-        : key === "consent_auto_send_chat"
-          ? true
-          : [],
-    );
-    let resolveSend:
-      | ((value: {
-          status: "ok";
-          data: { sent: boolean; warnings: string[] };
-        }) => void)
-      | undefined;
-    sendMeetingChatMessageMock.mockImplementationOnce(
-      () =>
-        new Promise((resolve) => {
-          resolveSend = resolve;
-        }),
-    );
-    const sessionId = nextDisclosureSessionId();
-    const { result } = renderHook(() => useStartListening(sessionId));
-
-    await act(async () => {
-      await result.current();
-    });
-    await waitFor(() => {
-      expect(sendMeetingChatMessageMock).toHaveBeenCalledOnce();
-    });
-
-    const onStopped = startMock.mock.calls[0]?.[1]?.onStopped;
-    await act(async () => {
-      await onStopped?.(sessionId, {
-        durationSeconds: 1,
-        audioPath: null,
-        requestedLiveTranscription: false,
-        liveTranscriptionActive: false,
-      });
-      await result.current();
-    });
-
-    expect(sendMeetingChatMessageMock).toHaveBeenCalledOnce();
-
-    await act(async () => {
-      resolveSend?.({ status: "ok", data: { sent: true, warnings: [] } });
-      await Promise.resolve();
-    });
-    expect(sendMeetingChatMessageMock).toHaveBeenCalledOnce();
   });
 
   test("starts meeting chat capture with the disclosure text excluded", async () => {

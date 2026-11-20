@@ -22,6 +22,21 @@ async fn active_source() -> Option<ActorRef<SourceMsg>> {
     registry::where_is(SourceActor::name(&session_id)).map(Into::into)
 }
 
+fn retry_source(
+    source: ActorRef<SourceMsg>,
+    device: Option<String>,
+    engine: Option<anlg_audio::meeting::CaptureEngine>,
+) -> crate::Result<()> {
+    if engine == Some(anlg_audio::meeting::CaptureEngine::NativeMeeting)
+        && device.as_ref().is_some_and(|device| !device.is_empty())
+    {
+        return Err(crate::Error::NativeCaptureMicrophoneRequiresRestart);
+    }
+    source
+        .cast(SourceMsg::RetryCapture(device))
+        .map_err(|_| crate::Error::ActorNotFound("active source".into()))
+}
+
 struct CachedSessionState {
     requested_live_transcription: bool,
     live_transcription_active: bool,
@@ -156,17 +171,64 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Listener<'a, R, M> {
         let cell = registry::where_is(SourceActor::name(&session_id))
             .ok_or_else(|| crate::Error::ActorNotFound("active source".into()))?;
         let source: ActorRef<SourceMsg> = cell.into();
-        source
-            .cast(SourceMsg::RetryCapture(device))
-            .map_err(|_| crate::Error::ActorNotFound("active source".into()))
+        let engine = crate::meeting::state(self.manager).and_then(|meeting| {
+            meeting.runtime.active().and_then(|capture| {
+                (capture.identity.session_id == session_id)
+                    .then(|| meeting.router.engine_of(&capture.identity))
+                    .flatten()
+            })
+        });
+        retry_source(source, device, engine)
     }
 
     #[tracing::instrument(skip_all)]
     pub async fn start_capture(&self, params: CaptureParams) -> Result<(), crate::Error> {
-        let params: SessionParams = params.into();
+        let running = self
+            .get_capture_snapshot()
+            .await
+            .ok()
+            .and_then(|snapshot| snapshot.active_session_id);
+        let capture = crate::meeting::begin(self.manager, &params, running.as_deref())?;
+        if let (Some(capture), Some(target), Some(state)) = (
+            &capture,
+            &params.live_transcript,
+            crate::meeting::state(self.manager),
+        ) {
+            let _ = state
+                .runtime
+                .set_transcript_start(capture, target.started_at_ms);
+        }
+        let capture_id = capture.as_ref().map(|capture| capture.capture_id.clone());
+        let result = self.start_session(params.into(), capture_id).await;
+        match (&result, capture) {
+            (Ok(()), Some(capture)) => crate::meeting::spawn_evidence_persistence(
+                self.manager.app_handle().clone(),
+                capture,
+            ),
+            (Err(_), Some(capture)) => crate::meeting::finish(
+                self.manager,
+                &capture,
+                anlg_audio::meeting::CaptureEndReason::CaptureFailed,
+            ),
+            (_, None) => {}
+        }
+        result
+    }
+
+    async fn start_session(
+        &self,
+        params: SessionParams,
+        capture_id: Option<String>,
+    ) -> Result<(), crate::Error> {
         if let Some(cell) = registry::where_is(RootActor::name()) {
             let actor: ActorRef<RootMsg> = cell.into();
-            match ractor::call!(actor, RootMsg::StartSession, params) {
+            let started = match capture_id {
+                Some(capture_id) => {
+                    ractor::call!(actor, RootMsg::StartCapture, params, capture_id)
+                }
+                None => ractor::call!(actor, RootMsg::StartSession, params),
+            };
+            match started {
                 Ok(Ok(())) => Ok(()),
                 Ok(Err(StartSessionError::SessionAlreadyRunning)) => {
                     Err(crate::Error::SessionAlreadyRunning)
@@ -197,6 +259,16 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Listener<'a, R, M> {
         };
         let actor: ActorRef<RootMsg> = cell.into();
         ractor::call!(actor, RootMsg::StopSessionIfActive, session_id).unwrap_or(false)
+    }
+
+    /// Stops the recording only while it records this capture.
+    #[tracing::instrument(skip_all)]
+    pub async fn stop_capture_if_current(&self, capture_id: String) -> bool {
+        let Some(cell) = registry::where_is(RootActor::name()) else {
+            return false;
+        };
+        let actor: ActorRef<RootMsg> = cell.into();
+        ractor::call!(actor, RootMsg::StopCaptureIfActive, capture_id).unwrap_or(false)
     }
 
     #[tracing::instrument(skip_all)]
@@ -276,6 +348,70 @@ mod tests {
     }
 
     struct MicProbe;
+
+    struct RetryProbe;
+
+    #[ractor::async_trait]
+    impl ractor::Actor for RetryProbe {
+        type Msg = SourceMsg;
+        type State = Option<String>;
+        type Arguments = ();
+
+        async fn pre_start(
+            &self,
+            _myself: ActorRef<SourceMsg>,
+            _args: (),
+        ) -> Result<Self::State, ractor::ActorProcessingErr> {
+            Ok(None)
+        }
+
+        async fn handle(
+            &self,
+            _myself: ActorRef<SourceMsg>,
+            message: SourceMsg,
+            device: &mut Self::State,
+        ) -> Result<(), ractor::ActorProcessingErr> {
+            match message {
+                SourceMsg::RetryCapture(value) => *device = value,
+                SourceMsg::GetMicDevice(reply) => {
+                    let _ = reply.send(device.clone());
+                }
+                _ => {}
+            }
+            Ok(())
+        }
+    }
+
+    #[tokio::test]
+    async fn native_retry_refuses_a_microphone_change_instead_of_silently_ignoring_it() {
+        use anlg_audio::meeting::CaptureEngine;
+        use ractor::Actor;
+
+        let (source, task) = Actor::spawn(None, RetryProbe, ()).await.unwrap();
+        let device = Some("USB microphone".to_owned());
+        let error = retry_source(
+            source.clone(),
+            device.clone(),
+            Some(CaptureEngine::NativeMeeting),
+        )
+        .unwrap_err();
+        assert!(matches!(
+            error,
+            crate::Error::NativeCaptureMicrophoneRequiresRestart
+        ));
+        assert_eq!(
+            call_t!(source, SourceMsg::GetMicDevice, 1000).unwrap(),
+            None
+        );
+
+        retry_source(source.clone(), device.clone(), Some(CaptureEngine::Legacy)).unwrap();
+        assert_eq!(
+            call_t!(source, SourceMsg::GetMicDevice, 1000).unwrap(),
+            device
+        );
+        source.stop(None);
+        task.await.unwrap();
+    }
 
     #[ractor::async_trait]
     impl ractor::Actor for MicProbe {

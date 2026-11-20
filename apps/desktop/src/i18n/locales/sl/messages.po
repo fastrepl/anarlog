@@ -81,6 +81,11 @@ msgstr ""
 msgid "{0} records are waiting for an app update"
 msgstr ""
 
+#. placeholder {0}: seconds(item)
+#: src/dictation/recovery.tsx
+msgid "{0} s"
+msgstr ""
+
 #. placeholder {0}: Math.round((percentage ?? 0) * 100)
 #: src/session/components/note-input/transcript/screens/empty.tsx
 msgid "{0}% complete"
@@ -330,6 +335,7 @@ msgstr ""
 #: src/contacts/shared.tsx
 #: src/resource-sharing/share-dialog.tsx
 #: src/settings/dictionary/index.tsx
+#: src/settings/dictionary/replacements.tsx
 #: src/settings/todo/github.tsx
 #: src/sidebar/toast/registry.tsx
 msgid "Add"
@@ -348,6 +354,10 @@ msgstr ""
 #. placeholder {0}: formatLanguageList(needsSystemSettings)
 #: src/settings/ai/stt/select.tsx
 msgid "Add {0} in System Settings > General > Language & Region to transcribe with {model}, or choose another model."
+msgstr ""
+
+#: src/settings/dictionary/replacements.tsx
+msgid "Add {term}"
 msgstr ""
 
 #: src/resource-sharing/library.tsx
@@ -378,6 +388,10 @@ msgstr ""
 msgid "Add an action"
 msgstr ""
 
+#: src/settings/general/camera-watermark.tsx
+msgid "Add Anarlog Camera to macOS"
+msgstr ""
+
 #: src/settings/automations/index.tsx
 msgid "Add and configure at least one action first."
 msgstr ""
@@ -400,6 +414,10 @@ msgstr ""
 
 #: src/templates/auto-format-examples-dialog.tsx
 msgid "Add at least one example summary."
+msgstr ""
+
+#: src/settings/general/camera-watermark.tsx
+msgid "Add camera"
 msgstr ""
 
 #: src/session/folder-instructions.tsx
@@ -485,6 +503,10 @@ msgstr ""
 msgid "Add webhook"
 msgstr ""
 
+#: src/settings/general/camera-watermark.tsx
+msgid "Adding…"
+msgstr ""
+
 #: src/settings/general/spoken-languages.tsx
 #: src/sidebar/settings-nav-groups.ts
 msgid "Additional spoken languages"
@@ -549,6 +571,10 @@ msgstr ""
 msgid "Allow anyone-with-the-link sharing"
 msgstr ""
 
+#: src/settings/general/camera-watermark.tsx
+msgid "Allow camera"
+msgstr ""
+
 #: src/settings/team/index.tsx
 msgid "Allow public indexing"
 msgstr ""
@@ -581,6 +607,18 @@ msgstr ""
 #. placeholder {0}: update.version
 #: src/sidebar/toast/registry.tsx
 msgid "Anarlog {0} is ready to install"
+msgstr ""
+
+#: src/settings/general/camera-watermark.tsx
+msgid "Anarlog Camera"
+msgstr ""
+
+#: src/services/camera-guidance.tsx
+msgid "Anarlog Camera is hiding your room now. Turn off {app}'s blur or background: it hides the badge."
+msgstr ""
+
+#: src/settings/general/camera-watermark.tsx
+msgid "Anarlog Camera needs your camera to show you."
 msgstr ""
 
 #: src/onboarding/permissions.tsx
@@ -622,6 +660,10 @@ msgstr ""
 
 #: src/lock/gate.tsx
 msgid "Anarlog is Locked"
+msgstr ""
+
+#: src/services/camera-guidance.tsx
+msgid "Anarlog left {app}'s blur or background on because it couldn't confirm Anarlog Camera hides your room yet."
 msgstr ""
 
 #: src/session-sharing/access-management.tsx
@@ -736,6 +778,10 @@ msgstr ""
 
 #: src/session-sharing/access-management.tsx
 msgid "Approve"
+msgstr ""
+
+#: src/settings/general/camera-watermark.tsx
+msgid "Approve Anarlog Camera in System Settings under Login Items & Extensions."
 msgstr ""
 
 #: src/composer/index.tsx
@@ -880,6 +926,10 @@ msgstr ""
 msgid "Back"
 msgstr ""
 
+#: src/settings/general/camera-watermark.tsx
+msgid "Background"
+msgstr ""
+
 #: src/settings/ai/shared/index.tsx
 msgid "Base URL"
 msgstr ""
@@ -915,6 +965,10 @@ msgstr ""
 
 #: src/settings/appearance/app-icon.tsx
 msgid "Blueprint"
+msgstr ""
+
+#: src/settings/general/camera-watermark.tsx
+msgid "Blur"
 msgstr ""
 
 #: src/settings/general/notification.tsx
@@ -957,6 +1011,14 @@ msgstr ""
 
 #: src/settings/team/index.tsx
 msgid "Calendar-scheduled capture jobs. Canceling stops the bot from joining."
+msgstr ""
+
+#: src/settings/general/camera-watermark.tsx
+msgid "Camera"
+msgstr ""
+
+#: src/settings/general/camera-watermark.tsx
+msgid "Camera access"
 msgstr ""
 
 #: src/session-sharing/access-management.tsx
@@ -1091,12 +1153,12 @@ msgstr ""
 msgid "Changes stay on this device until you resume sync."
 msgstr ""
 
-#: src/chat/components/toolbar-controls.tsx
-msgid "Chat history"
+#: src/dictation/recovery.tsx
+msgid "Chat"
 msgstr ""
 
-#: src/chat/components/input/use-dictation.ts
-msgid "Check microphone permission and the selected input device, then try again."
+#: src/chat/components/toolbar-controls.tsx
+msgid "Chat history"
 msgstr ""
 
 #: src/settings/team/index.tsx
@@ -1284,6 +1346,10 @@ msgstr ""
 
 #: src/settings/general/storage/legacy-cleanup.tsx
 msgid "Clean Up"
+msgstr ""
+
+#: src/settings/dictation-engine.tsx
+msgid "Clean up dictation"
 msgstr ""
 
 #: src/settings/general/storage/legacy-cleanup.tsx
@@ -1705,6 +1771,7 @@ msgstr ""
 msgid "Copied"
 msgstr ""
 
+#: src/dictation/recovery.tsx
 #: src/main/windows-title-bar.tsx
 #: src/session/components/note-input/transcript/renderer/selection-menu.tsx
 #: src/settings/ai/llm/subscriptions/connect.tsx
@@ -1715,6 +1782,10 @@ msgstr ""
 
 #: src/settings/developers/cloud-api.tsx
 msgid "Copy {label} URL"
+msgstr ""
+
+#: src/dictation/recovery.tsx
+msgid "Copy and remove"
 msgstr ""
 
 #: src/settings/developers/cli.tsx
@@ -2104,6 +2175,10 @@ msgstr ""
 msgid "Date range"
 msgstr ""
 
+#: src/settings/general/camera-watermark.tsx
+msgid "Daylight"
+msgstr ""
+
 #: src/edit/tab-content.tsx
 #: src/settings/team/index.tsx
 msgid "Decline"
@@ -2272,6 +2347,10 @@ msgstr ""
 msgid "Disable all notifications"
 msgstr ""
 
+#: src/dictation/recovery.tsx
+msgid "Discard"
+msgstr ""
+
 #: src/calendar/components/oauth/provider-content.tsx
 #: src/calendar/components/sidebar.tsx
 #: src/imports/screen.tsx
@@ -2283,6 +2362,14 @@ msgstr ""
 
 #: src/settings/todo/github.tsx
 msgid "Disconnect private repo access."
+msgstr ""
+
+#: src/settings/dictionary/replacements.tsx
+msgid "Dismiss"
+msgstr ""
+
+#: src/settings/dictionary/replacements.tsx
+msgid "Dismiss {term}"
 msgstr ""
 
 #: src/main/windows-title-bar.tsx
@@ -2353,6 +2440,10 @@ msgstr ""
 msgid "Duration"
 msgstr ""
 
+#: src/settings/general/camera-watermark.tsx
+msgid "Dusk"
+msgstr ""
+
 #: src/templates/auto-format-examples-dialog.tsx
 msgid "Each example must be 12,000 characters or fewer."
 msgstr ""
@@ -2370,6 +2461,10 @@ msgstr ""
 
 #: src/session/components/outer-header/metadata/date.tsx
 msgid "Edit date"
+msgstr ""
+
+#: src/settings/dictation-engine.tsx
+msgid "Edit selected text by voice"
 msgstr ""
 
 #: src/crm/enrich-contact.tsx
@@ -2672,6 +2767,10 @@ msgstr ""
 
 #: src/settings/stats/badge-collection.tsx
 msgid "First Words"
+msgstr ""
+
+#: src/settings/dictation-engine.tsx
+msgid "Fixes punctuation and filler words with your selected AI model. If it takes longer than a few seconds, your words are inserted as spoken."
 msgstr ""
 
 #: src/templates/template-icon-picker.tsx
@@ -2986,6 +3085,14 @@ msgstr ""
 msgid "Icons"
 msgstr ""
 
+#: src/services/camera-guidance.tsx
+msgid "If {app} blurs or replaces your background, that hides the badge. Keep it on until Anarlog Camera hides your room, then check your video before turning off {app}'s background."
+msgstr ""
+
+#: src/settings/dictation-engine.tsx
+msgid "If a dictation can't be transcribed or inserted, keep it on this device for 24 hours so you can retry, copy or discard it."
+msgstr ""
+
 #: src/settings/general/account.tsx
 msgid "If Anarlog stays closed, paste the link in the sign-in window."
 msgstr ""
@@ -3233,12 +3340,20 @@ msgstr ""
 msgid "Keep this version"
 msgstr ""
 
+#: src/settings/dictation-engine.tsx
+msgid "Keep unsent dictations"
+msgstr ""
+
 #: src/auth/connect-local-library-dialog.tsx
 msgid "Keep using locally"
 msgstr ""
 
 #: src/settings/sync/index.tsx
 msgid "Keep your recovery key saved somewhere safe. You can still use it if another synced device is unavailable."
+msgstr ""
+
+#: src/dictation/recovery.tsx
+msgid "Kept on this device for 24 hours. Anarlog never inserts these by itself."
 msgstr ""
 
 #: src/settings/developers/cloud-api.tsx
@@ -3305,6 +3420,10 @@ msgstr ""
 msgid "Last used {0}"
 msgstr ""
 
+#: src/settings/dictation-engine.tsx
+msgid "Learn from your corrections"
+msgstr ""
+
 #: src/chat/components/message/error.tsx
 msgid "Learn how to fix this"
 msgstr ""
@@ -3331,6 +3450,10 @@ msgstr ""
 
 #: src/session-sharing/attachment-controls.tsx
 msgid "Let people with access play the recording."
+msgstr ""
+
+#: src/settings/dictation-engine.tsx
+msgid "Lets transcription and cleanup see a short snippet of the focused app to spell names right. Password fields, private windows and excluded apps are never read, and nothing is stored."
 msgstr ""
 
 #: src/auth/connect-local-library-dialog.tsx
@@ -3462,6 +3585,10 @@ msgstr ""
 msgid "Loading..."
 msgstr ""
 
+#: src/settings/dictation-engine.tsx
+msgid "Local transcription never falls back to a cloud provider."
+msgstr ""
+
 #: src/settings/privacy/index.tsx
 #: src/sidebar/settings-nav-groups.ts
 msgid "Lock app"
@@ -3484,6 +3611,14 @@ msgstr ""
 msgid "Low-light canvas"
 msgstr ""
 
+#: src/settings/dictation-engine.tsx
+msgid "Lower other audio while dictating"
+msgstr ""
+
+#: src/settings/general/camera-watermark.tsx
+msgid "macOS asks you to approve the camera once."
+msgstr ""
+
 #: src/settings/ai/shared/index.tsx
 msgid "macOS cannot access your login Keychain. Repairing briefly locks it and asks for your Mac password before Anarlog retries this API key."
 msgstr ""
@@ -3491,6 +3626,10 @@ msgstr ""
 #: src/auth/cloudsync-keychain-repair.tsx
 #: src/settings/sync/index.tsx
 msgid "macOS could not access your recovery key. Repair Keychain access, then resume sync."
+msgstr ""
+
+#: src/settings/general/camera-watermark.tsx
+msgid "macOS couldn't add the camera: {extensionFailure}"
 msgstr ""
 
 #: src/settings/general/main-language.tsx
@@ -3803,6 +3942,14 @@ msgstr ""
 msgid "Needs setup"
 msgstr ""
 
+#: src/settings/dictation-engine.tsx
+msgid "Never read these apps"
+msgstr ""
+
+#: src/settings/dictation-engine.tsx
+msgid "Never read these websites"
+msgstr ""
+
 #: src/sidebar/automations.tsx
 msgid "New automation"
 msgstr ""
@@ -4040,6 +4187,10 @@ msgstr ""
 msgid "No speech detected"
 msgstr ""
 
+#: src/dictation/recovery.tsx
+msgid "No speech was detected in this recording."
+msgstr ""
+
 #: src/settings/sync/log.tsx
 msgid "No sync activity yet."
 msgstr ""
@@ -4060,6 +4211,10 @@ msgstr ""
 msgid "No upcoming bots."
 msgstr ""
 
+#: src/settings/general/camera-watermark.tsx
+msgid "None"
+msgstr ""
+
 #: src/settings/stats/insights.tsx
 msgid "Not available"
 msgstr ""
@@ -4067,6 +4222,10 @@ msgstr ""
 #: src/settings/ai/shared/index.tsx
 #: src/settings/crm/index.tsx
 msgid "Not connected"
+msgstr ""
+
+#: src/settings/general/camera-watermark.tsx
+msgid "Not included in this build."
 msgstr ""
 
 #: src/settings/developers/cli.tsx
@@ -4165,6 +4324,14 @@ msgstr ""
 msgid "On-device transcription, recordings, and your own keys."
 msgstr ""
 
+#: src/settings/dictation-engine.tsx
+msgid "One app name or bundle ID per line"
+msgstr ""
+
+#: src/settings/dictation-engine.tsx
+msgid "One domain per line, like bank.example"
+msgstr ""
+
 #: src/folders/folder-editor.tsx
 #: src/settings/general/default-share-access.tsx
 msgid "Only me"
@@ -4260,6 +4427,10 @@ msgstr ""
 msgid "Open Settings"
 msgstr ""
 
+#: src/settings/general/camera-watermark.tsx
+msgid "Open System Settings"
+msgstr ""
+
 #: src/resource-sharing/share-dialog.tsx
 #: src/settings/general/billing.tsx
 msgid "Open Teams"
@@ -4319,6 +4490,10 @@ msgstr ""
 
 #: src/settings/referrals.tsx
 msgid "Original offer: {amount} off your subscription after your friend's first payment."
+msgstr ""
+
+#: src/dictation/recovery.tsx
+msgid "Other apps"
 msgstr ""
 
 #: src/session/components/version-history-dialog.tsx
@@ -4445,6 +4620,10 @@ msgstr ""
 #: src/contacts/details.tsx
 #: src/settings/general/account-profile.tsx
 msgid "Phone"
+msgstr ""
+
+#: src/services/camera-guidance.tsx
+msgid "Pick Anarlog Camera as your camera. Anarlog couldn't switch it in {app}."
 msgstr ""
 
 #: src/contacts/contact-page-header.tsx
@@ -4614,6 +4793,10 @@ msgstr ""
 msgid "Read meeting controls and visible chat."
 msgstr ""
 
+#: src/settings/dictation-engine.tsx
+msgid "Reads the field once after you dictate and suggests dictionary words you corrected. Suggestions wait for your review in Dictionary."
+msgstr ""
+
 #: src/settings/general/notification.tsx
 msgid "Ready"
 msgstr ""
@@ -4710,9 +4893,17 @@ msgstr ""
 msgid "Recording not found. It may have been deleted."
 msgstr ""
 
+#: src/dictation/recovery.tsx
+msgid "Recording not transcribed yet."
+msgstr ""
+
 #: src/settings/general/notification.tsx
 #: src/sidebar/settings-nav-groups.ts
 msgid "Recording status prompts"
+msgstr ""
+
+#: src/services/meeting-capture-stop.tsx
+msgid "Recording stopped"
 msgstr ""
 
 #: src/main/windows-title-bar.tsx
@@ -4784,6 +4975,10 @@ msgstr ""
 #: src/settings/team/index.tsx
 msgid "Remove {0} from {workspaceName}? They will lose access to this workspace."
 msgstr "Odstranim {0} iz delovnega prostora {workspaceName}? Dostop do tega delovnega prostora ne bo več mogoč."
+
+#: src/settings/dictionary/replacements.tsx
+msgid "Remove {from}"
+msgstr ""
 
 #: src/settings/dictionary/index.tsx
 msgid "Remove {term}"
@@ -4880,6 +5075,10 @@ msgstr ""
 
 #: src/session/components/note-input/search/bar.tsx
 msgid "Replace with..."
+msgstr ""
+
+#: src/settings/dictionary/replacements.tsx
+msgid "Replacements"
 msgstr ""
 
 #: src/main/windows-title-bar.tsx
@@ -5585,6 +5784,10 @@ msgstr ""
 msgid "Show words in the floating panel as you speak. Uses a live connection to your selected transcription provider when supported. Text is inserted when you finish."
 msgstr ""
 
+#: src/settings/general/camera-watermark.tsx
+msgid "Show your camera with a badge saying Anarlog is taking notes in apps where you pick Anarlog Camera."
+msgstr ""
+
 #: src/resource-sharing/share-dialog.tsx
 #: src/session-sharing/index.tsx
 #: src/session/components/note-input/enhanced/enhance-error.tsx
@@ -5970,6 +6173,10 @@ msgstr ""
 msgid "Story Collector"
 msgstr ""
 
+#: src/settings/general/camera-watermark.tsx
+msgid "Studio"
+msgstr ""
+
 #: src/instruction/index.tsx
 msgid "Submit callback URL"
 msgstr ""
@@ -5988,6 +6195,10 @@ msgstr ""
 
 #: src/session-sharing/invite-recipients.tsx
 msgid "Suggested attendees"
+msgstr ""
+
+#: src/settings/dictionary/replacements.tsx
+msgid "Suggested from your corrections"
 msgstr ""
 
 #: src/session/components/note-input/raw.tsx
@@ -6026,6 +6237,14 @@ msgstr ""
 
 #: src/settings/general/week-start.tsx
 msgid "Sunday"
+msgstr ""
+
+#: src/settings/dictionary/replacements.tsx
+msgid "Swap a spoken phrase for the text you want, like \"my email\" for your address. Not applied when editing a selection."
+msgstr ""
+
+#: src/settings/general/camera-watermark.tsx
+msgid "Switch my camera automatically"
 msgstr ""
 
 #: src/settings/general/billing.tsx
@@ -6187,6 +6406,10 @@ msgstr ""
 msgid "The link may have expired or its access may have changed."
 msgstr ""
 
+#: src/services/meeting-capture-stop.tsx
+msgid "The meeting app closed."
+msgstr ""
+
 #: src/settings/referrals.tsx
 msgid "The new referral offer is not available yet. Your previous referrals are shown below."
 msgstr ""
@@ -6197,6 +6420,10 @@ msgstr ""
 
 #: src/shared/control.tsx
 msgid "The page you're looking for doesn't exist."
+msgstr ""
+
+#: src/services/meeting-capture-stop.tsx
+msgid "The recording reached the 12-hour limit."
 msgstr ""
 
 #: src/sidebar/toast/registry.tsx
@@ -6261,6 +6488,10 @@ msgstr ""
 msgid "This note was edited on another device at the same time. The later edit was kept."
 msgstr ""
 
+#: src/store/zustand/listener/general-live.ts
+msgid "This recording follows your Mac's default microphone. To select a different microphone, stop and start a new recording."
+msgstr ""
+
 #: src/chat/components/session-provider.tsx
 msgid "This recording is using batch transcription, so the transcript isn't available to chat yet. Ask again after transcription finishes, or switch to a Pro model for live transcription."
 msgstr ""
@@ -6306,6 +6537,10 @@ msgstr ""
 
 #: src/sidebar/timeline/utils/index.ts
 msgid "Tomorrow"
+msgstr ""
+
+#: src/dictation/recovery.tsx
+msgid "Transcribe"
 msgstr ""
 
 #: src/chat/components/input/index.tsx
@@ -6393,8 +6628,20 @@ msgstr ""
 msgid "Turn assigned follow-ups into Linear issue drafts."
 msgstr ""
 
+#: src/settings/general/camera-watermark.tsx
+msgid "Turn on Anarlog Camera in System Settings under Privacy & Security, Camera."
+msgstr ""
+
 #: src/calendar/components/apple/permission.tsx
 msgid "Turn on Anarlog in System Settings → Privacy & Security → Calendars, then return here."
+msgstr ""
+
+#: src/settings/dictation-engine.tsx
+msgid "Turns down your speakers while you speak, then restores the level it changed."
+msgstr ""
+
+#: src/settings/dictionary/replacements.tsx
+msgid "Type"
 msgstr ""
 
 #: src/settings/appearance/app-icon.tsx
@@ -6430,6 +6677,10 @@ msgstr ""
 msgid "Unknown date"
 msgstr ""
 
+#: src/settings/general/camera-watermark.tsx
+msgid "unknown error"
+msgstr ""
+
 #: src/lock/screen.tsx
 msgid "Unlock"
 msgstr ""
@@ -6463,6 +6714,10 @@ msgstr ""
 
 #: src/contacts/contact-page-header.tsx
 msgid "Unpin"
+msgstr ""
+
+#: src/dictation/recovery.tsx
+msgid "Unsent dictations"
 msgstr ""
 
 #: src/onboarding/account/after-login.tsx
@@ -6650,6 +6905,10 @@ msgstr ""
 msgid "Use Touch ID or enter your password to view."
 msgstr ""
 
+#: src/settings/dictation-engine.tsx
+msgid "Use what's on screen"
+msgstr ""
+
 #: src/lock/screen.tsx
 msgid "Use Windows Hello face, PIN, or password to view."
 msgstr ""
@@ -6759,6 +7018,10 @@ msgstr ""
 msgid "What action items have come up so far in this meeting?"
 msgstr ""
 
+#: src/settings/general/camera-watermark.tsx
+msgid "What Anarlog Camera shows behind you."
+msgstr ""
+
 #: src/chat/components/body/empty.tsx
 msgid "What are my action items from this meeting?"
 msgstr ""
@@ -6783,6 +7046,14 @@ msgstr ""
 msgid "What's new in {version}?"
 msgstr ""
 
+#: src/settings/general/camera-watermark.tsx
+msgid "When Anarlog records a call in {switchApps}, switch its camera to Anarlog Camera."
+msgstr ""
+
+#: src/settings/dictionary/replacements.tsx
+msgid "When I say"
+msgstr ""
+
 #: src/settings/general/index.tsx
 msgid "When off, summaries follow the detected meeting language."
 msgstr ""
@@ -6797,6 +7068,14 @@ msgstr ""
 
 #: src/settings/ai/stt/local-file-model.tsx
 msgid "whisper.cpp models"
+msgstr ""
+
+#: src/settings/dictation-engine.tsx
+msgid "With text selected in another app, say how to change it. The selection is sent to your selected AI model and is left unchanged if editing fails."
+msgstr ""
+
+#: src/settings/dictionary/replacements.tsx
+msgid "Words you fixed after dictating. Add them so dictation spells them right next time."
 msgstr ""
 
 #: src/task/tab-content.tsx
@@ -6858,6 +7137,10 @@ msgstr ""
 
 #: src/onboarding/account/after-login.tsx
 msgid "You have an active plan"
+msgstr ""
+
+#: src/services/meeting-capture-stop.tsx
+msgid "You signed out or changed accounts."
 msgstr ""
 
 #: src/settings/team/index.tsx

@@ -1,11 +1,15 @@
-use std::{collections::VecDeque, ops::Range, sync::Arc};
+use std::{
+    collections::{HashSet, VecDeque},
+    ops::Range,
+    sync::Arc,
+};
 
 use serde_json::{Map, Value, json};
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::{
     document::{
-        Document, EditResult, Node, NodeRef, concat_inline, inline_text, split_inline, utf8,
+        Document, EditResult, Node, NodeId, NodeRef, concat_inline, inline_text, split_inline, utf8,
     },
     sequence::{Measured, Sequence},
 };
@@ -292,7 +296,12 @@ impl EditorModel {
             }
         }
         let (left, _) = split_inline(&from.node.children, from.offset)?;
-        let (_, right) = split_inline(&to.node.children, to.offset)?;
+        let (_, mut right) = split_inline(&to.node.children, to.offset)?;
+        // Joined text takes the code block's schema, as ProseMirror's join clears what code
+        // does not allow; otherwise the saved document fails validation when reopened.
+        if from.path != to.path && from.node.kind() == "codeBlock" {
+            right = code_content(&right)?;
+        }
         let fields = self.insertion_fields(&from.node, from.offset);
         let inserted = if text.is_empty() {
             Sequence::default()
@@ -369,17 +378,98 @@ impl EditorModel {
     }
 
     /// Replaces the whole document with `fragment` in one undoable step (shipping's
-    /// `replaceContent`).
+    /// `replaceContent`): every top-level block, not the first to last caret, which would
+    /// keep leading or trailing atoms and the wrappers the carets sit in.
     pub fn replace_all(&mut self, fragment: Document) -> EditResult<()> {
+        let selection = self.selection;
         self.select(Selection {
-            anchor: self.document.edge_caret(false),
-            head: self.document.edge_caret(true),
+            anchor: 0,
+            head: self.document.units(),
         });
-        self.insert_slice(fragment, false)
+        let result = self.insert_slice(fragment, false);
+        if result.is_err() {
+            self.selection = selection;
+        }
+        result
     }
 
     pub fn insert_slice(&mut self, fragment: Document, open: bool) -> EditResult<()> {
-        self.transaction(|model| model.insert_slice_inner(fragment, open))
+        let mut pasted = HashSet::new();
+        fragment
+            .root
+            .children
+            .visit(&mut |node| task_nodes(node, &mut pasted));
+        self.transaction(|model| {
+            model.insert_slice_inner(fragment, open)?;
+            if !pasted.is_empty() {
+                model.distinct_tasks(&pasted);
+            }
+            Ok(())
+        })
+    }
+
+    /// Shipping's task identity sweep for inserted tasks: one whose `taskId` or `taskItemId`
+    /// is missing or repeats another task's gets a new one, so a pasted copy is its own task
+    /// instead of being dropped from the note's task list.
+    fn distinct_tasks(&mut self, inserted: &HashSet<NodeId>) {
+        fn identities(node: &NodeRef, inserted: &HashSet<NodeId>, seen: &mut [HashSet<String>; 2]) {
+            if node.kind() == "taskItem" && !inserted.contains(&node.id) {
+                for (seen, key) in seen.iter_mut().zip(["taskId", "taskItemId"]) {
+                    if let Some(id) = node.attr(key).and_then(Value::as_str) {
+                        seen.insert(id.to_owned());
+                    }
+                }
+            }
+            node.children
+                .visit(&mut |child| identities(child, inserted, seen));
+        }
+        fn rewrite(
+            node: &NodeRef,
+            inserted: &HashSet<NodeId>,
+            seen: &mut [HashSet<String>; 2],
+        ) -> Option<NodeRef> {
+            let mut renamed = None;
+            if node.kind() == "taskItem" && inserted.contains(&node.id) {
+                let mut attrs = node.attrs().cloned().unwrap_or_default();
+                let mut fresh = false;
+                for (seen, key) in seen.iter_mut().zip(["taskId", "taskItemId"]) {
+                    let id = match attrs.get(key).and_then(Value::as_str) {
+                        Some(id) if !id.trim().is_empty() && !seen.contains(id) => id.to_owned(),
+                        _ => {
+                            fresh = true;
+                            uuid::Uuid::new_v4().to_string()
+                        }
+                    };
+                    attrs.insert(key.into(), json!(id));
+                    seen.insert(id);
+                }
+                if fresh {
+                    let mut fields = (*node.fields).clone();
+                    fields.insert("attrs".into(), attrs.into());
+                    renamed = Some(node.with_fields(fields));
+                }
+            }
+            rewrite_children(renamed.as_ref().unwrap_or(node), inserted, seen).or(renamed)
+        }
+        fn rewrite_children(
+            node: &NodeRef,
+            inserted: &HashSet<NodeId>,
+            seen: &mut [HashSet<String>; 2],
+        ) -> Option<NodeRef> {
+            let mut children = Vec::with_capacity(node.children.len());
+            let mut changed = false;
+            node.children.visit(&mut |child| {
+                let next = rewrite(child, inserted, seen);
+                changed |= next.is_some();
+                children.push(next.unwrap_or_else(|| child.clone()));
+            });
+            changed.then(|| node.with_children(Sequence::from_items(children)))
+        }
+        let mut seen = [HashSet::new(), HashSet::new()];
+        identities(&self.document.root, inserted, &mut seen);
+        if let Some(root) = rewrite(&self.document.root, inserted, &mut seen) {
+            self.document.root = root;
+        }
     }
 
     fn insert_slice_inner(&mut self, fragment: Document, open: bool) -> EditResult<()> {
@@ -632,9 +722,53 @@ impl EditorModel {
         })
     }
 
+    /// A selection reaching past one text block, including Select All's structural endpoints,
+    /// which do not resolve as text carets.
+    fn spans_blocks(&self, range: Range<usize>) -> bool {
+        !range.is_empty()
+            && match (
+                self.document.resolve(range.start),
+                self.document.resolve(range.end),
+            ) {
+                (Ok(from), Ok(to)) => from.path != to.path,
+                _ => true,
+            }
+    }
+
     fn apply_mark(&mut self, kind: &str, enable: Option<bool>) -> EditResult<()> {
         self.ensure_editable()?;
         let range = self.selection.range();
+        if self.spans_blocks(range.clone()) {
+            let blocks = super::transform::selected_blocks(&self.document, range.clone())?;
+            let mut all_marked = true;
+            for block in &blocks {
+                let end = range
+                    .end
+                    .saturating_sub(block.start)
+                    .min(block.node.children.units());
+                let start = range.start.saturating_sub(block.start);
+                let selected = split_inline(&split_inline(&block.node.children, end)?.0, start)?.1;
+                selected.visit(&mut |node| {
+                    if node.text.is_some() && block.node.kind() != "codeBlock" {
+                        all_marked &= node.marks().iter().any(|mark| mark["type"] == kind);
+                    }
+                });
+            }
+            return self.transaction(|model| {
+                let selection = model.selection;
+                for block in blocks {
+                    model.selection = Selection {
+                        anchor: range.start.max(block.start),
+                        head: range.end.min(block.start + block.node.children.units()),
+                    };
+                    if !model.selection.is_empty() && block.node.kind() != "codeBlock" {
+                        model.apply_mark(kind, Some(enable.unwrap_or(!all_marked)))?;
+                    }
+                }
+                model.selection = selection;
+                Ok(())
+            });
+        }
         let from = self.document.resolve(range.start)?;
         let to = self.document.resolve(range.end)?;
         if from.node.kind() == "codeBlock" {
@@ -674,37 +808,6 @@ impl EditorModel {
             toggle_marks(&mut marks, kind, None);
             self.stored_marks = Some(marks);
             return Ok(());
-        }
-        if from.path != to.path {
-            let blocks = super::transform::selected_blocks(&self.document, range.clone())?;
-            let mut all_marked = true;
-            for block in &blocks {
-                let end = range
-                    .end
-                    .saturating_sub(block.start)
-                    .min(block.node.children.units());
-                let start = range.start.saturating_sub(block.start);
-                let selected = split_inline(&split_inline(&block.node.children, end)?.0, start)?.1;
-                selected.visit(&mut |node| {
-                    if node.text.is_some() && block.node.kind() != "codeBlock" {
-                        all_marked &= node.marks().iter().any(|mark| mark["type"] == kind);
-                    }
-                });
-            }
-            return self.transaction(|model| {
-                let selection = model.selection;
-                for block in blocks {
-                    model.selection = Selection {
-                        anchor: range.start.max(block.start),
-                        head: range.end.min(block.start + block.node.children.units()),
-                    };
-                    if !model.selection.is_empty() && block.node.kind() != "codeBlock" {
-                        model.apply_mark(kind, Some(enable.unwrap_or(!all_marked)))?;
-                    }
-                }
-                model.selection = selection;
-                Ok(())
-            });
         }
         let (through, right) = split_inline(&from.node.children, to.offset)?;
         let (left, selected) = split_inline(&through, from.offset)?;
@@ -748,9 +851,7 @@ impl EditorModel {
             return Err("Links must use HTTP or HTTPS".into());
         }
         let range = self.selection.range();
-        let from = self.document.resolve(range.start)?;
-        let to = self.document.resolve(range.end)?;
-        if from.path != to.path {
+        if self.spans_blocks(range.clone()) {
             let blocks = super::transform::selected_blocks(&self.document, range.clone())?;
             return self.transaction(|model| {
                 let selection = model.selection;
@@ -767,6 +868,8 @@ impl EditorModel {
                 Ok(())
             });
         }
+        let from = self.document.resolve(range.start)?;
+        let to = self.document.resolve(range.end)?;
         if range.is_empty() || from.node.kind() == "codeBlock" {
             return Err("Select link text inside one non-code block".into());
         }
@@ -919,40 +1022,7 @@ impl EditorModel {
             fields.insert("attrs".into(), attrs.into());
         }
         let children = if kind == "codeBlock" {
-            let mut invalid = false;
-            let mut children = Vec::new();
-            resolved.node.children.visit(&mut |child| {
-                if child.kind() == "hardBreak" {
-                    let mut fields = (*child.fields).clone();
-                    fields.insert("type".into(), json!("text"));
-                    children.push(Node::text_node("\n", Arc::new(fields)));
-                } else if child.text.is_some()
-                    && child.marks().iter().all(|mark| {
-                        matches!(
-                            mark["type"].as_str(),
-                            Some(
-                                "bold"
-                                    | "italic"
-                                    | "underline"
-                                    | "strike"
-                                    | "code"
-                                    | "highlight"
-                                    | "link"
-                            )
-                        )
-                    })
-                {
-                    let mut fields = (*child.fields).clone();
-                    fields.remove("marks");
-                    children.push(child.with_fields(fields));
-                } else {
-                    invalid = true;
-                }
-            });
-            if invalid {
-                return Err("Code conversion would remove embedded content or future marks; original retained".into());
-            }
-            Sequence::from_items(children)
+            code_content(&resolved.node.children)?
         } else {
             resolved.node.children.clone()
         };
@@ -1707,6 +1777,48 @@ impl EditorModel {
         }
         self.replace(self.selection.range(), "")
     }
+}
+
+fn task_nodes(node: &NodeRef, tasks: &mut HashSet<NodeId>) {
+    if node.kind() == "taskItem" {
+        tasks.insert(node.id);
+    }
+    node.children.visit(&mut |child| task_nodes(child, tasks));
+}
+
+/// Inline content as a code block holds it: plain text, with hard breaks as newlines. Known
+/// marks are dropped; embedded nodes and future marks refuse the change instead.
+fn code_content(children: &Sequence<NodeRef>) -> EditResult<Sequence<NodeRef>> {
+    let mut invalid = false;
+    let mut content = Vec::new();
+    children.visit(&mut |child| {
+        if child.kind() == "hardBreak" {
+            let fields = Map::from_iter([("type".into(), json!("text"))]);
+            content.push(Node::text_node("\n", Arc::new(fields)));
+        } else if child.text.is_some()
+            && child.marks().iter().all(|mark| {
+                matches!(
+                    mark["type"].as_str(),
+                    Some(
+                        "bold" | "italic" | "underline" | "strike" | "code" | "highlight" | "link"
+                    )
+                )
+            })
+        {
+            let mut fields = (*child.fields).clone();
+            fields.remove("marks");
+            content.push(child.with_fields(fields));
+        } else {
+            invalid = true;
+        }
+    });
+    if invalid {
+        return Err(
+            "Code conversion would remove embedded content or future marks; original retained"
+                .into(),
+        );
+    }
+    Ok(Sequence::from_items(content))
 }
 
 fn fresh_task(content: Sequence<NodeRef>) -> NodeRef {

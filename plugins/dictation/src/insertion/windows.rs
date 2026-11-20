@@ -1,7 +1,11 @@
+use std::time::{Duration, Instant};
+
 use windows::Win32::{
     System::{Com::*, Ole::*},
     UI::{Accessibility::*, Input::KeyboardAndMouse::*},
 };
+
+use super::edit::{FieldPort, FieldRead, Paste, Span, Write};
 
 struct Com;
 impl Drop for Com {
@@ -84,29 +88,164 @@ pub async fn capture() -> Result<String, String> {
         .map_err(|e| e.to_string())?
 }
 
-pub async fn insert(target: String, text: String) -> Result<(), String> {
-    tauri::async_runtime::spawn_blocking(move || {
-        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
-        while [VK_CONTROL, VK_MENU, VK_SHIFT, VK_LWIN, VK_RWIN].iter().any(|key| unsafe { GetAsyncKeyState(key.0 as i32) } < 0) {
-            if std::time::Instant::now() >= deadline {
-                return Err("Release the shortcut keys before inserting text. Copy your last dictation from Settings > Dictation.".into());
-            }
-            std::thread::sleep(std::time::Duration::from_millis(10));
+/// How long typing waits for the shortcut's modifier keys to be released.
+const KEYS_RELEASE_WAIT: Duration = Duration::from_secs(2);
+
+/// The captured field through UI Automation. Its text is not read, so it takes plain dictation
+/// typed as Unicode key presses, reported as applied but unverified. No clipboard paste, voice
+/// edit, raw restoration or context.
+pub struct Field {
+    target: String,
+}
+
+pub fn field(target: &str) -> Option<Field> {
+    Some(Field {
+        target: target.to_owned(),
+    })
+}
+
+fn modifiers_held() -> bool {
+    [VK_CONTROL, VK_MENU, VK_SHIFT, VK_LWIN, VK_RWIN]
+        .iter()
+        .any(|key| unsafe { GetAsyncKeyState(key.0 as i32) } < 0)
+}
+
+impl FieldPort for Field {
+    fn focused(&self) -> bool {
+        with_focused(|element| identity(&element)).is_ok_and(|focused| focused == self.target)
+    }
+
+    fn read(&self) -> Option<FieldRead> {
+        None
+    }
+
+    fn select(&self, _span: Span) -> bool {
+        false
+    }
+
+    fn write(&self, text: &str) -> Write {
+        // Typed keys would combine with a held modifier, and focus may have moved meanwhile.
+        if modifiers_held() || !self.focused() {
+            return Write::Rejected;
         }
-        with_focused(|element| {
-        if identity(&element)? != target {
-            return Err("The focused text field changed. Copy your last dictation from Settings > Dictation.".into());
-        }
-        let inputs: Vec<INPUT> = text.encode_utf16().flat_map(|unit| {
-            [KEYEVENTF_UNICODE, KEYEVENTF_UNICODE | KEYEVENTF_KEYUP].map(|flags| INPUT {
-                r#type: INPUT_KEYBOARD,
-                Anonymous: INPUT_0 { ki: KEYBDINPUT { wScan: unit, dwFlags: flags, ..Default::default() } },
+        let inputs: Vec<INPUT> = text
+            .encode_utf16()
+            .flat_map(|unit| {
+                [KEYEVENTF_UNICODE, KEYEVENTF_UNICODE | KEYEVENTF_KEYUP].map(|flags| INPUT {
+                    r#type: INPUT_KEYBOARD,
+                    Anonymous: INPUT_0 {
+                        ki: KEYBDINPUT {
+                            wScan: unit,
+                            dwFlags: flags,
+                            ..Default::default()
+                        },
+                    },
+                })
             })
-        }).collect();
-        if unsafe { SendInput(&inputs, std::mem::size_of::<INPUT>() as i32) } != inputs.len() as u32 {
-            return Err("Windows could not insert the entire dictation. Check the field before copying your last dictation. Elevated apps may block text insertion.".into());
+            .collect();
+        // Elevated apps may block synthesized input entirely.
+        match unsafe { SendInput(&inputs, std::mem::size_of::<INPUT>() as i32) } as usize {
+            0 => Write::Rejected,
+            sent if sent == inputs.len() => Write::Accepted,
+            _ => Write::Partial,
         }
-        Ok(())
+    }
+
+    fn paste(&self, _text: &str) -> Paste {
+        Paste::NotSent
+    }
+
+    fn settle(&self) {}
+
+    fn keys_released(&self) -> bool {
+        let deadline = Instant::now() + KEYS_RELEASE_WAIT;
+        while modifiers_held() {
+            if Instant::now() >= deadline {
+                return false;
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        true
+    }
+}
+
+pub fn facts(_target: &str) -> Option<dictation_core::context::WindowFacts> {
+    None
+}
+
+pub fn window_text(_target: &str, _max_chars: usize) -> Option<String> {
+    None
+}
+
+pub fn release(_target: &str) {}
+
+/// The default render endpoint's master volume. Each call opens its own COM apartment, since the
+/// ducker calls from whichever thread ends a dictation.
+struct EndpointVolume;
+
+fn default_endpoint() -> Option<(String, windows::Win32::Media::Audio::IMMDevice)> {
+    use windows::Win32::Media::Audio::{
+        IMMDeviceEnumerator, MMDeviceEnumerator, eConsole, eRender,
+    };
+    unsafe {
+        let enumerator: IMMDeviceEnumerator =
+            CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL).ok()?;
+        let device = enumerator.GetDefaultAudioEndpoint(eRender, eConsole).ok()?;
+        let id = device.GetId().ok()?;
+        let name = id.to_string().ok();
+        CoTaskMemFree(Some(id.0 as *const _));
+        Some((name?, device))
+    }
+}
+
+fn endpoint_volume(
+    device: &windows::Win32::Media::Audio::IMMDevice,
+) -> Option<windows::Win32::Media::Audio::Endpoints::IAudioEndpointVolume> {
+    unsafe { device.Activate(CLSCTX_ALL, None).ok() }
+}
+
+fn with_com<T>(work: impl FnOnce() -> Option<T>) -> Option<T> {
+    unsafe { CoInitializeEx(None, COINIT_MULTITHREADED).ok() }.ok()?;
+    let _com = Com;
+    work()
+}
+
+impl super::volume::SystemVolume for EndpointVolume {
+    fn output(&self) -> Option<super::volume::Output> {
+        with_com(|| {
+            default_endpoint().map(|(device, _)| super::volume::Output {
+                device,
+                profile: None,
+            })
         })
-    }).await.map_err(|e| e.to_string())?
+    }
+
+    fn get(&self) -> Option<f32> {
+        with_com(|| {
+            let volume = endpoint_volume(&default_endpoint()?.1)?;
+            unsafe {
+                if volume.GetMute().ok()?.as_bool() {
+                    return None;
+                }
+                volume.GetMasterVolumeLevelScalar().ok()
+            }
+        })
+    }
+
+    fn set(&self, device: &str, level: f32) -> bool {
+        with_com(|| {
+            let (current, endpoint) = default_endpoint()?;
+            if current != device {
+                return None;
+            }
+            let volume = endpoint_volume(&endpoint)?;
+            unsafe { volume.SetMasterVolumeLevelScalar(level.clamp(0.0, 1.0), std::ptr::null()) }
+                .ok()
+        })
+        .is_some()
+    }
+}
+
+pub fn system_volume() -> Option<Box<dyn super::volume::SystemVolume>> {
+    Some(Box::new(EndpointVolume))
 }

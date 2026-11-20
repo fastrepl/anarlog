@@ -15,7 +15,7 @@ mod pages;
 mod preferences_view;
 mod profile;
 pub(crate) mod provider_catalog;
-mod providers;
+pub(crate) mod providers;
 mod service_view;
 pub mod services;
 pub mod settings;
@@ -184,6 +184,9 @@ impl ProductPane {
     }
 
     pub fn can_close(&mut self, cx: &mut Context<Self>) -> bool {
+        if let Some((_, card)) = &self.profile {
+            card.update(cx, |card, cx| card.flush(cx));
+        }
         if self
             .providers
             .as_ref()

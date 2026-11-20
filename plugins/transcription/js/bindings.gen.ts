@@ -781,6 +781,42 @@ export const commands = {
       else return { status: "error", error: e as any };
     }
   },
+  async getMeetingCaptureCapability(
+    micDevice: string | null,
+  ): Promise<Result<MeetingCaptureCapability, string>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE(
+          "plugin:transcription|get_meeting_capture_capability",
+          { micDevice },
+        ),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
+  /**
+   * The signed-in account changed (`None`: signed out), reported by the main window. Signing out or
+   * switching accounts ends the recording of the previous account at once (its pending notice and
+   * camera work cancel) and stops it through the record path; signing in keeps a local recording.
+   */
+  async setMeetingAccount(
+    accountId: string | null,
+  ): Promise<Result<null, string>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("plugin:transcription|set_meeting_account", {
+          accountId,
+        }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
 };
 
 /** user-defined events **/
@@ -790,6 +826,7 @@ export const events = __makeEvents__<{
   captureLifecycleEvent: CaptureLifecycleEvent;
   captureStatusEvent: CaptureStatusEvent;
   liveTranscriptPersistenceEvent: LiveTranscriptPersistenceEvent;
+  meetingCaptureAutoStopEvent: MeetingCaptureAutoStopEvent;
   sessionAudioRetentionEvent: SessionAudioRetentionEvent;
   transcriptionEvent: TranscriptionEvent;
 }>({
@@ -798,6 +835,8 @@ export const events = __makeEvents__<{
   captureStatusEvent: "plugin:transcription:capture-status-event",
   liveTranscriptPersistenceEvent:
     "plugin:transcription:live-transcript-persistence-event",
+  meetingCaptureAutoStopEvent:
+    "plugin:transcription:meeting-capture-auto-stop-event",
   sessionAudioRetentionEvent:
     "plugin:transcription:session-audio-retention-event",
   transcriptionEvent: "plugin:transcription:transcription-event",
@@ -1019,6 +1058,11 @@ export type CaptureParams = {
   transcription_mode?: TranscriptionMode | null;
   participant_human_ids?: string[];
   self_human_id?: string | null;
+  /**
+   * The Meet extension's start request this capture records, as its start's go answer named
+   * it. Only that request's reservation makes it the extension's; a stale one is refused.
+   */
+  extension_start?: string | null;
 };
 export type CapturePhase = "capturing" | "finalizing";
 export type CaptureRecovery = { session_id: string; process_stopped: boolean };
@@ -1127,6 +1171,94 @@ export type LiveTranscriptTarget = {
   provider: string | null;
   model: string | null;
 };
+/**
+ * A recording Rust stopped on its own (the call's app quit, the maximum length, or sign-out or
+ * an account switch). Sent only when that stop ended this capture's recording; a person's own
+ * stop and a stop refused for a newer capture send nothing.
+ */
+export type MeetingCaptureAutoStopEvent = {
+  session_id: string;
+  capture_id: string;
+  reason: MeetingCaptureAutoStopReason;
+};
+export type MeetingCaptureAutoStopReason =
+  | "appClosed"
+  | "durationLimit"
+  | "accountChanged";
+export type MeetingCaptureCapability = {
+  native_available: boolean;
+  selects_microphone: boolean;
+  /**
+   * The engine a recording started now would use.
+   */
+  engine: MeetingCaptureEngineKind;
+  reason: string | null;
+};
+export type MeetingCaptureEngineKind = "legacy" | "native_meeting";
+/**
+ * Whom the app showed speaking from `at_ms` until the next cue; absent means nobody.
+ */
+export type MeetingCueEvidence = { at_ms: number; participant?: number | null };
+/**
+ * Capture time in which nothing a reader reported holds: a pause, a lost read, a silent reader.
+ * `end_ms` is absent while it is still open.
+ */
+export type MeetingEvidenceGap = { start_ms: number; end_ms?: number | null };
+/**
+ * One participant as the app identified them. Equal display names stay distinct by `id`.
+ */
+export type MeetingEvidenceParticipant = {
+  id: string;
+  name?: string | null;
+  is_self?: boolean;
+};
+export type MeetingEvidencePlatform =
+  | "google_meet"
+  | "zoom"
+  | "microsoft_teams"
+  | "webex";
+/**
+ * What one reader reported, compacted: unchanged rosters and cues are not repeated.
+ */
+export type MeetingEvidenceTrack = {
+  platform: MeetingEvidencePlatform;
+  participants?: MeetingEvidenceParticipant[];
+  rosters?: MeetingRosterEvidence[];
+  cues?: MeetingCueEvidence[];
+  gaps?: MeetingEvidenceGap[];
+  last_heard_ms: number;
+};
+/**
+ * Who the app showed from `at_ms` until the next roster (indices into `participants`).
+ */
+export type MeetingRosterEvidence = {
+  at_ms: number;
+  participants: number[];
+  count?: number | null;
+  /**
+   * Every row is present and identified: the app's count matches, each row has a name and says
+   * whether it is the local user, and exactly one is.
+   */
+  complete?: boolean;
+};
+/**
+ * One capture's platform evidence. The browser extension's track wins over the helper's.
+ */
+export type MeetingSpeakerEvidence = {
+  capture_id: string;
+  started_at_ms: number;
+  /**
+   * Set when the capture ended; names are final from then on.
+   */
+  ended_at_ms?: number | null;
+  pauses?: MeetingEvidenceGap[];
+  /**
+   * Where the live transcription stream restarted; provider voice indices restart there.
+   */
+  provider_restarts_ms?: number[];
+  browser?: MeetingEvidenceTrack | null;
+  native?: MeetingEvidenceTrack | null;
+};
 export type PartialWord = {
   text: string;
   start_ms: number;
@@ -1230,7 +1362,13 @@ export type SpeakerClusterReconciliationRequest = {
   words: StoredTranscriptWord[];
   hints: StoredSpeakerHint[];
 };
-export type SpeakerContext = { intervals: SpeakerContextInterval[] };
+export type SpeakerContext = {
+  intervals: SpeakerContextInterval[];
+  /**
+   * Platform evidence per capture of this session. Malformed entries are dropped on read.
+   */
+  meetings?: MeetingSpeakerEvidence[];
+};
 export type SpeakerContextInterval = {
   start_ms: number;
   end_ms: number;
@@ -1246,7 +1384,15 @@ export type SpeakerResolutionReason =
   | "personal_microphone"
   | "virtual_meeting_microphone"
   | "sole_remote_participant"
-  | "one_on_one_title";
+  | "one_on_one_title"
+  /**
+   * The meeting app showed this participant speaking over most of the voice.
+   */
+  | "meeting_active_speaker"
+  /**
+   * The meeting app's roster showed exactly one other person while the voice spoke.
+   */
+  | "meeting_one_on_one";
 export type StoppedCapture = {
   session_id: string;
   stopped_at_ms: number;

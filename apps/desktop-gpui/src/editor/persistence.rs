@@ -77,7 +77,7 @@ impl SaveJournal {
             wake: Condvar::new(),
         });
         let guard = Arc::downgrade(&shared);
-        runtime.register_flush(Box::new(move || Box::pin(async move {
+        runtime.register_owned_flush(&shared, Box::new(move || Box::pin(async move {
             if let Some(shared) = guard.upgrade() {
                 let state = shared.state.lock().map_err(|_| failed("Editor journal lock failed"))?;
                 if state.pending.is_some() || state.saving {
@@ -298,6 +298,24 @@ mod tests {
         .unwrap();
         assert!(loaded.note.unwrap().body.contains("revision 200"));
         drop(journal);
+        block_on(runtime.shutdown()).unwrap();
+    }
+
+    #[test]
+    fn closed_editors_do_not_exhaust_shutdown_registrations() {
+        let directory = tempfile::tempdir().unwrap();
+        let (runtime, ready) = RuntimeHandle::start(Profile {
+            database: directory.path().join("editor.db"),
+        })
+        .unwrap();
+        block_on(ready.receive()).unwrap();
+        let session = block_on(runtime.create_note("fixture".into()).unwrap().receive()).unwrap();
+        let base = session.note.unwrap();
+        for _ in 0..3 * desktop_runtime::QUEUE_CAPACITY {
+            let (journal, _events) =
+                block_on(SaveJournal::start(runtime.clone(), base.clone())).unwrap();
+            drop(journal);
+        }
         block_on(runtime.shutdown()).unwrap();
     }
 

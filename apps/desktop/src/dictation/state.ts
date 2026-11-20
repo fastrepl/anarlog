@@ -1,10 +1,10 @@
 import { create } from "zustand";
 
-import type { DictationPhase } from "./controller";
+import type { EnginePhase } from "./engine";
 
 export const useDictationStatus = create<{
   capturingShortcut: boolean;
-  phase: DictationPhase;
+  phase: EnginePhase;
   error: string | null;
   lastTranscript: string;
   ready: boolean;
@@ -20,6 +20,7 @@ export const useDictationStatus = create<{
   expanded: boolean;
   cancel: (() => void) | null;
   finish: (() => void) | null;
+  recoveryVersion: number;
 }>(() => ({
   capturingShortcut: false,
   phase: "idle",
@@ -38,4 +39,5 @@ export const useDictationStatus = create<{
   expanded: false,
   cancel: null,
   finish: null,
+  recoveryVersion: 0,
 }));

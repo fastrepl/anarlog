@@ -5,10 +5,11 @@ use tokio::{
     sync::{mpsc, watch},
     task::JoinSet,
 };
+use tokio_util::sync::CancellationToken;
 
 use crate::{
-    Command, FlushParticipant, QUEUE_CAPACITY, Result, RuntimeState, ServiceError, Services,
-    ShutdownPhase, Work, types::failure,
+    Command, QUEUE_CAPACITY, Result, RuntimeState, ServiceError, Services, ShutdownPhase, Work,
+    shutdown::Participant, types::failure,
 };
 
 pub(crate) async fn run(
@@ -17,16 +18,21 @@ pub(crate) async fn run(
     services: Services,
     state: &watch::Sender<RuntimeState>,
 ) -> Result<()> {
+    let services_ended = CancellationToken::new();
     let (mut participants, jobs) = tokio::join!(
-        database_queue(receiver, services.clone(), state),
-        service_queue(service_receiver, services.clone()),
+        database_queue(receiver, services.clone(), services_ended.clone(), state),
+        async {
+            let jobs = service_queue(service_receiver, services.clone()).await;
+            services_ended.cancel();
+            jobs
+        },
     );
     state.send_replace(RuntimeState::Flushing);
     let mut errors = Vec::new();
     if let Err(error) = jobs {
         errors.push(error.to_string());
     }
-    participants.sort_by_key(|(phase, _)| *phase);
+    participants.sort_by_key(|participant| participant.phase);
     for phase in [
         ShutdownPhase::PendingDeletions,
         ShutdownPhase::ApplicationState,
@@ -34,8 +40,11 @@ pub(crate) async fn run(
         ShutdownPhase::StopServices,
     ] {
         let mut pending = Vec::new();
-        while participants.first().is_some_and(|(next, _)| *next == phase) {
-            let (_, participant) = participants.remove(0);
+        while participants
+            .first()
+            .is_some_and(|participant| participant.phase == phase)
+        {
+            let participant = participants.remove(0).run;
             pending.push(AssertUnwindSafe(async move { participant().await }).catch_unwind());
         }
         let all = futures::future::join_all(pending);
@@ -57,6 +66,7 @@ pub(crate) async fn run(
     }
     services.watches.close().await;
     services.db.pool().close().await;
+    services.library.lock().await.close().await;
     if errors.is_empty() {
         Ok(())
     } else {
@@ -64,31 +74,40 @@ pub(crate) async fn run(
     }
 }
 
+/// Shutdown stops admitting handle work at once, but the queue closes only after the service
+/// jobs ended: they may still record their outcomes through `Services::submit`.
 async fn database_queue(
     mut receiver: mpsc::Receiver<Command>,
     services: Services,
+    services_ended: CancellationToken,
     state: &watch::Sender<RuntimeState>,
-) -> Vec<(ShutdownPhase, FlushParticipant)> {
+) -> Vec<Participant> {
     let mut participants = Vec::new();
     let mut draining = false;
+    let mut closed = false;
     loop {
         let command = tokio::select! {
             biased;
             _ = services.shutdown_requested.cancelled(), if !draining => {
                 draining = true;
-                receiver.close();
                 state.send_replace(RuntimeState::Draining);
+                continue;
+            }
+            _ = services_ended.cancelled(), if !closed => {
+                closed = true;
+                receiver.close();
                 continue;
             }
             command = receiver.recv() => command,
         };
         match command {
             Some(Command::Work(work)) => work(services.clone()).await,
-            Some(Command::Register(phase, participant, reply)) => {
+            Some(Command::Register(participant, reply)) => {
+                participants.retain(Participant::live);
                 if participants.len() == QUEUE_CAPACITY {
                     let _ = reply.send(Err(ServiceError::Busy));
                 } else {
-                    participants.push((phase, participant));
+                    participants.push(participant);
                     let _ = reply.send(Ok(()));
                 }
             }

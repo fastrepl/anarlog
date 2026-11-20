@@ -488,38 +488,53 @@ impl PreferencesView {
         let muted = colors.muted_foreground;
         let foreground = colors.foreground;
         let accent = colors.accent;
-        let suggestions = (self.ticket.show_suggestions && !self.ticket.suggestions.is_empty())
-            .then(|| {
-                controls::dropdown(
-                    div()
-                        .mt_1()
-                        .w(px(288.))
-                        .p_1()
-                        .border_1()
-                        .border_color(colors.border)
-                        .bg(colors.popover)
-                        .shadow_md()
-                        .occlude()
-                        .children(self.ticket.suggestions.iter().enumerate().map(
-                            |(index, repo)| {
-                                let repo = repo.clone();
-                                div()
-                                    .id(SharedString::from(format!("ticket-suggestion-{index}")))
-                                    .px_3()
-                                    .py(px(6.))
-                                    .text_sm()
-                                    .text_color(muted)
-                                    .cursor_pointer()
-                                    .hover(move |style| style.bg(accent))
-                                    .child(repo.clone())
-                                    .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                                        this.select_repository(repo.clone(), cx)
-                                    }))
-                            },
-                        )),
-                    false,
+        // A non-modal `Popover` that leaves focus in the input: a press outside or Escape in
+        // the input closes it.
+        let open = self.ticket.show_suggestions && !self.ticket.suggestions.is_empty();
+        let suggestions = open.then(|| {
+            div().absolute().top_full().left_0().child(
+                gpui::deferred(
+                    gpui::anchored().snap_to_window_with_margin(px(8.)).child(
+                        div()
+                            .id("ticket-suggestions")
+                            .mt_1()
+                            .w(px(288.))
+                            .p_1()
+                            .border_1()
+                            .border_color(colors.border)
+                            .bg(colors.popover)
+                            .shadow_md()
+                            .occlude()
+                            .on_mouse_down_out(cx.listener(|this, _, _, cx| {
+                                this.ticket.show_suggestions = false;
+                                cx.notify();
+                            }))
+                            .children(self.ticket.suggestions.iter().enumerate().map(
+                                |(index, repo)| {
+                                    let repo = repo.clone();
+                                    div()
+                                        .id(SharedString::from(format!(
+                                            "ticket-suggestion-{index}"
+                                        )))
+                                        .px_3()
+                                        .py(px(6.))
+                                        .text_sm()
+                                        .text_color(muted)
+                                        .cursor_pointer()
+                                        .hover(move |style| style.bg(accent))
+                                        .child(repo.clone())
+                                        .on_click(cx.listener(
+                                            move |this, _: &ClickEvent, _, cx| {
+                                                this.select_repository(repo.clone(), cx)
+                                            },
+                                        ))
+                                },
+                            )),
+                    ),
                 )
-            });
+                .with_priority(1),
+            )
+        });
         let text_button = |id: &'static str, label: &'static str, enabled: bool| {
             div()
                 .id(id)
@@ -551,6 +566,13 @@ impl PreferencesView {
                     .border_color(colors.input)
                     .shadow_xs()
                     .text_sm()
+                    .on_key_down(cx.listener(move |this, event: &gpui::KeyDownEvent, _, cx| {
+                        if open && event.keystroke.key == "escape" {
+                            this.ticket.show_suggestions = false;
+                            cx.stop_propagation();
+                            cx.notify();
+                        }
+                    }))
                     .child(div().flex_1().h(px(20.)).child(self.ticket.input.clone()))
                     .children(suggestions),
             )

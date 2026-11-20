@@ -111,6 +111,10 @@ vi.mock("@tauri-apps/api/core", () => ({
   isTauri: () => true,
 }));
 
+vi.mock("@tauri-apps/api/app", () => ({
+  getIdentifier: vi.fn().mockResolvedValue("com.hyprnote.stable"),
+}));
+
 vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({
   writeText: mocks.clipboardWriteText,
 }));

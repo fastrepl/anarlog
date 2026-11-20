@@ -19,10 +19,14 @@ pub const MAX_RECORDING: Duration = Duration::from_secs(5 * 60);
 pub const WAVEFORM: [f32; 14] = [3., 7., 5., 10., 6., 12., 8., 4., 9., 6., 11., 5., 8., 3.];
 
 pub trait VoiceInput: Send + Sync {
-    fn start(&self) -> BoxFuture<'static, Result<()>>;
+    /// Starts a recording; the future resolves once the microphone records. Dropping the
+    /// recording before it stops, even while it starts, cancels it and deletes its audio.
+    fn start(&self) -> (Box<dyn VoiceRecording>, BoxFuture<'static, Result<()>>);
+}
+
+pub trait VoiceRecording {
     /// Stops recording and returns the transcript.
-    fn stop(&self) -> BoxFuture<'static, Result<String>>;
-    fn cancel(&self);
+    fn stop(self: Box<Self>) -> BoxFuture<'static, Result<String>>;
 }
 
 #[derive(Clone)]

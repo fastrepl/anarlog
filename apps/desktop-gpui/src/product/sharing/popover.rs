@@ -8,8 +8,8 @@ use desktop_runtime::{CancellationToken, RuntimeHandle, ServiceError, SessionId}
 use gpui::{
     Animation, AnimationExt, AnyElement, App, Bounds, ClickEvent, Context, Div, Entity,
     EventEmitter, FocusHandle, FontWeight, Hsla, Pixels, Render, SharedString, Stateful,
-    Subscription, Transformation, Window, anchored, canvas, deferred, div, img, percentage,
-    prelude::*, px, svg,
+    Subscription, Transformation, Window, anchored, canvas, deferred, div, percentage, prelude::*,
+    px, svg,
 };
 use serde_json::{Value, json};
 
@@ -51,7 +51,6 @@ const DEFAULT_ACCESS_SQL: &str = "SELECT COALESCE(
 enum Mode {
     Invite,
     Email,
-    Slack,
 }
 
 #[derive(Clone, PartialEq, Eq)]
@@ -64,6 +63,7 @@ enum Menu {
 #[derive(Clone, PartialEq, Eq)]
 enum Pending {
     Invite,
+    Email,
     CopyLink,
     Access,
     Entry(Arc<str>),
@@ -103,8 +103,6 @@ pub struct SharePopover {
     error: Option<SharedString>,
     /// The access the user just picked, shown until the refreshed share confirms it.
     optimistic: Option<GeneralAccess>,
-    /// Slack's integration page is being opened.
-    connecting: bool,
     areas: Areas,
     focus: FocusHandle,
     cancel: CancellationToken,
@@ -168,7 +166,6 @@ impl SharePopover {
             load_failed: false,
             error: None,
             optimistic: None,
-            connecting: false,
             areas: Areas::default(),
             focus,
             cancel: CancellationToken::new(),
@@ -352,19 +349,37 @@ impl SharePopover {
                 this.pending = None;
                 this.optimistic = None;
                 match result {
-                    Ok(share) => {
+                    Ok(refreshed) => {
                         if let ShareCommand::Invite(emails) = &command {
                             for email in emails {
                                 this.invite.remove(email);
                             }
                             this.query.update(cx, |q, cx| q.set_text(String::new(), cx));
                         }
+                        if let ShareCommand::EmailRecap(emails) = &command {
+                            for email in emails {
+                                this.email.remove(email);
+                            }
+                            this.email_query
+                                .update(cx, |q, cx| q.set_text(String::new(), cx));
+                            crate::application::toasts::success(
+                                if emails.len() > 1 {
+                                    "Meeting notes sent."
+                                } else {
+                                    "Meeting note sent."
+                                },
+                                cx,
+                            );
+                        }
                         if let ShareCommand::Remove(entry) = &command
                             && let Some(email) = &entry.email
                         {
                             this.invite.restore(email);
                         }
-                        remember(this.session.clone(), share, cx);
+                        // The command took effect; a failed read-back keeps the last known share.
+                        if let Ok(share) = refreshed {
+                            remember(this.session.clone(), share, cx);
+                        }
                         this.exclude_invited(cx);
                     }
                     Err(_) => this.error = Some(failure_message(&command).into()),
@@ -405,12 +420,23 @@ impl SharePopover {
         self.invite.commit(&typed);
         self.run(Pending::Invite, ShareCommand::Invite(emails), cx);
     }
+
+    fn submit_email(&mut self, cx: &mut Context<Self>) {
+        let typed = self.email_query.read(cx).buffer.text.clone();
+        let emails = self.email.emails(&typed);
+        if !self.email.can_submit(&typed) {
+            return;
+        }
+        self.email.commit(&typed);
+        self.run(Pending::Email, ShareCommand::EmailRecap(emails), cx);
+    }
 }
 
 fn failure_message(command: &ShareCommand) -> &'static str {
     match command {
         ShareCommand::Invite(emails) if emails.len() > 1 => "Could not create these invitations.",
         ShareCommand::Invite(_) => "Could not create this invitation.",
+        ShareCommand::EmailRecap(_) => "Could not email the meeting notes.",
         ShareCommand::CopyLink => "Could not copy the share link.",
         ShareCommand::Access(_) => "Could not update general access.",
         ShareCommand::OpenWebCopy => "Could not open the web copy.",
@@ -878,7 +904,6 @@ impl SharePopover {
                     cx,
                 )),
                 Mode::Email => view.child(self.email_section(!can_publish || busy, colors, cx)),
-                Mode::Slack => view.child(self.slack_section(!can_publish || busy, colors, cx)),
             })
             .when_some(self.error.clone(), |view, error| {
                 view.child(
@@ -1572,13 +1597,10 @@ impl SharePopover {
                         &typed,
                         &self.email,
                         disabled,
-                        false,
+                        self.pending == Some(Pending::Email),
                         "Send",
                         colors,
-                        cx.listener(|this, _, _, cx| {
-                            this.error = Some("Could not email the meeting notes.".into());
-                            cx.notify();
-                        }),
+                        cx.listener(|this, _, _, cx| this.submit_email(cx)),
                     ))
                     .when(!suggestions.is_empty(), |view| {
                         view.child(self.suggestion_list(suggestions, true, colors, cx))
@@ -1587,65 +1609,6 @@ impl SharePopover {
             .when(!recipients.is_empty(), |view| {
                 view.child(self.recipient_rows(&recipients, true, disabled, None, colors, cx))
             })
-    }
-
-    fn slack_section(
-        &mut self,
-        disabled: bool,
-        colors: Theme,
-        cx: &mut Context<Self>,
-    ) -> impl IntoElement {
-        div()
-            .flex()
-            .flex_col()
-            .gap_2()
-            .child(self.recap_heading(
-                "Send to Slack",
-                "Connect Slack to choose a channel for this recap.",
-                colors,
-                cx,
-            ))
-            .child(
-                div().flex().child(
-                    button(
-                        "share-connect-slack",
-                        false,
-                        !disabled && !self.connecting,
-                        colors,
-                    )
-                    .h(px(32.))
-                    .when(!disabled && !self.connecting, |b| {
-                        b.on_click(cx.listener(|this, _, _, cx| this.connect_slack(cx)))
-                    })
-                    .child(img("sharing/SlackLogo.svg").size(px(16.)))
-                    .child("Connect Slack"),
-                ),
-            )
-    }
-
-    /// Shipping's delivery panel opens Slack's integration page with the browser hand-off.
-    fn connect_slack(&mut self, cx: &mut Context<Self>) {
-        let Some(cloud) = cx.try_global::<SharingCloud>().map(|cloud| cloud.0.clone()) else {
-            return;
-        };
-        self.connecting = true;
-        cx.notify();
-        let job = cloud.open_integration("slack".into(), "connect", None, None);
-        cx.spawn(async move |this, cx| {
-            let result = job.await;
-            let _ = this.update(cx, |this, cx| {
-                this.connecting = false;
-                if let Err(error) = result {
-                    tracing::warn!(%error, "Slack integration setup did not open");
-                    crate::application::toasts::error(
-                        crate::product::integrations::SETUP_ERROR,
-                        cx,
-                    );
-                }
-                cx.notify();
-            });
-        })
-        .detach();
     }
 
     fn footer(
@@ -1926,6 +1889,8 @@ impl SharePopover {
                     .border_color(colors.app_floating_border)
                     .bg(colors.app_floating_panel)
                     .text_color(colors.popover_foreground)
+                    // Slack recaps stay hidden until its connection, channels and send are
+                    // ported from shipping's delivery panel.
                     .child(
                         item(
                             "share-recap-email",
@@ -1935,20 +1900,6 @@ impl SharePopover {
                         )
                         .on_click(cx.listener(|this, _, _, cx| {
                             this.mode = Mode::Email;
-                            this.menu = None;
-                            cx.notify();
-                        })),
-                    )
-                    .child(
-                        item(
-                            "share-recap-slack",
-                            "Slack",
-                            img("sharing/SlackLogo.svg")
-                                .size(px(16.))
-                                .into_any_element(),
-                        )
-                        .on_click(cx.listener(|this, _, _, cx| {
-                            this.mode = Mode::Slack;
                             this.menu = None;
                             cx.notify();
                         })),

@@ -4,6 +4,7 @@ use std::{
 };
 
 use anlg_calendar::CalendarProviderType;
+use anlg_desktop_identity::{Channel, Locations, auth::AuthPaths};
 use desktop_runtime::{CancellationToken, Result, RuntimeHandle, ServiceError};
 use futures::{
     SinkExt,
@@ -13,6 +14,7 @@ use futures::{
 use serde_json::json;
 
 use crate::{
+    launch::Storage,
     meeting::{
         MeetingServices,
         capture::Phase,
@@ -20,7 +22,11 @@ use crate::{
     },
     platform::permissions::NativePermissions,
     product::{
-        cloud::{CloudConfig, CloudServices, auth::KeyringStore, host::NativeHost},
+        cloud::{
+            ChannelStore, CloudConfig, CloudServices, SecretNames,
+            auth::{KeyringStore, SecureStore, SessionStore, ShippingSession},
+            host::NativeHost,
+        },
         local::{
             HostEffects, LocalServices,
             calendar::{AccessToken, CalendarAuth, CalendarService},
@@ -31,6 +37,8 @@ use crate::{
         services::{Mutation, Outcome, Panel, ProductServices, Request, Surface},
     },
 };
+
+const SANDBOX_IDENTIFIER: &str = "com.anarlog.gpui.sandbox";
 
 pub enum HostCommand {
     Flush(oneshot::Sender<Result<()>>),
@@ -229,45 +237,58 @@ pub struct NativeServices {
 impl NativeServices {
     pub async fn new(
         runtime: RuntimeHandle,
-        profile: PathBuf,
-        pointer: PathBuf,
+        storage: Storage,
         effects: Arc<Effects>,
         host: Arc<NativeHost>,
     ) -> Result<Self> {
         let api = std::env::var("VITE_API_URL").unwrap_or_else(|_| "https://api.anarlog.so".into());
-        let cloud_config = config(&runtime, profile.clone(), &api).await;
-        let cloud = match cloud_config {
-            Ok(config) => match CloudServices::new(
-                runtime.clone(),
-                config,
+        let cloud_config = config(&runtime, &storage, &api).await;
+        let shipping_store = storage.shipping_store();
+        let profile = storage.root;
+        // A channel run uses the shipping channel's secure store and names, so the secrets the
+        // shipping app saved, the recovery key among them, are found in place.
+        let (identifier, store): (&str, Arc<dyn SecureStore>) = match storage.channel {
+            Some(channel) => (
+                channel.identifier(),
+                Arc::new(ChannelStore::keyring(channel.identifier())),
+            ),
+            None => (
+                SANDBOX_IDENTIFIER,
                 Arc::new(KeyringStore::new("com.anarlog.gpui.sandbox.secure-store")),
-                host,
-            )
-            .await
-            {
-                Ok(service) => CloudConnection {
-                    service: Some(service),
-                    error: ServiceError::Closed,
-                },
-                Err(error) => CloudConnection {
-                    service: None,
-                    error,
-                },
-            },
+            ),
+        };
+        let cloud = match cloud_config.and_then(|config| {
+            let session = storage
+                .channel
+                .map(|channel| shipping_session(channel, &config));
+            Ok((config, session.transpose()?))
+        }) {
+            Ok((config, session)) => {
+                match CloudServices::with_session(runtime.clone(), config, store, session, host)
+                    .await
+                {
+                    Ok(service) => CloudConnection {
+                        service: Some(service),
+                        error: ServiceError::Closed,
+                    },
+                    Err(error) => CloudConnection {
+                        service: None,
+                        error,
+                    },
+                }
+            }
             Err(error) => CloudConnection {
                 service: None,
                 error,
             },
         };
-        let resources = std::env::var_os("ANARLOG_NATIVE_RESOURCES")
-            .map(PathBuf::from)
-            .unwrap_or(
-                std::env::current_exe()
-                    .map_err(failure)?
-                    .parent()
-                    .ok_or(ServiceError::Closed)?
-                    .join("resources"),
-            );
+        let resources = crate::platform::package::Resources::current();
+        let executable = |name| {
+            resources
+                .as_ref()
+                .map(|resources| resources.executable(name))
+                .unwrap_or_default()
+        };
         let home = std::env::var_os("HOME")
             .or_else(|| std::env::var_os("USERPROFILE"))
             .map(PathBuf::from)
@@ -275,16 +296,8 @@ impl NativeServices {
         let models = Arc::new(ModelService::new(
             profile.join("models"),
             EngineResources {
-                argmax: resources.join(if cfg!(windows) {
-                    "argmax.exe"
-                } else {
-                    "argmax"
-                }),
-                llama_server: resources.join(if cfg!(windows) {
-                    "llama-server.exe"
-                } else {
-                    "llama-server"
-                }),
+                argmax: executable("argmax"),
+                llama_server: executable("llama-server"),
                 argmax_api_key: std::env::var("ARGMAX_API_KEY").unwrap_or_default(),
             },
         ));
@@ -314,18 +327,19 @@ impl NativeServices {
                                 return Ok(path.to_string_lossy().into_owned());
                             }
                             let model = ModelService::resolve(&request.model)?;
-                            models
-                                .start(model, services.shutdown_requested.clone())
-                                .await
+                            let cancel = services.shutdown_requested.clone();
+                            if request.batch {
+                                models.batch(model, cancel).await
+                            } else {
+                                models.start(model, cancel).await
+                            }
                         })?
                         .receive()
                         .await
                 })
             }),
-            secret: crate::meeting::config::keyring_secrets("com.anarlog.gpui.sandbox".into()),
-            secret_write: crate::meeting::subscription::keyring_writer(
-                "com.anarlog.gpui.sandbox".into(),
-            ),
+            secret: crate::meeting::config::keyring_secrets(identifier.into()),
+            secret_write: crate::meeting::subscription::keyring_writer(identifier.into()),
         };
         let stop_models = models.clone();
         let stop_effects = effects.clone();
@@ -350,17 +364,16 @@ impl NativeServices {
             models,
             calendar: CalendarService::new(api.into(), Arc::new(cloud.clone())),
             developers: DeveloperTools {
-                bundled_cli: resources.join(if cfg!(windows) {
-                    "anarlog.exe"
-                } else {
-                    "anarlog"
-                }),
+                // Shipping's `externalBin` sidecar, beside the app's executable.
+                bundled_cli: executable("anarlog-cli"),
                 home,
-                command_name: "anarlog",
-                version: env!("CARGO_PKG_VERSION"),
+                command_name: crate::platform::package::channel()
+                    .map_or("anarlog", anlg_desktop_identity::Channel::executable),
+                version: crate::platform::package::VERSION,
             },
             storage_root: profile,
-            storage_pointer: pointer,
+            storage_pointer: storage.pointer,
+            shipping_store,
         });
         Ok(Self {
             local,
@@ -370,7 +383,7 @@ impl NativeServices {
     }
 }
 
-async fn config(runtime: &RuntimeHandle, profile: PathBuf, api: &str) -> Result<CloudConfig> {
+async fn config(runtime: &RuntimeHandle, storage: &Storage, api: &str) -> Result<CloudConfig> {
     let supabase = std::env::var("VITE_SUPABASE_URL").or_else(|_| option_env!("VITE_SUPABASE_URL").map(str::to_owned).ok_or(std::env::VarError::NotPresent))
         .map_err(|_| failure("Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY for native cloud sign-in, then restart"))?;
     let anon_key = std::env::var("VITE_SUPABASE_ANON_KEY")
@@ -382,16 +395,26 @@ async fn config(runtime: &RuntimeHandle, profile: PathBuf, api: &str) -> Result<
         .map_err(|_| {
             failure("Set VITE_SUPABASE_ANON_KEY for native cloud sign-in, then restart")
         })?;
-    let fingerprint = runtime
+    let channel = storage.channel;
+    let profile = storage.root.clone();
+    let (fingerprint, device_name) = runtime
         .service(move |_| async move {
             tokio::task::spawn_blocking(move || {
+                let device_name = anlg_desktop_identity::device::device_name()
+                    .unwrap_or_else(|| "Anarlog native desktop".into());
+                // Shipping's machine-derived fingerprint keeps this device's sync slot. A
+                // sandbox profile is a separate device.
+                if channel.is_some() {
+                    return Ok((anlg_desktop_identity::device::fingerprint(), device_name));
+                }
                 let path = profile.join("device-id");
                 if path.exists() {
-                    return std::fs::read_to_string(path).map_err(failure);
+                    let id = std::fs::read_to_string(path).map_err(failure)?;
+                    return Ok((id, device_name));
                 }
                 let id = uuid::Uuid::new_v4().to_string();
                 anlg_storage::fs::atomic_write(&path, &id).map_err(failure)?;
-                Ok(id)
+                Ok((id, device_name))
             })
             .await
             .map_err(failure)?
@@ -406,9 +429,52 @@ async fn config(runtime: &RuntimeHandle, profile: PathBuf, api: &str) -> Result<
             .parse()
             .map_err(failure)?,
         anon_key,
-        callback: "anarlog-dev://auth/callback".parse().map_err(failure)?,
-        credential_namespace: format!("gpui-{fingerprint}"),
+        callback: sign_in_callback(channel).parse().map_err(failure)?,
+        secrets: match channel {
+            Some(_) => SecretNames::Channel,
+            None => SecretNames::Sandbox(format!("gpui-{fingerprint}")),
+        },
         device_fingerprint: fingerprint,
-        device_name: std::env::var("HOSTNAME").unwrap_or_else(|_| "Anarlog native desktop".into()),
+        device_name,
     })
+}
+
+/// Shipping's web sign-in returns to `<scheme>://auth/callback`, with the scheme the app passes.
+fn sign_in_callback(channel: Option<Channel>) -> String {
+    let scheme = channel.map_or("anarlog-dev", |channel| channel.schemes()[0]);
+    format!("{scheme}://auth/callback")
+}
+
+/// A channel run keeps the sign-in where the shipping app does, so the update keeps the user
+/// signed in and a rollback to the Tauri app still finds the session.
+fn shipping_session(channel: Channel, config: &CloudConfig) -> Result<Arc<dyn SessionStore>> {
+    let locations = Locations::resolve(channel.identifier())
+        .ok_or_else(|| failure("The application data directory is unavailable"))?;
+    let store = anlg_desktop_identity::session::SessionStore::for_platform(
+        AuthPaths::new(&locations),
+        channel.identifier(),
+    );
+    Ok(Arc::new(ShippingSession::new(store, &config.supabase)))
+}
+
+#[cfg(test)]
+mod tests {
+    /// `crates/desktop-identity` pins the same values on the shipping toolchain; a
+    /// `DefaultHasher` change would make every user a new sync device.
+    #[test]
+    fn fingerprint_matches_the_shipping_toolchain() {
+        for (machine_uid, expected) in [
+            ("", "30406ea523c53def"),
+            ("00000000-0000-0000-0000-000000000000", "c104447f85eea341"),
+            ("6F8E2A0C-3B1D-4E5F-9A7B-1C2D3E4F5A6B", "5681594ddfa3a7"),
+            ("{6F8E2A0C-3B1D-4E5F-9A7B-1C2D3E4F5A6B}", "8136fff4c7357ff5"),
+            ("0123456789abcdef0123456789abcdef", "b7fc4b7cafcbcea0"),
+        ] {
+            assert_eq!(
+                anlg_desktop_identity::device::fingerprint_from(machine_uid),
+                expected,
+                "{machine_uid:?}"
+            );
+        }
+    }
 }

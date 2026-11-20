@@ -50,7 +50,12 @@ vi.mock("@anlg/ui/components/ui/toast", () => ({
 }));
 
 vi.mock("~/shared/config", () => ({
-  useConfigValue: () => [],
+  useConfigValue: (key: string) =>
+    key === "personalization_dictionary_terms" ? [] : undefined,
+}));
+
+vi.mock("~/auth", () => ({
+  useAuth: () => ({ session: { user: { id: "user-1" } } }),
 }));
 
 import { DictionarySettings, SettingsDictionary } from "./index";
@@ -70,8 +75,10 @@ describe("DictionarySettings", () => {
 
     render(<SettingsDictionary />);
 
-    expect(screen.getByRole("textbox")).toBeTruthy();
-    fireEvent.click(screen.getByRole("textbox"));
+    // The term editor comes first, ahead of replacements.
+    const [terms] = screen.getAllByRole("textbox");
+    expect(terms).toBeTruthy();
+    fireEvent.click(terms!);
 
     expect(mocks.toastWarning).toHaveBeenCalledWith(
       "This requires Anarlog Pro",
