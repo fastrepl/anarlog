@@ -4,8 +4,6 @@ mod ext;
 mod manifest;
 mod migrate;
 mod refresh;
-#[cfg(target_os = "windows")]
-mod windows;
 
 // Tauri unit tests bypass the application manifest while still importing
 // TaskDialogIndirect, so the test object must activate Common Controls v6.
@@ -53,14 +51,10 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
     tauri::plugin::Builder::new(PLUGIN_NAME)
         .invoke_handler(specta_builder.invoke_handler())
         .setup(|app, _api| {
-            #[cfg(all(target_os = "linux", not(test)))]
+            #[cfg(all(any(target_os = "linux", target_os = "windows"), not(test)))]
             let auth_store = anlg_supabase_auth::client::store::AuthStore::in_memory(
-                migrate::load_linux_auth(app)?,
+                migrate::session_store(app)?.load(),
             );
-
-            #[cfg(all(target_os = "windows", not(test)))]
-            let auth_store =
-                anlg_supabase_auth::client::store::AuthStore::in_memory(windows::load_auth(app)?);
 
             #[cfg(any(not(any(target_os = "linux", target_os = "windows")), test))]
             let auth_store = {

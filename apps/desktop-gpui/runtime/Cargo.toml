@@ -9,6 +9,7 @@ anlg-db-app = { workspace = true }
 anlg-db-core = { workspace = true }
 anlg-db-execute = { workspace = true }
 anlg-db-reactive = { workspace = true }
+anlg-desktop-identity = { workspace = true }
 futures = "0.3"
 icu_collator = "2.3"
 icu_locale_core = "2.3"
@@ -20,6 +21,7 @@ sys-locale = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "sync", "time", "macros"] }
 tokio-util = { workspace = true, features = ["rt"] }
+tracing = { workspace = true }
 updater-core = { path = "../../../crates/updater-core" }
 url = { workspace = true }
 uuid = { workspace = true, features = ["v4"] }

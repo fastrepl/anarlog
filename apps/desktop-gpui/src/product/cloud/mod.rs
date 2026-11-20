@@ -14,6 +14,7 @@ pub use account::{ReferralInvite, Referrals};
 pub use management::ManagementCommand;
 pub mod resources;
 mod review;
+mod secrets;
 mod sharing;
 mod sync;
 pub mod sync_view;
@@ -22,6 +23,7 @@ pub mod teams_view;
 mod transport;
 pub mod view;
 pub use review::{ConflictDecision, ConflictReview};
+pub use secrets::{ChannelStore, SecretNames};
 pub use sharing::ShareCommand;
 
 use std::sync::Arc;
@@ -34,7 +36,7 @@ use tokio::sync::Mutex;
 use zeroize::Zeroizing;
 
 use super::services::{Action, Mutation, Outcome, Panel, ProductServices, Request, Scope, Surface};
-use auth::{Auth, AuthLease, Identity, SecureAuthProvider, SecureStore};
+use auth::{Auth, AuthLease, Identity, SecureAuthProvider, SecureStore, SessionStore};
 pub use transport::CloudConfig;
 use transport::{Transport, failure};
 
@@ -70,9 +72,25 @@ impl CloudServices {
         store: Arc<dyn SecureStore>,
         host: Arc<dyn CloudHost>,
     ) -> Result<Self> {
+        Self::with_session(runtime, config, store, None, host).await
+    }
+
+    /// `session` keeps the sign-in elsewhere than in `store`, such as where the shipping app
+    /// keeps it.
+    pub async fn with_session(
+        runtime: RuntimeHandle,
+        config: CloudConfig,
+        store: Arc<dyn SecureStore>,
+        session: Option<Arc<dyn SessionStore>>,
+        host: Arc<dyn CloudHost>,
+    ) -> Result<Self> {
         let core = runtime
             .service(move |services| async move {
-                let auth = Auth::new(Transport::new(config)?, store).await?;
+                let transport = Transport::new(config)?;
+                let auth = match session {
+                    Some(session) => Auth::with_session(transport, store, session).await?,
+                    None => Auth::new(transport, store).await?,
+                };
                 let sync = sync::Sync::default();
                 services.db.set_cloudsync_sync_hook(sync.hook.clone());
                 Ok(Arc::new(Core {
@@ -143,14 +161,7 @@ impl CloudServices {
                         return Ok(());
                     };
                     match this.core.auth.lease(&account, force).await {
-                        Ok(lease) => {
-                            if !this.core.sync.update_required()
-                                && this.core.sync.enabled(&this.core.auth, &account).await?
-                            {
-                                this.core.sync.start(&this.core, &services, &lease).await?;
-                            }
-                            Ok(())
-                        }
+                        Ok(lease) => this.core.sync.resume(&this.core, &services, &lease).await,
                         Err(error) => {
                             this.core.sync.stop().await;
                             Err(error)

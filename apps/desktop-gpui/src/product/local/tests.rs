@@ -200,6 +200,46 @@ async fn runtime(root: &std::path::Path) -> RuntimeHandle {
     runtime
 }
 
+/// A user who finished onboarding in the shipping app isn't sent back to it, and finishing it
+/// here is recorded where a rollback reads it.
+#[tokio::test]
+async fn channel_onboarding_follows_shipping_store_json() {
+    use crate::product::onboarding;
+    use anlg_desktop_identity::store_json::StoreJson;
+    let root = tempfile::tempdir().unwrap();
+    let runtime = runtime(root.path()).await;
+    let needed = || async {
+        onboarding::needed(
+            data::setting_value(&runtime, onboarding::NEEDED_KEY.into())
+                .await
+                .unwrap()
+                .as_ref(),
+        )
+    };
+    let fresh = Arc::new(StoreJson::at(root.path().join("fresh/store.json")));
+    onboarding::import_shipping(&runtime, fresh.clone())
+        .await
+        .unwrap();
+    assert!(needed().await, "no shipping onboarding yet");
+
+    let shipping = Arc::new(StoreJson::at(root.path().join("store.json")));
+    shipping
+        .set("desktop", "OnboardingNeeded2", json!(false))
+        .unwrap();
+    onboarding::import_shipping(&runtime, shipping)
+        .await
+        .unwrap();
+    assert!(!needed().await);
+
+    onboarding::complete(&runtime, Some(fresh.clone()))
+        .await
+        .unwrap();
+    assert_eq!(
+        fresh.get("desktop", "OnboardingNeeded2").unwrap(),
+        Some(json!(false))
+    );
+}
+
 #[tokio::test]
 async fn generated_imports_and_onboarding_use_the_shipping_note_id() {
     let root = tempfile::tempdir().unwrap();

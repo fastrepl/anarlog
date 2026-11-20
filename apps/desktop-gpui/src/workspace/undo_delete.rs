@@ -138,7 +138,7 @@ pub fn finalize(runtime: &RuntimeHandle, id: SessionId) -> Result<Reply<()>> {
         if rows.is_empty() {
             return Ok(());
         }
-        let fs = super::folders::filesystem(&services.executor).await?;
+        let fs = super::folders::filesystem(&services.vault);
         tokio::task::spawn_blocking(move || {
             let path = fs.resolve_session_dir(&id.0).map_err(failure)?;
             anlg_fs_sync_core::session::delete_session_dir(&path).map_err(failure)

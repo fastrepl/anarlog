@@ -66,6 +66,7 @@ pub(crate) async fn run(
     }
     services.watches.close().await;
     services.db.pool().close().await;
+    services.library.lock().await.close().await;
     if errors.is_empty() {
         Ok(())
     } else {

@@ -27,15 +27,31 @@ Packaged builds will instead run in channel mode: CD compiles in
 shipping data through `crates/desktop-identity` (`src/launch.rs`). Unset builds,
 `cargo run` and tests stay in the sandbox, `--profile` always selects the sandbox,
 and a build kind that would resolve different folders than the shipping channel
-refuses to start (stable and nightly need release, dev needs debug). Channel mode
-already opens the channel's shipping `app.db`, but it is incomplete: opening it the
-way shipping does (the sqlite-sync extension, the reset marker, waiting for shipping's
-locks), the vault folders, the secure store and sign-in still use the sandbox's code.
-Don't compile a channel in yet. Launch arguments the shipping app
-receives (`--background`, `--onboarding`, `--updater2-*`, deep-link URLs) are
-accepted, and unknown ones are logged and ignored.
-The canonical schema is prepared with `db-app`. CloudSync starts disabled and
-requires account sign-in, encryption setup and explicit enablement.
+refuses to start (stable and nightly need release, dev needs debug). A channel
+run opens shipping's `app.db` in place, keeps notes, recordings and attachments in
+shipping's data folder, and reads the channel's secure store under shipping's
+service and account names (E2EE keys and provider keys, chunked like shipping).
+It keeps the sign-in in shipping's session store (`auth.json` on macOS, DPAPI on
+Windows, Secret Service with its fallbacks on Linux), which the bundled CLI shares,
+and its own pending sign-in and share links under `desktop-auth` and `share-links`
+in the channel's secure store; no sandbox name is used. Onboarding, pinned tabs,
+recent notes, the last seen version, the tray toggle and dismissed notices are read
+and written in shipping's `store.json`. Channel builds haven't been through a signed
+rehearsal yet; don't ship one. Launch arguments the shipping app receives
+(`--background`, `--onboarding`, `--updater2-*`, deep-link URLs) are accepted, and
+unknown ones are logged and ignored. A channel build also takes the
+shipping package's names: the channel identifier as Windows' AppUserModelID, the
+executable name as the Linux window class (the desktop entry's `StartupWMClass`), the
+tray ID `anlg-tray`, and on Linux it registers `<executable>-handler.desktop` for the
+channel's schemes at each start, as shipping does.
+Both modes open the database like shipping, with the bundled sqlite-sync extension
+loaded (`anlg_db_core::open_app_db`), so a database that ran sqlite-sync opens and
+migrates; slow migrations show their progress. A channel run waits up to a minute
+for the replaced app's launch and channel locks and applies its "Start fresh"
+marker; a sandbox refuses both at once. The canonical schema is prepared with
+`db-app`. CloudSync follows shipping's `cloud_sync_enabled` setting (on unless
+turned off) and also needs account sign-in and a recovery key; it advertises the
+`replica, accepted_replica` transports.
 
 The integrated preview mounts the native workspace, TipTap JSON editor,
 transcript/audio pane, and concrete cloud/local product services. The editor
@@ -53,14 +69,27 @@ them through the model manager.
 
 Cloud sign-in requires `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` at build
 or runtime. `VITE_API_URL` and `VITE_WEB_APP_URL` can select another deployment.
-The native sandbox uses separate keyring namespaces. Local engine executables
-and bundled CLI/skills are resolved under `ANARLOG_NATIVE_RESOURCES` (or the
-`resources` directory beside the executable); models are stored under the isolated
-profile. Argmax also requires `ARGMAX_API_KEY`.
+A sandbox profile keeps its own keyring namespace. Models are stored under the
+isolated profile.
 
-Pinned tabs are restored and saved with CAS through `app_settings.gpui_pinned_tabs`
-inside the isolated profile. Malformed persisted pin data disables pin writes.
-This does not import the shipping application's file-based pinned-tab store.
+Packaged files are found where Tauri's bundler puts them for the shipping app
+(`src/platform/package.rs`): icons and notification icons in the resource folder
+(macOS `Contents/Resources`, the deb's `/usr/lib/<product>`, the AppImage's
+`usr/lib/<product>`, Windows' install folder), and the CLI (`anarlog-cli`) beside
+the executable. Debug builds read icons from `apps/desktop/src-tauri/resources`.
+`ANARLOG_NATIVE_RESOURCES` overrides both with one folder in the packaged layout
+(`icons/<name>.icns`, `notification-icons/`, `anarlog-cli`). The release version is
+`APP_VERSION` at build time, as for the shipping app, else Cargo's.
+
+Shipping runs on-device transcription only through Soniqo and Apple Speech, and an
+on-device LLM only through Apple Foundation Models, all in process; its packages
+include no Argmax or llama.cpp server. Argmax and GGUF models therefore show "Not
+available in this build" unless an `argmax` or `llama-server` executable sits beside
+the app (or in `ANARLOG_NATIVE_RESOURCES`). Argmax also requires `ARGMAX_API_KEY`.
+
+Pinned tabs are restored and saved with CAS: a sandbox profile through
+`app_settings.gpui_pinned_tabs`, a channel run through shipping's `store.json`
+`desktop.PinnedTabs`. Malformed persisted pin data disables pin writes.
 Title/editor/product drafts gate navigation and quit. Like shipping, closing the
 main window (or the application-menu Quit) hides it and the app keeps running in
 the tray; the first ⌘Q only shows the quit overlay. A second ⌘Q (or ⌘⇧Q) or a
@@ -82,6 +111,47 @@ The tray also needs GTK 3 and the AppIndicator runtime/development packages.
 The app's lockfile started from the repository lockfile so shared crates resolve to
 the same versions; only GPUI's own requirements (for example the ICU 2.3 line)
 move ahead. The repository workspace and its lockfile are unchanged.
+
+## Package
+
+`packaging/bundle.py` runs Tauri's bundler (`tauri bundle`, the `@tauri-apps/cli`
+in `apps/desktop`) over a prebuilt release binary. The Tauri project is still
+`apps/desktop/src-tauri`, with the same `--config` files as `desktop_cd.yaml`, so the
+bundle ID, executable name, Info.plist, entitlements, resources, sidecars, DMG/NSIS/deb/
+AppImage layout, signing, notarization and updater artifacts come from shipping's
+configuration. `packaging/tauri.gpui.json` holds the only differences: GPUI's Linux
+runtime dependencies and no WebView2 installer on Windows.
+
+```sh
+# Stage the sidecars as desktop_cd.yaml does: `cargo xtask prepare-binaries` for the
+# CLI and Chrome host; on macOS also check-permissions (built by shipping's build.rs).
+# The channel is compiled in; keep it the one you bundle, which verify checks.
+ANARLOG_CHANNEL=staging APP_VERSION=1.5.0-dev.1+abc1234 cargo build --locked --release \
+  --target aarch64-apple-darwin
+python3 packaging/bundle.py bundle --channel staging --target aarch64-apple-darwin \
+  --binary target/aarch64-apple-darwin/release/desktop-gpui \
+  --version 1.5.0-dev.1+abc1234 --bundles app,dmg
+# CI-runnable check of a bundle built here or by this repository's CI; it runs the binary:
+python3 packaging/bundle.py verify --channel staging --target aarch64-apple-darwin \
+  --version 1.5.0-dev.1+abc1234 target/packaging.noindex/aarch64-apple-darwin/release/bundle
+```
+
+Signing follows the bundler's environment, as in shipping's CD: `APPLE_SIGNING_IDENTITY`
+(`-` signs ad hoc), the `APPLE_ID`/`APPLE_PASSWORD`/`APPLE_TEAM_ID` notarization trio and
+`TAURI_SIGNING_PRIVATE_KEY` for updater signatures. Pass `--team-id` to `verify` to
+require shipping's Developer ID designated requirement. `CI` defaults to `true`, which
+skips the DMG's Finder layout script; shipping's CD sets `CI=false` to get it.
+
+The release build finds its files where the bundler puts them, as Tauri's
+`resource_dir` does (`src/platform/package.rs`): resources in macOS
+`Contents/Resources`, the deb's `/usr/lib/<product>/`, the AppImage's
+`usr/lib/<product>/` and the NSIS install folder, and the CLI sidecar beside the
+executable. The bundle keeps shipping's layout with no bridge. Build with
+`ANARLOG_CHANNEL` and `APP_VERSION` set to the bundle's channel and version: `verify`
+runs the bundled binary with `--print-package` (the macOS app and the deb's copy) and
+checks the channel, version and package type it reports, and that the folders it reads
+resources and sidecars from are where the bundler put them. `--bundles` limits both
+commands to the package types it names.
 
 ## Architecture
 

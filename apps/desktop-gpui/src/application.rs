@@ -11,6 +11,7 @@ mod note_windows;
 mod notifications;
 mod release_notes;
 mod shared_notes;
+mod startup;
 pub mod team_invitations;
 pub mod toasts;
 
@@ -47,15 +48,18 @@ use crate::{
     workspace::{WorkspaceAction, WorkspaceView, navigation::Route, pins},
 };
 
-struct ProfileStorage(PathBuf);
+struct ProfileStorage {
+    root: PathBuf,
+    vault: PathBuf,
+}
 
 impl anlg_storage::StorageRuntime for ProfileStorage {
     fn global_base(&self) -> Result<PathBuf, anlg_storage::Error> {
-        Ok(self.0.clone())
+        Ok(self.root.clone())
     }
 
     fn vault_base(&self) -> Result<PathBuf, anlg_storage::Error> {
-        Ok(self.0.join("vault"))
+        Ok(self.vault.clone())
     }
 }
 
@@ -118,6 +122,8 @@ impl ApplicationView {
         cx: &mut Context<Self>,
     ) -> Self {
         let profile = storage.root.clone();
+        let shipping_store = storage.shipping_store();
+        cx.set_global(crate::shipping_store::ShippingStore(shipping_store.clone()));
         // Installed first: the note and transcript views read the live meeting from it.
         let meeting_host = MeetingHost::install(cx);
         let toasts = toasts::install(cx);
@@ -173,6 +179,8 @@ impl ApplicationView {
             }),
         ];
         subscriptions.push(lock::install(&runtime, window, cx));
+        startup::install(&runtime, cx);
+        subscriptions.push(cx.observe_global::<startup::StartupGate>(|_, cx| cx.notify()));
         let dictation = match crate::dictation::Dictation::install(runtime.clone(), cx) {
             Ok(dictation) => {
                 subscriptions.push(cx.subscribe(&dictation, |this, _, failed, cx| {
@@ -188,6 +196,7 @@ impl ApplicationView {
         };
         crate::product::settings::apply_stored_preferences(&runtime, cx);
         let pins_runtime = runtime.clone();
+        let pins_store = shipping_store.clone();
         cx.spawn(async move |this, cx| {
             let mut state = pins_runtime.state();
             loop {
@@ -204,7 +213,7 @@ impl ApplicationView {
                     return;
                 }
             }
-            let result = match pins::load(&pins_runtime) {
+            let result = match pins::load(&pins_runtime, pins_store) {
                 Ok(reply) => reply.receive().await,
                 Err(error) => Err(error),
             };
@@ -224,8 +233,11 @@ impl ApplicationView {
         })
         .detach();
         let startup_runtime = runtime.clone();
-        let editor_vault = profile.join("vault");
-        let tray_settings = profile.join("tray.json");
+        let editor_vault = storage.vault();
+        let tray_settings = match shipping_store.clone() {
+            Some(store) => lifecycle::TraySettings::Shipping(store),
+            None => lifecycle::TraySettings::File(profile.join("tray.json")),
+        };
         let (effects, mut commands) = Effects::channel(runtime.clone());
         let flush_effects = effects.clone();
         let instruction = cx.new(|cx| instruction::Instruction::new(window.window_handle(), cx));
@@ -285,6 +297,7 @@ impl ApplicationView {
             }
         })
         .detach();
+        let vault = editor_vault.clone();
         let startup = cx.background_executor().spawn(async move {
             let mut state = startup_runtime.state();
             loop {
@@ -297,11 +310,20 @@ impl ApplicationView {
                 }
                 state.changed().await.map_err(|_| ServiceError::Closed)?;
             }
+            if let Some(store) = shipping_store {
+                let imported =
+                    crate::product::onboarding::import_shipping(&startup_runtime, store).await;
+                if let Err(error) = imported {
+                    tracing::warn!(%error, "the shipping app's onboarding state was not read");
+                }
+            }
             let native =
                 NativeServices::new(startup_runtime.clone(), storage, effects.clone(), host)
                     .await?;
-            let storage = Arc::new(ProfileStorage(profile));
-            let vault = storage.0.join("vault");
+            let storage = Arc::new(ProfileStorage {
+                root: profile,
+                vault: vault.clone(),
+            });
             let audio_vault = vault.clone();
             let capture = CaptureService::spawn(
                 startup_runtime.clone(),
@@ -896,7 +918,8 @@ impl ApplicationView {
         let Some(base) = self.pins_revision.clone() else {
             return;
         };
-        let reply = match pins::save(&self.runtime, base, routes.clone()) {
+        let shipping = crate::shipping_store::ShippingStore::get(cx);
+        let reply = match pins::save(&self.runtime, shipping, base, routes.clone()) {
             Ok(reply) => reply,
             Err(error) => {
                 self.pins_pending = Some(routes);
@@ -1550,6 +1573,9 @@ impl Render for ApplicationView {
         let colors = theme(window);
         let _ = &self.subscriptions;
         self.sync_notice(window, cx);
+        if let Some(gate) = startup::gate(window, cx) {
+            return gate;
+        }
         if let Some(gate) = lock::gate(window, cx) {
             return gate;
         }

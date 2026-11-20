@@ -38,6 +38,7 @@ const UPDATE_REQUIRED: &str = "This version can no longer sync";
 const TRANSPORTS: &str = "replica, accepted_replica";
 const APPROVAL: &str = "Approval requested. Approve this device on an enrolled device, then retry";
 const LOG_LIMIT: usize = 200;
+const ENABLED: &str = "cloud_sync_enabled";
 
 #[derive(Default)]
 pub(super) struct Sync {
@@ -69,29 +70,88 @@ impl Sync {
         log.truncate(LOG_LIMIT);
     }
 
-    pub async fn enabled(&self, auth: &Auth, account: &str) -> Result<bool> {
-        Ok(auth
-            .store
-            .read(auth.key(&format!("{account}:sync-enabled")))
-            .await?
-            .as_deref()
-            .map(String::as_str)
-            == Some("true"))
+    /// Shipping's `cloud_sync_enabled` device setting, on unless turned off.
+    pub async fn enabled(&self, services: &Services) -> Result<bool> {
+        Ok(self.setting(services).await?.unwrap_or(true))
     }
 
-    async fn set_enabled(&self, auth: &Auth, account: &str, enabled: bool) -> Result<()> {
-        auth.store
-            .write(
-                auth.key(&format!("{account}:sync-enabled")),
-                zeroize::Zeroizing::new(enabled.to_string()),
+    async fn setting(&self, services: &Services) -> Result<Option<bool>> {
+        let rows = services
+            .executor
+            .execute(
+                "SELECT id, value_json, 0 AS oversized, 0 AS source_rank FROM app_settings \
+                 WHERE id IN (?1, 'legacy_settings_document', 'legacy_main_values_document') \
+                 UNION ALL SELECT id, value_json, 0, 1 FROM synced_preferences WHERE id = ?1"
+                    .into(),
+                vec![json!(ENABLED)],
             )
             .await
+            .map_err(|_| failure("Could not read the sync preference"))?;
+        // Every key decodes, with its default when nothing stored one.
+        Ok(crate::product::settings::decode(&rows)?
+            .get(ENABLED)
+            .filter(|setting| setting.source != "Default")
+            .and_then(|setting| setting.value.as_bool()))
+    }
+
+    /// A sandbox kept its switch in its keychain, off until turned on. Until the device has a
+    /// sync setting, a switch it saved becomes that setting, so a pause outlasts the new default.
+    async fn carry_legacy_switch(
+        &self,
+        auth: &Auth,
+        account: &str,
+        services: &Services,
+    ) -> Result<()> {
+        let Some(slot) = auth.secrets().legacy_sync_switch(account) else {
+            return Ok(());
+        };
+        if self.setting(services).await?.is_some() {
+            return Ok(());
+        }
+        // An unreadable keychain also stops sync from starting; the next refresh carries it.
+        if let Some(saved) = auth.store.read(slot).await? {
+            self.set_enabled(services, saved.as_str() == "true").await?;
+        }
+        Ok(())
+    }
+
+    async fn set_enabled(&self, services: &Services, enabled: bool) -> Result<()> {
+        services
+            .executor
+            .execute(
+                "INSERT INTO app_settings (id, value_json, updated_at) \
+                 VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now')) ON CONFLICT(id) \
+                 DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at"
+                    .into(),
+                vec![json!(ENABLED), json!(enabled.to_string())],
+            )
+            .await
+            .map_err(|_| failure("Could not save the sync preference"))?;
+        Ok(())
+    }
+
+    /// The periodic refresh, like shipping's credential exchange: sync starts when the device
+    /// setting allows it, and a missing recovery key only marks setup as needed.
+    pub async fn resume(&self, core: &Core, services: &Services, lease: &AuthLease) -> Result<()> {
+        if self.update_required() {
+            return Ok(());
+        }
+        self.carry_legacy_switch(&core.auth, account(lease)?, services)
+            .await?;
+        if !self.enabled(services).await? {
+            return Ok(());
+        }
+        match self.start(core, services, lease).await {
+            Err(error) if block_for(&error) == SyncBlock::SetupRequired => Ok(()),
+            result => result,
+        }
     }
 
     pub async fn recovery(&self, auth: &Auth, account: &str) -> Result<RecoveryKey> {
+        let slot = auth.secrets().recovery(account)?;
         let code = auth
             .store
-            .read(auth.key(&format!("{account}:recovery")))
+            .read(slot)
             .await
             .map_err(|_| failure(KEYCHAIN))?
             .ok_or_else(|| failure(SETUP_REQUIRED))?;
@@ -99,7 +159,7 @@ impl Sync {
     }
 
     async fn save_recovery(&self, auth: &Auth, account: &str, key: &RecoveryKey) -> Result<()> {
-        let slot = auth.key(&format!("{account}:recovery"));
+        let slot = auth.secrets().recovery(account)?;
         if let Some(existing) = auth.store.read(slot.clone()).await? {
             let existing = RecoveryKey::parse(&existing).map_err(|_| {
                 failure("Existing recovery key is damaged; export a backup before replacing")
@@ -193,7 +253,7 @@ impl Sync {
                     && core
                         .auth
                         .store
-                        .read(core.auth.key(&format!("{owner}:enrollment")))
+                        .read(core.auth.secrets().enrollment(owner)?)
                         .await?
                         .is_some() =>
             {
@@ -401,11 +461,11 @@ impl Sync {
         match mutation.operation.action {
             Action::PauseSync => {
                 self.stop().await;
-                self.set_enabled(&core.auth, owner, false).await?;
+                self.set_enabled(services, false).await?;
             }
             Action::ResumeSync => {
                 self.start(core, services, lease).await?;
-                self.set_enabled(&core.auth, owner, true).await?;
+                self.set_enabled(services, true).await?;
             }
             Action::SyncNow => {
                 if !self.hook.replica_transport_configured() {
@@ -417,13 +477,13 @@ impl Sync {
                 if core
                     .auth
                     .store
-                    .read(core.auth.key(&format!("{owner}:recovery")))
+                    .read(core.auth.secrets().recovery(owner)?)
                     .await?
                     .is_some()
                 {
                     return Err(failure("Encryption is already configured"));
                 }
-                let slot = core.auth.key(&format!("{owner}:candidate-recovery"));
+                let slot = core.auth.secrets().pending_recovery(owner)?;
                 let key = match core.auth.store.read(slot.clone()).await? {
                     Some(code) => RecoveryKey::parse(&code)
                         .map_err(|_| failure("Invalid pending recovery key"))?,
@@ -523,7 +583,7 @@ impl Sync {
                     .await?;
                     if fingerprint == core.auth.transport.config.device_fingerprint {
                         self.stop().await;
-                        self.set_enabled(&core.auth, owner, false).await?;
+                        self.set_enabled(services, false).await?;
                     }
                 } else {
                     core.api(
@@ -582,7 +642,7 @@ impl Sync {
         replace: Option<&str>,
     ) -> Result<()> {
         let owner = account(lease)?;
-        let slot = core.auth.key(&format!("{owner}:enrollment"));
+        let slot = core.auth.secrets().enrollment(owner)?;
         let key = match core.auth.store.read(slot.clone()).await? {
             Some(code) => {
                 DeviceEnrollmentKey::parse(&code).map_err(|_| failure("Invalid enrollment key"))?
@@ -629,24 +689,13 @@ impl Sync {
     }
 
     /// The Sync page's view of this device: preference, block, status, health and log.
-    pub async fn state(
-        &self,
-        core: &Core,
-        services: &Services,
-        lease: &AuthLease,
-    ) -> Result<SyncState> {
-        let mut block = self
+    pub async fn state(&self, core: &Core, services: &Services) -> Result<SyncState> {
+        let block = self
             .block
             .lock()
             .unwrap_or_else(|error| error.into_inner())
             .clone();
-        let enabled = match self.enabled(&core.auth, account(lease)?).await {
-            Ok(enabled) => enabled,
-            Err(_) => {
-                block = Some(SyncBlock::KeychainAccess);
-                true
-            }
-        };
+        let enabled = self.enabled(services).await?;
         let replica = self.hook.replica_status();
         Ok(SyncState {
             enabled,
@@ -690,7 +739,7 @@ impl Sync {
         match command {
             SyncCommand::SetEnabled(false) => {
                 self.stop().await;
-                self.set_enabled(&core.auth, owner, false).await?;
+                self.set_enabled(services, false).await?;
                 self.set_block(None);
                 self.record("INFO", "sync paused");
             }
@@ -705,7 +754,7 @@ impl Sync {
                     return Err(error);
                 }
                 self.start(core, services, lease).await?;
-                self.set_enabled(&core.auth, owner, true).await?;
+                self.set_enabled(services, true).await?;
             }
             SyncCommand::SyncNow => {
                 if !self.hook.replica_transport_configured() {
@@ -715,7 +764,7 @@ impl Sync {
                 self.record("INFO", "manual sync requested");
             }
             SyncCommand::CreateRecoveryKey => {
-                let slot = core.auth.key(&format!("{owner}:candidate-recovery"));
+                let slot = core.auth.secrets().pending_recovery(owner)?;
                 let key = match core.auth.store.read(slot.clone()).await? {
                     Some(code) => RecoveryKey::parse(&code)
                         .map_err(|_| failure("Invalid pending recovery key"))?,
@@ -752,7 +801,7 @@ impl Sync {
                 self.save_recovery(&core.auth, owner, &key).await?;
                 core.auth
                     .store
-                    .remove(core.auth.key(&format!("{owner}:candidate-recovery")))
+                    .remove(core.auth.secrets().pending_recovery(owner)?)
                     .await?;
                 self.set_block(None);
                 self.record("INFO", "recovery key saved on this device");
@@ -761,7 +810,7 @@ impl Sync {
             SyncCommand::RepairKeychain => {
                 self.recovery(&core.auth, owner).await?;
                 self.set_block(None);
-                if self.enabled(&core.auth, owner).await? {
+                if self.enabled(services).await? {
                     self.start(core, services, lease).await?;
                 }
             }
@@ -789,7 +838,7 @@ impl Sync {
                 self.record("INFO", "device disconnected");
                 if fingerprint == core.auth.transport.config.device_fingerprint {
                     self.stop().await;
-                    self.set_enabled(&core.auth, owner, false).await?;
+                    self.set_enabled(services, false).await?;
                 } else if self.blocked_by(&SyncBlock::DeviceLimit) {
                     self.start(core, services, lease).await?;
                 }

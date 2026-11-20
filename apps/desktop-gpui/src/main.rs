@@ -5,10 +5,13 @@ use desktop_gpui::launch::{self, Launch, Mode, Storage};
 use desktop_gpui::{application::ApplicationView, workspace::assets::Assets};
 use desktop_gpui::{
     native_events::{MenuState, NativeEvents},
-    platform::windows::WindowIdentity,
+    platform::{
+        package::{self, AppIds},
+        windows::WindowIdentity,
+    },
     ui::theme::UiFonts,
 };
-use desktop_runtime::Profile;
+use desktop_runtime::{Profile, RuntimeHandle, Startup};
 use gpui::AppContext;
 
 fn main() -> anyhow::Result<()> {
@@ -30,6 +33,10 @@ fn main() -> anyhow::Result<()> {
             return Ok(());
         }
         Launch::CrashReporter => return Ok(()),
+        Launch::Package => {
+            println!("{}", package::report());
+            return Ok(());
+        }
         Launch::Run { mode, urls } => (mode, urls),
     };
     let (storage, database) = match mode {
@@ -56,20 +63,35 @@ fn main() -> anyhow::Result<()> {
         Mode::Channel(channel) => {
             let locations = Locations::resolve(channel.identifier())
                 .ok_or_else(|| anyhow::anyhow!("The application data directory is unavailable"))?;
-            let storage = Storage {
-                channel: Some(channel),
-                root: locations.base.clone(),
-                pointer: None,
-            };
-            (storage, locations.database())
+            (Storage::channel(channel, &locations), locations.database())
         }
     };
-    let (runtime, ready) = desktop_gpui::runtime_bridge::start(Profile { database })?;
+    let events = NativeEvents::default();
+    // Before the runtime takes the profile, which the running instance holds.
+    #[cfg(any(target_os = "linux", target_os = "windows"))]
+    let Some(instance) = desktop_gpui::platform::single_instance::claim(&storage.root, &urls, {
+        let events = events.clone();
+        move |urls| events.relaunched(urls)
+    })?
+    else {
+        return Ok(());
+    };
+    events.open_urls(urls);
+    let startup = match storage.channel {
+        Some(channel) => Startup::shipping(storage.vault(), channel.identifier()),
+        None => Startup::default(),
+    };
+    let (runtime, ready) = RuntimeHandle::start_with(Profile { database }, startup)?;
     let zoom = desktop_gpui::zoom::Zoom::load(storage.root.join("zoom.json"));
     let application = zoom.application().with_assets(Assets);
-    let events = NativeEvents::install(&application);
-    events.open_urls(urls);
+    events.install(&application);
+    // A `--profile` run of a channel build leaves the installed app's link handler alone.
+    if let Some(channel) = storage.channel {
+        desktop_gpui::platform::deeplinks::register_handler(channel);
+    }
     application.run(move |cx| {
+        let ids = AppIds::current();
+        cx.set_app_identity(ids.app_user_model_id, ids.name);
         cx.set_global(zoom);
         UiFonts::init(cx);
         use desktop_gpui::platform::system_settings::{Installed, NativeSettings};
@@ -154,9 +176,12 @@ fn main() -> anyhow::Result<()> {
         }
         cx.activate(true);
     });
+    // The replacement serves this profile's launches next.
+    #[cfg(any(target_os = "linux", target_os = "windows"))]
+    drop(instance);
     if desktop_gpui::platform::windows::restart_requested() {
         std::process::Command::new(std::env::current_exe()?)
-            .args(std::env::args_os().skip(1))
+            .args(launch::relaunch_args(std::env::args_os().skip(1)))
             .spawn()?;
     }
     Ok(())

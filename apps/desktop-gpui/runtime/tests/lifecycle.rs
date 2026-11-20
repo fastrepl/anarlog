@@ -5,7 +5,7 @@ use std::{
 
 use desktop_runtime::{
     CancellationToken, Profile, RequestGate, RuntimeHandle, RuntimeState, ServiceError,
-    ShutdownPhase,
+    ShutdownPhase, Startup, StartupStatus,
 };
 use serde_json::json;
 use tokio::sync::oneshot;
@@ -42,34 +42,159 @@ async fn startup_lease_prevents_concurrent_migrations_and_releases_on_failure() 
 }
 
 #[tokio::test]
-async fn incompatible_schema_and_cloudsync_are_rejected_before_bootstrap() {
-    for sql in [
-        "CREATE TABLE cloudsync_table_settings (id TEXT)",
-        "UPDATE _anlg_schema_compat SET min_supported_version = 99999999999999 WHERE id = 0",
-    ] {
-        let dir = tempfile::tempdir().unwrap();
-        let profile = Profile {
-            database: dir.path().join("library.sqlite"),
-        };
-        let runtime = open(&profile).await;
-        runtime
-            .submit(move |services| async move {
-                services
-                    .executor
-                    .execute(sql.into(), vec![])
-                    .await
-                    .map_err(|e| ServiceError::Failed(e.to_string().into()))?;
-                Ok(())
-            })
-            .unwrap()
-            .receive()
+async fn a_schema_from_a_newer_app_is_rejected_before_bootstrap() {
+    let dir = tempfile::tempdir().unwrap();
+    let profile = Profile {
+        database: dir.path().join("library.sqlite"),
+    };
+    let runtime = open(&profile).await;
+    runtime
+        .submit(move |services| async move {
+            services
+                .executor
+                .execute(
+                    "UPDATE _anlg_schema_compat SET min_supported_version = 99999999999999 WHERE id = 0".into(),
+                    vec![],
+                )
+                .await
+                .map_err(|e| ServiceError::Failed(e.to_string().into()))?;
+            Ok(())
+        })
+        .unwrap()
+        .receive()
+        .await
+        .unwrap();
+    runtime.shutdown().await.unwrap();
+    let (blocked, ready) = RuntimeHandle::start(profile).unwrap();
+    let error = ready.receive().await.unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("created by a newer version of Anarlog"),
+        "{error}"
+    );
+    assert!(blocked.shutdown().await.is_err());
+}
+
+/// Most CloudSync users' `app.db` ran sqlite-sync; its triggers need the extension loaded.
+#[tokio::test]
+async fn shipping_data_with_sqlite_sync_state_opens_in_place() {
+    let dir = tempfile::tempdir().unwrap();
+    let database = dir.path().join("app.db");
+    {
+        let db = anlg_db_core::open_app_db(anlg_db_core::DbStorage::Local(&database), 1)
             .await
             .unwrap();
-        runtime.shutdown().await.unwrap();
-        let (blocked, ready) = RuntimeHandle::start(profile).unwrap();
-        assert!(ready.receive().await.is_err(), "{sql}");
-        assert!(blocked.shutdown().await.is_err());
+        anlg_db_app::prepare_schema(&db).await.unwrap();
+        db.cloudsync_init("e2ee_records", None, None).await.unwrap();
+        assert!(
+            anlg_db_core::database_uses_cloudsync_schema(&db)
+                .await
+                .unwrap()
+        );
+        db.pool().close().await;
     }
+    let (runtime, ready) = RuntimeHandle::start_with(
+        Profile { database },
+        Startup::shipping(dir.path().to_path_buf(), "com.hyprnote.stable"),
+    )
+    .unwrap();
+    ready.receive().await.unwrap();
+    let vault = runtime
+        .submit(|services| async move {
+            assert!(services.db.cloudsync_enabled());
+            Ok(services.vault.as_ref().clone())
+        })
+        .unwrap()
+        .receive()
+        .await
+        .unwrap();
+    assert_eq!(vault, dir.path());
+    runtime
+        .create_note("Kept".into())
+        .unwrap()
+        .receive()
+        .await
+        .unwrap();
+    runtime.shutdown().await.unwrap();
+}
+
+/// An update relaunch starts this app while the replaced one still holds its locks, and a
+/// "Start fresh" the shipping app requested moves the database aside like shipping does.
+/// Staging shares its database with no other channel, yet its app holds its own lock too.
+#[tokio::test]
+async fn shipping_data_waits_for_the_replaced_app_then_applies_its_reset() {
+    let dir = tempfile::tempdir().unwrap();
+    let database = dir.path().join("app.db");
+    std::fs::write(&database, "replaced app's database").unwrap();
+    std::fs::write(dir.path().join("app.db.reset-requested"), "").unwrap();
+    let held = std::fs::File::create(dir.path().join("com.hyprnote.staging.running.lock")).unwrap();
+    held.try_lock().unwrap();
+
+    let (runtime, ready) = RuntimeHandle::start_with(
+        Profile { database },
+        Startup {
+            lock_wait: Duration::from_secs(30),
+            ..Startup::shipping(dir.path().to_path_buf(), "com.hyprnote.staging")
+        },
+    )
+    .unwrap();
+    let mut status = runtime.startup();
+    tokio::time::timeout(
+        Duration::from_secs(10),
+        status.wait_for(|status| *status == StartupStatus::WaitingForLock),
+    )
+    .await
+    .unwrap()
+    .unwrap();
+    assert!(matches!(*runtime.state().borrow(), RuntimeState::Starting));
+    assert!(dir.path().join("app.db.reset-requested").exists());
+
+    drop(held);
+    ready.receive().await.unwrap();
+    assert!(!dir.path().join("app.db.reset-requested").exists());
+    let backups = std::fs::read_dir(dir.path())
+        .unwrap()
+        .filter_map(|entry| entry.ok())
+        .filter(|entry| entry.file_name().to_string_lossy().ends_with(".bak"))
+        .map(|entry| std::fs::read_to_string(entry.path()).unwrap())
+        .collect::<Vec<_>>();
+    assert_eq!(backups, ["replaced app's database"]);
+    runtime.shutdown().await.unwrap();
+}
+
+/// Quitting while the replaced app still holds the profile ends the wait at once, without
+/// opening the database or applying its reset.
+#[tokio::test]
+async fn quitting_while_waiting_for_the_replaced_app_stops_without_opening() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("app.db.reset-requested"), "").unwrap();
+    let held = std::fs::File::create(dir.path().join("launch.lock")).unwrap();
+    held.try_lock().unwrap();
+
+    let (runtime, ready) = RuntimeHandle::start_with(
+        Profile {
+            database: dir.path().join("app.db"),
+        },
+        Startup::shipping(dir.path().to_path_buf(), "com.hyprnote.stable"),
+    )
+    .unwrap();
+    let mut status = runtime.startup();
+    tokio::time::timeout(
+        Duration::from_secs(10),
+        status.wait_for(|status| *status == StartupStatus::WaitingForLock),
+    )
+    .await
+    .unwrap()
+    .unwrap();
+    tokio::time::timeout(Duration::from_secs(5), runtime.shutdown())
+        .await
+        .expect("shutdown does not wait for the lock")
+        .unwrap();
+    assert!(ready.receive().await.is_err());
+    drop(held);
+    assert!(dir.path().join("app.db.reset-requested").exists());
+    assert!(!dir.path().join("app.db").exists());
 }
 
 // Service jobs hold their own database sender, so dropping the last handle has to request

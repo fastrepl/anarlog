@@ -333,9 +333,7 @@ impl Core {
                 let response = self.rpc(lease, rpc, json!({"p_share_id": share})).await?;
                 let row = first(&response)?;
                 let link = uuid(text(row, "link_id")?)?;
-                let slot = self
-                    .auth
-                    .key(&format!("{}:share:{share}:link", account(lease)?));
+                let slot = self.auth.secrets().share_link(account(lease)?, share);
                 let url = if let Some(token) = row["link_token"].as_str() {
                     let url = self.capability_url(&format!("/t/{link}/"), token)?;
                     self.auth

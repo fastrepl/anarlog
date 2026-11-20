@@ -11,6 +11,7 @@ mod note_window;
 pub mod platform;
 pub mod product;
 pub mod runtime_bridge;
+pub mod shipping_store;
 pub mod ui;
 pub mod workspace;
 pub mod zoom;

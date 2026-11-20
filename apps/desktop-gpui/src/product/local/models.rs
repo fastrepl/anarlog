@@ -13,11 +13,17 @@ use tokio::process::{Child, Command};
 
 use super::failure;
 
+/// The executables Argmax and GGUF models run in. Shipping's packages include neither (it runs
+/// only Soniqo and Apple Speech on device, in process), so packaged builds offer these models
+/// as not available.
 pub struct EngineResources {
     pub argmax: PathBuf,
     pub llama_server: PathBuf,
     pub argmax_api_key: String,
 }
+
+pub const UNAVAILABLE_ON_PLATFORM: &str = "Unavailable on this platform";
+pub const NOT_IN_BUILD: &str = "Not available in this build";
 
 struct DownloadRuntime {
     directory: PathBuf,
@@ -69,6 +75,8 @@ pub struct ModelState {
     pub installed: bool,
     pub running: bool,
     pub progress: Option<DownloadStatus>,
+    /// Why this model can't be downloaded or started here, if it can't.
+    pub unavailable: Option<&'static str>,
 }
 
 impl ModelService {
@@ -127,13 +135,41 @@ impl ModelService {
             .ok_or_else(|| failure("Unknown or unsupported model"))
     }
 
-    pub async fn state(&self, model: LocalModel) -> Result<ModelState> {
+    /// Why `model` can't run here: the platform, or an engine this build doesn't include.
+    pub fn unavailable(&self, model: &LocalModel) -> Option<&'static str> {
         if !model.is_available_on_current_platform() {
+            return Some(UNAVAILABLE_ON_PLATFORM);
+        }
+        let engine = match model {
+            LocalModel::Am(_) => &self.resources.argmax,
+            LocalModel::GgufLlm(_) => &self.resources.llama_server,
+            _ => return None,
+        };
+        (!engine.is_file()).then_some(NOT_IN_BUILD)
+    }
+
+    fn ensure_available(&self, model: &LocalModel) -> Result<()> {
+        match self.unavailable(model) {
+            Some(UNAVAILABLE_ON_PLATFORM) => Err(failure(
+                "This model requires Apple Silicon; choose a cloud transcription provider on this platform",
+            )),
+            Some(_) => Err(failure(format!(
+                "{} is not available in this build of Anarlog; choose another model or provider",
+                model.display_name()
+            ))),
+            None => Ok(()),
+        }
+    }
+
+    pub async fn state(&self, model: LocalModel) -> Result<ModelState> {
+        let unavailable = self.unavailable(&model);
+        if unavailable == Some(UNAVAILABLE_ON_PLATFORM) {
             return Ok(ModelState {
                 model,
                 installed: false,
                 running: false,
                 progress: None,
+                unavailable,
             });
         }
         let mut native_progress = None;
@@ -187,15 +223,12 @@ impl ModelService {
                 .cloned()),
             model,
             installed,
+            unavailable,
         })
     }
 
     pub async fn download(&self, model: LocalModel) -> Result<()> {
-        if !model.is_available_on_current_platform() {
-            return Err(failure(
-                "This model requires Apple Silicon; choose a cloud transcription provider on this platform",
-            ));
-        }
+        self.ensure_available(&model)?;
         match model {
             LocalModel::Soniqo(native) => tokio::task::spawn_blocking(move || {
                 anlg_transcribe_soniqo::start_model_download(native)
@@ -272,6 +305,7 @@ impl ModelService {
     }
 
     pub async fn start(&self, model: LocalModel, cancel: CancellationToken) -> Result<String> {
+        self.ensure_available(&model)?;
         if !self.state(model.clone()).await?.installed {
             return Err(failure("Download the model before starting it"));
         }
@@ -476,4 +510,55 @@ fn free_port() -> Result<u16> {
         .and_then(|socket| socket.local_addr())
         .map(|address| address.port())
         .map_err(failure)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn models_whose_engine_is_not_in_the_build_are_unavailable() {
+        let directory = tempfile::tempdir().unwrap();
+        let engines = tempfile::tempdir().unwrap();
+        let service = ModelService::new(
+            directory.path().to_owned(),
+            EngineResources {
+                argmax: engines.path().join("argmax"),
+                llama_server: engines.path().join("llama-server"),
+                argmax_api_key: "key".into(),
+            },
+        );
+        let am = LocalModel::Am(anlg_local_model::AmModel::ParakeetV2);
+        // x86_64 builds support no GGUF model, so this also covers the platform refusal there.
+        let gguf = LocalModel::GgufLlm(anlg_local_model::GgufLlmModel::Llama3p2_3bQ4);
+        for model in [am, gguf.clone()] {
+            if !model.is_available_on_current_platform() {
+                assert_eq!(
+                    service.state(model).await.unwrap().unavailable,
+                    Some(UNAVAILABLE_ON_PLATFORM)
+                );
+                continue;
+            }
+            assert_eq!(
+                service.state(model.clone()).await.unwrap().unavailable,
+                Some(NOT_IN_BUILD)
+            );
+            let download = service.download(model.clone()).await.unwrap_err();
+            let start = service
+                .start(model.clone(), CancellationToken::new())
+                .await
+                .unwrap_err();
+            for error in [download, start] {
+                assert!(
+                    error.to_string().contains("not available in this build"),
+                    "{error}"
+                );
+            }
+        }
+
+        std::fs::write(engines.path().join("llama-server"), b"").unwrap();
+        if gguf.is_available_on_current_platform() {
+            assert_eq!(service.state(gguf).await.unwrap().unavailable, None);
+        }
+    }
 }

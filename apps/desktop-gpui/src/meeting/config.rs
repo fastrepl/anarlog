@@ -433,51 +433,30 @@ fn stt_base(provider: &str) -> Option<String> {
     Some(base.into())
 }
 
+/// Shipping's `ai-provider-api-keys` scope in the secure store named by `identifier`.
+pub const PROVIDER_KEYS: &str = "ai-provider-api-keys";
+
+/// Provider keys where shipping saves them for this identifier, chunked when long.
 pub fn keyring_secrets(identifier: String) -> SecretResolver {
+    store_secrets(anlg_desktop_identity::SecureStore::keyring(&identifier))
+}
+
+pub fn store_secrets<F, S>(store: anlg_desktop_identity::SecureStore<F>) -> SecretResolver
+where
+    F: Fn(&str, &str) -> keyring::Result<S> + Send + Sync + 'static,
+    S: anlg_desktop_identity::SecretSlot,
+{
+    let store = Arc::new(store);
     Arc::new(move |kind, provider| {
-        let identifier = identifier.clone();
+        let store = store.clone();
         Box::pin(async move {
             tokio::task::spawn_blocking(move || {
-                let canonical = canonical_identifier(&identifier);
-                let account = format!("ai-provider-api-keys:{}:{provider}", kind.key());
-                let current = if identifier == "com.hyprnote.dev" {
-                    format!("v2:{account}")
-                } else {
-                    account.clone()
-                };
-                let mut locations = vec![(format!("{canonical}.secure-store"), current.clone())];
-                if current != account {
-                    locations.push((format!("{canonical}.secure-store"), account.clone()));
-                }
-                if canonical != identifier {
-                    locations.push((format!("{identifier}.secure-store"), account));
-                }
-                for (service, account) in locations {
-                    let entry = keyring::Entry::new(&service, &account)
-                        .map_err(|_| failure("Could not open the secure provider key store."))?;
-                    match entry.get_password() {
-                        Ok(secret) => return Ok(Some(secret)),
-                        Err(keyring::Error::NoEntry) => {}
-                        Err(_) => {
-                            return Err(failure(
-                                "Unlock or repair your system keyring to read the provider key.",
-                            ));
-                        }
-                    }
-                }
-                Ok(None)
+                store
+                    .read(PROVIDER_KEYS, &format!("{}:{provider}", kind.key()))
+                    .map_err(failure)
             })
             .await
             .map_err(failure)?
         })
     })
-}
-
-pub(super) fn canonical_identifier(identifier: &str) -> &str {
-    match identifier {
-        "com.hyprnote.dev" => "com.anarlog.dev",
-        "com.hyprnote.staging" => "com.anarlog.staging",
-        "com.hyprnote.stable" | "com.hyprnote.Hyprnote" => "com.anarlog.stable",
-        identifier => identifier,
-    }
 }

@@ -9,6 +9,8 @@ pub mod device;
 pub mod e2ee;
 pub mod paths;
 pub mod secure_store;
+pub mod session;
+pub mod store_json;
 
 pub use channel::Channel;
 pub use paths::Locations;

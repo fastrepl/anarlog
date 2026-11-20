@@ -4,6 +4,7 @@
 
 use std::{collections::VecDeque, sync::Arc};
 
+use anlg_desktop_identity::store_json::StoreJson;
 use desktop_runtime::{
     CancellationToken, Generation, Reply, RuntimeHandle, ServiceError, SessionId,
 };
@@ -19,6 +20,7 @@ use super::{
     navigation::Route,
     search::{self, MAX_RECENT, Move, Note, Row},
 };
+use crate::shipping_store::{DESKTOP, RECENTLY_OPENED_SESSIONS};
 use crate::ui::a11y::Accessible;
 use crate::{
     product::account,
@@ -40,8 +42,7 @@ pub(super) const NOTES_QUERY: &str = "SELECT kind, id, title FROM (
             SELECT 1 FROM sessions s WHERE s.id = c.session_id AND s.deleted_at IS NULL))
 ) ORDER BY julianday(date) DESC, source, date DESC, id";
 
-/// Shipping keeps this list in its app store; the native preview keeps it with its other
-/// profile-local UI state.
+/// A sandbox's list; a channel run uses shipping's `RecentlyOpenedSessions`.
 const RECENT_KEY: &str = "gpui_recent_sessions";
 
 #[derive(Clone)]
@@ -56,6 +57,7 @@ pub struct NotePicker {
     input: Entity<TextInput>,
     notes: Arc<[Note]>,
     recent: VecDeque<SessionId>,
+    shipping: Option<Arc<StoreJson>>,
     /// Until the stored list is read, opened notes are kept in memory and not written back.
     restored: bool,
     viewer: Option<Arc<str>>,
@@ -94,6 +96,7 @@ impl NotePicker {
             input,
             notes: Arc::from([]),
             recent: VecDeque::new(),
+            shipping: crate::shipping_store::ShippingStore::get(cx),
             restored: false,
             viewer: None,
             rows: Vec::new(),
@@ -171,7 +174,8 @@ impl NotePicker {
                     })
                     .collect::<Arc<[Note]>>())
             });
-        let stored = (!self.restored).then(|| load_recent(&self.runtime, self.cancel.clone()));
+        let stored = (!self.restored)
+            .then(|| load_recent(&self.runtime, self.shipping.clone(), self.cancel.clone()));
         cx.spawn(async move |this, cx| {
             let notes = match notes {
                 Ok(reply) => reply.receive().await,
@@ -215,7 +219,11 @@ impl NotePicker {
     }
 
     fn save_recent(&self, cx: &mut Context<Self>) {
-        let reply = save_recent(&self.runtime, self.recent.iter().cloned().collect());
+        let reply = save_recent(
+            &self.runtime,
+            self.shipping.clone(),
+            self.recent.iter().cloned().collect(),
+        );
         cx.background_spawn(async move {
             let result = match reply {
                 Ok(reply) => reply.receive().await,
@@ -453,24 +461,31 @@ fn row_height(row: &Row) -> f32 {
 }
 
 /// The stored recently opened notes, newest first. Like shipping, malformed storage reads as
-/// empty and is replaced by the next save.
+/// empty and is replaced by the next save. A channel run shares shipping's list in
+/// `store.json`; a sandbox keeps it in its own settings.
 pub(super) fn load_recent(
     runtime: &RuntimeHandle,
+    shipping: Option<Arc<StoreJson>>,
     cancel: CancellationToken,
 ) -> desktop_runtime::Result<Reply<Vec<SessionId>>> {
     runtime.read(cancel, |services| async move {
-        let rows = services
-            .executor
-            .execute(
-                "SELECT value_json FROM app_settings WHERE id = ?".into(),
-                vec![json!(RECENT_KEY)],
-            )
-            .await
-            .map_err(failure)?;
-        Ok(rows
-            .first()
-            .and_then(|row| row["value_json"].as_str())
-            .and_then(|raw| serde_json::from_str::<Vec<String>>(raw).ok())
+        let raw = match shipping {
+            Some(store) => crate::shipping_store::read(store, DESKTOP, RECENTLY_OPENED_SESSIONS)
+                .await?
+                .and_then(|value| value.as_str().map(str::to_owned)),
+            None => services
+                .executor
+                .execute(
+                    "SELECT value_json FROM app_settings WHERE id = ?".into(),
+                    vec![json!(RECENT_KEY)],
+                )
+                .await
+                .map_err(failure)?
+                .first()
+                .and_then(|row| row["value_json"].as_str().map(str::to_owned)),
+        };
+        Ok(raw
+            .and_then(|raw| serde_json::from_str::<Vec<String>>(&raw).ok())
             .unwrap_or_default()
             .into_iter()
             .filter(|id| !id.is_empty())
@@ -482,10 +497,16 @@ pub(super) fn load_recent(
 
 pub(super) fn save_recent(
     runtime: &RuntimeHandle,
+    shipping: Option<Arc<StoreJson>>,
     recent: Vec<SessionId>,
 ) -> desktop_runtime::Result<Reply<()>> {
     let value = json!(recent.iter().map(|id| id.0.as_ref()).collect::<Vec<_>>()).to_string();
     runtime.submit(move |services| async move {
+        if let Some(store) = shipping {
+            let value = json!(value);
+            return crate::shipping_store::write(store, DESKTOP, RECENTLY_OPENED_SESSIONS, value)
+                .await;
+        }
         services
             .executor
             .execute(

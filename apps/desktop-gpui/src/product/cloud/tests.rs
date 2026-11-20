@@ -15,8 +15,8 @@ use wiremock::{
 use zeroize::Zeroizing;
 
 use super::{
-    CloudHost, CloudServices, ConflictDecision, ShareCommand,
-    auth::{Auth, SecureStore},
+    ChannelStore, CloudHost, CloudServices, ConflictDecision, SecretNames, ShareCommand,
+    auth::{Auth, SecureStore, ShippingSession},
     sharing::validate_document,
     transport::{CloudConfig, Transport},
 };
@@ -156,7 +156,7 @@ impl CloudHost for FixtureHost {
 async fn fixture_cloud(
     runtime: &RuntimeHandle,
     server: &MockServer,
-    store: Arc<MemoryStore>,
+    store: Arc<impl SecureStore + 'static>,
 ) -> CloudServices {
     store
         .write(
@@ -598,7 +598,7 @@ fn config(server: &MockServer, namespace: &str) -> CloudConfig {
         web: server.uri().parse().unwrap(),
         anon_key: "fixture-anon".into(),
         callback: "anarlog-dev://auth/callback".parse().unwrap(),
-        credential_namespace: namespace.into(),
+        secrets: SecretNames::Sandbox(namespace.into()),
         device_fingerprint: "fixture-device".into(),
         device_name: "Fixture device".into(),
     }
@@ -817,7 +817,7 @@ async fn sign_in_handoff_checks_state_before_exchange_and_rejects_replayed_callb
 }
 
 #[tokio::test]
-async fn sync_preferences_and_recovery_keys_survive_reconstruction() {
+async fn recovery_keys_survive_reconstruction() {
     let server = MockServer::start().await;
     let store = Arc::new(MemoryStore::default());
     let auth = Auth::new(
@@ -827,18 +827,10 @@ async fn sync_preferences_and_recovery_keys_survive_reconstruction() {
     .await
     .unwrap();
     let sync = super::sync::Sync::default();
-    assert!(!sync.enabled(&auth, ACCOUNT).await.unwrap());
-    store
-        .write(
-            auth.key(&format!("{ACCOUNT}:sync-enabled")),
-            Zeroizing::new("true".into()),
-        )
-        .await
-        .unwrap();
     let recovery = anlg_e2ee::RecoveryKey::generate().unwrap();
     store
         .write(
-            auth.key(&format!("{ACCOUNT}:recovery")),
+            auth.secrets().recovery(ACCOUNT).unwrap(),
             recovery.expose_code(),
         )
         .await
@@ -846,7 +838,6 @@ async fn sync_preferences_and_recovery_keys_survive_reconstruction() {
     let restored = Auth::new(Transport::new(config(&server, "sync")).unwrap(), store)
         .await
         .unwrap();
-    assert!(sync.enabled(&restored, ACCOUNT).await.unwrap());
     assert_eq!(
         sync.recovery(&restored, ACCOUNT).await.unwrap().key_id(),
         recovery.key_id()
@@ -1295,6 +1286,7 @@ async fn invitations_use_current_email_contract_and_report_clipboard_fallback() 
 
 #[tokio::test]
 async fn encryption_setup_never_replaces_an_existing_server_identity_and_pause_is_durable() {
+    use super::calls::CloudCalls;
     let server = MockServer::start().await;
     let directory = tempfile::tempdir().unwrap();
     let (runtime, ready) = RuntimeHandle::start(Profile {
@@ -1384,15 +1376,7 @@ async fn encryption_setup_never_replaces_an_existing_server_identity_and_pause_i
         .perform(Surface::CloudSync, request(), mutation(Action::PauseSync))
         .await
         .unwrap();
-    assert_eq!(
-        store
-            .read(format!("fixture:{ACCOUNT}:sync-enabled"))
-            .await
-            .unwrap()
-            .unwrap()
-            .as_str(),
-        "false"
-    );
+    assert!(!cloud.sync_state().await.unwrap().enabled);
     runtime.shutdown().await.unwrap();
 }
 
@@ -2143,10 +2127,6 @@ async fn devices_waiting_for_approval_keep_waiting_and_syncing_devices_approve_t
     let slot = |name: &str| format!("fixture:{ACCOUNT}:{name}");
     let enrollment = anlg_e2ee::DeviceEnrollmentKey::generate().unwrap();
     store
-        .write(slot("sync-enabled"), Zeroizing::new("true".into()))
-        .await
-        .unwrap();
-    store
         .write(slot("enrollment"), enrollment.expose_code())
         .await
         .unwrap();
@@ -2226,10 +2206,11 @@ async fn sync_setup_claims_the_recovery_key_it_showed_and_enabling_without_one_a
             .unwrap()
             .is_none()
     );
+    // Like shipping, the setting is on until turned off; the missing key asks for setup.
     let state = cloud.sync_state().await.unwrap();
     assert_eq!(
         (state.enabled, state.block),
-        (false, Some(SyncBlock::SetupRequired))
+        (true, Some(SyncBlock::SetupRequired))
     );
     // Reopening setup shows the same unsaved key, and "I saved it" claims exactly that key.
     let shown = cloud
@@ -2278,10 +2259,6 @@ async fn sync_advertises_the_accepted_replica_and_stops_once_an_update_is_requir
     let store = Arc::new(MemoryStore::default());
     let cloud = fixture_cloud(&runtime, &server, store.clone()).await;
     let slot = |name: &str| format!("fixture:{ACCOUNT}:{name}");
-    store
-        .write(slot("sync-enabled"), Zeroizing::new("true".into()))
-        .await
-        .unwrap();
     let recovery = anlg_e2ee::RecoveryKey::generate().unwrap();
     store
         .write(slot("recovery"), recovery.expose_code())
@@ -2313,4 +2290,500 @@ async fn sync_advertises_the_accepted_replica_and_stops_once_an_update_is_requir
     // Retrying can't succeed until the app updates, so later refreshes don't ask again.
     cloud.refresh(false).await.unwrap();
     runtime.shutdown().await.unwrap();
+}
+
+/// Shipping's `cloud_sync_enabled` decides whether sync starts: on unless the user turned it
+/// off, which shipping saves as an `app_settings` row.
+#[tokio::test]
+async fn sync_starts_only_when_shippings_cloud_sync_setting_allows_it() {
+    use super::calls::CloudCalls;
+    let server = MockServer::start().await;
+    let directory = tempfile::tempdir().unwrap();
+    let (runtime, ready) = RuntimeHandle::start(Profile {
+        database: directory.path().join("cloud.sqlite"),
+    })
+    .unwrap();
+    ready.receive().await.unwrap();
+    let store = Arc::new(MemoryStore::default());
+    let cloud = fixture_cloud(&runtime, &server, store.clone()).await;
+    let recovery = anlg_e2ee::RecoveryKey::generate().unwrap();
+    store
+        .write(
+            format!("fixture:{ACCOUNT}:recovery"),
+            recovery.expose_code(),
+        )
+        .await
+        .unwrap();
+    assert!(cloud.sync_state().await.unwrap().enabled);
+    runtime
+        .submit(|services| async move {
+            sqlx::query(
+                "INSERT INTO app_settings (id, value_json) VALUES ('cloud_sync_enabled', 'false')",
+            )
+            .execute(services.db.pool())
+            .await
+            .unwrap();
+            Ok(())
+        })
+        .unwrap()
+        .receive()
+        .await
+        .unwrap();
+    Mock::given(method("POST"))
+        .and(path("/sync/replica/credentials"))
+        .respond_with(ResponseTemplate::new(500))
+        .expect(0)
+        .mount(&server)
+        .await;
+    cloud.refresh(false).await.unwrap();
+    assert!(!cloud.sync_state().await.unwrap().enabled);
+    runtime.shutdown().await.unwrap();
+}
+
+/// A sandbox saved its sync switch in its keychain before it followed `cloud_sync_enabled`,
+/// whose default is on; a pause saved there must not resume sync after the update.
+#[tokio::test]
+async fn a_sandbox_sync_pause_outlasts_the_new_default() {
+    use super::calls::CloudCalls;
+    let server = MockServer::start().await;
+    let directory = tempfile::tempdir().unwrap();
+    let (runtime, ready) = RuntimeHandle::start(Profile {
+        database: directory.path().join("cloud.sqlite"),
+    })
+    .unwrap();
+    ready.receive().await.unwrap();
+    let store = Arc::new(MemoryStore::default());
+    let cloud = fixture_cloud(&runtime, &server, store.clone()).await;
+    let recovery = anlg_e2ee::RecoveryKey::generate().unwrap();
+    for (name, value) in [
+        ("recovery", recovery.expose_code()),
+        ("sync-enabled", zeroize::Zeroizing::new("false".to_string())),
+    ] {
+        store
+            .write(format!("fixture:{ACCOUNT}:{name}"), value)
+            .await
+            .unwrap();
+    }
+    Mock::given(method("POST"))
+        .and(path("/sync/replica/credentials"))
+        .respond_with(ResponseTemplate::new(500))
+        .expect(0)
+        .mount(&server)
+        .await;
+    cloud.refresh(false).await.unwrap();
+    assert!(!cloud.sync_state().await.unwrap().enabled);
+    runtime.shutdown().await.unwrap();
+}
+
+/// A locked keychain can't say whether the sandbox paused sync, so sync waits for a refresh that
+/// can read it instead of following the new default.
+#[tokio::test]
+async fn a_sandbox_sync_switch_that_cant_be_read_keeps_sync_from_starting() {
+    #[derive(Default)]
+    struct LockedSwitch(MemoryStore);
+    impl SecureStore for LockedSwitch {
+        fn read(
+            &self,
+            key: String,
+        ) -> BoxFuture<'static, desktop_runtime::Result<Option<Zeroizing<String>>>> {
+            if key.ends_with(":sync-enabled") {
+                return Box::pin(async { Err(ServiceError::Cancelled) });
+            }
+            self.0.read(key)
+        }
+        fn write(
+            &self,
+            key: String,
+            value: Zeroizing<String>,
+        ) -> BoxFuture<'static, desktop_runtime::Result<()>> {
+            self.0.write(key, value)
+        }
+        fn remove(&self, key: String) -> BoxFuture<'static, desktop_runtime::Result<()>> {
+            self.0.remove(key)
+        }
+    }
+
+    let server = MockServer::start().await;
+    let directory = tempfile::tempdir().unwrap();
+    let (runtime, ready) = RuntimeHandle::start(Profile {
+        database: directory.path().join("cloud.sqlite"),
+    })
+    .unwrap();
+    ready.receive().await.unwrap();
+    let store = Arc::new(LockedSwitch::default());
+    let cloud = fixture_cloud(&runtime, &server, store.clone()).await;
+    let recovery = anlg_e2ee::RecoveryKey::generate().unwrap();
+    store
+        .write(
+            format!("fixture:{ACCOUNT}:recovery"),
+            recovery.expose_code(),
+        )
+        .await
+        .unwrap();
+    Mock::given(method("POST"))
+        .and(path("/sync/replica/credentials"))
+        .respond_with(ResponseTemplate::new(500))
+        .expect(0)
+        .mount(&server)
+        .await;
+    let _ = cloud.refresh(false).await;
+    runtime.shutdown().await.unwrap();
+}
+
+/// A channel run reads shipping's keychain: the recovery key shipping saved is sent, so no
+/// setup or recovery-key prompt appears.
+#[tokio::test]
+async fn channel_runs_find_the_recovery_key_the_shipping_app_saved() {
+    use super::calls::{CloudCalls, SyncBlock};
+    let server = MockServer::start().await;
+    let directory = tempfile::tempdir().unwrap();
+    let (runtime, ready) = RuntimeHandle::start(Profile {
+        database: directory.path().join("app.db"),
+    })
+    .unwrap();
+    ready.receive().await.unwrap();
+    let keychain = super::secrets::mock::Keychain::default();
+    let recovery = anlg_e2ee::RecoveryKey::generate().unwrap();
+    keychain.insert(
+        "com.anarlog.stable.secure-store",
+        &format!("e2ee:account:{ACCOUNT}:recovery-v1"),
+        &recovery.expose_code(),
+    );
+    let store = Arc::new(ChannelStore::new(anlg_desktop_identity::SecureStore::new(
+        "com.hyprnote.stable",
+        keychain.entry(),
+    )));
+    let auth_json = directory.path().join("auth.json");
+    std::fs::write(
+        &auth_json,
+        json!({"sb-127-auth-token": session(now() + 3600, "fixture-token").to_string()})
+            .to_string(),
+    )
+    .unwrap();
+    let config = channel_config(&server);
+    let session = Arc::new(ShippingSession::new(
+        anlg_desktop_identity::session::SessionStore::file(auth_json),
+        &config.supabase,
+    ));
+    let cloud = CloudServices::with_session(
+        runtime.clone(),
+        config,
+        store,
+        Some(session),
+        Arc::new(FixtureHost),
+    )
+    .await
+    .unwrap();
+    // Any terminal answer will do; this request only exists once the key was found.
+    let key_id = recovery.key_id();
+    Mock::given(method("POST"))
+        .and(path("/sync/replica/credentials"))
+        .and(move |request: &wiremock::Request| {
+            request
+                .headers
+                .get("x-anarlog-e2ee-key-id")
+                .and_then(|value| value.to_str().ok())
+                == Some(key_id.as_str())
+        })
+        .respond_with(ResponseTemplate::new(426))
+        .expect(1)
+        .mount(&server)
+        .await;
+    assert!(cloud.refresh(false).await.is_err());
+    assert_eq!(
+        cloud.sync_state().await.unwrap().block,
+        Some(SyncBlock::UpdateRequired)
+    );
+    let mut accounts = keychain
+        .accounts()
+        .into_iter()
+        .map(|(_, account)| account)
+        .collect::<Vec<_>>();
+    accounts.sort();
+    assert_eq!(accounts, [format!("e2ee:account:{ACCOUNT}:recovery-v1")]);
+    runtime.shutdown().await.unwrap();
+}
+
+fn channel_config(server: &MockServer) -> CloudConfig {
+    CloudConfig {
+        callback: "anarlog://auth/callback".parse().unwrap(),
+        secrets: SecretNames::Channel,
+        ..config(server, "unused")
+    }
+}
+
+/// A channel run signs in through shipping's session store and keeps only shipping-named
+/// items, in shipping's service, in the keychain; it can't fall back to a keychain session.
+#[tokio::test]
+async fn channel_sign_in_keeps_the_session_in_shippings_store_and_no_sandbox_names() {
+    let server = MockServer::start().await;
+    let directory = tempfile::tempdir().unwrap();
+    let keychain = super::secrets::mock::Keychain::default();
+    let store = || -> Arc<dyn SecureStore> {
+        Arc::new(ChannelStore::new(anlg_desktop_identity::SecureStore::new(
+            "com.hyprnote.stable",
+            keychain.entry(),
+        )))
+    };
+    assert!(
+        Auth::new(Transport::new(channel_config(&server)).unwrap(), store())
+            .await
+            .is_err()
+    );
+    let auth_json = directory.path().join("auth.json");
+    let auth = Auth::with_session(
+        Transport::new(channel_config(&server)).unwrap(),
+        store(),
+        Arc::new(ShippingSession::new(
+            anlg_desktop_identity::session::SessionStore::file(auth_json.clone()),
+            &server.uri().parse().unwrap(),
+        )),
+    )
+    .await
+    .unwrap();
+
+    let login = auth.begin_sign_in().await.unwrap();
+    assert_eq!(
+        keychain.accounts(),
+        [(
+            "com.anarlog.stable.secure-store".to_owned(),
+            "desktop-auth:pending-sign-in".to_owned()
+        )]
+    );
+    let state = login
+        .query_pairs()
+        .find(|(key, _)| key == "desktop_state")
+        .unwrap()
+        .1
+        .to_string();
+    Mock::given(method("POST"))
+        .and(path("/auth/v1/token"))
+        .and(query_param("grant_type", "refresh_token"))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(session(now() + 3600, "fixture-token")),
+        )
+        .expect(1)
+        .mount(&server)
+        .await;
+    let mut callback: reqwest::Url = "anarlog://auth/callback".parse().unwrap();
+    callback
+        .query_pairs_mut()
+        .append_pair("access_token", "handed-off")
+        .append_pair("refresh_token", "fixture-refresh")
+        .append_pair("state", &state);
+    auth.deep_link(callback).await.unwrap();
+
+    assert!(keychain.accounts().is_empty());
+    let saved: HashMap<String, String> =
+        serde_json::from_str(&std::fs::read_to_string(&auth_json).unwrap()).unwrap();
+    let saved: Value = serde_json::from_str(&saved["sb-127-auth-token"]).unwrap();
+    assert_eq!(saved["access_token"], "fixture-token");
+}
+
+mod shipping_session {
+    use std::{
+        collections::{BTreeMap, HashMap},
+        path::Path,
+        sync::{Arc, Mutex},
+    };
+
+    use anlg_desktop_identity::{
+        auth::AuthPaths,
+        session::{Secrets, SessionMap, SessionStore, Vault},
+    };
+    use serde_json::{Value, json};
+    use wiremock::{
+        Mock, MockServer, ResponseTemplate,
+        matchers::{body_json, method, path, query_param},
+    };
+
+    use super::{ACCOUNT, MemoryStore, config, now, session};
+    use crate::product::cloud::{
+        auth::{Auth, ShippingSession},
+        transport::Transport,
+    };
+
+    #[derive(Clone, Default)]
+    struct Keyring(Arc<Mutex<BTreeMap<String, String>>>);
+
+    impl Secrets for Keyring {
+        fn read(&self, scope: &str, key: &str) -> Result<Option<String>, String> {
+            Ok(self
+                .0
+                .lock()
+                .unwrap()
+                .get(&format!("{scope}:{key}"))
+                .cloned())
+        }
+        fn write(&self, scope: &str, key: &str, value: &str) -> Result<(), String> {
+            let mut items = self.0.lock().unwrap();
+            items.insert(format!("{scope}:{key}"), value.into());
+            Ok(())
+        }
+        fn delete(&self, scope: &str, key: &str) -> Result<(), String> {
+            self.0.lock().unwrap().remove(&format!("{scope}:{key}"));
+            Ok(())
+        }
+    }
+
+    /// Stands in for DPAPI.
+    struct Protected;
+
+    impl Vault for Protected {
+        fn load(&self, path: &Path) -> Result<SessionMap, String> {
+            let data = std::fs::read_to_string(path).map_err(|error| error.to_string())?;
+            serde_json::from_str(data.strip_prefix("dpapi:").ok_or("format")?)
+                .map_err(|error| error.to_string())
+        }
+        fn persist(&self, path: &Path, session: &SessionMap) -> Result<(), String> {
+            let data = format!("dpapi:{}", serde_json::to_string(session).unwrap());
+            std::fs::write(path, data).map_err(|error| error.to_string())
+        }
+        fn clear(&self, path: &Path) -> Result<(), String> {
+            std::fs::remove_file(path).map_err(|error| error.to_string())
+        }
+    }
+
+    /// Opens one platform's session store over the same files and credentials.
+    type Layout = Box<dyn Fn() -> SessionStore>;
+
+    /// Each platform's layout, holding `map` as the shipping app left it.
+    fn layouts(root: &Path, map: &HashMap<String, String>) -> Vec<(&'static str, Layout)> {
+        let paths = |name: &str| AuthPaths {
+            current: root.join(name).join("local/com.hyprnote.stable/auth.json"),
+            legacy: root.join(name).join("data/anarlog/auth.json"),
+            legacy_store_json: root.join(name).join("data/anarlog/store.json"),
+        };
+        let encoded = serde_json::to_string(map).unwrap();
+
+        let macos = paths("macos");
+        std::fs::create_dir_all(macos.current.parent().unwrap()).unwrap();
+        std::fs::write(&macos.current, &encoded).unwrap();
+
+        let linux = paths("linux");
+        let keyring = Keyring::default();
+        keyring
+            .0
+            .lock()
+            .unwrap()
+            .insert("auth:supabase-storage".into(), encoded.clone());
+
+        let windows = paths("windows");
+        std::fs::create_dir_all(windows.current.parent().unwrap()).unwrap();
+        std::fs::write(
+            windows.current.with_file_name("auth.dpapi"),
+            format!("dpapi:{encoded}"),
+        )
+        .unwrap();
+
+        vec![
+            (
+                "macos",
+                Box::new(move || SessionStore::file(macos.resolve())),
+            ),
+            (
+                "linux",
+                Box::new(move || SessionStore::secret_service(linux.clone(), keyring.clone())),
+            ),
+            (
+                "windows",
+                Box::new(move || SessionStore::protected(windows.clone(), Protected)),
+            ),
+        ]
+    }
+
+    async fn auth(server: &MockServer, store: SessionStore) -> Arc<Auth> {
+        let config = config(server, "channel");
+        let session = Arc::new(ShippingSession::new(store, &config.supabase));
+        Auth::with_session(
+            Transport::new(config).unwrap(),
+            Arc::new(MemoryStore::default()),
+            session,
+        )
+        .await
+        .unwrap()
+    }
+
+    /// supabase-js's `parsePersistedSession` in the shipping app.
+    fn shipping_reads(value: &str) -> Value {
+        let session: Value = serde_json::from_str(value).unwrap();
+        for field in ["access_token", "refresh_token", "token_type"] {
+            assert!(session[field].is_string(), "{field}");
+        }
+        assert!(session["user"]["id"].is_string());
+        assert!(session["expires_at"].is_u64());
+        session
+    }
+
+    #[tokio::test]
+    async fn every_platform_layout_signs_in_and_refreshes_in_shipping_format() {
+        let server = MockServer::start().await;
+        let key = "sb-127-auth-token";
+        let map = HashMap::from([
+            (key.to_string(), session(1, "shipping-token").to_string()),
+            ("unrelated".to_string(), "kept".to_string()),
+        ]);
+        Mock::given(method("POST"))
+            .and(path("/auth/v1/token"))
+            .and(query_param("grant_type", "refresh_token"))
+            .and(body_json(json!({"refresh_token": "fixture-refresh"})))
+            .respond_with(ResponseTemplate::new(200).set_body_json({
+                let mut renewed = session(now() + 3600, "renewed-token");
+                renewed["refresh_token"] = json!("rotated-refresh");
+                renewed["weak_password"] = Value::Null;
+                renewed
+            }))
+            .expect(3)
+            .mount(&server)
+            .await;
+        let root = tempfile::tempdir().unwrap();
+
+        for (platform, store) in layouts(root.path(), &map) {
+            let auth = auth(&server, store()).await;
+            assert_eq!(
+                auth.identity().account_id.as_deref(),
+                Some(ACCOUNT),
+                "{platform} starts signed in"
+            );
+
+            let lease = auth.lease(ACCOUNT, false).await.unwrap();
+            assert_eq!(lease.access_token().unwrap(), "renewed-token");
+            let written = store().load();
+            assert_eq!(written.len(), 2, "{platform}");
+            assert_eq!(written["unrelated"], "kept", "{platform}");
+            let session = shipping_reads(&written[key]);
+            assert_eq!(session["access_token"], "renewed-token", "{platform}");
+            assert_eq!(session["refresh_token"], "rotated-refresh", "{platform}");
+            assert_eq!(
+                session.get("weak_password"),
+                Some(&Value::Null),
+                "{platform}"
+            );
+
+            auth.sign_out().await.unwrap();
+            assert!(store().load().is_empty(), "{platform} signs out");
+        }
+    }
+
+    #[tokio::test]
+    async fn refresh_uses_a_session_another_app_rotated_meanwhile() {
+        let server = MockServer::start().await;
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("auth.json");
+        let write = |token: &str, expiry: u64| {
+            let map = HashMap::from([(
+                "sb-127-auth-token".to_string(),
+                session(expiry, token).to_string(),
+            )]);
+            std::fs::write(&path, serde_json::to_string(&map).unwrap()).unwrap();
+        };
+        write("expired-token", 1);
+        let auth = auth(&server, SessionStore::file(path.clone())).await;
+
+        write("cli-token", now() + 3600);
+        let lease = auth.lease(ACCOUNT, false).await.unwrap();
+
+        assert_eq!(lease.access_token().unwrap(), "cli-token");
+        assert!(server.received_requests().await.unwrap().is_empty());
+    }
 }
