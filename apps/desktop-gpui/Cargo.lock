@@ -3274,6 +3274,7 @@ dependencies = [
  "uuid",
  "windows 0.62.2",
  "wiremock",
+ "x11rb",
  "zeroize",
 ]
 

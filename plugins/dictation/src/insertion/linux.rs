@@ -119,6 +119,12 @@ async fn parts<'a>(
     })
 }
 
+// atspi-proxies 0.9 generates `get_nselections` as `GetNselections`, which no AT-SPI
+// implementation answers; the interface's method is `GetNSelections`.
+async fn selection_count(text: &TextProxy<'_>) -> Fallible<i32> {
+    Ok(text.inner().call("GetNSelections", &()).await?)
+}
+
 /// The field's whole value and its selection, in characters as AT-SPI counts them.
 async fn contents(text: &TextProxy<'_>) -> Fallible<Option<(Vec<char>, i32, i32)>> {
     let count = text.character_count().await?;
@@ -126,7 +132,7 @@ async fn contents(text: &TextProxy<'_>) -> Fallible<Option<(Vec<char>, i32, i32)
         return Ok(None);
     }
     let value: Vec<char> = text.get_text(0, count).await?.chars().collect();
-    let (start, end) = if text.get_nselections().await? > 0 {
+    let (start, end) = if selection_count(text).await? > 0 {
         let (a, b) = text.get_selection(0).await?;
         (a.min(b), a.max(b))
     } else {
@@ -213,7 +219,7 @@ impl super::edit::FieldPort for Field {
             ) else {
                 return Ok(false);
             };
-            let selections = parts.text.get_nselections().await?;
+            let selections = selection_count(&parts.text).await?;
             if start == end {
                 for index in (0..selections).rev() {
                     parts.text.remove_selection(index).await?;
@@ -236,7 +242,7 @@ impl super::edit::FieldPort for Field {
             if !(0..=MAX_FIELD_CHARS).contains(&count) {
                 return Ok(None);
             }
-            let (start, end) = if parts.text.get_nselections().await? > 0 {
+            let (start, end) = if selection_count(&parts.text).await? > 0 {
                 let (a, b) = parts.text.get_selection(0).await?;
                 (a.min(b), a.max(b))
             } else {
@@ -342,4 +348,42 @@ pub fn release(_target: &str) {}
 // No output volume control is wired up on Linux.
 pub fn system_volume() -> Option<Box<dyn super::volume::SystemVolume>> {
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use atspi::proxy::text::TextProxy;
+
+    struct SelectedField;
+
+    #[zbus::interface(name = "org.a11y.atspi.Text")]
+    impl SelectedField {
+        #[zbus(name = "GetNSelections")]
+        fn n_selections(&self) -> i32 {
+            1
+        }
+    }
+
+    #[tokio::test]
+    async fn counts_selections_with_the_at_spi_method_name() {
+        let (app, client) = tokio::net::UnixStream::pair().unwrap();
+        let (_app, client) = tokio::try_join!(
+            zbus::connection::Builder::unix_stream(app)
+                .server(zbus::Guid::generate())
+                .unwrap()
+                .p2p()
+                .serve_at("/field", SelectedField)
+                .unwrap()
+                .build(),
+            zbus::connection::Builder::unix_stream(client).p2p().build(),
+        )
+        .unwrap();
+        let text = TextProxy::builder(&client)
+            .path("/field")
+            .unwrap()
+            .build()
+            .await
+            .unwrap();
+        assert_eq!(super::selection_count(&text).await.unwrap(), 1);
+    }
 }
