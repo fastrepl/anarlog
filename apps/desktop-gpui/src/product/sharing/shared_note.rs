@@ -23,6 +23,12 @@ use crate::{
 const NOTE_SQL: &str = "SELECT title, body_json, capability, manage_access, attachments_json
     FROM shared_session_cache WHERE viewer_user_id = ? AND share_id = ?";
 
+/// Bumped after each shared-note cache reconcile so open notes re-read their cached copy.
+#[derive(Default)]
+pub struct SharedNotesSynced(pub u64);
+
+impl gpui::Global for SharedNotesSynced {}
+
 #[derive(Clone)]
 struct Note {
     title: SharedString,
@@ -52,7 +58,7 @@ pub struct SharedNoteView {
     signing_in: bool,
     viewer: Option<Arc<str>>,
     cancel: CancellationToken,
-    _account: gpui::Subscription,
+    _subscriptions: [gpui::Subscription; 2],
 }
 
 impl SharedNoteView {
@@ -67,11 +73,18 @@ impl SharedNoteView {
             signing_in: false,
             viewer: None,
             cancel: CancellationToken::new(),
-            _account: cx.observe_global::<account::Account>(|this, cx| {
-                if !this.preview && account_id(cx) != this.viewer {
-                    this.load(cx);
-                }
-            }),
+            _subscriptions: [
+                cx.observe_global::<account::Account>(|this, cx| {
+                    if !this.preview && account_id(cx) != this.viewer {
+                        this.load(cx);
+                    }
+                }),
+                cx.observe_global::<SharedNotesSynced>(|this, cx| {
+                    if let Some(viewer) = this.viewer.clone().filter(|_| !this.preview) {
+                        this.read_cache(viewer, cx);
+                    }
+                }),
+            ],
         };
         this.load(cx);
         this
@@ -79,10 +92,10 @@ impl SharedNoteView {
 
     fn load(&mut self, cx: &mut Context<Self>) {
         self.cancel.cancel();
-        self.cancel = CancellationToken::new();
-        let cancel = self.cancel.clone();
-        let id = self.id.clone();
         if self.preview {
+            self.cancel = CancellationToken::new();
+            let cancel = self.cancel.clone();
+            let id = self.id.clone();
             self.state = State::Loading;
             let Some(cloud) = cx.try_global::<SharingCloud>().map(|cloud| cloud.0.clone()) else {
                 self.state = preview_unavailable();
@@ -117,6 +130,16 @@ impl SharedNoteView {
             return;
         };
         self.state = State::Loading;
+        self.read_cache(viewer, cx);
+        cx.notify();
+    }
+
+    /// Shows `viewer`'s cached copy, keeping the current content until the read finishes.
+    fn read_cache(&mut self, viewer: Arc<str>, cx: &mut Context<Self>) {
+        self.cancel.cancel();
+        self.cancel = CancellationToken::new();
+        let cancel = self.cancel.clone();
+        let id = self.id.clone();
         let reply = self
             .runtime
             .read(cancel.clone(), move |services| async move {
@@ -148,7 +171,6 @@ impl SharedNoteView {
             });
         })
         .detach();
-        cx.notify();
     }
 
     fn sign_in(&mut self, cx: &mut Context<Self>) {

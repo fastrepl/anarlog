@@ -18,6 +18,7 @@ on:
       - scripts/repack-linux-appimage.test.mjs
       - apps/cli/**
       - apps/desktop/**
+      - browser-meeting-extension/**
       - packages/utils/**
       - plugins/**
       - crates/**
@@ -31,6 +32,7 @@ on:
       - scripts/repack-linux-appimage.test.mjs
       - apps/cli/**
       - apps/desktop/**
+      - browser-meeting-extension/**
       - packages/utils/**
       - plugins/**
       - crates/**
@@ -57,6 +59,12 @@ jobs:
       - run: pnpm -F ui build
       - if: matrix.shard == 1
         run: pnpm -F desktop typecheck
+      - if: matrix.shard == 1
+        run: pnpm -F @anlg/browser-meeting-extension typecheck
+      - if: matrix.shard == 1
+        run: pnpm -F @anlg/browser-meeting-extension test
+      - if: matrix.shard == 1
+        run: node --test apps/desktop/src-tauri/scripts/prepare-meeting-helpers.test.mjs
       - env:
           SHARD: ${{ matrix.shard }}
           SHARD_TOTAL: ${{ strategy.job-total }}
@@ -114,6 +122,9 @@ jobs:
       - run: cargo test --locked -p tauri-plugin-template --lib
       - run: cargo test --locked -p cloudsync
       - run: "cargo test --locked -p db-core 'cloudsync::' -- --test-threads=1"
+      # The workspace run below excludes both crates; their meeting contract and notice tests are pure.
+      - run: cargo test --locked -p audio --lib
+      - run: "cargo test --locked -p tauri-plugin-detect --lib 'meeting_notice::'"
       - run: |
           cargo test --workspace \
             --exclude desktop \
@@ -651,6 +662,11 @@ jobs:
           submodules: recursive
           fetch-depth: 0
       - run: swift build --package-path plugins/windows/swift-lib
+      - run: swift build --package-path tools/meeting-capture
+      # CI=1 skips the AudioEngineGuard tests that start a real audio engine.
+      - run: CI=1 swift test --package-path tools/meeting-capture
+      - run: swift test --package-path tools/camera-watermark
+      - run: swift test --package-path crates/dictation-ui-macos/swift-lib
 
   ci:
     if: always()

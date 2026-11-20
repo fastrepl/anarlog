@@ -132,7 +132,8 @@ export function createMeetingFloatRenderRequest(
   if (
     !session ||
     session.liveStartedAtMs === null ||
-    session.speakerContext.intervals.length === 0
+    (session.speakerContext.intervals.length === 0 &&
+      !session.speakerContext.meetings?.length)
   ) {
     return null;
   }

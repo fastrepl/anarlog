@@ -77,8 +77,25 @@ pub struct MeetingChatSendResult {
     pub platform: MeetingPlatform,
     pub surface: MeetingSurface,
     pub input_label: Option<String>,
+    /// The send control Anarlog pressed. Also set when the press reported an error, because the
+    /// app may still have sent the message.
     pub send_action: Option<String>,
     pub warnings: Vec<String>,
+}
+
+impl MeetingChatSendResult {
+    /// Whether the message may be in the chat, so it must never be posted again: it was sent, or
+    /// the send control was pressed and reported an error.
+    pub fn may_have_sent(&self) -> bool {
+        self.sent || self.send_action.is_some()
+    }
+
+    /// A failure reported by the send control's press itself.
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+    pub(super) fn after_send_press(mut self) -> Self {
+        self.send_action = Some("sendButton".to_string());
+        self
+    }
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]

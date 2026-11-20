@@ -3,6 +3,8 @@ name = "chrome-native-host"
 version = "0.1.0"
 edition = "2024"
 
+# The file name is packaging's (`crates/xtask/src/prepare_binaries.rs`, `desktop_cd.yaml`); the
+# native-messaging host name the extension connects to is `so.anarlog.browser_meeting`.
 [[bin]]
 name = "char-chrome-native-host"
 path = "src/main.rs"
@@ -11,4 +13,6 @@ path = "src/main.rs"
 dirs = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
+
+[dev-dependencies]
 tempfile = { workspace = true }

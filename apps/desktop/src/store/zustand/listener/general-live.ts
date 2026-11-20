@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import { getIdentifier } from "@tauri-apps/api/app";
 import { Cause, Effect, Exit } from "effect";
 import type { StoreApi } from "zustand";
@@ -271,7 +272,11 @@ const notifyCaptureWarning = <T extends GeneralState>(
               );
               if (result.status === "error")
                 toast.error("Audio retry failed", {
-                  description: result.error,
+                  description:
+                    result.error ===
+                    "native capture microphone requires restart"
+                      ? t`This recording follows your Mac's default microphone. To select a different microphone, stop and start a new recording.`
+                      : result.error,
                 });
             })
             .catch((error) =>

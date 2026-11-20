@@ -20,7 +20,7 @@ mod witness_watch;
 use e2ee_sync::E2eeSyncHook;
 pub(crate) use e2ee_sync::{CloudsyncTokenConfiguration, E2eeWorkspaceKeyConfiguration};
 #[cfg(test)]
-use open::{app_db_open_options, database_uses_cloudsync_schema, open_app_db_without_cloudsync};
+use open::{app_db_open_options, open_app_db_without_cloudsync};
 pub use open::{open_app_db, open_app_db_unmigrated};
 #[cfg(test)]
 use recovery::{

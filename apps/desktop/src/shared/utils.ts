@@ -9,11 +9,20 @@ import { env } from "~/env";
 
 export const id = () => crypto.randomUUID() as string;
 
-export type DesktopScheme =
-  | "anarlog"
-  | "anarlog-staging"
-  | "anarlog-nightly"
-  | "anarlog-dev";
+const desktopSchemes = [
+  "anarlog",
+  "anarlog-staging",
+  "anarlog-nightly",
+  "anarlog-dev",
+  "hypr",
+  "hyprnote",
+  "hyprnote-staging",
+  "hyprnote-nightly",
+  "char",
+  "char-staging",
+] as const;
+
+export type DesktopScheme = (typeof desktopSchemes)[number];
 
 export const getScheme = async (): Promise<DesktopScheme> => {
   const id = await getIdentifier();
@@ -28,7 +37,17 @@ export const getScheme = async (): Promise<DesktopScheme> => {
     "com.anarlog.staging": "anarlog-staging",
     "com.anarlog.dev": "anarlog-dev",
   };
-  return schemes[id] ?? "anarlog";
+  if (schemes[id]) return schemes[id];
+
+  const { commands } = await import("~/types/tauri.gen");
+  const registered = await commands.getRegisteredDesktopSchemes();
+  const scheme = registered.find((value): value is DesktopScheme =>
+    desktopSchemes.some((supported) => supported === value),
+  );
+  if (!scheme) {
+    throw new Error("This build has no supported sign-in callback scheme.");
+  }
+  return scheme;
 };
 
 type DesktopFlowPath =

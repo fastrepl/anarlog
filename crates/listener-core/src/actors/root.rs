@@ -23,6 +23,16 @@ pub enum RootMsg {
     UpdateSessionConfig(SessionConfigUpdate, RpcReplyPort<()>),
     StopSession(RpcReplyPort<()>),
     StopSessionIfActive(String, RpcReplyPort<bool>),
+    /// `StartSession` for one capture of the session (`capture_id` is fresh per recording). Its
+    /// lifecycle events carry that id, and `StopCaptureIfActive` stops only this recording.
+    StartCapture(
+        SessionParams,
+        String,
+        RpcReplyPort<Result<(), StartSessionError>>,
+    ),
+    /// Stops the active session only while it records this capture, so a late stop of an earlier
+    /// capture never ends a newer recording of the same session.
+    StopCaptureIfActive(String, RpcReplyPort<bool>),
     GetState(RpcReplyPort<State>),
     GetSnapshot(RpcReplyPort<Snapshot>),
 }
@@ -36,8 +46,9 @@ pub struct RootState {
     runtime: Arc<dyn ListenerRuntime>,
     audio: Arc<dyn AudioProvider>,
     active_session_id: Option<String>,
+    active_capture_id: Option<String>,
     active_supervisor: Option<ActorCell>,
-    finalizing_sessions: HashMap<String, ActorCell>,
+    finalizing_sessions: HashMap<String, (ActorCell, Option<String>)>,
     cleanup_failed_sessions: HashMap<String, bool>,
     cleanup_retry_scheduled: bool,
 }
@@ -70,6 +81,7 @@ impl Actor for RootActor {
             runtime: args.runtime,
             audio: args.audio,
             active_session_id: None,
+            active_capture_id: None,
             active_supervisor: None,
             finalizing_sessions: HashMap::new(),
             cleanup_failed_sessions,
@@ -104,7 +116,12 @@ impl Actor for RootActor {
                 }
             }
             RootMsg::StartSession(params, reply) => {
-                let result = start_session_impl(myself.get_cell(), params, state).await;
+                let result = start_session_impl(myself.get_cell(), params, None, state).await;
+                let _ = reply.send(result);
+            }
+            RootMsg::StartCapture(params, capture_id, reply) => {
+                let result =
+                    start_session_impl(myself.get_cell(), params, Some(capture_id), state).await;
                 let _ = reply.send(result);
             }
             RootMsg::UpdateSessionConfig(update, reply) => {
@@ -117,6 +134,14 @@ impl Actor for RootActor {
             }
             RootMsg::StopSessionIfActive(session_id, reply) => {
                 let active = state.active_session_id.as_deref() == Some(session_id.as_str());
+                if active {
+                    stop_session_impl(state).await;
+                }
+                let _ = reply.send(active);
+            }
+            RootMsg::StopCaptureIfActive(capture_id, reply) => {
+                let active = state.active_supervisor.is_some()
+                    && state.active_capture_id.as_deref() == Some(capture_id.as_str());
                 if active {
                     stop_session_impl(state).await;
                 }
@@ -283,6 +308,7 @@ fn root_snapshot(state: &RootState) -> Snapshot {
 async fn start_session_impl(
     root_cell: ActorCell,
     mut params: SessionParams,
+    capture_id: Option<String>,
     state: &mut RootState,
 ) -> Result<(), StartSessionError> {
     let requested_transcription_mode = params.transcription_mode;
@@ -292,6 +318,16 @@ async fn start_session_impl(
 
     async {
         clear_stopped_supervisors(state);
+
+        // A stop that came before this start reached the root ended the capture first; one that
+        // comes after queues behind this start and finds it recording.
+        if capture_id
+            .as_deref()
+            .is_some_and(|capture_id| !state.runtime.capture_is_current(capture_id))
+        {
+            tracing::warn!("capture_ended_before_start");
+            return Err(StartSessionError::CaptureEnded);
+        }
 
         if state.active_supervisor.is_some() {
             tracing::warn!("session_already_running");
@@ -335,6 +371,7 @@ async fn start_session_impl(
                 }
 
                 state.active_session_id = Some(params.session_id.clone());
+                state.active_capture_id = capture_id;
                 state.active_supervisor = Some(supervisor_cell);
 
                 let evt = SessionLifecycleEvent::Active {
@@ -344,7 +381,9 @@ async fn start_session_impl(
                     error: None,
                 };
 
-                state.runtime.emit_lifecycle(evt);
+                state
+                    .runtime
+                    .emit_capture_lifecycle(evt, state.active_capture_id.as_deref());
 
                 tracing::info!("session_started");
                 Ok(())
@@ -387,34 +426,39 @@ fn clear_stopped_supervisors(state: &mut RootState) {
     {
         let session_id = state.active_session_id.take().unwrap_or_default();
         tracing::warn!(%session_id, "clearing_stale_active_session_supervisor");
+        state.active_capture_id = None;
         state.active_supervisor = None;
     }
 
-    state.finalizing_sessions.retain(|session_id, supervisor| {
-        let should_keep = supervisor.get_status() != ActorStatus::Stopped;
-        if !should_keep {
-            tracing::warn!(%session_id, "clearing_stale_finalizing_session_supervisor");
-        }
-        should_keep
-    });
+    state
+        .finalizing_sessions
+        .retain(|session_id, (supervisor, _)| {
+            let should_keep = supervisor.get_status() != ActorStatus::Stopped;
+            if !should_keep {
+                tracing::warn!(%session_id, "clearing_stale_finalizing_session_supervisor");
+            }
+            should_keep
+        });
 }
 
 async fn stop_session_impl(state: &mut RootState) {
     if let Some(supervisor) = state.active_supervisor.take() {
         let session_id = state.active_session_id.take().unwrap_or_default();
+        let capture_id = state.active_capture_id.take();
         state
             .finalizing_sessions
-            .insert(session_id.clone(), supervisor.clone());
+            .insert(session_id.clone(), (supervisor.clone(), capture_id.clone()));
 
         let span = session_span(&session_id);
         let _guard = span.enter();
         tracing::info!("session_finalizing");
 
-        state
-            .runtime
-            .emit_lifecycle(SessionLifecycleEvent::Finalizing {
+        state.runtime.emit_capture_lifecycle(
+            SessionLifecycleEvent::Finalizing {
                 session_id: session_id.clone(),
-            });
+            },
+            capture_id.as_deref(),
+        );
 
         let session_ref: ActorRef<SessionMsg> = supervisor.clone().into();
         if let Err(error) = session_ref.cast(SessionMsg::Shutdown) {
@@ -437,6 +481,7 @@ fn handle_supervisor_completion(
         && cell.get_id() == supervisor.get_id()
     {
         let session_id = state.active_session_id.take().unwrap_or_default();
+        let capture_id = state.active_capture_id.take();
         let span = session_span(&session_id);
         let _guard = span.enter();
 
@@ -457,17 +502,18 @@ fn handle_supervisor_completion(
             &*state.runtime,
             &sessions_base,
             &session_id,
+            capture_id.as_deref(),
             reason,
             state.active_session_id.is_none(),
         );
         return;
     }
 
-    if let Some((session_id, _)) = state
+    if let Some(session_id) = state
         .finalizing_sessions
         .iter()
-        .find(|(_, tracked)| tracked.get_id() == cell.get_id())
-        .map(|(session_id, tracked)| (session_id.clone(), tracked.clone()))
+        .find(|(_, (tracked, _))| tracked.get_id() == cell.get_id())
+        .map(|(session_id, _)| session_id.clone())
     {
         let span = session_span(&session_id);
         let _guard = span.enter();
@@ -478,7 +524,10 @@ fn handle_supervisor_completion(
             tracing::info!(?reason, "finalizing_session_supervisor_terminated");
         }
 
-        state.finalizing_sessions.remove(&session_id);
+        let capture_id = state
+            .finalizing_sessions
+            .remove(&session_id)
+            .and_then(|(_, capture_id)| capture_id);
 
         let sessions_base = state
             .runtime
@@ -489,6 +538,7 @@ fn handle_supervisor_completion(
             &*state.runtime,
             &sessions_base,
             &session_id,
+            capture_id.as_deref(),
             reason,
             state.active_session_id.is_none(),
         );

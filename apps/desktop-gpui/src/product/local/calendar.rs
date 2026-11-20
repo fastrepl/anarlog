@@ -6,6 +6,7 @@ use std::{
 use anlg_calendar::{CalendarEvent, CalendarListItem, CalendarProviderType, EventFilter};
 use anlg_calendar_interface::{AttendeeRole, EventStatus};
 use anlg_db_execute::TransactionStatement as DbStatement;
+use chrono::{DateTime, Utc};
 use desktop_runtime::{CancellationToken, Result, RuntimeHandle, ServiceError};
 use futures::future::BoxFuture;
 use serde_json::{Value, json};
@@ -86,6 +87,7 @@ impl CalendarService {
                                 .as_str()
                                 .ok_or(ServiceError::Conflict)?
                                 .into(),
+                            None,
                             cancel.clone(),
                         )
                         .await?;
@@ -154,16 +156,19 @@ impl CalendarService {
         id: String,
         cancel: CancellationToken,
     ) -> Result<()> {
-        self.apply_selection(runtime, id, None, cancel).await
+        self.apply_selection(runtime, id, None, None, cancel).await
     }
 
+    /// Refetches the calendar's events in `range`, or a week back and a month ahead.
     pub async fn refresh(
         &self,
         runtime: &RuntimeHandle,
         id: String,
+        range: Option<(DateTime<Utc>, DateTime<Utc>)>,
         cancel: CancellationToken,
     ) -> Result<()> {
-        self.apply_selection(runtime, id, Some(true), cancel).await
+        self.apply_selection(runtime, id, Some(true), range, cancel)
+            .await
     }
 
     async fn apply_selection(
@@ -171,6 +176,7 @@ impl CalendarService {
         runtime: &RuntimeHandle,
         id: String,
         desired: Option<bool>,
+        range: Option<(DateTime<Utc>, DateTime<Utc>)>,
         cancel: CancellationToken,
     ) -> Result<()> {
         let lookup = id.clone();
@@ -196,8 +202,10 @@ impl CalendarService {
         }
         let enabled = desired.unwrap_or(!previous);
         let provider = super::parse_provider(row["provider"].as_str().unwrap_or(""))?;
-        let from = chrono::Utc::now() - chrono::Duration::days(7);
-        let to = from + chrono::Duration::days(37);
+        let (from, to) = range.unwrap_or_else(|| {
+            let from = Utc::now() - chrono::Duration::days(7);
+            (from, from + chrono::Duration::days(37))
+        });
         let events = if enabled {
             self.events(
                 provider,

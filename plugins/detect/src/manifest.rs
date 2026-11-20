@@ -11,7 +11,6 @@ pub(crate) const COMMANDS: &[&str] = &[
     "set_included_bundle_ids",
     "list_default_ignored_bundle_ids",
     "inspect_meeting_accessibility",
-    "send_meeting_chat_message",
     "capture_meeting_chat_messages",
     "capture_meeting_screen_share",
     "get_preferred_languages",

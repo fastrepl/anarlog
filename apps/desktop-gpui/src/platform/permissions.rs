@@ -17,8 +17,9 @@ pub enum Status {
     NotRequired,
 }
 
-#[cfg(target_os = "macos")]
-const NOT_REQUESTED: &str = "Not requested yet";
+/// macOS can still prompt for a permission with this status; once denied, only System
+/// Settings can grant it.
+pub const NOT_REQUESTED: &str = "Not requested yet";
 
 #[cfg(not(target_os = "macos"))]
 fn probed(result: std::result::Result<(), impl std::fmt::Display>) -> Status {
@@ -88,11 +89,15 @@ impl NativePermissions {
         match permission {
             #[cfg(target_os = "macos")]
             Permission::Microphone => request_microphone(),
+            // Shipping's `request_system_audio`: opening the speaker tap while something plays
+            // is what shows the system audio prompt. The silence stops even if the probe fails.
             Permission::SystemAudio => {
                 let stop = self.audio.play_silence();
-                let status = self.check(permission);
+                if let Err(error) = self.audio.probe_speaker() {
+                    tracing::warn!(%error, "system audio probe failed");
+                }
                 let _ = stop.send(());
-                status
+                self.check(permission)
             }
             Permission::Accessibility => accessibility(true),
             Permission::Calendar => calendar(true),
@@ -200,16 +205,22 @@ fn accessibility(_: bool) -> Status {
 
 #[cfg(target_os = "macos")]
 fn calendar(request: bool) -> Status {
-    let granted = if request {
-        anlg_apple_calendar::Handle::request_full_access()
+    use anlg_apple_calendar::{CalendarAuthStatus, Handle};
+    let status = if request {
+        if Handle::request_full_access() {
+            CalendarAuthStatus::Authorized
+        } else {
+            CalendarAuthStatus::Denied
+        }
     } else {
-        anlg_apple_calendar::Handle::authorization_status()
-            == anlg_apple_calendar::CalendarAuthStatus::Authorized
+        Handle::authorization_status()
     };
-    if granted {
-        Status::Granted
-    } else {
-        Status::Denied("Allow calendar access in System Settings".into())
+    match status {
+        CalendarAuthStatus::Authorized => Status::Granted,
+        CalendarAuthStatus::NotDetermined => Status::Denied(NOT_REQUESTED.into()),
+        CalendarAuthStatus::Denied => {
+            Status::Denied("Allow calendar access in System Settings".into())
+        }
     }
 }
 

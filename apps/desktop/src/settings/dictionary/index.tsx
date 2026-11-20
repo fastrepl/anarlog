@@ -19,6 +19,8 @@ import {
   InputGroupInput,
 } from "@anlg/ui/components/ui/input-group";
 
+import { DictionaryReplacements, DictionarySuggestions } from "./replacements";
+
 import { trackAnalyticsEvent } from "~/analytics";
 import { useBillingAccess } from "~/auth/billing-context";
 import { SettingsPageTitle } from "~/settings/page-title";
@@ -36,7 +38,11 @@ export function SettingsDictionary() {
     <div className="flex flex-col gap-8">
       <SettingsPageTitle title={<Trans>Dictionary</Trans>} />
       <PlanGate plan="pro" allowed={isPro}>
-        <DictionarySettings terms={terms} onSave={setTerms} />
+        <div className="flex flex-col gap-8">
+          <DictionarySettings terms={terms} onSave={setTerms} />
+          <DictionarySuggestions terms={terms} onSave={setTerms} />
+          <DictionaryReplacements />
+        </div>
       </PlanGate>
     </div>
   );

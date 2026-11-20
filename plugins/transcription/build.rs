@@ -41,6 +41,8 @@ const COMMANDS: &[&str] = &[
     "extract_voiceprint_candidates",
     "promote_voiceprint_candidates",
     "delete_processed_session_audio",
+    "get_meeting_capture_capability",
+    "set_meeting_account",
     "parse_subtitle",
     "export_to_vtt",
     "is_supported_languages_batch",

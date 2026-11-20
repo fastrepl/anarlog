@@ -1,12 +1,15 @@
 //! The platform adapter behind UI zoom. Each window tells GPUI it is `1 / factor` of its real
 //! size at `factor` times the display scale, and input positions are divided by the factor, so
 //! GPUI lays out, rasterizes and hit-tests the zoomed UI at full resolution. Screen geometry
-//! (window bounds, displays) stays in real points.
+//! (window bounds, displays) stays in real points. Line-based wheel deltas become the pixels
+//! shipping's web view scrolls on this platform, so every scroll surface moves as far per notch.
 //!
 //! Every method forwards to the native platform, including ones with default bodies, because a
 //! missing forward silently falls back to GPUI's default. Check new trait methods on GPUI bumps.
+//! Only Windows' jump list and Wayland's layer-shell edge are left out; the app uses neither.
 
 use std::{
+    cell::Cell,
     ffi::OsString,
     path::{Path, PathBuf},
     rc::Rc,
@@ -27,7 +30,7 @@ use gpui::{
     SystemNotification, SystemNotificationResponse, SystemWindowTab, Task, TextInputConfiguration,
     TextInputStateChange, ThermalState, WindowAppearance, WindowBackgroundAppearance, WindowBounds,
     WindowButtonLayout, WindowControlArea, WindowControls, WindowDecorations, WindowInsets,
-    WindowParams, WindowVisibility, WindowingRequest, accesskit,
+    WindowParams, WindowVisibility, WindowingRequest, accesskit, point, px,
 };
 use raw_window_handle::{
     DisplayHandle, HandleError, HasDisplayHandle, HasWindowHandle, WindowHandle,
@@ -54,6 +57,8 @@ impl ZoomPlatform {
 struct ZoomWindow {
     native: Box<dyn PlatformWindow>,
     factor: Factor,
+    /// The real content size last reported, which sets WebKitGTK's wheel step.
+    content_size: Rc<Cell<Size<Pixels>>>,
 }
 
 fn down(point: Point<Pixels>, factor: f32) -> Point<Pixels> {
@@ -138,6 +143,66 @@ pub(super) fn unzoom(event: PlatformInput, factor: f32) -> PlatformInput {
     }
 }
 
+/// The engine shipping's web view runs on, which sets how far one wheel notch scrolls.
+#[derive(Clone, Copy)]
+enum Engine {
+    /// WebView2 on Windows.
+    Chromium,
+    /// WKWebView on macOS.
+    WebKit,
+    /// WebKitGTK on Linux.
+    WebKitGtk,
+}
+
+impl Engine {
+    const NATIVE: Self = if cfg!(target_os = "windows") {
+        Self::Chromium
+    } else if cfg!(target_os = "macos") {
+        Self::WebKit
+    } else {
+        Self::WebKitGtk
+    };
+
+    /// The pixels shipping scrolls for `lines` of a GPUI wheel delta along an axis `extent` long.
+    fn pixels(self, lines: f32, extent: Pixels) -> Pixels {
+        px(match self {
+            // GPUI sends notches times the system's wheel lines (chars sideways), and Chromium
+            // scrolls 100 px per three of them (`web_input_event_builders_win.cc`).
+            Self::Chromium => lines * 100. / 3.,
+            // A line-based notch's `deltaY` times `Scrollbar::pixelsPerLineStep()`
+            // (`WebEventFactory.mm`).
+            Self::WebKit => lines * 40.,
+            // GPUI sends three lines per notch (`SCROLL_LINES`), and WebKitGTK scrolls the view's
+            // extent to the 2/3 power per notch, whole pixels (`Scrollbar::pixelsPerLineStep(int)`).
+            Self::WebKitGtk => {
+                let step = f64::from(f32::from(extent).trunc()).powf(2. / 3.).trunc();
+                lines * step as f32 / 3.
+            }
+        })
+    }
+}
+
+/// Line-based wheel deltas in the real pixels shipping scrolls; pixel deltas pass through.
+/// `content_size` is the window's real content size, as WebKitGTK sizes its step by the view.
+fn wheel_pixels(event: PlatformInput, engine: Engine, content_size: Size<Pixels>) -> PlatformInput {
+    let PlatformInput::Scroll(mut event) = event else {
+        return event;
+    };
+    if let ScrollDelta::Lines(lines) = event.delta {
+        // Shift turns the vertical wheel sideways, and WebKitGTK keeps the vertical step for it.
+        let across = if event.modifiers.shift {
+            content_size.height
+        } else {
+            content_size.width
+        };
+        event.delta = ScrollDelta::Pixels(point(
+            engine.pixels(lines.x, across),
+            engine.pixels(lines.y, content_size.height),
+        ));
+    }
+    PlatformInput::Scroll(event)
+}
+
 /// AccessKit scales every node through the root's transform, so assistive technology sees
 /// element bounds in real points.
 fn zoom_tree(mut update: accesskit::TreeUpdate, factor: f32) -> accesskit::TreeUpdate {
@@ -176,8 +241,10 @@ impl Platform for ZoomPlatform {
             options.bounds.size = options.bounds.size.max(&minimum);
             self.min_sizes.borrow_mut().push((handle, base));
         }
+        let native = self.native.open_window(handle, options)?;
         Ok(Box::new(ZoomWindow {
-            native: self.native.open_window(handle, options)?,
+            content_size: Rc::new(Cell::new(native.content_size())),
+            native,
             factor: self.factor.clone(),
         }))
     }
@@ -562,13 +629,18 @@ impl PlatformWindow for ZoomWindow {
 
     fn on_input(&self, mut callback: Box<dyn FnMut(PlatformInput) -> DispatchEventResult>) {
         let factor = self.factor.clone();
-        self.native
-            .on_input(Box::new(move |event| callback(unzoom(event, factor.get()))))
+        let content_size = self.content_size.clone();
+        self.native.on_input(Box::new(move |event| {
+            let event = wheel_pixels(event, Engine::NATIVE, content_size.get());
+            callback(unzoom(event, factor.get()))
+        }))
     }
 
     fn on_resize(&self, mut callback: Box<dyn FnMut(Size<Pixels>, f32)>) {
         let factor = self.factor.clone();
+        let content_size = self.content_size.clone();
         self.native.on_resize(Box::new(move |size, scale| {
+            content_size.set(size);
             let factor = factor.get();
             callback(size.map(|length| length / factor), scale * factor)
         }))
@@ -890,6 +962,11 @@ impl PlatformWindow for ZoomWindow {
         self.native.restore_native_window_state(state)
     }
 
+    #[cfg(target_os = "windows")]
+    fn get_raw_handle(&self) -> windows::Win32::Foundation::HWND {
+        self.native.get_raw_handle()
+    }
+
     fn inner_window_bounds(&self) -> WindowBounds {
         self.native.inner_window_bounds()
     }
@@ -974,7 +1051,7 @@ impl PlatformWindow for ZoomWindow {
 
 #[cfg(test)]
 mod tests {
-    use gpui::{Modifiers, MouseButton, MouseDownEvent, ScrollEvent, TouchPhase, point, px};
+    use gpui::{MouseButton, MouseDownEvent, ScrollEvent, TouchPhase, size};
 
     use super::*;
 
@@ -1019,6 +1096,63 @@ mod tests {
             panic!("still in lines");
         };
         assert_eq!(lines, point(0., -3.));
+    }
+
+    #[test]
+    fn a_wheel_notch_scrolls_as_far_as_shippings_web_view() {
+        let scroll = |engine, delta, shift| {
+            let PlatformInput::Scroll(event) = wheel_pixels(
+                PlatformInput::Scroll(ScrollEvent {
+                    delta,
+                    modifiers: Modifiers {
+                        shift,
+                        ..Modifiers::default()
+                    },
+                    ..Default::default()
+                }),
+                engine,
+                size(px(910.), px(800.)),
+            ) else {
+                panic!("still a scroll");
+            };
+            let ScrollDelta::Pixels(pixels) = event.delta else {
+                panic!("now in pixels");
+            };
+            pixels
+        };
+        let lines = |x, y| ScrollDelta::Lines(point(x, y));
+        // Windows sends a notch as its wheel-lines setting: three by default, here also six.
+        assert_eq!(
+            scroll(Engine::Chromium, lines(0., -3.), false),
+            point(px(0.), px(-100.))
+        );
+        assert_eq!(
+            scroll(Engine::Chromium, lines(0., 6.), false),
+            point(px(0.), px(200.))
+        );
+        assert_eq!(
+            scroll(Engine::WebKit, lines(0., -1.), false),
+            point(px(0.), px(-40.))
+        );
+        // An 800 px tall view steps 86 px, also when Shift turns the wheel sideways; a tilted
+        // wheel steps by the 910 px width.
+        assert_eq!(
+            scroll(Engine::WebKitGtk, lines(0., -3.), false),
+            point(px(0.), px(-86.))
+        );
+        assert_eq!(
+            scroll(Engine::WebKitGtk, lines(3., 0.), true),
+            point(px(86.), px(0.))
+        );
+        assert_eq!(
+            scroll(Engine::WebKitGtk, lines(-3., 0.), false),
+            point(px(-93.), px(0.))
+        );
+        let trackpad = ScrollDelta::Pixels(point(px(0.), px(-7.5)));
+        assert_eq!(
+            scroll(Engine::WebKit, trackpad, false),
+            point(px(0.), px(-7.5))
+        );
     }
 
     #[test]

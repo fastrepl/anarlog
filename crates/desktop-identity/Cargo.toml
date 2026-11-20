@@ -1,0 +1,20 @@
+[package]
+name = "desktop-identity"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anlg-host = { workspace = true }
+anlg-storage = { workspace = true }
+dirs = { workspace = true }
+gethostname = { workspace = true }
+keyring = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+security-framework = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

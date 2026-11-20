@@ -54,9 +54,10 @@ import {
   utf8Length,
 } from "./attachment-limits";
 import { chatSchema } from "./schema";
+import { type ChatEditorSelection, readChatSelection } from "./selection";
 
 export { chatSchema };
-export type { MentionConfig };
+export type { ChatEditorSelection, MentionConfig };
 
 export interface JSONContent {
   type?: string;
@@ -72,6 +73,8 @@ export interface ChatEditorHandle {
   clearContent(): void;
   insertText(text: string): void;
   replaceContent(content: JSONContent, selection?: "start" | "end"): void;
+  /** The current caret or selection, with a write that lands only while it is unchanged. */
+  readSelection(): ChatEditorSelection | null;
 }
 
 interface ChatEditorProps {
@@ -321,6 +324,11 @@ export const ChatEditor = forwardRef<ChatEditorHandle, ChatEditorProps>(
           );
           view.dispatch(tr);
           view.focus();
+        },
+        readSelection() {
+          const view = viewRef.current;
+          if (!view || view.isDestroyed) return null;
+          return readChatSelection(view, () => viewRef.current);
         },
       }),
       [],

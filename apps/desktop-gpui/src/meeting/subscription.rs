@@ -143,24 +143,28 @@ pub(super) async fn resolve(
     Ok(encoded)
 }
 
+/// Saves provider keys where shipping does for this identifier, chunked when long.
 pub fn keyring_writer(identifier: String) -> SecretWriter {
+    store_writer(anlg_desktop_identity::SecureStore::keyring(&identifier))
+}
+
+pub fn store_writer<F, S>(store: anlg_desktop_identity::SecureStore<F>) -> SecretWriter
+where
+    F: Fn(&str, &str) -> keyring::Result<S> + Send + Sync + 'static,
+    S: anlg_desktop_identity::SecretSlot,
+{
+    let store = Arc::new(store);
     Arc::new(move |kind, provider, value| {
-        let identifier = identifier.clone();
+        let store = store.clone();
         Box::pin(async move {
             tokio::task::spawn_blocking(move || {
-                let canonical = super::config::canonical_identifier(&identifier);
-                let account = format!("ai-provider-api-keys:{}:{provider}", kind.key());
-                let account = if identifier == "com.hyprnote.dev" {
-                    format!("v2:{account}")
-                } else {
-                    account
-                };
-                keyring::Entry::new(&format!("{canonical}.secure-store"), &account)
-                    .map_err(|_| failure("Could not open the secure provider store."))?
-                    .set_password(&value)
-                    .map_err(|_| {
-                        failure("Could not save refreshed subscription access to the keyring.")
-                    })
+                store
+                    .write(
+                        super::config::PROVIDER_KEYS,
+                        &format!("{}:{provider}", kind.key()),
+                        &value,
+                    )
+                    .map_err(failure)
             })
             .await
             .map_err(failure)?

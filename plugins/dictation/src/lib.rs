@@ -1,18 +1,11 @@
 mod commands;
-mod error;
-mod events;
-mod ext;
-mod handler;
+mod ducking;
+mod engine;
 mod insertion;
+mod lease;
 mod preview;
-mod recorder;
+mod recovery;
 
-pub use error::*;
-pub use events::*;
-pub use ext::*;
-
-use handler::Handler;
-use recorder::Recorder;
 use tauri::Manager;
 
 const PLUGIN_NAME: &str = "dictation";
@@ -21,17 +14,29 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
     tauri_specta::Builder::<R>::new()
         .plugin_name(PLUGIN_NAME)
         .commands(tauri_specta::collect_commands![
-            commands::show::<tauri::Wry>,
-            commands::hide::<tauri::Wry>,
-            commands::set_phase::<tauri::Wry>,
-            commands::update_amplitude::<tauri::Wry>,
-            commands::start_recording::<tauri::Wry>,
-            commands::start_system_recording::<tauri::Wry>,
-            commands::stop_recording::<tauri::Wry>,
-            commands::cancel_recording::<tauri::Wry>,
-            commands::discard_recording::<tauri::Wry>,
             commands::capture_target,
-            commands::insert_text,
+            commands::begin_dictation::<tauri::Wry>,
+            commands::attach_dictation_stream::<tauri::Wry>,
+            commands::finish_dictation::<tauri::Wry>,
+            commands::complete_dictation::<tauri::Wry>,
+            commands::release_dictation::<tauri::Wry>,
+            commands::cancel_dictation::<tauri::Wry>,
+            commands::retire_dictations::<tauri::Wry>,
+            commands::list_dictation_recovery::<tauri::Wry>,
+            commands::prepare_dictation_recovery_audio::<tauri::Wry>,
+            commands::save_dictation_recovery_text::<tauri::Wry>,
+            commands::claim_dictation_recovery::<tauri::Wry>,
+            commands::discard_dictation_recovery::<tauri::Wry>,
+            commands::fit_dictation_text,
+            commands::prepare_dictation_refinement,
+            commands::resolve_dictation_refinement,
+            commands::suggest_dictation_terms,
+            commands::rank_dictation_terms,
+            commands::record_dictation_terms,
+            commands::read_dictation_context,
+            commands::insert_dictation::<tauri::Wry>,
+            commands::read_dictation_kept,
+            commands::release_dictation_target,
         ])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }
@@ -42,8 +47,22 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
     tauri::plugin::Builder::new(PLUGIN_NAME)
         .invoke_handler(specta_builder.invoke_handler())
         .setup(move |app, _api| {
-            app.manage(Handler::new(app.clone()));
-            app.manage(Recorder::new());
+            let recovery = app
+                .path()
+                .app_data_dir()
+                .ok()
+                .map(|directory| directory.join("dictation-recovery"));
+            app.manage(engine::Engine::new(
+                recovery,
+                insertion::output_ducker(),
+                engine::Limits::default(),
+            ));
+            let app = app.clone();
+            tauri::async_runtime::spawn_blocking(move || {
+                if let Ok(store) = app.state::<engine::Engine>().recovery() {
+                    store.prune(engine::now_ms());
+                }
+            });
             Ok(())
         })
         .build()

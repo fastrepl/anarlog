@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-suggest-dictation-terms"
+description = "Enables the suggest_dictation_terms command without any pre-configured scope."
+commands.allow = ["suggest_dictation_terms"]
+
+[[permission]]
+identifier = "deny-suggest-dictation-terms"
+description = "Denies the suggest_dictation_terms command without any pre-configured scope."
+commands.deny = ["suggest_dictation_terms"]

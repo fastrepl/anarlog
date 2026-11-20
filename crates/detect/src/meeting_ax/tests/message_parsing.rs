@@ -500,7 +500,7 @@ fn test_google_meet_capture_assembles_live_structured_message_leaves() {
     second_text.value = second_text.title.take();
 
     assert_eq!(
-        validated_chat_scope(
+        validated_chat_capture_scope(
             &MeetingPlatform::GoogleMeet,
             &[
                 active_control.clone(),

@@ -254,26 +254,12 @@ fn set_show_in_dock(_: bool) -> Result<()> {
     Ok(())
 }
 
-/// The icon's `.icns`: from the shipping app's sources in debug builds (as the icon plugin
-/// does), else from the native resources directory.
+/// The icon's `.icns`, from the shipping app's sources in debug builds (as the icon plugin
+/// does), else from the package's resources.
 fn icon_path(name: &str) -> Result<PathBuf> {
-    let path = if cfg!(debug_assertions) {
-        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../desktop/src-tauri/resources")
-            .join(name)
-            .join("AppIcon.icns")
-    } else {
-        std::env::var_os("ANARLOG_NATIVE_RESOURCES")
-            .map(PathBuf::from)
-            .or_else(|| {
-                std::env::current_exe()
-                    .ok()
-                    .and_then(|exe| Some(exe.parent()?.join("resources")))
-            })
-            .ok_or_else(|| failure("No native resources directory"))?
-            .join("icons")
-            .join(format!("{name}.icns"))
-    };
+    let path = crate::platform::package::Resources::current()
+        .ok_or_else(|| failure("No native resources directory"))?
+        .icon(name);
     if path.is_file() {
         Ok(path)
     } else {

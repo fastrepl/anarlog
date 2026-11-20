@@ -430,10 +430,13 @@ impl NoteView {
             return;
         }
         // A clean editor of the summary being replaced reopens on the generated revision.
-        if self.summary_editor.as_ref().is_some_and(|(id, editor, _)| {
-            target.as_ref() == Some(id) && !editor.read(cx).is_dirty()
-        }) {
-            self.summary_editor = None;
+        if let Some(target) = &target
+            && self
+                .summary_editors
+                .get(target)
+                .is_some_and(|summary| !summary.editor.read(cx).is_dirty())
+        {
+            self.summary_editors.remove(target);
         }
         let stream = Arc::new(Mutex::new((String::new(), String::new())));
         let cancellation = CancellationToken::new();

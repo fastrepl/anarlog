@@ -5,6 +5,7 @@ mod clipboard;
 pub mod document;
 pub mod drop;
 pub mod find;
+pub mod holds;
 mod html;
 pub mod icons;
 mod input;

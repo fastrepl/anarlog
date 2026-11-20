@@ -3,6 +3,7 @@ mod recovery;
 mod stream;
 
 use anlg_audio::{CaptureConfig, CaptureStream, Error};
+pub(crate) use stream::{AecReferenceAligner, build_aec, process_aec};
 use stream::{CaptureSide, setup_mic_stream, setup_speaker_stream};
 
 pub(crate) fn open_capture(config: CaptureConfig) -> Result<CaptureStream, Error> {

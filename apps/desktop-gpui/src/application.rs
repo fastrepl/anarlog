@@ -1,6 +1,7 @@
 mod automation;
 mod chrome;
 mod cloud_api;
+mod device_approval;
 mod enterprise_capture;
 pub mod instruction;
 pub(crate) mod lifecycle;
@@ -9,6 +10,8 @@ mod meeting_schedule;
 mod note_windows;
 mod notifications;
 mod release_notes;
+mod shared_notes;
+mod startup;
 pub mod team_invitations;
 pub mod toasts;
 
@@ -33,7 +36,7 @@ use crate::{
         capture::{CaptureService, Phase},
         host::{self, MeetingHost},
         playback::{self, Playback},
-        recovery,
+        recovery, retention,
     },
     product::{
         OpenWorkspaceSection, ProductPane,
@@ -45,15 +48,18 @@ use crate::{
     workspace::{WorkspaceAction, WorkspaceView, navigation::Route, pins},
 };
 
-struct ProfileStorage(PathBuf);
+struct ProfileStorage {
+    root: PathBuf,
+    vault: PathBuf,
+}
 
 impl anlg_storage::StorageRuntime for ProfileStorage {
     fn global_base(&self) -> Result<PathBuf, anlg_storage::Error> {
-        Ok(self.0.clone())
+        Ok(self.root.clone())
     }
 
     fn vault_base(&self) -> Result<PathBuf, anlg_storage::Error> {
-        Ok(self.0.join("vault"))
+        Ok(self.vault.clone())
     }
 }
 
@@ -111,11 +117,13 @@ impl ApplicationView {
     pub fn new(
         runtime: RuntimeHandle,
         ready: Reply<()>,
-        profile: PathBuf,
-        storage_pointer: PathBuf,
+        storage: crate::launch::Storage,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
+        let profile = storage.root.clone();
+        let shipping_store = storage.shipping_store();
+        cx.set_global(crate::shipping_store::ShippingStore(shipping_store.clone()));
         // Installed first: the note and transcript views read the live meeting from it.
         let meeting_host = MeetingHost::install(cx);
         let toasts = toasts::install(cx);
@@ -171,6 +179,8 @@ impl ApplicationView {
             }),
         ];
         subscriptions.push(lock::install(&runtime, window, cx));
+        startup::install(&runtime, cx);
+        subscriptions.push(cx.observe_global::<startup::StartupGate>(|_, cx| cx.notify()));
         let dictation = match crate::dictation::Dictation::install(runtime.clone(), cx) {
             Ok(dictation) => {
                 subscriptions.push(cx.subscribe(&dictation, |this, _, failed, cx| {
@@ -186,6 +196,7 @@ impl ApplicationView {
         };
         crate::product::settings::apply_stored_preferences(&runtime, cx);
         let pins_runtime = runtime.clone();
+        let pins_store = shipping_store.clone();
         cx.spawn(async move |this, cx| {
             let mut state = pins_runtime.state();
             loop {
@@ -202,7 +213,7 @@ impl ApplicationView {
                     return;
                 }
             }
-            let result = match pins::load(&pins_runtime) {
+            let result = match pins::load(&pins_runtime, pins_store) {
                 Ok(reply) => reply.receive().await,
                 Err(error) => Err(error),
             };
@@ -222,8 +233,11 @@ impl ApplicationView {
         })
         .detach();
         let startup_runtime = runtime.clone();
-        let editor_vault = profile.join("vault");
-        let tray_settings = profile.join("tray.json");
+        let editor_vault = storage.vault();
+        let tray_settings = match shipping_store.clone() {
+            Some(store) => lifecycle::TraySettings::Shipping(store),
+            None => lifecycle::TraySettings::File(profile.join("tray.json")),
+        };
         let (effects, mut commands) = Effects::channel(runtime.clone());
         let flush_effects = effects.clone();
         let instruction = cx.new(|cx| instruction::Instruction::new(window.window_handle(), cx));
@@ -253,6 +267,14 @@ impl ApplicationView {
                             Ok(flush) => flush.await,
                             Err(_) => Err(ServiceError::Closed),
                         };
+                        // A pause that could not drain must not leave the app read-only.
+                        if result.is_err() {
+                            let _ = this.update(cx, |this, cx| {
+                                if this.writers_paused {
+                                    this.resume_writers(cx);
+                                }
+                            });
+                        }
                         let _ = reply.send(result);
                     }
                     HostCommand::Resume(reply) => {
@@ -275,6 +297,7 @@ impl ApplicationView {
             }
         })
         .detach();
+        let vault = editor_vault.clone();
         let startup = cx.background_executor().spawn(async move {
             let mut state = startup_runtime.state();
             loop {
@@ -287,16 +310,20 @@ impl ApplicationView {
                 }
                 state.changed().await.map_err(|_| ServiceError::Closed)?;
             }
-            let native = NativeServices::new(
-                startup_runtime.clone(),
-                profile.clone(),
-                storage_pointer,
-                effects.clone(),
-                host,
-            )
-            .await?;
-            let storage = Arc::new(ProfileStorage(profile));
-            let vault = storage.0.join("vault");
+            if let Some(store) = shipping_store {
+                let imported =
+                    crate::product::onboarding::import_shipping(&startup_runtime, store).await;
+                if let Err(error) = imported {
+                    tracing::warn!(%error, "the shipping app's onboarding state was not read");
+                }
+            }
+            let native =
+                NativeServices::new(startup_runtime.clone(), storage, effects.clone(), host)
+                    .await?;
+            let storage = Arc::new(ProfileStorage {
+                root: profile,
+                vault: vault.clone(),
+            });
             let audio_vault = vault.clone();
             let capture = CaptureService::spawn(
                 startup_runtime.clone(),
@@ -313,14 +340,9 @@ impl ApplicationView {
                 })?
                 .receive()
                 .await?;
-            let warnings = reports
+            let interrupted = reports
                 .into_iter()
-                .filter_map(|report| {
-                    report
-                        .result
-                        .err()
-                        .map(|error| format!("{}: {error}", report.session.0))
-                })
+                .filter(|report| report.result.is_err())
                 .collect::<Vec<_>>();
             let services = MeetingServices {
                 capture,
@@ -332,19 +354,26 @@ impl ApplicationView {
             let ai = native
                 .providers
                 .ai_services(Arc::new(move |session| capture.is_active(session)))?;
-            Ok((services, native, ai, warnings))
+            Ok((services, native, ai, interrupted))
         });
         cx.spawn(async move |this, cx| {
             let result = startup.await;
             let _ = this.update(cx, |this, cx| match result {
-                Ok((services, native, ai, warnings)) => {
+                Ok((services, native, ai, interrupted)) => {
                     cx.set_global(services.clone());
                     cx.set_global(ai);
                     cx.set_global(native.providers.clone());
+                    this.subscriptions
+                        .push(crate::product::providers::configure_when_paid(
+                            native.providers.clone(),
+                            cx,
+                        ));
                     if let Some(dictation) = &this.dictation {
                         let voice = dictation.read(cx).voice(native.providers.clone());
                         cx.set_global(voice);
                     }
+                    let vault = services.vault.clone();
+                    this.start_retention(vault.clone(), services.capture.activities.clone(), cx);
                     this.services = Some(services);
                     let calendar = crate::workspace::calendar_accounts::HostCalendarAccounts::new(
                         this.runtime.clone(),
@@ -364,14 +393,8 @@ impl ApplicationView {
                     this.start_lifecycle(cx);
                     this.watch_updates(cx);
                     this.open_onboarding_if_needed(cx);
-                    if !warnings.is_empty() {
-                        toasts::show(
-                            toasts::Toast::warning(format!(
-                                "Interrupted capture recovery needs attention: {}",
-                                warnings.join("; ")
-                            )),
-                            cx,
-                        );
+                    for capture in interrupted {
+                        this.offer_discard(capture, vault.clone(), cx);
                     }
                 }
                 Err(error) => this.status(&format!("Meeting startup failed: {error}"), cx),
@@ -538,7 +561,13 @@ impl ApplicationView {
                                 {
                                     cloud.handle_deep_link(url).await.map(|_| ())
                                 }
-                                Ok(_) => cloud.refresh().await,
+                                Ok(_) => {
+                                    let billing = matches!(
+                                        link,
+                                        desktop_runtime::deeplink::DeepLink::BillingRefresh
+                                    );
+                                    cloud.refresh(billing).await
+                                }
                                 Err(_) => Err(ServiceError::Failed("Invalid deep link".into())),
                             };
                             let _ = this.update(cx, |this, cx| match result {
@@ -782,7 +811,7 @@ impl ApplicationView {
         let notes = self
             .note_windows
             .values()
-            .filter_map(|window| window.update(cx, |view, _, cx| view.flush(true, cx)).ok())
+            .filter_map(|window| window.update(cx, |view, _, cx| view.pause(cx)).ok())
             .collect::<Vec<_>>();
         let cloud = self.native.as_ref().and_then(|n| n.cloud.service.clone());
         let runtime = self.runtime.clone();
@@ -817,6 +846,8 @@ impl ApplicationView {
             cloud.clone(),
         )));
         team_invitations::watch(cx);
+        shared_notes::watch(cloud.clone(), cx);
+        device_approval::watch(cloud.clone(), cx);
         let mut identities = cloud.identities();
         let identity_cloud = cloud.clone();
         cx.spawn(async move |this, cx| {
@@ -860,7 +891,7 @@ impl ApplicationView {
                     .update(cx, |this, _| this.writers_paused || this.closing)
                     .unwrap_or(true);
                 if !paused {
-                    let result = cloud.refresh().await;
+                    let result = cloud.refresh(false).await;
                     let _ = this.update(cx, |_, cx| cloud.publish_account(cx));
                     if let Err(error) = result {
                         let _ = this.update(cx, |this, cx| {
@@ -887,7 +918,8 @@ impl ApplicationView {
         let Some(base) = self.pins_revision.clone() else {
             return;
         };
-        let reply = match pins::save(&self.runtime, base, routes.clone()) {
+        let shipping = crate::shipping_store::ShippingStore::get(cx);
+        let reply = match pins::save(&self.runtime, shipping, base, routes.clone()) {
             Ok(reply) => reply,
             Err(error) => {
                 self.pins_pending = Some(routes);
@@ -918,6 +950,88 @@ impl ApplicationView {
             });
         })
         .detach();
+    }
+
+    /// Shipping's audio retention sweep: once after startup recovery, then every minute.
+    fn start_retention(
+        &self,
+        vault: PathBuf,
+        activities: retention::Activities,
+        cx: &mut Context<Self>,
+    ) {
+        let runtime = self.runtime.clone();
+        cx.spawn(async move |this, cx| {
+            loop {
+                let (work, vault, activities) =
+                    (runtime.clone(), vault.clone(), activities.clone());
+                let reply = runtime.service(move |_| async move {
+                    retention::sweep(&work, vault, activities).await
+                });
+                match async { reply?.receive().await }.await {
+                    Err(ServiceError::Closed) => break,
+                    Err(error) => tracing::warn!(%error, "audio retention sweep failed"),
+                    Ok(()) => {}
+                }
+                cx.background_executor().timer(retention::SWEEP_EVERY).await;
+                if this.update(cx, |_, _| ()).is_err() {
+                    break;
+                }
+            }
+        })
+        .detach();
+    }
+
+    /// An interrupted recording that recovery couldn't finish blocks new recordings in its note
+    /// until a later launch recovers it or the user discards it here.
+    fn offer_discard(
+        &self,
+        capture: recovery::InterruptedCapture,
+        vault: PathBuf,
+        cx: &mut Context<Self>,
+    ) {
+        let error = capture
+            .result
+            .err()
+            .map(|error| error.to_string())
+            .unwrap_or_default();
+        let title = if capture.title.is_empty() {
+            "Untitled"
+        } else {
+            &capture.title
+        };
+        let runtime = self.runtime.clone();
+        let (session, transcript, retained) =
+            (capture.session, capture.transcript, capture.retained);
+        toasts::show(
+            toasts::Toast::warning(format!(
+                "The interrupted recording in “{title}” could not be recovered"
+            ))
+            .id(format!("capture-recovery-{}", session.0))
+            .description(format!(
+                "{error} Anarlog retries at the next launch, or you can discard its unrecovered audio."
+            ))
+            .sticky()
+            .action("Discard", move |_, cx| {
+                let work = runtime.clone();
+                let (vault, session, transcript) =
+                    (vault.clone(), session.clone(), transcript.clone());
+                let reply = runtime.service(move |_| async move {
+                    recovery::discard(&work, &vault, session, transcript, retained).await
+                });
+                cx.spawn(async move |cx| {
+                    if let Err(error) = async { reply?.receive().await }.await {
+                        cx.update(|cx| {
+                            toasts::error(
+                                format!("The interrupted recording could not be discarded: {error}"),
+                                cx,
+                            )
+                        });
+                    }
+                })
+                .detach();
+            }),
+            cx,
+        );
     }
 
     /// App errors appear as shipping's error toasts.
@@ -1309,7 +1423,13 @@ impl ApplicationView {
         if self.closing {
             return;
         }
-        if self.drained {
+        // A runtime that closed (or never started) has nothing left to drain.
+        if self.drained
+            || matches!(
+                *self.runtime.state().borrow(),
+                desktop_runtime::RuntimeState::Closed(_)
+            )
+        {
             cx.quit();
             return;
         }
@@ -1338,11 +1458,16 @@ impl ApplicationView {
             .as_ref()
             .filter(|editor| editor.read(cx).is_dirty())
             .map(|editor| editor.update(cx, |editor, _| editor.flush()));
+        let note = self.workspace.read(cx).note().clone();
+        let summaries = note.update(cx, |note, cx| note.flush_summaries(true, cx));
         let notes = self
             .note_windows
             .values()
             .filter_map(|window| window.update(cx, |view, _, cx| view.flush(true, cx)).ok())
             .collect::<Vec<_>>();
+        let pending = self
+            .workspace
+            .update(cx, |workspace, cx| workspace.save_pending(cx));
         self.closing = true;
         // Undo windows end at quit so deleted notes do not keep their folders.
         self.workspace
@@ -1357,8 +1482,13 @@ impl ApplicationView {
         let services = self.services.clone();
         cx.spawn(async move |this, cx| {
             let result: desktop_runtime::Result<()> = async {
-                if let Some(flush) = flush { flush.await.map_err(|_| ServiceError::Closed)??; }
-                for flush in notes { flush.await?; }
+                // Every started save finishes before the first error stops the quit: dropping
+                // the template save would cancel it, and its failed edits restore only from it.
+                let mut saved = Vec::new();
+                for flush in flush.into_iter().chain(summaries) { saved.push(flush.await.map_err(|_| ServiceError::Closed).and_then(|result| result)); }
+                for flush in notes { saved.push(flush.await); }
+                saved.push(pending.await);
+                saved.into_iter().collect::<desktop_runtime::Result<()>>()?;
                 if let Some(services) = services {
                     services.playback.send(playback::Command::Pause)?;
                     let update = services.capture.take_update(u64::MAX);
@@ -1385,19 +1515,56 @@ impl ApplicationView {
                 let drain = cx.update(|cx| runtime_bridge::drain_before_quit(runtime, cx));
                 drain.await
             }.await;
+            let _ = this.update(cx, |this, cx| match result {
+                Ok(()) => {
+                    this.closing = false;
+                    this.drained = true;
+                    cx.quit();
+                }
+                Err(error) if this.shutdown_begun() => this.finish_drain(error, cx),
+                Err(error) => {
+                    this.closing = false;
+                    // A storage move holds its pause until the relaunch.
+                    if !this.writers_paused {
+                        if let Some(editor) = &this.editor { editor.update(cx, |editor, cx| editor.set_read_only(false, cx)); }
+                        note.update(cx, |note, cx| note.resume_summaries(cx));
+                        for window in this.note_windows.values() { let _ = window.update(cx, |view, _, cx| view.resume(cx)); }
+                    }
+                    toasts::dismiss("quit", cx);
+                    this.status(&format!("Quit paused: {error}"), cx);
+                }
+            });
+        }).detach();
+    }
+
+    /// The runtime stopped admitting work, so nothing can save again in this process.
+    fn shutdown_begun(&self) -> bool {
+        !matches!(
+            *self.runtime.state().borrow(),
+            desktop_runtime::RuntimeState::Starting | desktop_runtime::RuntimeState::Ready
+        )
+    }
+
+    /// Notes stay read-only once the runtime began shutting down. The drain keeps running and
+    /// the app quits when it finishes; if it fails, the next quit request does not wait again.
+    fn finish_drain(&mut self, error: ServiceError, cx: &mut Context<Self>) {
+        self.status(&format!("Quit paused: {error}"), cx);
+        let runtime = self.runtime.clone();
+        cx.spawn(async move |this, cx| {
+            let result = runtime.shutdown().await;
             let _ = this.update(cx, |this, cx| {
                 this.closing = false;
+                this.drained = true;
                 match result {
-                    Ok(()) => { this.drained = true; cx.quit(); }
+                    Ok(()) => cx.quit(),
                     Err(error) => {
-                        if let Some(editor) = &this.editor { editor.update(cx, |editor, cx| editor.set_read_only(false, cx)); }
-                        for window in this.note_windows.values() { let _ = window.update(cx, |view, _, cx| view.resume(cx)); }
                         toasts::dismiss("quit", cx);
                         this.status(&format!("Quit paused: {error}"), cx);
                     }
                 }
             });
-        }).detach();
+        })
+        .detach();
     }
 }
 
@@ -1406,6 +1573,9 @@ impl Render for ApplicationView {
         let colors = theme(window);
         let _ = &self.subscriptions;
         self.sync_notice(window, cx);
+        if let Some(gate) = startup::gate(window, cx) {
+            return gate;
+        }
         if let Some(gate) = lock::gate(window, cx) {
             return gate;
         }

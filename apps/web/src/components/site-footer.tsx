@@ -20,7 +20,6 @@ const footerGroups = [
       { label: "Transcription guides", to: "/guides/transcription/" },
       { label: "Changelog", to: "/changelog/" },
       { label: "Docs", href: "https://docs.anarlog.so" },
-      { label: "Status", href: "https://status.anarlog.so" },
     ],
   },
   {

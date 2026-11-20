@@ -365,6 +365,26 @@ fn onboarding_steps_have_headings_and_named_actions() {
         assert!(!tree.root().items(Role::Heading).is_empty(), "{step:?}");
     }
     app.tree().find(Role::Button, "Open Anarlog");
+    // A freshly connected account's calendars start disabled; onboarding lists them to enable.
+    preview(
+        Step::Calendar,
+        State {
+            enabled_calendars: 0,
+            calendars: vec![desktop_gpui::workspace::calendar_sidebar::CalendarRow {
+                id: "work".into(),
+                name: "Work".into(),
+                enabled: false,
+                provider: "google".into(),
+                source: "ada@example.com".into(),
+                color: "".into(),
+                connection: "google-1".into(),
+            }],
+            google_connected: true,
+            ..granted.clone()
+        },
+    );
+    app.settle();
+    app.tree().find(Role::CheckBox, "Work");
 }
 
 #[test]
@@ -475,7 +495,16 @@ fn transcript_segments_read_as_speaker_and_text() {
         .find(Role::Tab, "Transcript")
         .id;
     app.press(tab);
-    let tree = app.tree();
+    // The transcript loads on the runtime's own threads, which can take longer than one settle
+    // on a busy machine.
+    let mut tree = app.tree();
+    for _ in 0..25 {
+        if tree.try_find(Role::List, "Transcript").is_some() {
+            break;
+        }
+        app.settle();
+        tree = app.tree();
+    }
     let transcript = tree.find(Role::List, "Transcript");
     let segments = transcript.items(Role::ListItem);
     assert!(!segments.is_empty(), "{}", transcript.outline());
@@ -488,4 +517,138 @@ fn transcript_segments_read_as_speaker_and_text() {
         );
     }
     assert_named(&tree, "transcript");
+}
+
+#[test]
+fn a_standalone_note_window_locks_with_the_app() {
+    use desktop_gpui::{application::lock, platform::device_auth, product::settings};
+
+    struct Approve;
+
+    impl device_auth::DeviceAuth for Approve {
+        fn available(&self) -> bool {
+            true
+        }
+
+        fn authenticate(&self, _: &str) -> futures::channel::oneshot::Receiver<bool> {
+            let (sender, receiver) = futures::channel::oneshot::channel();
+            let _ = sender.send(true);
+            receiver
+        }
+    }
+
+    let app = Harness::start();
+    app.app.update(|cx| {
+        cx.set_global(device_auth::Installed(std::sync::Arc::new(Approve)));
+        lock::refresh_availability(cx);
+    });
+    let stored = futures::executor::block_on(async {
+        let watch = settings::watch(&app.runtime)
+            .unwrap()
+            .receive()
+            .await
+            .unwrap();
+        let snapshot = settings::decode(&watch.snapshots.borrow().rows).unwrap();
+        watch.unsubscribe().await.unwrap();
+        snapshot
+    });
+    let base = stored["lock_app"].clone();
+    futures::executor::block_on(
+        settings::save(&app.runtime, "lock_app".into(), base, true.into())
+            .unwrap()
+            .receive(),
+    )
+    .unwrap();
+    // The launch prompt unlocks the app; then the note opens in its own window.
+    app.settle();
+    app.app.update(|cx| {
+        app.window
+            .update(cx, |root, _, cx| {
+                root.workspace().clone().update(cx, |_, cx| {
+                    cx.emit(desktop_gpui::workspace::WorkspaceAction::OpenNoteWindow(
+                        SessionId("s-sync".into()),
+                    ))
+                })
+            })
+            .unwrap()
+    });
+    app.settle();
+    let main: gpui::AnyWindowHandle = app.window.into();
+    let note = app
+        .app
+        .update(|cx| cx.windows().into_iter().find(|window| *window != main))
+        .expect("the note window");
+    let title = |tree: &crate::tree::Tree| {
+        tree.root()
+            .items(Role::TextInput)
+            .iter()
+            .any(|input| input.value() == Some("Weekly product sync"))
+    };
+    assert!(
+        title(&app.window_tree(note)),
+        "{}",
+        app.window_tree(note).outline()
+    );
+
+    // Closing the main window locks the app, and the note window with it.
+    app.app.update(lock::main_hidden);
+    app.settle();
+    let tree = app.window_tree(note);
+    tree.find(Role::Heading, "Anarlog is Locked");
+    assert!(!title(&tree), "{}", tree.outline());
+}
+
+#[test]
+fn notes_stay_read_only_while_a_slow_quit_drain_finishes() {
+    let app = Harness::start();
+    app.open(Route::Session(SessionId("s-sync".into())));
+    let note = |app: &Harness| {
+        app.tree()
+            .root()
+            .items(Role::MultilineTextInput)
+            .first()
+            .and_then(|editor| editor.value())
+            .map(str::to_owned)
+    };
+    let before = note(&app).expect("the note editor");
+    // A shutdown participant that outlasts the 12-second quit deadline.
+    let (release, held) = futures::channel::oneshot::channel::<()>();
+    futures::executor::block_on(
+        app.runtime
+            .register_flush(Box::new(move || {
+                Box::pin(async move {
+                    let _ = held.await;
+                    Ok(())
+                })
+            }))
+            .unwrap()
+            .receive(),
+    )
+    .unwrap();
+    app.app.update(|cx| {
+        app.window
+            .update(cx, |root, _, cx| root.request_quit(cx))
+            .unwrap()
+    });
+    app.settle();
+    app.platform
+        .dispatcher
+        .advance_clock(std::time::Duration::from_secs(13));
+    app.settle();
+    assert!(!app.platform.quit.get());
+
+    app.keys(&["x"]);
+    let after = note(&app);
+    assert!(
+        after.is_none_or(|text| text == before),
+        "typing must not reach a note that can no longer save"
+    );
+    release.send(()).unwrap();
+    for _ in 0..50 {
+        if app.platform.quit.get() {
+            break;
+        }
+        app.settle();
+    }
+    assert!(app.platform.quit.get(), "the app quits once the drain ends");
 }

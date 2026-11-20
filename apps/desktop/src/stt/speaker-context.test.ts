@@ -107,6 +107,34 @@ describe("speaker capture evidence", () => {
     }
   });
 
+  it("keeps a capture's meeting evidence through parsing and interval updates", () => {
+    const meeting = {
+      capture_id: "capture-1",
+      started_at_ms: 1000,
+      browser: { platform: "google_meet", last_heard_ms: 0 },
+    };
+    const context = parseSpeakerContext(
+      JSON.stringify({
+        intervals: [observation],
+        meetings: [meeting, { capture_id: 7 }, null],
+      }),
+    );
+    expect(context).toEqual({ intervals: [observation], meetings: [meeting] });
+    expect(
+      appendSpeakerObservation(context, {
+        ...observation,
+        start_ms: 20000,
+        end_ms: 30000,
+      }),
+    ).toMatchObject({ meetings: [meeting] });
+    expect(closeSpeakerContext(context, 5000)).toMatchObject({
+      meetings: [meeting],
+    });
+    expect(
+      parseSpeakerContext(JSON.stringify({ meetings: [meeting] })),
+    ).toEqual({ intervals: [], meetings: [meeting] });
+  });
+
   it("does not mistake a shared or virtual microphone for personal input", () => {
     for (const device of [
       "Jabra Speak 750",

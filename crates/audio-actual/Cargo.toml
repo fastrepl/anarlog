@@ -15,7 +15,7 @@ anlg-resampler = { workspace = true }
 anyhow = { workspace = true }
 futures-util = { workspace = true }
 pin-project = { workspace = true }
-tokio = { workspace = true, features = ["rt", "macros", "sync", "time"] }
+tokio = { workspace = true, features = ["rt", "rt-multi-thread", "macros", "sync", "time"] }
 tokio-stream = { workspace = true }
 tokio-util = { workspace = true }
 tracing = { workspace = true }
@@ -24,7 +24,6 @@ cpal = { workspace = true }
 dasp = { workspace = true }
 rodio = { workspace = true }
 
-ebur128 = "0.1.10"
 ringbuf = { workspace = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]

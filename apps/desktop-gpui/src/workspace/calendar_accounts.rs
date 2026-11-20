@@ -4,6 +4,7 @@
 //! calendar and its sidebar, like shipping's `SyncProvider` and `useConnections`.
 
 use std::{
+    collections::HashMap,
     sync::{
         Arc,
         atomic::{AtomicBool, Ordering},
@@ -12,6 +13,7 @@ use std::{
 };
 
 use anlg_calendar::CalendarProviderType;
+use chrono::{DateTime, NaiveDate, Utc};
 use desktop_runtime::{Result, RuntimeHandle, ServiceError};
 use futures::future::BoxFuture;
 use gpui::{Context, Task};
@@ -101,8 +103,10 @@ pub trait CalendarAccounts: Send + Sync {
     fn request_apple(&self) -> BoxFuture<'static, Result<()>>;
     fn open_apple_settings(&self) -> Result<()>;
     fn disconnect_apple(&self) -> BoxFuture<'static, Result<()>>;
-    /// Discovers every connected account's calendars and refreshes the enabled ones.
-    fn sync(&self) -> BoxFuture<'static, Result<()>>;
+    /// Discovers every connected account's calendars and refreshes the enabled ones, over
+    /// `range` (the calendar's visible days) or the default window.
+    fn sync(&self, range: Option<(DateTime<Utc>, DateTime<Utc>)>)
+    -> BoxFuture<'static, Result<()>>;
 }
 
 pub struct HostCalendarAccounts {
@@ -231,7 +235,10 @@ impl CalendarAccounts for HostCalendarAccounts {
         Box::pin(async move { job?.receive().await })
     }
 
-    fn sync(&self) -> BoxFuture<'static, Result<()>> {
+    fn sync(
+        &self,
+        range: Option<(DateTime<Utc>, DateTime<Utc>)>,
+    ) -> BoxFuture<'static, Result<()>> {
         let calendar = self.local.calendar.clone();
         let runtime = self.runtime.clone();
         let cloud = self.cloud.is_some();
@@ -266,7 +273,9 @@ impl CalendarAccounts for HostCalendarAccounts {
                     if entry["enabled"].as_bool() == Some(true)
                         && let Some(id) = entry["id"].as_str()
                     {
-                        let _ = calendar.refresh(&runtime, id.into(), cancel.clone()).await;
+                        let _ = calendar
+                            .refresh(&runtime, id.into(), range, cancel.clone())
+                            .await;
                     }
                 }
                 if cancel.is_cancelled() {
@@ -298,6 +307,10 @@ pub enum Accounts {
 const DEBOUNCE: Duration = Duration::from_secs(5);
 const POLL_EVERY: Duration = Duration::from_millis(1500);
 const POLL_FOR: Duration = Duration::from_secs(45);
+/// `VISIBLE_RANGE_SYNC_STALE_MS`.
+const RANGE_STALE: Duration = Duration::from_secs(60);
+
+type Days = (NaiveDate, NaiveDate);
 
 pub struct CalendarSync {
     services: Option<Arc<dyn CalendarAccounts>>,
@@ -305,6 +318,9 @@ pub struct CalendarSync {
     debounce: Option<Task<()>>,
     pub accounts: Accounts,
     poll: Option<Task<()>>,
+    /// When each visible range last synced, and the one waiting for the running sync.
+    ranges: HashMap<Days, Instant>,
+    queued: Option<Days>,
 }
 
 impl CalendarSync {
@@ -315,6 +331,8 @@ impl CalendarSync {
             debounce: None,
             accounts: Accounts::Loading,
             poll: None,
+            ranges: HashMap::new(),
+            queued: None,
         }
     }
 
@@ -329,6 +347,7 @@ impl CalendarSync {
     ) {
         self.services = services;
         self.accounts = Accounts::Loading;
+        self.ranges.clear();
         cx.notify();
     }
 
@@ -342,8 +361,42 @@ impl CalendarSync {
         }
     }
 
-    /// Starts a sync unless one is already running (shipping `scheduleCalendarSync`).
+    /// Starts a sync unless one is already running (shipping `scheduleCalendarSync`). Visible
+    /// ranges fetch again afterwards, like shipping's refresh invalidating them.
     pub fn schedule(&mut self, cx: &mut Context<Self>) {
+        self.ranges.clear();
+        self.run(None, cx);
+    }
+
+    /// Shipping's `useVisibleRangeSync`: fetches the shown days (`from` to `to`, inclusive)
+    /// from the providers, at most once a minute per range, after any running sync.
+    pub fn sync_range(&mut self, from: NaiveDate, to: NaiveDate, cx: &mut Context<Self>) {
+        let days = (from, to);
+        if self.services.is_none()
+            || self
+                .ranges
+                .get(&days)
+                .is_some_and(|synced| synced.elapsed() < RANGE_STALE)
+        {
+            return;
+        }
+        if self.syncing {
+            self.queued = Some(days);
+            return;
+        }
+        self.ranges.insert(days, Instant::now());
+        // A day either side covers every timezone, like the calendar's own query.
+        let midnight = |day: NaiveDate| day.and_hms_opt(0, 0, 0).unwrap_or_default().and_utc();
+        self.run(
+            Some((
+                midnight(from - chrono::Days::new(1)),
+                midnight(to + chrono::Days::new(2)),
+            )),
+            cx,
+        );
+    }
+
+    fn run(&mut self, range: Option<(DateTime<Utc>, DateTime<Utc>)>, cx: &mut Context<Self>) {
         let Some(services) = self.services.clone() else {
             return;
         };
@@ -352,12 +405,15 @@ impl CalendarSync {
         }
         self.syncing = true;
         cx.notify();
-        let job = services.sync();
+        let job = services.sync(range);
         cx.spawn(async move |this, cx| {
             let _ = job.await;
             let _ = this.update(cx, |this, cx| {
                 this.syncing = false;
                 cx.notify();
+                if let Some((from, to)) = this.queued.take() {
+                    this.sync_range(from, to, cx);
+                }
             });
         })
         .detach();
