@@ -3184,6 +3184,7 @@ dependencies = [
  "apple-calendar",
  "apple-todo",
  "arboard",
+ "ashpd 0.11.1",
  "atspi 0.25.0",
  "audio",
  "audio-actual",
