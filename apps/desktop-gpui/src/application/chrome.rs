@@ -130,16 +130,6 @@ const MENUS: [(&str, &[Option<Entry>]); 4] = [
 ];
 
 impl ApplicationView {
-    fn close_from_chrome(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        #[cfg(target_os = "linux")]
-        self.close_main(window, cx);
-        #[cfg(not(target_os = "linux"))]
-        {
-            let _ = window;
-            self.request_quit(cx);
-        }
-    }
-
     fn open_menu(&mut self, index: usize, window: &Window, cx: &mut Context<Self>) {
         if self.closing || self.writers_paused {
             return;
@@ -175,7 +165,7 @@ impl ApplicationView {
                 }
             }
             Command::Settings => self.leave_product(Route::settings("app"), cx),
-            Command::Close => self.close_from_chrome(window, cx),
+            Command::Close => self.close_main(window, cx),
             Command::Edit(key) => window.defer(cx, move |window, cx| {
                 window.dispatch_keystroke(Keystroke::parse(key).expect("menu shortcut"), cx);
             }),
@@ -202,7 +192,7 @@ impl ApplicationView {
             return true;
         }
         if key.modifiers.alt && key.key == "f4" {
-            self.close_from_chrome(window, cx);
+            self.close_main(window, cx);
             return true;
         }
         if key.modifiers.alt
@@ -323,7 +313,7 @@ impl ApplicationView {
                     .id("window-drag")
                     .on_mouse_down(MouseButton::Left, |event, window, _| {
                         if event.click_count == 2 {
-                            window.zoom_window();
+                            crate::platform::windows::toggle_maximize(window);
                         } else {
                             window.start_window_move();
                         }
@@ -357,8 +347,8 @@ impl ApplicationView {
                             })
                             .on_click(cx.listener(move |this, _, window, cx| match index {
                                 0 => window.minimize_window(),
-                                1 => window.zoom_window(),
-                                _ => this.close_from_chrome(window, cx),
+                                1 => crate::platform::windows::toggle_maximize(window),
+                                _ => this.close_main(window, cx),
                             }))
                             .child(match index {
                                 0 => div()

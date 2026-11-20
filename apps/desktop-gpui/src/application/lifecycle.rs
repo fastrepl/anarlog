@@ -345,9 +345,8 @@ impl ApplicationView {
     }
 
     pub(super) fn show_main(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        #[cfg(target_os = "linux")]
         if let Err(error) = crate::platform::windows::show_main(window) {
-            self.status(&error.to_string(), cx);
+            tracing::warn!(%error, "Could not show the main window");
         }
         cx.activate(true);
         window.activate_window();
