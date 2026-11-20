@@ -112,5 +112,58 @@ pub fn keep_focus_elsewhere(window: &Window) {
     }
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(target_os = "windows")]
+pub fn keep_focus_elsewhere(window: &Window) {
+    use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+    use windows::Win32::{
+        Foundation::{HWND, LPARAM, LRESULT, WPARAM},
+        UI::{
+            Shell::{DefSubclassProc, RemoveWindowSubclass, SetWindowSubclass},
+            WindowsAndMessaging::{
+                GWL_EXSTYLE, GetWindowLongPtrW, MA_NOACTIVATE, SetWindowLongPtrW, WM_MOUSEACTIVATE,
+                WM_NCDESTROY, WS_EX_NOACTIVATE,
+            },
+        },
+    };
+
+    unsafe extern "system" fn panel_proc(
+        hwnd: HWND,
+        message: u32,
+        wparam: WPARAM,
+        lparam: LPARAM,
+        id: usize,
+        _: usize,
+    ) -> LRESULT {
+        // GPUI otherwise returns MA_ACTIVATE even on a WS_EX_NOACTIVATE window.
+        // MA_NOACTIVATE preserves the external field's focus and delivers the click.
+        if message == WM_MOUSEACTIVATE {
+            return LRESULT(MA_NOACTIVATE as isize);
+        }
+        // SAFETY: comctl32 calls this on the window thread with its current message.
+        unsafe {
+            if message == WM_NCDESTROY {
+                let _ = RemoveWindowSubclass(hwnd, Some(panel_proc), id);
+            }
+            DefSubclassProc(hwnd, message, wparam, lparam)
+        }
+    }
+
+    let Ok(handle) = HasWindowHandle::window_handle(window) else {
+        return;
+    };
+    let RawWindowHandle::Win32(handle) = handle.as_raw() else {
+        return;
+    };
+    let hwnd = HWND(handle.hwnd.get() as *mut _);
+    // SAFETY: this is the overlay's live HWND on its UI thread. Preserve GPUI's other styles.
+    unsafe {
+        let style = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
+        SetWindowLongPtrW(hwnd, GWL_EXSTYLE, style | WS_EX_NOACTIVATE.0 as isize);
+        if !SetWindowSubclass(hwnd, Some(panel_proc), 0, 0).as_bool() {
+            tracing::warn!("Could not prevent dictation panel clicks from taking focus");
+        }
+    }
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
 pub fn keep_focus_elsewhere(_: &Window) {}
