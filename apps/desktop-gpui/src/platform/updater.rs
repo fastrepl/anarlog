@@ -1,13 +1,14 @@
 //! Self-update like shipping's `tauri-plugin-updater`: the channel's feed and signing key,
 //! and per package the artifact it publishes and the way it installs it.
 
+mod deb;
 mod feed;
 
 use std::{
     fs,
     io::{Cursor, Write},
     path::{Component, Path, PathBuf},
-    process::{Command, Stdio},
+    process::Command,
 };
 
 use desktop_runtime::{
@@ -180,7 +181,7 @@ impl NativeInstaller {
                     .map_err(failure)?;
                 let package = stage.path().join("package.deb");
                 fs::write(&package, bytes).map_err(failure)?;
-                install_deb(&package)?;
+                deb::install(&package)?;
             }
             PackageKind::MacBundle => {
                 if !cfg!(target_os = "macos") {
@@ -310,63 +311,6 @@ fn replace_as_administrator(package: &Path, installation: &Path, stage: &Path) -
     } else {
         Err(failure("The new app was not moved into place"))
     }
-}
-
-/// Shipping's deb update (`tauri-plugin-updater`'s `install_deb`): `dpkg -i` through pkexec,
-/// else sudo with a zenity or kdialog password prompt, else sudo itself.
-fn install_deb(package: &Path) -> Result<()> {
-    let dpkg = |program: &str| {
-        let mut command = Command::new(program);
-        command.args(["dpkg", "-i"]).arg(package);
-        command
-    };
-    if dpkg("pkexec").status().is_ok_and(|status| status.success()) {
-        return Ok(());
-    }
-    if let Some(password) = graphical_password() {
-        let mut command = Command::new("sudo");
-        command
-            .args(["-S", "dpkg", "-i"])
-            .arg(package)
-            .stdin(Stdio::piped())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null());
-        let mut child = command.spawn().map_err(failure)?;
-        if let Some(mut stdin) = child.stdin.take() {
-            writeln!(stdin, "{password}").map_err(failure)?;
-        }
-        if child.wait().map_err(failure)?.success() {
-            return Ok(());
-        }
-    }
-    if dpkg("sudo").status().map_err(failure)?.success() {
-        Ok(())
-    } else {
-        Err(failure("The update package was not installed"))
-    }
-}
-
-fn graphical_password() -> Option<String> {
-    let prompt = "Enter your password to install the update:";
-    let text = format!("--text={prompt}");
-    let prompts = [
-        (
-            "zenity",
-            vec![
-                "--password",
-                "--title=Authentication Required",
-                text.as_str(),
-            ],
-        ),
-        ("kdialog", vec!["--password", prompt]),
-    ];
-    prompts.into_iter().find_map(|(program, args)| {
-        let output = Command::new(program).args(args).output().ok()?;
-        output
-            .status
-            .success()
-            .then(|| String::from_utf8_lossy(&output.stdout).trim().to_owned())
-    })
 }
 
 fn extract_single_package(bytes: &[u8], destination: &Path, bundle: bool) -> Result<PathBuf> {
