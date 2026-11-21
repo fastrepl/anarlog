@@ -638,4 +638,71 @@ mod tests {
             Some((Dialog::Reminder { days: 3 }, _))
         ));
     }
+
+    /// Created before the runtime was ready, the dialogs read their seen state as busy and showed
+    /// an already seen dialog again: in a channel run the runtime waits for the replaced app.
+    #[gpui::test]
+    fn a_seen_dialog_stays_seen_when_created_before_the_runtime_is_ready(
+        cx: &mut gpui::TestAppContext,
+    ) {
+        use std::time::Duration;
+
+        use desktop_runtime::{Profile, Startup};
+        use futures::executor::block_on;
+
+        cx.executor().allow_parking();
+        let directory = tempfile::tempdir().unwrap();
+        let profile = || Profile {
+            database: directory.path().join("app.db"),
+        };
+        let (previous, ready) = RuntimeHandle::start(profile()).unwrap();
+        block_on(ready.receive()).unwrap();
+        let seen = json!(["trial_started_seen:user"]).to_string();
+        let saved = previous
+            .submit(move |services| async move {
+                services
+                    .executor
+                    .execute(
+                        "INSERT INTO app_settings (id, value_json) VALUES (?1, ?2)".into(),
+                        vec![json!(SEEN_KEY), json!(seen)],
+                    )
+                    .await
+                    .map(|_| ())
+                    .map_err(|error| ServiceError::Failed(error.to_string().into()))
+            })
+            .unwrap();
+        block_on(saved.receive()).unwrap();
+        // The previous process still holds the profile, so this runtime is starting.
+        let startup = Startup {
+            lock_wait: Duration::from_secs(30),
+            ..Startup::default()
+        };
+        let (runtime, ready) = RuntimeHandle::start_with(profile(), startup).unwrap();
+        let trialing = Claims {
+            subscription_status: Some("trialing".into()),
+            trial_end: Some(account::now() + 10 * 86_400),
+            has_payment_method: Some(false),
+            ..Claims::default()
+        };
+        cx.update(|cx| cx.set_global(account(trialing, None)));
+        let dialogs = cx.new(|cx| TrialDialogs::new(runtime.clone(), None, cx));
+        cx.run_until_parked();
+
+        block_on(previous.shutdown()).unwrap();
+        block_on(ready.receive()).unwrap();
+        for _ in 0..2000 {
+            cx.run_until_parked();
+            if dialogs.read_with(cx, |dialogs, _| dialogs.seen.is_some()) {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        assert!(dialogs.read_with(cx, |dialogs, _| dialogs.seen.is_some()));
+        assert_eq!(
+            dialogs.read_with(cx, |dialogs, _| dialogs.open.clone()),
+            None
+        );
+        drop(dialogs);
+        block_on(runtime.shutdown()).unwrap();
+    }
 }
