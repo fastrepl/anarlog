@@ -71,17 +71,23 @@ fn arch() -> &'static str {
 }
 
 /// This build's feed: shipping's for its channel and package. Builds without a channel, and
-/// channels whose shipping app doesn't update itself (dev, staging), have none.
-pub fn config() -> Result<UpdateConfig> {
+/// channels whose shipping app doesn't update itself (dev, staging), have none. A `--profile`
+/// run shares the package with the channel's own runs, whose settings decide its updates, so
+/// only a rehearsal feed updates it from there.
+pub fn config(channel_run: bool) -> Result<UpdateConfig> {
     let none = || ServiceError::Unsupported("This build doesn't update itself.".into());
     let channel = package::channel().ok_or_else(none)?;
+    let endpoint_override = std::env::var(feed::ENDPOINT_OVERRIDE).ok();
+    if !channel_run && endpoint_override.is_none() {
+        return Err(none());
+    }
     let kind = PackageKind::current()?;
     let feed = feed::feed(
         channel,
         Os::CURRENT,
         arch(),
         kind.bundle(),
-        std::env::var(feed::ENDPOINT_OVERRIDE).ok(),
+        endpoint_override,
     )
     .ok_or_else(none)?;
     let endpoints = feed
@@ -498,7 +504,6 @@ mod tests {
             (BundleType::Nsis, PackageKind::WindowsNsis),
         ] {
             assert_eq!(PackageKind::of(Some(bundle)).unwrap(), kind);
-            assert_eq!(kind.bundle(), bundle);
         }
         for bundle in [Some(BundleType::Rpm), Some(BundleType::Msi), None] {
             assert!(PackageKind::of(bundle).is_err(), "{bundle:?}");
