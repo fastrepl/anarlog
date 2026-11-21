@@ -181,7 +181,7 @@ tokio = { workspace = true, features = ["rt-multi-thread", "sync", "time", "macr
 tokio-util = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
-tray-icon = "=0.24.2"
+tray-icon = { version = "=0.24.2", default-features = false, features = ["gtk"] }
 unicode-segmentation = "=1.13.2"
 unicode-width = "=0.2.2"
 url = { workspace = true }

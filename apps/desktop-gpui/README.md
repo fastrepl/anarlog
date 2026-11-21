@@ -100,7 +100,8 @@ guarantee; GPUI's generic shutdown callback has a 100 ms timeout.
 
 GPUI is pinned to an upstream `zed-industries/zed` revision without a fork or patch;
 crates.io `gpui` 0.2.2 predates upstream's accessibility integration. On Linux, GPUI needs
-X11 or Wayland, a working Vulkan device/driver, xkbcommon, fontconfig, and FreeType.
+X11 or Wayland, xkbcommon, fontconfig, FreeType, and a Vulkan driver or, without one, EGL
+and OpenGL (the deb therefore only recommends the Vulkan packages).
 Build-only verification does not establish that a particular GPU/desktop works.
 macOS and Windows require their native toolchains and platform validation.
 Use Ubuntu 24.04 or a matching recent PipeWire SDK: Ubuntu 22.04's 0.3.48 SPA
