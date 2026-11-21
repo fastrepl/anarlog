@@ -1,27 +1,56 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { vercelBuildConfig } from "../vercel-build-config.ts";
+import {
+  desktopUpdateRoutes,
+  GPUI_BRIDGE_VERSION,
+  vercelBuildConfig,
+  versionsFrom,
+} from "../vercel-build-config.ts";
 
-function routeFor(url) {
+function matches(condition, request) {
+  if (condition.type === "host") return condition.value === request.hostname;
+  if (condition.type === "query") {
+    return request.searchParams.get(condition.key) === condition.value;
+  }
+  return false;
+}
+
+// Vercel appends the request's query to a redirect's Location (desktop.anarlog.so does today).
+function routeFor(url, routes = vercelBuildConfig.routes) {
   const request = new URL(url);
-  for (const route of vercelBuildConfig.routes) {
+  for (const route of routes) {
     if (route.continue) continue;
-    if (
-      route.has?.some(
-        (condition) =>
-          condition.type === "host" && condition.value !== request.hostname,
-      )
-    )
-      continue;
+    if (route.has?.some((condition) => !matches(condition, request))) continue;
     const match = new RegExp(route.src).exec(request.pathname);
     if (!match) continue;
     const destination = (route.dest ?? route.headers?.Location)?.replace(
       /\$(\d+)/g,
       (_, index) => match[Number(index)],
     );
-    return { ...route, destination };
+    const redirect = route.status >= 300 && route.status < 400;
+    return {
+      ...route,
+      destination: redirect ? `${destination}${request.search}` : destination,
+    };
   }
+}
+
+const TAURI_FEED = "https://cdn.crabnebula.app/update/fastrepl/hyprnote2";
+const GPUI_FEED = "https://cdn.crabnebula.app/update/fastrepl/anarlog-gpui";
+const PLATFORMS = [
+  "darwin-aarch64",
+  "darwin-x86_64",
+  "linux-x86_64-appimage",
+  "linux-aarch64-deb",
+  "windows-x86_64-nsis",
+];
+
+function compare(left, right) {
+  for (let index = 0; index < 3; index++) {
+    if (left[index] !== right[index]) return left[index] - right[index];
+  }
+  return 0;
 }
 
 test("APT redirects retain the release and architecture", () => {
@@ -36,6 +65,91 @@ test("APT redirects retain the release and architecture", () => {
     assert.equal(
       route.destination,
       `https://github.com/fastrepl/anarlog/releases/download/desktop_v1.4.22/anarlog-linux-${asset}.deb`,
+    );
+  }
+});
+
+test("the feed gate sends the bridge and later stable clients to the GPUI feed", () => {
+  const routes = desktopUpdateRoutes("1.4.36");
+  for (const platform of PLATFORMS) {
+    for (const version of [
+      "1.4.36",
+      "1.4.37",
+      "1.4.100",
+      "1.5.0",
+      "1.10.0",
+      "2.0.0",
+    ]) {
+      const path = `${platform}/${version}?channel=stable`;
+      assert.equal(
+        routeFor(`https://desktop.anarlog.so/update/${path}`, routes)
+          ?.destination,
+        `${GPUI_FEED}/${path}`,
+      );
+    }
+    for (const path of [
+      `${platform}/1.4.35?channel=stable`,
+      `${platform}/1.4.4?channel=stable`,
+      `${platform}/1.3.99?channel=stable`,
+      `${platform}/0.9.9?channel=stable`,
+      `${platform}/1.5.0-nightly.3?channel=stable`,
+      `${platform}/1.5.0-dev.1%2Babc1234?channel=stable`,
+      `${platform}/1.5.0?channel=nightly`,
+      `${platform}/1.5.0`,
+    ]) {
+      assert.equal(
+        routeFor(`https://desktop.anarlog.so/update/${path}`, routes)
+          ?.destination,
+        `${TAURI_FEED}/${path}`,
+        path,
+      );
+    }
+  }
+  assert.equal(
+    routeFor(
+      "https://anarlog.so/update/darwin-aarch64/1.5.0?channel=stable",
+      routes,
+    ),
+    undefined,
+  );
+});
+
+test("the gate's version pattern is semver order from the bridge", () => {
+  for (const bridge of [
+    "1.4.36",
+    "0.0.0",
+    "1.9.9",
+    "9.0.10",
+    "10.10.0",
+    "2.0.99",
+  ]) {
+    const from = new RegExp(`^(?:${versionsFrom(bridge)})$`);
+    const floor = bridge.split(".").map(Number);
+    for (let major = 0; major <= 12; major++) {
+      for (let minor = 0; minor <= 12; minor++) {
+        for (let patch = 0; patch <= 120; patch++) {
+          const version = [major, minor, patch];
+          assert.equal(
+            from.test(version.join(".")),
+            compare(version, floor) >= 0,
+            `${version.join(".")} from ${bridge}`,
+          );
+        }
+      }
+    }
+  }
+  assert.throws(() => versionsFrom("1.4"));
+  assert.throws(() => versionsFrom("1.4.36-nightly.1"));
+});
+
+test("the deployed feed gate opens at its bridge version", () => {
+  const path = (version) => `darwin-aarch64/${version}?channel=stable`;
+  const feed = GPUI_BRIDGE_VERSION === null ? TAURI_FEED : GPUI_FEED;
+  for (const version of [GPUI_BRIDGE_VERSION ?? "1.4.36", "99.0.0"]) {
+    assert.equal(
+      routeFor(`https://desktop.anarlog.so/update/${path(version)}`)
+        ?.destination,
+      `${feed}/${path(version)}`,
     );
   }
 });

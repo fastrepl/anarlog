@@ -1,5 +1,72 @@
 import { IMAGE_SIZES } from "./src/lib/image-sizes.ts";
 
+// The GPUI cutover's feed gate. Stable clients at or after the bridge (the last Tauri release)
+// update from the GPUI app's CrabNebula feed; older clients keep the Tauri app's feed, whose
+// latest stable release stays the bridge, so they install the bridge first. `null` serves
+// every client the Tauri app's feed, which is also the rollback.
+export const GPUI_BRIDGE_VERSION: string | null = null;
+const GPUI_CRABNEBULA_APP = "fastrepl/anarlog-gpui";
+const TAURI_CRABNEBULA_APP = "fastrepl/hyprnote2";
+
+// Decimal numbers above `value`: more digits, or the same digits and larger at the first
+// difference. Client versions are canonical semver, without leading zeros.
+function above(value: string) {
+  const options = [`[1-9]\\d{${value.length},}`];
+  for (let index = 0; index < value.length; index++) {
+    const digit = Number(value[index]);
+    if (digit === 9) continue;
+    const rest = value.length - index - 1;
+    options.push(
+      `${value.slice(0, index)}[${digit + 1}-9]${rest ? `\\d{${rest}}` : ""}`,
+    );
+  }
+  return `(?:${options.join("|")})`;
+}
+
+// Stable versions from `version` on. Prerelease and build versions fall to the Tauri feed.
+export function versionsFrom(version: string) {
+  const match = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.exec(version);
+  if (!match) throw new Error(`Invalid bridge version ${version}`);
+  const [, major, minor, patch] = match;
+  return [
+    `${above(major)}\\.\\d+\\.\\d+`,
+    `${major}\\.${above(minor)}\\.\\d+`,
+    `${major}\\.${minor}\\.(?:${above(patch)}|${patch})`,
+  ].join("|");
+}
+
+// Tauri's updater requests `/update/<platform>/<current_version>?channel=<channel>`. Vercel
+// appends the request's query to the redirect, so the channel reaches CrabNebula unchanged.
+export function desktopUpdateRoutes(bridgeVersion: string | null) {
+  const host = { type: "host" as const, value: "desktop.anarlog.so" };
+  const gate = bridgeVersion
+    ? [
+        {
+          src: `^/update/([^/]+)/(${versionsFrom(bridgeVersion)})$`,
+          has: [
+            host,
+            { type: "query" as const, key: "channel", value: "stable" },
+          ],
+          status: 302,
+          headers: {
+            Location: `https://cdn.crabnebula.app/update/${GPUI_CRABNEBULA_APP}/$1/$2`,
+          },
+        },
+      ]
+    : [];
+  return [
+    ...gate,
+    {
+      src: "^/update/(.*)$",
+      has: [host],
+      status: 302,
+      headers: {
+        Location: `https://cdn.crabnebula.app/update/${TAURI_CRABNEBULA_APP}/$1`,
+      },
+    },
+  ];
+}
+
 const routes = [
   {
     src: "^/images/blog/.*$",
@@ -48,19 +115,7 @@ const routes = [
         "https://github.com/fastrepl/anarlog/releases/download/$1/anarlog-linux-aarch64.deb",
     },
   },
-  {
-    src: "^/update/(.*)$",
-    has: [
-      {
-        type: "host",
-        value: "desktop.anarlog.so",
-      },
-    ],
-    status: 302,
-    headers: {
-      Location: "https://cdn.crabnebula.app/update/fastrepl/hyprnote2/$1",
-    },
-  },
+  ...desktopUpdateRoutes(GPUI_BRIDGE_VERSION),
   {
     src: "^/download/(.*)$",
     has: [
