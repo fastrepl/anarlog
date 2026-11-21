@@ -654,8 +654,8 @@ fn notes_stay_read_only_while_a_slow_quit_drain_finishes() {
 }
 
 /// Notes shipping has yet to move keep the library closed, and the window says so. Closing it
-/// quits, as shipping exits on a refused startup. (This platform can't hide a window, so it
-/// can't tell that quit apart from close-to-hide's own fallback.)
+/// quits, as shipping exits on a refused startup. On macOS this platform's window can't be
+/// hidden, so close-to-hide falls back to quitting too; only Linux tells the two apart.
 #[test]
 fn an_unfinished_storage_move_keeps_the_library_closed_and_closing_quits() {
     let app = Harness::refused();

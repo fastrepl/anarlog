@@ -62,8 +62,9 @@ impl Harness {
             Startup::shipping(base, "com.hyprnote.staging"),
         )
         .unwrap();
+        // A startup that wrongly opens fails the scenario's assertions instead of hanging it.
         let mut state = runtime.state();
-        while !matches!(*state.borrow_and_update(), RuntimeState::Closed(_)) {
+        while matches!(*state.borrow_and_update(), RuntimeState::Starting) {
             futures::executor::block_on(state.changed()).unwrap();
         }
         Self::open_main(profile, runtime, ready)
