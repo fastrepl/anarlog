@@ -947,15 +947,17 @@ impl ApplicationView {
         cx.notify();
         let runtime = self.runtime.clone();
         Some(cx.spawn(async move |this, cx| {
-            // `None` when the feed no longer offers an update.
+            // `None` when the feed no longer offers the downloaded release.
             let result: desktop_runtime::Result<Option<Restart>> = async {
-                // Shipping re-checks the feed before installing, so a withdrawn release (a
-                // rollback) is never installed, even when Restart races a check.
+                // Like shipping, re-check the feed before installing, so a release it withdrew
+                // (a rollback) is never installed, even when Restart races a check. Unlike
+                // shipping, a different offered version also withdraws the download: during
+                // the cutover that may be a rollback build, which the next check downloads.
                 let offered = updater
                     .check(&runtime, CancellationToken::new())?
                     .receive()
                     .await?;
-                if offered.is_none() {
+                if offered.is_none_or(|offered| offered.version != update.release.version) {
                     return Ok(None);
                 }
                 let pause = this
@@ -1013,13 +1015,13 @@ impl ApplicationView {
 
 /// Whether a check's result replaces the update state, like shipping's update events: a found
 /// release becomes `Available` unless a download, a ready update or a same-version failure owns
-/// the state. Like shipping's install, which re-checks first, a ready update the feed withdrew
-/// (a rollback) is dropped rather than installed.
+/// the state. A ready update the feed no longer offers, withdrawn or replaced (a rollback), is
+/// dropped rather than installed.
 fn replaces_on_check(current: &UpdateMenu, found: Option<&Arc<str>>) -> bool {
     match current {
         UpdateMenu::CheckForUpdate | UpdateMenu::Available(_) => true,
         UpdateMenu::Failed(version, _) => found.is_some_and(|found| found != version),
-        UpdateMenu::RestartToApply(_) => found.is_none(),
+        UpdateMenu::RestartToApply(version) => found != Some(version),
         UpdateMenu::Downloading(..) => false,
     }
 }
@@ -1037,12 +1039,12 @@ mod tests {
     use super::*;
 
     #[test]
-    fn a_ready_update_the_feed_withdrew_is_dropped() {
+    fn a_ready_update_the_feed_no_longer_offers_is_dropped() {
         let (ready, newer) = (Arc::<str>::from("1.5.0"), Arc::<str>::from("1.5.1"));
         let restart = UpdateMenu::RestartToApply(ready.clone());
         assert!(replaces_on_check(&restart, None));
         assert!(!replaces_on_check(&restart, Some(&ready)));
-        assert!(!replaces_on_check(&restart, Some(&newer)));
+        assert!(replaces_on_check(&restart, Some(&newer)));
         let failed = UpdateMenu::Failed(ready.clone(), "offline".into());
         assert!(!replaces_on_check(&failed, Some(&ready)));
         assert!(replaces_on_check(&failed, Some(&newer)));
