@@ -212,6 +212,29 @@ pub fn consolidate_custom_storage(identifier: &str) {
     }
 }
 
+// The native app that replaces this one records when it first opened this
+// channel's data (anlg_desktop_identity::takeover). A build of this app that
+// runs on the data afterwards, after a rollback or from an old copy, logs it
+// and tags crash reports with it so support can tell; nothing else changes.
+pub fn report_gpui_takeover(identifier: &str) {
+    let Some(base) = anlg_storage::global::compute_default_base(identifier) else {
+        return;
+    };
+    match anlg_desktop_identity::takeover::read(&base) {
+        Ok(Some(takeover)) => {
+            tracing::info!(
+                gpui_version = %takeover.version,
+                gpui_since = %takeover.at,
+                gpui_bundle = takeover.bundle.as_deref().unwrap_or("none"),
+                "gpui_takeover_marker_found"
+            );
+            sentry::configure_scope(|scope| scope.set_tag("gpui_takeover", &takeover.version));
+        }
+        Ok(None) => {}
+        Err(error) => tracing::warn!(%error, "gpui_takeover_marker_unreadable"),
+    }
+}
+
 // Database open and plugin setup can still take a few seconds before the
 // webview exists. After a short delay this shows a native alert (spawned
 // osascript, matching the startup-failure alerts) that is killed as soon as

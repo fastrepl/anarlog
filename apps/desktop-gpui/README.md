@@ -29,7 +29,7 @@ shipping data through `crates/desktop-identity` (`src/launch.rs`). Unset builds,
 and a build kind that would resolve different folders than the shipping channel
 refuses to start (stable and nightly need release, dev needs debug). A channel
 run opens shipping's `app.db` in place, keeps notes, recordings and attachments in
-shipping's data folder, and reads the channel's secure store under shipping's
+shipping's data folder (see "Storage folder and takeover marker" below), and reads the channel's secure store under shipping's
 service and account names (E2EE keys and provider keys, chunked like shipping).
 It keeps the sign-in in shipping's session store (`auth.json` on macOS, DPAPI on
 Windows, Secret Service with its fallbacks on Linux), which the bundled CLI shares,
@@ -52,6 +52,29 @@ marker; a sandbox refuses both at once. The canonical schema is prepared with
 `db-app`. CloudSync follows shipping's `cloud_sync_enabled` setting (on unless
 turned off) and also needs account sign-in and a recovery key; it advertises the
 `replica, accepted_replica` transports.
+
+### Storage folder and takeover marker
+
+Older shipping versions let users keep notes and recordings in another folder, recorded as
+`vault_path` in the data folder's `global.json`; each shipping start moves it back into the
+data folder (`anlg_storage::vault::consolidate_custom_vault`) and retries a failed copy at the
+next start. A channel run checks the same state once it holds shipping's locks
+(`anlg_desktop_identity::vault`): while that move is unfinished it refuses to open and names
+both folders, and it never moves, copies or deletes files itself. A recorded folder that is
+missing or is the data folder itself has nothing to move, so the run opens the data folder as
+shipping does.
+
+The first channel launch that opens the library writes `gpui-takeover.json` in the channel's
+data folder and never rewrites it (`anlg_desktop_identity::takeover`):
+
+```json
+{"version":"1.6.0","at":"2026-11-21T09:30:00Z","bundle":"App"}
+```
+
+`version` is this app's release, `at` when that launch started (RFC 3339, UTC), and `bundle`
+the package type `--print-package` reports (`null` unpackaged). Readers ignore unknown fields.
+Shipping logs the marker at startup and tags crash reports `gpui_takeover`; it changes no
+other behavior.
 
 The integrated preview mounts the native workspace, TipTap JSON editor,
 transcript/audio pane, and concrete cloud/local product services. The editor

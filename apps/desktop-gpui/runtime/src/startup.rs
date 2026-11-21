@@ -165,6 +165,32 @@ pub(crate) async fn open(
     Ok(db)
 }
 
+/// Shipping's next start moves notes from a folder older versions kept them in into the channel's
+/// data folder, under the launch lock this app now holds. This app moves no files, so until
+/// shipping has, it refuses instead of opening half of the library.
+pub(crate) fn unfinished_move(
+    startup: &Startup,
+) -> Option<anlg_desktop_identity::vault::UnfinishedMove> {
+    startup.channel.as_ref()?;
+    anlg_desktop_identity::vault::unfinished_move(startup.vault.as_deref()?)
+}
+
+/// A missing marker is retried at the next launch, so failing to write it doesn't stop this one.
+pub(crate) fn record_takeover(startup: &Startup) {
+    let (Some(vault), Some(takeover)) = (&startup.vault, &startup.takeover) else {
+        return;
+    };
+    match anlg_desktop_identity::takeover::record(vault, takeover) {
+        Ok(true) => {
+            tracing::info!(version = %takeover.version, "recorded the takeover of this channel's data")
+        }
+        Ok(false) => {}
+        Err(error) => {
+            tracing::warn!(%error, "could not record the takeover of this channel's data")
+        }
+    }
+}
+
 /// Shipping's "Start fresh" leaves a marker for the next launch. Its data moves the database
 /// aside the way shipping does; an isolated profile refuses to open instead.
 pub(crate) fn check_reset(profile: &Profile, startup: &Startup) -> Result<()> {

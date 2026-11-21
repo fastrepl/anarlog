@@ -445,6 +445,7 @@ pub fn main() {
         .on_window_event(tauri_plugin_windows::on_window_event)
         .setup(move |app| {
             let app_handle = app.handle().clone();
+            startup::report_gpui_takeover(&app.config().identifier);
             tauri_plugin_shortcut::initialize_global_shortcuts(&app_handle);
             register_meeting_observers(&app_handle);
 
