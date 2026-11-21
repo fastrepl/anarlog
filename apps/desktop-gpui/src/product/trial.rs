@@ -680,7 +680,8 @@ mod tests {
         let (runtime, ready) = RuntimeHandle::start_with(profile(), startup).unwrap();
         let trialing = Claims {
             subscription_status: Some("trialing".into()),
-            trial_end: Some(account::now() + 10 * 86_400),
+            // Five days left: the 7-day reminder is due, the started dialog was seen.
+            trial_end: Some(account::now() + 5 * 86_400),
             has_payment_method: Some(false),
             ..Claims::default()
         };
@@ -692,15 +693,14 @@ mod tests {
         block_on(ready.receive()).unwrap();
         for _ in 0..2000 {
             cx.run_until_parked();
-            if dialogs.read_with(cx, |dialogs, _| dialogs.seen.is_some()) {
+            if dialogs.read_with(cx, |dialogs, _| dialogs.open.is_some()) {
                 break;
             }
             std::thread::sleep(Duration::from_millis(5));
         }
-        assert!(dialogs.read_with(cx, |dialogs, _| dialogs.seen.is_some()));
         assert_eq!(
             dialogs.read_with(cx, |dialogs, _| dialogs.open.clone()),
-            None
+            Some(Dialog::Reminder { days: 5 })
         );
         drop(dialogs);
         block_on(runtime.shutdown()).unwrap();
