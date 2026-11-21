@@ -7,7 +7,7 @@ use desktop_gpui::{
     native_events::{MenuState, NativeEvents},
     platform::{
         package::{self, AppIds},
-        windows::WindowIdentity,
+        windows::{Restart, WindowIdentity},
     },
     ui::theme::UiFonts,
 };
@@ -39,6 +39,8 @@ fn main() -> anyhow::Result<()> {
         }
         Launch::Run { mode, urls } => (mode, urls),
     };
+    // Before an update can replace it: a deb update leaves `/proc/self/exe` deleted.
+    let executable = package::launch_executable();
     let (storage, database) = match mode {
         Mode::Sandbox(profile) => {
             let pointer = profile.with_extension("storage.json");
@@ -194,10 +196,20 @@ fn main() -> anyhow::Result<()> {
     // The replacement serves this profile's launches next.
     #[cfg(any(target_os = "linux", target_os = "windows"))]
     drop(instance);
-    if desktop_gpui::platform::windows::restart_requested() {
-        std::process::Command::new(std::env::current_exe()?)
-            .args(launch::relaunch_args(std::env::args_os().skip(1)))
-            .spawn()?;
+    let arguments = launch::relaunch_args(std::env::args_os().skip(1));
+    match desktop_gpui::platform::windows::requested_restart() {
+        Some(Restart::App) => {
+            std::process::Command::new(executable?)
+                .args(arguments)
+                .spawn()?;
+        }
+        Some(Restart::Installer(installer)) => {
+            std::process::Command::new(installer)
+                .args(desktop_gpui::platform::updater::NSIS_UPDATE_ARGS)
+                .args(arguments)
+                .spawn()?;
+        }
+        None => {}
     }
     Ok(())
 }

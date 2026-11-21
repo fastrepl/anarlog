@@ -1,88 +1,141 @@
+//! Self-update like shipping's `tauri-plugin-updater`: the channel's feed and signing key,
+//! and per package the artifact it publishes and the way it installs it.
+
+mod feed;
+
 use std::{
     fs,
     io::{Cursor, Write},
     path::{Component, Path, PathBuf},
-    process::Command,
+    process::{Command, Stdio},
 };
 
 use desktop_runtime::{
-    CancellationToken, Result, RuntimeHandle, ServiceError,
-    updater::{InstallConditions, NativeUpdater, UpdateInstaller, VerifiedUpdate},
+    Result, ServiceError,
+    updater::{UpdateConfig, VerifiedUpdate},
 };
-use futures::future::BoxFuture;
+
+use crate::platform::{
+    package::{self, BundleType, Os},
+    windows::Restart,
+};
+
+/// The flags shipping's updater runs the NSIS installer with (`installMode` "passive"): a
+/// progress-only install that relaunches the app, followed by the app's own arguments.
+pub const NSIS_UPDATE_ARGS: [&str; 4] = ["/P", "/R", "/UPDATE", "/ARGS"];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PackageKind {
     AppImage,
+    Deb,
     MacBundle,
     WindowsNsis,
-    WindowsMsi,
 }
 
 impl PackageKind {
     /// The package this binary was installed from, which decides how an update replaces it.
     pub fn current() -> Result<Self> {
-        Self::of(crate::platform::package::bundle_type())
+        Self::of(package::bundle_type())
     }
 
-    fn of(bundle: Option<crate::platform::package::BundleType>) -> Result<Self> {
-        use crate::platform::package::BundleType;
+    /// Shipping publishes updates for these packages only (`desktop-release-platforms.json`).
+    fn of(bundle: Option<BundleType>) -> Result<Self> {
         match bundle {
             Some(BundleType::App) => Ok(Self::MacBundle),
             Some(BundleType::AppImage) => Ok(Self::AppImage),
+            Some(BundleType::Deb) => Ok(Self::Deb),
             Some(BundleType::Nsis) => Ok(Self::WindowsNsis),
-            Some(BundleType::Msi) => Ok(Self::WindowsMsi),
-            Some(BundleType::Deb | BundleType::Rpm) => Err(ServiceError::Unsupported(
-                "This build can't update a system package yet. Install the new package instead."
-                    .into(),
+            Some(BundleType::Rpm | BundleType::Msi) | None => Err(ServiceError::Unsupported(
+                "This build can't update itself. Install the new version instead.".into(),
             )),
-            None if cfg!(target_os = "macos") => Ok(Self::MacBundle),
-            None if cfg!(target_os = "windows") => Ok(Self::WindowsNsis),
-            None => Ok(Self::AppImage),
+        }
+    }
+
+    fn bundle(self) -> BundleType {
+        match self {
+            Self::AppImage => BundleType::AppImage,
+            Self::Deb => BundleType::Deb,
+            Self::MacBundle => BundleType::App,
+            Self::WindowsNsis => BundleType::Nsis,
         }
     }
 }
 
-#[derive(Clone)]
+/// `tauri-plugin-updater`'s `{{arch}}`.
+fn arch() -> &'static str {
+    match std::env::consts::ARCH {
+        "x86" => "i686",
+        "arm" => "armv7",
+        arch => arch,
+    }
+}
+
+/// This build's feed: shipping's for its channel and package. Builds without a channel, and
+/// channels whose shipping app doesn't update itself (dev, staging), have none.
+pub fn config() -> Result<UpdateConfig> {
+    let none = || ServiceError::Unsupported("This build doesn't update itself.".into());
+    let channel = package::channel().ok_or_else(none)?;
+    let kind = PackageKind::current()?;
+    let feed = feed::feed(
+        channel,
+        Os::CURRENT,
+        arch(),
+        kind.bundle(),
+        std::env::var(feed::ENDPOINT_OVERRIDE).ok(),
+    )
+    .ok_or_else(none)?;
+    let endpoints = feed
+        .endpoints
+        .iter()
+        .map(|endpoint| url::Url::parse(endpoint))
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .map_err(|_| failure("Invalid update feed URL"))?;
+    let version = package::VERSION
+        .parse()
+        .map_err(|_| failure("Invalid app version"))?;
+    Ok(UpdateConfig::new(
+        endpoints,
+        version,
+        feed.target,
+        feed.pubkey,
+    ))
+}
+
+/// The installed package an update replaces.
+#[derive(Clone, Debug)]
 pub struct NativeInstaller {
-    pub kind: PackageKind,
-    pub installation: PathBuf,
-    pub staging_root: PathBuf,
-}
-
-pub async fn download_and_install(
-    updater: &NativeUpdater,
-    runtime: &RuntimeHandle,
-    release: desktop_runtime::updater::ResolvedRelease,
-    installer: &NativeInstaller,
-    conditions: impl Fn() -> InstallConditions,
-    cancel: CancellationToken,
-) -> Result<()> {
-    NativeUpdater::permit_install(conditions())?;
-    let update = updater
-        .download(runtime, release, cancel.clone())?
-        .receive()
-        .await?;
-    if cancel.is_cancelled() {
-        return Err(ServiceError::Cancelled);
-    }
-    NativeUpdater::permit_install(conditions())?;
-    installer.install(update).await
-}
-
-impl UpdateInstaller for NativeInstaller {
-    fn install(&self, update: VerifiedUpdate) -> BoxFuture<'static, Result<()>> {
-        let installer = self.clone();
-        Box::pin(async move {
-            tokio::task::spawn_blocking(move || installer.install_verified(update.bytes()))
-                .await
-                .map_err(failure)?
-        })
-    }
+    kind: PackageKind,
+    /// The `.app` bundle or the AppImage file; the deb and NSIS installers find their own.
+    installation: PathBuf,
 }
 
 impl NativeInstaller {
-    fn install_verified(&self, bytes: &[u8]) -> Result<()> {
+    pub fn current() -> Result<Self> {
+        let kind = PackageKind::current()?;
+        let installation = match kind {
+            PackageKind::MacBundle => std::env::current_exe()
+                .ok()
+                .as_deref()
+                .and_then(app_bundle)
+                .ok_or_else(|| failure("This app isn't running from its app bundle"))?,
+            PackageKind::AppImage => std::env::var_os("APPIMAGE")
+                .map(PathBuf::from)
+                .ok_or_else(|| failure("This app isn't running from its AppImage"))?,
+            PackageKind::Deb | PackageKind::WindowsNsis => {
+                std::env::current_exe().map_err(failure)?
+            }
+        };
+        Ok(Self { kind, installation })
+    }
+
+    /// Installs the verified update and returns what has to run once the app has quit.
+    pub async fn install(self, update: VerifiedUpdate) -> Result<Restart> {
+        tokio::task::spawn_blocking(move || self.install_verified(update.bytes()))
+            .await
+            .map_err(failure)?
+    }
+
+    fn install_verified(&self, bytes: &[u8]) -> Result<Restart> {
         match self.kind {
             PackageKind::AppImage => {
                 if !cfg!(target_os = "linux") {
@@ -113,63 +166,206 @@ impl NativeInstaller {
                     .map_err(failure)?;
                 replace_with_backup(&package, &self.installation)?;
             }
+            PackageKind::Deb => {
+                if !cfg!(target_os = "linux") {
+                    return Err(failure("Debian package installation requires Linux"));
+                }
+                if !bytes.starts_with(b"!<arch>\ndebian-binary") {
+                    return Err(failure("Expected a Debian package"));
+                }
+                let stage = tempfile::Builder::new()
+                    .prefix("anarlog_deb_update")
+                    .tempdir()
+                    .map_err(failure)?;
+                let package = stage.path().join("package.deb");
+                fs::write(&package, bytes).map_err(failure)?;
+                install_deb(&package)?;
+            }
             PackageKind::MacBundle => {
                 if !cfg!(target_os = "macos") {
                     return Err(failure("App bundle installation requires macOS"));
                 }
-                let parent = self
-                    .installation
-                    .parent()
-                    .ok_or_else(|| failure("Missing bundle parent"))?;
-                let stage = tempfile::tempdir_in(parent).map_err(failure)?;
-                let package = extract_single_package(bytes, stage.path(), true)?;
-                if !Command::new("/usr/bin/codesign")
-                    .args(["--verify", "--deep", "--strict"])
-                    .arg(&package)
-                    .status()
-                    .map_err(failure)?
-                    .success()
-                {
-                    return Err(failure("Bundle code-signature validation failed"));
-                }
-                replace_with_backup(&package, &self.installation)?;
+                self.install_bundle(bytes)?;
             }
-            PackageKind::WindowsNsis | PackageKind::WindowsMsi => {
+            PackageKind::WindowsNsis => {
                 if !cfg!(target_os = "windows") {
                     return Err(failure("Windows installer requires Windows"));
                 }
-                fs::create_dir_all(&self.staging_root).map_err(failure)?;
-                let nsis = matches!(self.kind, PackageKind::WindowsNsis);
-                if nsis && !bytes.starts_with(b"MZ") {
+                if !bytes.starts_with(b"MZ") {
                     return Err(failure("Expected a signed NSIS executable"));
                 }
-                if !nsis && !bytes.starts_with(&[0xd0, 0xcf, 0x11, 0xe0]) {
-                    return Err(failure("Expected an MSI package"));
-                }
-                let mut file = tempfile::Builder::new()
-                    .suffix(if nsis { ".exe" } else { ".msi" })
-                    .tempfile_in(&self.staging_root)
-                    .map_err(failure)?;
+                // It runs once the app has quit, so it outlives this process.
+                let stage = tempfile::Builder::new()
+                    .prefix("anarlog-updater-")
+                    .tempdir()
+                    .map_err(failure)?
+                    .keep();
+                let path = stage.join("installer.exe");
+                let mut file = fs::File::create(&path).map_err(failure)?;
                 file.write_all(bytes).map_err(failure)?;
-                file.as_file().sync_all().map_err(failure)?;
-                let (_, path) = file.keep().map_err(failure)?;
-                let result = if nsis {
-                    Command::new(&path).arg("/UPDATE").spawn()
-                } else {
-                    Command::new("msiexec.exe")
-                        .arg("/i")
-                        .arg(&path)
-                        .arg("/passive")
-                        .spawn()
-                };
-                if let Err(error) = result {
-                    fs::remove_file(&path).map_err(failure)?;
-                    return Err(failure(error));
-                }
+                file.sync_all().map_err(failure)?;
+                return Ok(Restart::Installer(path));
             }
         }
+        Ok(Restart::App)
+    }
+
+    /// The new bundle must carry the running app's designated requirement (its identifier and
+    /// signing team), which its privacy permissions and keychain access are granted to.
+    fn install_bundle(&self, bytes: &[u8]) -> Result<()> {
+        let requirement = designated_requirement(&self.installation)?;
+        let parent = self
+            .installation
+            .parent()
+            .ok_or_else(|| failure("Missing bundle parent"))?;
+        match tempfile::tempdir_in(parent) {
+            Ok(stage) => {
+                let package = extract_single_package(bytes, stage.path(), true)?;
+                verify_bundle(&package, &requirement)?;
+                replace_with_backup(&package, &self.installation)?;
+            }
+            // Like shipping's updater, a folder the user can't write asks for an administrator.
+            Err(error) if error.kind() == std::io::ErrorKind::PermissionDenied => {
+                let stage = tempfile::tempdir().map_err(failure)?;
+                let package = extract_single_package(bytes, stage.path(), true)?;
+                verify_bundle(&package, &requirement)?;
+                replace_as_administrator(&package, &self.installation, stage.path())?;
+            }
+            Err(error) => return Err(failure(error)),
+        }
+        // Shipping touches the bundle so Finder and Launch Services see the new version.
+        let _ = Command::new("/usr/bin/touch")
+            .arg(&self.installation)
+            .status();
         Ok(())
     }
+}
+
+/// `/Applications/Anarlog.app` for `/Applications/Anarlog.app/Contents/MacOS/anarlog`.
+fn app_bundle(executable: &Path) -> Option<PathBuf> {
+    let macos = executable.parent()?;
+    let bundle = macos.parent()?.parent()?;
+    (macos.file_name()? == "MacOS"
+        && macos.parent()?.file_name()? == "Contents"
+        && bundle.extension()? == "app")
+        .then(|| bundle.to_owned())
+}
+
+fn designated_requirement(bundle: &Path) -> Result<String> {
+    let output = Command::new("/usr/bin/codesign")
+        .args(["-d", "-r-"])
+        .arg(bundle)
+        .output()
+        .map_err(failure)?;
+    String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .find_map(|line| line.strip_prefix("designated => "))
+        .map(str::to_owned)
+        .ok_or_else(|| failure("The running app has no code signature to match"))
+}
+
+fn verify_bundle(bundle: &Path, requirement: &str) -> Result<()> {
+    let verified = Command::new("/usr/bin/codesign")
+        .args(["--verify", "--deep", "--strict"])
+        .arg(format!("-R={requirement}"))
+        .arg(bundle)
+        .status()
+        .map_err(failure)?
+        .success();
+    if verified {
+        Ok(())
+    } else {
+        Err(failure(
+            "The update isn't signed as this app; it was not installed",
+        ))
+    }
+}
+
+/// Shipping's `do shell script … with administrator privileges` move, keeping the replaced
+/// bundle in the stage until the new one is in place.
+fn replace_as_administrator(package: &Path, installation: &Path, stage: &Path) -> Result<()> {
+    let quoted = |path: &Path| {
+        let text = path
+            .to_str()
+            .filter(|text| !text.contains(['\'', '"', '\\']));
+        text.map(|text| format!("'{text}'"))
+            .ok_or_else(|| failure("Unsupported installation path"))
+    };
+    let (new, current, previous) = (
+        quoted(package)?,
+        quoted(installation)?,
+        quoted(&stage.join("previous.app"))?,
+    );
+    let script = format!(
+        "do shell script \"mv -f {current} {previous} && (mv -f {new} {current} || (mv -f {previous} {current}; exit 1))\" with administrator privileges"
+    );
+    let moved = Command::new("/usr/bin/osascript")
+        .args(["-e", &script])
+        .status()
+        .map_err(failure)?
+        .success();
+    if moved {
+        Ok(())
+    } else {
+        Err(failure("The new app was not moved into place"))
+    }
+}
+
+/// Shipping's deb update (`tauri-plugin-updater`'s `install_deb`): `dpkg -i` through pkexec,
+/// else sudo with a zenity or kdialog password prompt, else sudo itself.
+fn install_deb(package: &Path) -> Result<()> {
+    let dpkg = |program: &str| {
+        let mut command = Command::new(program);
+        command.args(["dpkg", "-i"]).arg(package);
+        command
+    };
+    if dpkg("pkexec").status().is_ok_and(|status| status.success()) {
+        return Ok(());
+    }
+    if let Some(password) = graphical_password() {
+        let mut command = Command::new("sudo");
+        command
+            .args(["-S", "dpkg", "-i"])
+            .arg(package)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null());
+        let mut child = command.spawn().map_err(failure)?;
+        if let Some(mut stdin) = child.stdin.take() {
+            writeln!(stdin, "{password}").map_err(failure)?;
+        }
+        if child.wait().map_err(failure)?.success() {
+            return Ok(());
+        }
+    }
+    if dpkg("sudo").status().map_err(failure)?.success() {
+        Ok(())
+    } else {
+        Err(failure("The update package was not installed"))
+    }
+}
+
+fn graphical_password() -> Option<String> {
+    let prompt = "Enter your password to install the update:";
+    let text = format!("--text={prompt}");
+    let prompts = [
+        (
+            "zenity",
+            vec![
+                "--password",
+                "--title=Authentication Required",
+                text.as_str(),
+            ],
+        ),
+        ("kdialog", vec!["--password", prompt]),
+    ];
+    prompts.into_iter().find_map(|(program, args)| {
+        let output = Command::new(program).args(args).output().ok()?;
+        output
+            .status
+            .success()
+            .then(|| String::from_utf8_lossy(&output.stdout).trim().to_owned())
+    })
 }
 
 fn extract_single_package(bytes: &[u8], destination: &Path, bundle: bool) -> Result<PathBuf> {
@@ -294,10 +490,36 @@ mod tests {
     use super::*;
 
     #[test]
-    fn a_system_package_is_not_updated_like_an_appimage() {
-        use crate::platform::package::BundleType;
-        assert!(PackageKind::of(Some(BundleType::Deb)).is_err());
-        assert!(PackageKind::of(Some(BundleType::Rpm)).is_err());
+    fn only_packages_shipping_publishes_updates_for_update_themselves() {
+        for (bundle, kind) in [
+            (BundleType::App, PackageKind::MacBundle),
+            (BundleType::AppImage, PackageKind::AppImage),
+            (BundleType::Deb, PackageKind::Deb),
+            (BundleType::Nsis, PackageKind::WindowsNsis),
+        ] {
+            assert_eq!(PackageKind::of(Some(bundle)).unwrap(), kind);
+            assert_eq!(kind.bundle(), bundle);
+        }
+        for bundle in [Some(BundleType::Rpm), Some(BundleType::Msi), None] {
+            assert!(PackageKind::of(bundle).is_err(), "{bundle:?}");
+        }
+    }
+
+    #[test]
+    fn a_bundle_update_replaces_the_app_the_executable_runs_from() {
+        assert_eq!(
+            app_bundle(Path::new(
+                "/Applications/Anarlog.app/Contents/MacOS/anarlog"
+            )),
+            Some(PathBuf::from("/Applications/Anarlog.app"))
+        );
+        for exe in [
+            "/usr/local/bin/anarlog",
+            "/Applications/Anarlog/Contents/MacOS/anarlog",
+            "/Applications/Anarlog.app/Contents/Resources/anarlog",
+        ] {
+            assert_eq!(app_bundle(Path::new(exe)), None, "{exe}");
+        }
     }
 
     #[test]

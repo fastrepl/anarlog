@@ -128,6 +128,17 @@ fn bundle_type_of(marker: &str, macos: bool) -> Option<BundleType> {
     }
 }
 
+/// What a relaunch starts, as Tauri's `current_binary` decides: the AppImage file rather than
+/// its mounted copy, else this executable's path at launch.
+pub fn launch_executable() -> std::io::Result<PathBuf> {
+    if bundle_type() == Some(BundleType::AppImage)
+        && let Some(appimage) = std::env::var_os("APPIMAGE")
+    {
+        return Ok(PathBuf::from(appimage));
+    }
+    std::env::current_exe()
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Os {
     MacOs,

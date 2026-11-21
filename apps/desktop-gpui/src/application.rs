@@ -288,7 +288,9 @@ impl ApplicationView {
                         let _ = reply.send(result);
                     }
                     HostCommand::Relaunch(reply) => {
-                        crate::platform::windows::request_restart();
+                        crate::platform::windows::request_restart(
+                            crate::platform::windows::Restart::App,
+                        );
                         let _ = reply.send(Ok(()));
                         cx.background_executor()
                             .timer(Duration::from_millis(100))
