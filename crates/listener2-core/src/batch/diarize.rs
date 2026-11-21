@@ -14,7 +14,7 @@ use anlg_pyannote_local::{
 use owhisper_interface::batch;
 use owhisper_interface::batch_stream::BatchStreamEvent;
 
-use super::simple::{ResampledChannelFile, resample_audio_to_channel_files_until};
+use super::simple::{ChannelCollapse, ResampledChannelFile, resample_audio_to_channel_files_with};
 use super::{BatchParams, BatchProvider, BatchRunOutput};
 use crate::{BatchEvent, BatchRuntime};
 
@@ -228,6 +228,17 @@ fn channel_speaker_bounds(
     })
 }
 
+/// Whether a hosted provider's channels were uploaded one at a time. Those
+/// providers return no speaker labels, so the remote channel is diarized on
+/// device exactly like a local transcript.
+pub(super) fn is_channel_split_response(response: &batch::Response) -> bool {
+    response
+        .metadata
+        .get(super::simple::CHANNEL_SPLIT_METADATA_KEY)
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false)
+}
+
 pub(super) fn channel_needs_diarization(channel: &batch::Channel) -> bool {
     let mut words = channel
         .alternatives
@@ -243,7 +254,7 @@ pub(super) async fn apply_local_diarization(
     listen_params: &owhisper_interface::ListenParams,
     output: &mut BatchRunOutput,
 ) {
-    if !is_local_batch(params) {
+    if !is_local_batch(params) && !is_channel_split_response(&output.response) {
         return;
     }
     let transcript_channels = output.response.results.channels.len();
@@ -292,6 +303,11 @@ pub(super) async fn apply_local_diarization(
             embedding: speaker.embedding.clone(),
         })
         .collect();
+    let collapse = if is_channel_split_response(&output.response) {
+        ChannelCollapse::Identical
+    } else {
+        ChannelCollapse::MeanDifference
+    };
     let started_at = Instant::now();
     let result = tokio::task::spawn_blocking({
         let runtime = runtime.clone();
@@ -302,6 +318,7 @@ pub(super) async fn apply_local_diarization(
                 &heartbeat,
                 &DiarizeJob {
                     file_path: &file_path,
+                    collapse,
                     listen_params: &listen_params,
                     transcript_channels,
                     in_person,
@@ -351,6 +368,9 @@ struct UnlabeledChannel {
 
 struct DiarizeJob<'a> {
     file_path: &'a str,
+    /// Must match how the transcript was split, or a channel the transcript
+    /// has may be missing from the resampled recording.
+    collapse: ChannelCollapse,
     listen_params: &'a owhisper_interface::ListenParams,
     transcript_channels: usize,
     in_person: bool,
@@ -466,6 +486,7 @@ fn diarize_channels(
 ) -> Result<Vec<ChannelLabels>, String> {
     let DiarizeJob {
         file_path,
+        collapse,
         listen_params,
         transcript_channels,
         in_person,
@@ -476,10 +497,15 @@ fn diarize_channels(
     let source = anlg_audio_utils::source_from_path(file_path).map_err(|e| e.to_string())?;
     // A stereo file whose channels were identical collapses to one file, so
     // the recording layout is only known after resampling.
-    let channel_files = resample_audio_to_channel_files_until(file_path, source, || {
-        heartbeat.beat(DIARIZATION_PROGRESS_START);
-        runtime.is_cancelled()
-    })?;
+    let channel_files = resample_audio_to_channel_files_with(
+        file_path,
+        source,
+        || {
+            heartbeat.beat(DIARIZATION_PROGRESS_START);
+            runtime.is_cancelled()
+        },
+        collapse,
+    )?;
     let plans: Vec<(&UnlabeledChannel, ChannelAudio, SpeakerBounds)> = unlabeled
         .iter()
         .filter_map(|channel| {
@@ -898,6 +924,23 @@ mod tests {
             word(Some(1))
         ])));
         assert!(!channel_needs_diarization(&channel(vec![])));
+    }
+
+    #[test]
+    fn channel_split_responses_are_diarized_on_device() {
+        let response = |metadata| batch::Response {
+            metadata,
+            results: batch::Results { channels: vec![] },
+        };
+        assert!(is_channel_split_response(&response(
+            serde_json::json!({ "provider": "groq", "channel_split": true })
+        )));
+        assert!(!is_channel_split_response(&response(
+            serde_json::json!({ "provider": "groq" })
+        )));
+        assert!(!is_channel_split_response(&response(
+            serde_json::Value::Null
+        )));
     }
 
     use super::super::test_fixtures::{NeverCancelled, in_person_fixture, params, stereo_fixture};
