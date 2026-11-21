@@ -193,7 +193,8 @@ The feed is checked at startup and every 30 minutes. With "Automatically install
 (shipping's `automatic_updates` setting), a check outside a meeting also downloads in the
 background, and the update found at startup installs as soon as it has downloaded, unless a
 meeting, onboarding or a settings page is open. Otherwise the toast and tray offer Download and
-Restart. A downloaded update the feed stops offering (a rollback) is dropped, not installed.
+Restart. A downloaded update installs only while the feed still offers that version, which every
+install re-checks; one the feed withdrew or replaced (a rollback) is dropped.
 Installing pauses writers and quits through the drain into the new version:
 
 - macOS: the `.app.tar.gz` bundle must satisfy the running app's designated requirement
