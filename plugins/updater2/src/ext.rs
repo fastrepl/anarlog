@@ -272,9 +272,18 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Updater2<'a, R, M> {
 
         let _ = self.manager.store2().save();
 
-        update.install(&bytes)?;
+        install_update(&update, &bytes)?;
         self.manager.app_handle().restart();
     }
+}
+
+fn install_update(update: &tauri_plugin_updater::Update, bytes: &[u8]) -> crate::Result<()> {
+    #[cfg(target_os = "linux")]
+    if tauri::utils::platform::bundle_type() == Some(tauri::utils::config::BundleType::Deb) {
+        return crate::deb::install(bytes);
+    }
+    update.install(bytes)?;
+    Ok(())
 }
 
 pub trait Updater2PluginExt<R: tauri::Runtime> {

@@ -1,4 +1,6 @@
 mod commands;
+#[cfg(target_os = "linux")]
+mod deb;
 mod error;
 mod events;
 mod ext;

@@ -5,14 +5,11 @@
       "deb": {
         "depends": [
           "libayatana-appindicator3-1",
-          "libxdo3",
           "libpipewire-0.3-0",
           "libpulse0",
           "libasound2",
           "libssl3",
           "libstdc++6",
-          "libvulkan1",
-          "mesa-vulkan-drivers | vulkan-icd",
           "libxkbcommon0",
           "libxkbcommon-x11-0",
           "libwayland-client0",
@@ -24,7 +21,8 @@
           "ca-certificates",
           "desktop-file-utils",
           "xdg-utils"
-        ]
+        ],
+        "recommends": ["libvulkan1", "mesa-vulkan-drivers | vulkan-icd"]
       }
     },
     "windows": {

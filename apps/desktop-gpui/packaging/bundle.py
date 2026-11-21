@@ -405,7 +405,7 @@ def verify_linux(config, args, checks):
         deb_config["depends"] + TAURI_DEB_DEPENDS,
         "deb Depends",
     )
-    for relation in ["provides", "conflicts", "replaces"]:
+    for relation in ["recommends", "provides", "conflicts", "replaces"]:
         checks.equal(
             [
                 item.strip()
