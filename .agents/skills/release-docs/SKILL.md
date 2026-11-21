@@ -74,7 +74,7 @@ before selecting the deployment; do not assume merging the notes publishes them.
 1. Prepare `packages/changelog/content/mobile/<version>.md` before candidate
    freeze, with the requested audience and platform-specific sections.
 2. Follow the coordinator's mobile distribution reference. Verify the exact
-   candidate build is available to the intended testers or public store users;
+   candidate build is available to public store users;
    upload/submission success alone is insufficient.
 3. Create the adjacent `<version>.json` using the contract in
    `packages/changelog/content/mobile/AGENTS.md`. Include candidate SHA,
@@ -87,7 +87,6 @@ before selecting the deployment; do not assume merging the notes publishes them.
 5. Verify `/changelog/mobile/<version>/`, `/changelog/?stream=mobile`, and the
    combined index, including full notes, channel, and actual destinations.
    Add later platform availability to the same record and publish that update.
-   Do not report stable public availability for a beta-only release.
 
 ## Other documentation and completion
 

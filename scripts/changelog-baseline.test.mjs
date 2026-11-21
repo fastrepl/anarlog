@@ -7,7 +7,7 @@ import test from "node:test";
 
 import { changelogBaseline } from "./changelog-baseline.mjs";
 
-test("release notes include post-beta fixes, honor explicit promotion sources and identify initial releases", (t) => {
+test("release notes span stable releases, ignore historical beta records, honor explicit sources and identify initial releases", (t) => {
   const cwd = mkdtempSync(join(tmpdir(), "anarlog-changelog-baseline-"));
   t.after(() => rmSync(cwd, { recursive: true, force: true }));
   const git = (...args) =>
@@ -49,19 +49,9 @@ test("release notes include post-beta fixes, honor explicit promotion sources an
     current: "desktop_v1.4.1",
     initial: false,
   });
-  assert.deepEqual(changelogBaseline("mobile", "beta", "1.4.1", cwd), {
-    prev: sources[0],
-    current: sources[1],
-    initial: false,
-  });
   assert.deepEqual(changelogBaseline("mobile", "stable", "1.4.2", cwd), {
     prev: sources[0],
     current: sources[2],
-    initial: false,
-  });
-  assert.deepEqual(changelogBaseline("mobile", "beta", "1.4.4", cwd), {
-    prev: sources[3],
-    current: "HEAD",
     initial: false,
   });
   assert.deepEqual(changelogBaseline("mobile", "stable", "1.4.4", cwd), {
@@ -91,10 +81,12 @@ test("release notes include post-beta fixes, honor explicit promotion sources an
     () => changelogBaseline("mobile", "stable", "1.4.3", cwd, "HEAD"),
     /full commit SHA/,
   );
-  assert.throws(
-    () => changelogBaseline("desktop", "beta", "1.4.1", cwd),
-    /Unsupported/,
-  );
+  for (const stream of ["desktop", "mobile"]) {
+    assert.throws(
+      () => changelogBaseline(stream, "beta", "1.4.1", cwd),
+      /Unsupported/,
+    );
+  }
   git("tag", "-f", "desktop_v1.4.0", sources[3]);
   assert.throws(() => changelogBaseline("desktop", "stable", "1.4.1", cwd));
 });
