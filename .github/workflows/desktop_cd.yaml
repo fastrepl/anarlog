@@ -27,6 +27,13 @@ on:
         required: false
         type: string
         default: ""
+      app:
+        description: "Desktop app to build; gpui keeps its packages on the run"
+        type: choice
+        default: tauri
+        options:
+          - tauri
+          - gpui
 
   workflow_call:
     inputs:
@@ -46,9 +53,13 @@ on:
       version:
         type: string
         default: ""
+      app:
+        type: string
+        default: tauri
 
+# GPUI runs never touch CrabNebula, so they stay out of the stable release group.
 concurrency:
-  group: ${{ inputs.channel == 'stable' && 'desktop-stable-release' || format('{0}-{1}-{2}', github.workflow, github.ref, inputs.channel) }}
+  group: ${{ inputs.app != 'gpui' && inputs.channel == 'stable' && 'desktop-stable-release' || format('{0}-{1}-{2}{3}', github.workflow, github.ref, inputs.channel, inputs.app == 'gpui' && '-gpui' || '') }}
   cancel-in-progress: ${{ inputs.channel != 'stable' }}
 env:
   CN_APPLICATION: "fastrepl/hyprnote2"
@@ -107,7 +118,7 @@ jobs:
           echo "Computed version: $VERSION"
 
   cn-draft:
-    if: ${{ inputs.channel != 'staging' }}
+    if: ${{ inputs.app != 'gpui' && inputs.channel != 'staging' }}
     needs: compute-version
     runs-on: ubuntu-latest
     steps:
@@ -151,7 +162,7 @@ jobs:
 
   build-macos:
     needs: [compute-version, cn-draft]
-    if: ${{ !cancelled() && (needs.cn-draft.result == 'success' || needs.cn-draft.result == 'skipped') }}
+    if: ${{ inputs.app != 'gpui' && !cancelled() && (needs.cn-draft.result == 'success' || needs.cn-draft.result == 'skipped') }}
     permissions:
       contents: write
     runs-on: macos-26
@@ -370,7 +381,7 @@ jobs:
 
   build-linux:
     needs: [compute-version, cn-draft]
-    if: ${{ inputs.include_linux && !cancelled() && (needs.cn-draft.result == 'success' || needs.cn-draft.result == 'skipped') }}
+    if: ${{ inputs.app != 'gpui' && inputs.include_linux && !cancelled() && (needs.cn-draft.result == 'success' || needs.cn-draft.result == 'skipped') }}
     strategy:
       fail-fast: true
       matrix:
@@ -592,7 +603,7 @@ jobs:
 
   build-windows:
     needs: [compute-version, cn-draft]
-    if: ${{ inputs.include_windows && !cancelled() && (needs.cn-draft.result == 'success' || needs.cn-draft.result == 'skipped') }}
+    if: ${{ inputs.app != 'gpui' && inputs.include_windows && !cancelled() && (needs.cn-draft.result == 'success' || needs.cn-draft.result == 'skipped') }}
     permissions:
       contents: read
       id-token: write
@@ -891,6 +902,31 @@ jobs:
           channel: ${{ env.RELEASE_CHANNEL }}
           framework: tauri
           working-directory: ./apps/desktop
+
+  build-gpui:
+    if: ${{ inputs.app == 'gpui' }}
+    needs: compute-version
+    permissions:
+      contents: read
+      id-token: write
+    uses: $/.github/workflows/desktop_cd_gpui.yaml
+    with:
+      channel: ${{ inputs.channel }}
+      candidate_sha: ${{ inputs.candidate_sha || github.sha }}
+      version: ${{ needs.compute-version.outputs.version }}
+      include_linux: ${{ inputs.include_linux }}
+      include_windows: ${{ inputs.include_windows }}
+    secrets:
+      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
 
   verify-cn-release:
     permissions:
