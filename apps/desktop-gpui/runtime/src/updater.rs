@@ -29,12 +29,7 @@ pub struct InstallConditions {
     pub automatic: bool,
 }
 
-pub trait UpdateInstaller {
-    fn install(&self, update: VerifiedUpdate) -> futures::future::BoxFuture<'static, Result<()>>;
-}
-
 impl NativeUpdater {
-    /// The distribution owner must supply GPUI-specific signed endpoints and target.
     pub fn new(config: UpdateConfig) -> Result<Self> {
         if config.pubkey.is_empty() || config.endpoints.iter().any(|url| url.scheme() != "https") {
             return Err(ServiceError::Unsupported(

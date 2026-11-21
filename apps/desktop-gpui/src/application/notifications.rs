@@ -330,6 +330,17 @@ fn now_ms() -> i64 {
 }
 
 impl Notifications {
+    /// "Automatically install updates", on unless turned off; `None` until preferences load.
+    pub(super) fn automatic_updates(&self) -> Option<bool> {
+        let preferences = self.preferences.as_ref()?;
+        Some(
+            preferences
+                .get("automatic_updates")
+                .and_then(|setting| setting.value.as_bool())
+                .unwrap_or(true),
+        )
+    }
+
     fn dismissed(&self, notice: &Notice, now: i64) -> bool {
         let Some(stored) = &self.stored else {
             // Persisted dismissals are still loading.

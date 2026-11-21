@@ -1,11 +1,23 @@
-static RESTART: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
-
-pub fn request_restart() {
-    RESTART.store(true, std::sync::atomic::Ordering::Release);
+/// What runs once the app has quit through the drain.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Restart {
+    /// The app again, from the package it was launched from.
+    App,
+    /// A downloaded NSIS update, which replaces the install and then relaunches the app.
+    Installer(std::path::PathBuf),
 }
 
-pub fn restart_requested() -> bool {
-    RESTART.load(std::sync::atomic::Ordering::Acquire)
+static RESTART: std::sync::Mutex<Option<Restart>> = std::sync::Mutex::new(None);
+
+pub fn request_restart(restart: Restart) {
+    *RESTART.lock().unwrap_or_else(|error| error.into_inner()) = Some(restart);
+}
+
+pub fn requested_restart() -> Option<Restart> {
+    RESTART
+        .lock()
+        .unwrap_or_else(|error| error.into_inner())
+        .clone()
 }
 
 use desktop_runtime::{Result, ServiceError, SessionId};
