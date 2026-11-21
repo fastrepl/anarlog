@@ -29,6 +29,7 @@ export const AUDIO_EXTENSIONS = [
   "wav",
   "mp3",
   "ogg",
+  "opus",
   "mp4",
   "m4a",
   "flac",
