@@ -62,9 +62,11 @@ fn configs(channel: Channel, os: Os) -> &'static [&'static str] {
 }
 
 /// Shipping's feed for this channel and package, or `None` where shipping's updater is off
-/// (dev and staging). An override endpoint replaces the feed even there.
+/// (dev and staging) and in a `--profile` run (not `channel_run`), which shares the package
+/// with the channel's own runs. An override endpoint replaces the feed even there.
 pub fn feed(
     channel: Channel,
+    channel_run: bool,
     os: Os,
     arch: &str,
     bundle: BundleType,
@@ -92,7 +94,7 @@ pub fn feed(
     }
     match endpoint_override {
         Some(endpoint) => endpoints = vec![endpoint],
-        None if !active => return None,
+        None if !active || !channel_run => return None,
         None => {}
     }
     let (os, installer) = (os_name(os), installer(bundle));
@@ -123,7 +125,7 @@ mod tests {
     const PUBKEY: &str = "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEFFNUI0ODhBNzhBMTEwQQpSV1FLRVlxbmlMVGxDdXJvaUVTTnlwNEF5R1Bodzh3WThMZUpNMVk4K0hhbnV4TDZ1TFFucC9Gbwo=";
 
     fn url(channel: Channel, os: Os, arch: &str, bundle: BundleType) -> Option<(String, String)> {
-        let feed = feed(channel, os, arch, bundle, None)?;
+        let feed = feed(channel, true, os, arch, bundle, None)?;
         assert_eq!(feed.pubkey, PUBKEY, "shipping's signing key");
         let [endpoint] = <[String; 1]>::try_from(feed.endpoints).unwrap();
         Some((endpoint, feed.target))
@@ -233,7 +235,7 @@ mod tests {
                 .iter()
                 .flat_map(|arch| bundles.iter().map(move |bundle| (arch, bundle)))
                 .map(|(arch, bundle)| {
-                    feed(Channel::Stable, os, arch, *bundle, None)
+                    feed(Channel::Stable, true, os, arch, *bundle, None)
                         .unwrap()
                         .target
                 })
@@ -244,9 +246,33 @@ mod tests {
     }
 
     #[test]
+    fn a_profile_run_reads_no_feed_unless_rehearsing() {
+        let stable = |endpoint: Option<&str>| {
+            feed(
+                Channel::Stable,
+                false,
+                Os::MacOs,
+                "aarch64",
+                BundleType::App,
+                endpoint.map(str::to_owned),
+            )
+        };
+        assert_eq!(stable(None), None);
+        assert_eq!(
+            stable(Some(
+                "https://feed.example/{{target}}-{{arch}}/{{current_version}}"
+            ))
+            .unwrap()
+            .endpoints,
+            ["https://feed.example/darwin-aarch64/{{current_version}}"]
+        );
+    }
+
+    #[test]
     fn a_rehearsal_endpoint_keeps_the_signing_key_and_tokens() {
         let feed = feed(
             Channel::Staging,
+            true,
             Os::Linux,
             "x86_64",
             BundleType::AppImage,

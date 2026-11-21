@@ -70,24 +70,19 @@ fn arch() -> &'static str {
     }
 }
 
-/// This build's feed: shipping's for its channel and package. Builds without a channel, and
-/// channels whose shipping app doesn't update itself (dev, staging), have none. A `--profile`
-/// run shares the package with the channel's own runs, whose settings decide its updates, so
-/// only a rehearsal feed updates it from there.
+/// This build's feed (`feed::feed`): shipping's for its channel and package, in a channel run.
+/// Builds without a channel have none.
 pub fn config(channel_run: bool) -> Result<UpdateConfig> {
     let none = || ServiceError::Unsupported("This build doesn't update itself.".into());
     let channel = package::channel().ok_or_else(none)?;
-    let endpoint_override = std::env::var(feed::ENDPOINT_OVERRIDE).ok();
-    if !channel_run && endpoint_override.is_none() {
-        return Err(none());
-    }
     let kind = PackageKind::current()?;
     let feed = feed::feed(
         channel,
+        channel_run,
         Os::CURRENT,
         arch(),
         kind.bundle(),
-        endpoint_override,
+        std::env::var(feed::ENDPOINT_OVERRIDE).ok(),
     )
     .ok_or_else(none)?;
     let endpoints = feed
