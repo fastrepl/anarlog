@@ -91,6 +91,14 @@ fn notice(state: &RuntimeState, status: &StartupStatus) -> Option<Notice> {
     Some(Notice::Loading(detail))
 }
 
+/// Startup refused the library and the window says why. Shipping exits then, so closing the
+/// window quits: a hidden process would answer the next launch without checking again.
+pub fn refused(cx: &App) -> bool {
+    cx.try_global::<StartupGate>()
+        .and_then(|gate| gate.0.as_ref())
+        .is_some_and(|notice| !matches!(notice, Notice::Loading(_)))
+}
+
 pub fn gate(window: &Window, cx: &App) -> Option<Div> {
     let notice = cx.try_global::<StartupGate>()?.0.clone()?;
     let colors = theme(window);

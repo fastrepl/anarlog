@@ -72,7 +72,8 @@ data folder and never rewrites it (`anlg_desktop_identity::takeover`):
 ```
 
 `version` is this app's release, `at` when that launch started (RFC 3339, UTC), and `bundle`
-the package type `--print-package` reports (`null` unpackaged). Readers ignore unknown fields.
+the package type `--print-package` reports (`App` on macOS, `null` for a Linux or Windows binary
+the bundler didn't patch). Readers ignore unknown fields.
 Shipping logs the marker at startup and tags crash reports `gpui_takeover`; it changes no
 other behavior.
 

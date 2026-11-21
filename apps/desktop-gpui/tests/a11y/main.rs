@@ -12,7 +12,7 @@ mod tree;
 use std::{rc::Rc, sync::Arc, time::Duration};
 
 use desktop_gpui::{application::ApplicationView, workspace::navigation::Route};
-use desktop_runtime::{Profile, RuntimeHandle, ServiceError};
+use desktop_runtime::{Profile, Reply, RuntimeHandle, RuntimeState, ServiceError, Startup};
 use gpui::{
     AnyWindowHandle, AppContext as _, Application, ApplicationHandle, Bounds, WindowBounds,
     WindowHandle, WindowOptions, accesskit, point, px, size,
@@ -38,6 +38,38 @@ impl Harness {
         })
         .unwrap();
         prepare(&runtime);
+        Self::open_main(profile, runtime, ready)
+    }
+
+    /// The main window over shipping data whose startup refused to open: shipping has yet to
+    /// move notes from an older storage folder.
+    pub fn refused() -> Self {
+        desktop_gpui::platform::os::go_headless();
+        let profile = tempfile::tempdir().unwrap();
+        let base = profile.path().join("base");
+        let custom = profile.path().join("vault");
+        std::fs::create_dir_all(custom.join("sessions")).unwrap();
+        std::fs::create_dir_all(&base).unwrap();
+        std::fs::write(
+            base.join("global.json"),
+            serde_json::json!({ "vault_path": custom }).to_string(),
+        )
+        .unwrap();
+        let (runtime, ready) = RuntimeHandle::start_with(
+            Profile {
+                database: base.join("app.db"),
+            },
+            Startup::shipping(base, "com.hyprnote.staging"),
+        )
+        .unwrap();
+        let mut state = runtime.state();
+        while !matches!(*state.borrow_and_update(), RuntimeState::Closed(_)) {
+            futures::executor::block_on(state.changed()).unwrap();
+        }
+        Self::open_main(profile, runtime, ready)
+    }
+
+    fn open_main(profile: tempfile::TempDir, runtime: RuntimeHandle, ready: Reply<()>) -> Self {
         let platform = A11yPlatform::new();
         platform.dispatcher.allow_parking();
         let app = Application::with_platform(platform.clone())

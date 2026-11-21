@@ -7,8 +7,9 @@
 //! ```
 //!
 //! `version` is the native app's release, `at` when that launch started (RFC 3339, UTC), and
-//! `bundle` its package type as `--print-package` reports it (`null` unpackaged). Written once
-//! and never rewritten; readers ignore fields they don't know.
+//! `bundle` its package type as `--print-package` reports it: `App` on macOS, `null` for a
+//! Linux or Windows binary the bundler didn't patch. Written once and never rewritten; readers
+//! ignore fields they don't know.
 
 use std::path::Path;
 

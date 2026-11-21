@@ -652,3 +652,22 @@ fn notes_stay_read_only_while_a_slow_quit_drain_finishes() {
     }
     assert!(app.platform.quit.get(), "the app quits once the drain ends");
 }
+
+/// Notes shipping has yet to move keep the library closed, and the window says so. Closing it
+/// quits, as shipping exits on a refused startup. (This platform can't hide a window, so it
+/// can't tell that quit apart from close-to-hide's own fallback.)
+#[test]
+fn an_unfinished_storage_move_keeps_the_library_closed_and_closing_quits() {
+    let app = Harness::refused();
+    let tree = app.tree();
+    tree.find(Role::Heading, "Anarlog can't open your notes yet");
+    assert!(!app.platform.quit.get());
+
+    app.app.update(|cx| {
+        app.window
+            .update(cx, |root, window, cx| root.close_main(window, cx))
+            .unwrap()
+    });
+    app.settle();
+    assert!(app.platform.quit.get());
+}

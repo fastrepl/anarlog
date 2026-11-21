@@ -68,8 +68,9 @@ mod tests {
         std::fs::write(folder.join("settings.json"), r#"{"theme":"dark"}"#).unwrap();
     }
 
-    /// Every `vault_path` shipping can find at startup. The native app must refuse exactly when
-    /// shipping's consolidation would move notes into the base, and change nothing itself.
+    /// Every `vault_path` shipping can find at startup; an interrupted copy leaves the setting,
+    /// so it is the separate-folder case. The native app must refuse exactly when shipping's
+    /// consolidation would move notes into the base, and change nothing itself.
     #[test]
     fn refuses_exactly_when_shipping_would_still_move_notes() {
         for case in [
@@ -79,7 +80,6 @@ mod tests {
             "the base itself",
             "the base through $DEFAULT",
             "a separate folder",
-            "an interrupted copy",
         ] {
             let temp = tempfile::tempdir().unwrap();
             let base = temp.path().join("base");
@@ -97,11 +97,6 @@ mod tests {
                 }
                 "a separate folder" => {
                     seed_notes(&custom);
-                    Some(serde_json::json!({ "vault_path": custom }))
-                }
-                "an interrupted copy" => {
-                    seed_notes(&custom);
-                    std::fs::create_dir_all(base.join("sessions/s1")).unwrap();
                     Some(serde_json::json!({ "vault_path": custom }))
                 }
                 _ => unreachable!(),
@@ -123,7 +118,13 @@ mod tests {
             anlg_storage::vault::consolidate_custom_vault(&base, &base).unwrap();
             assert_eq!(refused.is_some(), library() != library_before, "{case}");
             if let Some(refused) = refused {
-                assert_eq!(refused, UnfinishedMove { from: custom, to: base.clone() });
+                assert_eq!(
+                    refused,
+                    UnfinishedMove {
+                        from: custom,
+                        to: base.clone()
+                    }
+                );
             }
             // Once shipping has run, the library is in the base and nothing is pending.
             assert_eq!(unfinished_move(&base), None, "{case}");

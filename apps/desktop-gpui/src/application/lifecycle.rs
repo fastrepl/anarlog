@@ -328,10 +328,15 @@ impl ApplicationView {
     }
 
     /// Shipping's main-window close: hide and keep running. A platform that cannot hide one
-    /// window quits through the drain instead; a hide that fails leaves the window open with
-    /// the error rather than ending capture.
+    /// window quits through the drain instead, as does a window whose startup refused the
+    /// library; a hide that fails leaves the window open with the error rather than ending
+    /// capture.
     pub fn close_main(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.closing {
+            return;
+        }
+        if super::startup::refused(cx) {
+            self.request_quit(cx);
             return;
         }
         self.main_window_hidden(cx);
