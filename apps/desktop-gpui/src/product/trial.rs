@@ -139,14 +139,19 @@ impl TrialDialogs {
             _account: account,
         };
         cx.spawn(async move |this, cx| {
+            // Before the runtime is ready, reads fail as busy and every dialog would show again; a
+            // channel run is ready only after the replaced app released its locks, so its mirror
+            // below holds that app's last writes too.
+            if !crate::runtime_bridge::ready(&runtime).await {
+                return;
+            }
             let stored = super::local::data::setting_value(&runtime, SEEN_KEY.into()).await;
             let mut seen = stored
                 .ok()
                 .flatten()
                 .and_then(|value| serde_json::from_value::<BTreeSet<String>>(value).ok())
                 .unwrap_or_default();
-            // Read once the runtime is ready, so after the replaced app's last write. Showing a
-            // dialog saves the merged set to `app_settings`.
+            // Showing a dialog saves the merged set to `app_settings`.
             if let Some(shipping) = shipping {
                 match cx.background_spawn(async move { shipping.read() }).await {
                     Ok(Some(mirror)) => seen.extend(shipping_seen(&mirror)),

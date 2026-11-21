@@ -463,7 +463,24 @@ impl CloudApi {
             return Ok(());
         }
         let mut first_error = None;
+        let pool = services.db.pool();
         for id in self.with(user, |account| account.deletes.clone()) {
+            // A delete queued before an Undo restored the note, here or in the shipping app whose
+            // queue was imported, would remove a live note's copy: upload it instead.
+            match is_live(pool, &id).await {
+                Ok(false) => {}
+                Ok(true) => {
+                    self.update(user, |account| {
+                        account.deletes.remove(&id);
+                        account.upserts.insert(id.clone());
+                    });
+                    continue;
+                }
+                Err(error) => {
+                    first_error.get_or_insert(ApiError::new("local_snapshot_unavailable", error));
+                    continue;
+                }
+            }
             match self.delete(user, &id).await {
                 Ok(()) => self.update(user, |account| {
                     account.deletes.remove(&id);
@@ -474,7 +491,6 @@ impl CloudApi {
             }
         }
         if !deletes_only {
-            let pool = services.db.pool();
             for id in self.with(user, |account| account.upserts.clone()) {
                 let (deleted, seen) = self.with(user, |account| {
                     (
@@ -686,6 +702,15 @@ fn encode(segment: &str) -> String {
     url::form_urlencoded::byte_serialize(segment.as_bytes())
         .collect::<String>()
         .replace('+', "%20")
+}
+
+async fn is_live(pool: &SqlitePool, id: &str) -> std::result::Result<bool, String> {
+    sqlx::query_scalar::<_, i64>("SELECT 1 FROM sessions WHERE id = ? AND deleted_at IS NULL")
+        .bind(id)
+        .fetch_optional(pool)
+        .await
+        .map(|row| row.is_some())
+        .map_err(|error| error.to_string())
 }
 
 /// `list_cloud_snapshot_ids`: every meeting the local API lists.

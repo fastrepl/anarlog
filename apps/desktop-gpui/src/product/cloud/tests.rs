@@ -2028,6 +2028,83 @@ async fn cloud_api_uploads_an_edit_saved_while_the_previous_upload_was_in_flight
 }
 
 #[tokio::test]
+async fn an_imported_delete_for_a_note_restored_by_undo_uploads_it_instead() {
+    use anlg_desktop_identity::webview_storage::{FILENAME, WebviewStorage};
+
+    use super::cloud_api::{CloudApi, Revision, import_shipping};
+    let server = MockServer::start().await;
+    let directory = tempfile::tempdir().unwrap();
+    let (runtime, ready) = RuntimeHandle::start(Profile {
+        database: directory.path().join("cloud-api.sqlite"),
+    })
+    .unwrap();
+    ready.receive().await.unwrap();
+    let note = runtime
+        .create_note("Restored".into())
+        .unwrap()
+        .receive()
+        .await
+        .unwrap();
+    let id = note.summary.id.0.to_string();
+    // Shipping queued the delete, then Undo restored the note and its upload went through
+    // without clearing that delete; the revision it recorded is the live one.
+    let mirror = WebviewStorage::at(directory.path().join(FILENAME));
+    mirror
+        .write([
+            (
+                format!("anarlog.cloud-api-pending.v1.{ACCOUNT}"),
+                json!({ "upserts": [], "deletes": [id] }).to_string(),
+            ),
+            (
+                format!("anarlog.cloud-api-backfill.v1.{ACCOUNT}"),
+                "complete".into(),
+            ),
+            (
+                format!("anarlog.cloud-api-revisions.v1.{ACCOUNT}"),
+                json!([[id, "1"]]).to_string(),
+            ),
+        ])
+        .unwrap();
+    let progress = directory.path().join("cloud-api.json");
+    import_shipping(&progress, &mirror.read().unwrap().unwrap()).unwrap();
+    let cloud = fixture_cloud(&runtime, &server, Arc::new(MemoryStore::default())).await;
+    let api = CloudApi::new(cloud, progress);
+    Mock::given(method("GET"))
+        .and(path("/v1/cloud-api/settings"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "enabled": true })))
+        .mount(&server)
+        .await;
+    let snapshot = format!("/v1/sync-snapshots/{id}");
+    Mock::given(method("DELETE"))
+        .and(path(snapshot.as_str()))
+        .respond_with(ResponseTemplate::new(204))
+        .expect(0)
+        .mount(&server)
+        .await;
+    Mock::given(method("PUT"))
+        .and(path(snapshot.as_str()))
+        .and(body_partial_json(json!({ "title": "Restored" })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let changes = api.observe(
+        ACCOUNT,
+        &[Revision {
+            id: id.clone(),
+            deleted_at: None,
+            revision: "1".into(),
+        }],
+    );
+    assert!(changes.upserts.is_empty() && changes.deletes.is_empty());
+    api.sync(ACCOUNT.into(), true).await.unwrap();
+    api.sync(ACCOUNT.into(), false).await.unwrap();
+    server.verify().await;
+    runtime.shutdown().await.unwrap();
+}
+
+#[tokio::test]
 async fn team_calls_show_the_servers_seat_limit_reason() {
     use super::calls::CloudCalls;
     let server = MockServer::start().await;
