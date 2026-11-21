@@ -696,7 +696,8 @@ impl ApplicationView {
                 this.lifecycle.checking = false;
                 let release = result?;
                 let found = release.as_ref().map(release_version);
-                let replace = replaces_on_check(&this.lifecycle.update, found.as_ref());
+                let replace = !this.lifecycle.installing
+                    && replaces_on_check(&this.lifecycle.update, found.as_ref());
                 if replace {
                     this.lifecycle.ready = None;
                     this.lifecycle.update = found
@@ -937,12 +938,26 @@ impl ApplicationView {
             self.lifecycle.update = UpdateMenu::CheckForUpdate;
             return None;
         };
+        let Some((updater, _)) = self.lifecycle.release.clone() else {
+            self.lifecycle.update = UpdateMenu::CheckForUpdate;
+            return None;
+        };
         let version = release_version(&update.release);
         self.lifecycle.installing = true;
         cx.notify();
         let runtime = self.runtime.clone();
         Some(cx.spawn(async move |this, cx| {
-            let result: desktop_runtime::Result<Restart> = async {
+            // `None` when the feed no longer offers an update.
+            let result: desktop_runtime::Result<Option<Restart>> = async {
+                // Shipping re-checks the feed before installing, so a withdrawn release (a
+                // rollback) is never installed, even when Restart races a check.
+                let offered = updater
+                    .check(&runtime, CancellationToken::new())?
+                    .receive()
+                    .await?;
+                if offered.is_none() {
+                    return Ok(None);
+                }
                 let pause = this
                     .update(cx, |this, cx| this.pause_writers(cx))
                     .map_err(|_| ServiceError::Closed)?;
@@ -951,22 +966,32 @@ impl ApplicationView {
                     .service(move |_| async move { installer.install(update).await })?
                     .receive()
                     .await
+                    .map(Some)
             }
             .await;
             let failed = this.update(cx, |this, cx| {
                 this.lifecycle.installing = false;
                 cx.notify();
                 match result {
-                    Ok(restart) => {
+                    Ok(Some(restart)) => {
                         crate::platform::windows::request_restart(restart);
                         this.request_quit(cx);
                         None
+                    }
+                    Ok(None) => {
+                        this.lifecycle.update = UpdateMenu::CheckForUpdate;
+                        this.lifecycle.release = None;
+                        Some(ServiceError::Unsupported(
+                            "This update is no longer available.".into(),
+                        ))
                     }
                     Err(error) => {
                         // The verified bytes were consumed; Retry downloads the release again.
                         this.lifecycle.update =
                             UpdateMenu::Failed(version, error.to_string().into());
-                        this.resume_writers(cx);
+                        if this.writers_paused {
+                            this.resume_writers(cx);
+                        }
                         Some(error)
                     }
                 }
