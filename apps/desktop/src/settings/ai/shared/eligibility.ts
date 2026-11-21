@@ -3,7 +3,13 @@ export type ConfigField = "base_url" | "api_key";
 export type ProviderRequirement =
   | { kind: "requires_auth" }
   | { kind: "requires_entitlement"; entitlement: "pro" }
-  | { kind: "requires_config"; fields: ConfigField[] }
+  | {
+      kind: "requires_config";
+      fields: ConfigField[];
+      // Fields the form still shows, but that may stay empty, such as the API
+      // key of a Custom endpoint that runs without authentication.
+      optional?: ConfigField[];
+    }
   | { kind: "requires_platform"; platform: "apple_silicon" };
 
 export function requiresEntitlement(
@@ -20,6 +26,15 @@ export function getRequiredConfigFields(
 ): ConfigField[] {
   const req = requirements.find((r) => r.kind === "requires_config");
   return req?.kind === "requires_config" ? req.fields : [];
+}
+
+export function getMandatoryConfigFields(
+  requirements: readonly ProviderRequirement[],
+): ConfigField[] {
+  const req = requirements.find((r) => r.kind === "requires_config");
+  if (req?.kind !== "requires_config") return [];
+  const optional = new Set(req.optional ?? []);
+  return req.fields.filter((field) => !optional.has(field));
 }
 
 export type ProviderEligibilityContext = {
@@ -47,7 +62,9 @@ export function getProviderSelectionBlockers(
         }
         break;
       case "requires_config": {
+        const optional = new Set(req.optional ?? []);
         const missingFields = req.fields.filter((field) => {
+          if (optional.has(field)) return false;
           const value = context.config?.[field];
           return !value || value.trim() === "";
         });

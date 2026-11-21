@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   key: 0,
   baseUrl: "",
   provider: "openai",
+  apiKey: "",
 }));
 
 vi.mock("@tauri-apps/plugin-http", () => ({ fetch: mocks.fetch }));
@@ -17,12 +18,13 @@ vi.mock("~/auth/billing-context", () => ({
 vi.mock("~/settings/providers", () => ({
   useAiProviders: (type: string) => ({
     [`${type}:${mocks.provider}`]: {
-      api_key: `saved-key-${mocks.key}`,
+      api_key: mocks.apiKey,
       base_url: mocks.baseUrl,
     },
   }),
 }));
 
+import { type ProviderRequirement } from "./eligibility";
 import { useProviderAvailability } from "./index";
 
 beforeEach(() => {
@@ -30,6 +32,7 @@ beforeEach(() => {
   mocks.key++;
   mocks.baseUrl = "";
   mocks.provider = "openai";
+  mocks.apiKey = `saved-key-${mocks.key}`;
 });
 afterEach(cleanup);
 
@@ -50,8 +53,41 @@ test("makes an authenticated local provider available despite its origin restric
   client.clear();
 });
 
+test("probes a saved key over plaintext HTTP on a private network", async () => {
+  mocks.baseUrl = "http://192.168.1.10:8080/v1";
+  mocks.fetch.mockImplementation(async (_input, init) => {
+    const headers = new Headers(init?.headers);
+    return headers.get("Authorization") === `Bearer saved-key-${mocks.key}`
+      ? Response.json({ data: [{ id: "mtplx" }] })
+      : new Response(null, { status: 401 });
+  });
+
+  const { result, client, unmount } = setup("llm");
+  await waitFor(() => expect(result.current.openai).toBe(true));
+  expect(mocks.fetch).toHaveBeenCalled();
+  unmount();
+  client.clear();
+});
+
+test("accepts a keyless Custom endpoint without probing it", async () => {
+  mocks.provider = "custom";
+  mocks.apiKey = "";
+  mocks.baseUrl = "http://192.168.1.10:8080/v1";
+  const { result, client, unmount } = setup("llm", [
+    {
+      kind: "requires_config",
+      fields: ["base_url", "api_key"],
+      optional: ["api_key"],
+    },
+  ]);
+  await waitFor(() => expect(result.current.custom).toBe(true));
+  expect(mocks.fetch).not.toHaveBeenCalled();
+  unmount();
+  client.clear();
+});
+
 test.each([
-  "http://192.168.1.10/v1",
+  "http://provider.test/v1",
   "https://provider.test/v1?key=invalid",
   "not-a-url",
 ])(
@@ -88,7 +124,12 @@ test("still probes Custom LLM credentials and rejects an unsupported model-list 
   client.clear();
 });
 
-function setup(type: "stt" | "llm") {
+function setup(
+  type: "stt" | "llm",
+  requirements: ProviderRequirement[] = [
+    { kind: "requires_config", fields: ["api_key"] },
+  ],
+) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
@@ -100,7 +141,7 @@ function setup(type: "stt" | "llm") {
           displayName: "OpenAI",
           icon: null,
           baseUrl: "https://api.openai.com/v1",
-          requirements: [{ kind: "requires_config", fields: ["api_key"] }],
+          requirements,
         },
       ]),
     {

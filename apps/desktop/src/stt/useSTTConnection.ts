@@ -7,6 +7,7 @@ import type { AIProviderStorage } from "@anlg/store";
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing-context";
 import { env } from "~/env";
+import { providerRequiresApiKey } from "~/settings/ai/shared";
 import { type ProviderId, PROVIDERS } from "~/settings/ai/stt/shared";
 import { useAiProvidersState } from "~/settings/providers";
 import { useSettingsReady } from "~/settings/queries";
@@ -135,9 +136,10 @@ export const useSTTConnection = () => {
     },
   });
 
-  const defaultBaseUrl = PROVIDERS.find(
+  const providerDefinition = PROVIDERS.find(
     (provider) => provider.id === current_stt_provider,
-  )?.baseUrl;
+  );
+  const defaultBaseUrl = providerDefinition?.baseUrl;
   const baseUrl = providerConfig?.base_url?.trim() || defaultBaseUrl?.trim();
   const apiKey = providerConfig?.api_key?.trim();
 
@@ -165,7 +167,11 @@ export const useSTTConnection = () => {
       };
     }
 
-    if (!baseUrl || (!apiKey && current_stt_provider !== "nvidia")) {
+    if (
+      !baseUrl ||
+      (!apiKey &&
+        (!providerDefinition || providerRequiresApiKey(providerDefinition)))
+    ) {
       return null;
     }
 
@@ -193,6 +199,7 @@ export const useSTTConnection = () => {
   }, [
     current_stt_provider,
     current_stt_model,
+    providerDefinition,
     localModel,
     isLocalModel,
     isCloudModel,

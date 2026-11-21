@@ -75,6 +75,11 @@ vi.mock("~/settings/providers", () => ({
         base_url: "   ",
         api_key: "test-key",
       },
+      "stt:custom": {
+        type: "stt",
+        base_url: "http://192.168.1.2:8080/v1",
+        api_key: "",
+      },
     },
   }),
 }));
@@ -165,6 +170,24 @@ describe("useSTTConnection", () => {
       provider: "nvidia",
       model: "nemotron-asr-streaming",
       baseUrl: "http://localhost:9000/?provider=nvidia",
+      apiKey: "",
+    });
+    expect(result.current.isReady).toBe(true);
+  });
+
+  it("connects to a keyless Custom endpoint on a local network", () => {
+    config.current_stt_provider = "custom";
+    config.current_stt_model = "whisper-large-v3";
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const wrapper = ({ children }: { children: ReactNode }) =>
+      createElement(QueryClientProvider, { client: queryClient }, children);
+    const { result } = renderHook(() => useSTTConnection(), { wrapper });
+    expect(result.current.conn).toEqual({
+      provider: "custom",
+      model: "whisper-large-v3",
+      baseUrl: "http://192.168.1.2:8080/v1",
       apiKey: "",
     });
     expect(result.current.isReady).toBe(true);

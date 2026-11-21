@@ -5,6 +5,8 @@ export type ProviderCredential = {
   provider: string;
   baseUrl: string;
   apiKey: string;
+  // Providers whose API key is optional still need their endpoint validated.
+  apiKeyRequired?: boolean;
 };
 
 type CredentialFetch = (url: string, init: RequestInit) => Promise<Response>;
@@ -21,6 +23,61 @@ export class ProviderCredentialError extends Error {
 
 export function providerCredentialIdentity(credential: ProviderCredential) {
   return sha256(JSON.stringify(credential));
+}
+
+const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
+/**
+ * Hosts where plaintext HTTP never leaves the machine or the user's own
+ * network: loopback, RFC 1918, link-local, tailnet/CGNAT, IPv6 ULA, and mDNS
+ * `.local` names. Anything routable on the public internet is not included.
+ */
+export function isPrivateNetworkHost(hostname: string): boolean {
+  const host = hostname.toLowerCase();
+  if (LOOPBACK_HOSTS.has(host)) return true;
+  if (host.endsWith(".local")) return true;
+  if (host.startsWith("[") && host.endsWith("]"))
+    return isPrivateIpv6(host.slice(1, -1));
+  return isPrivateIpv4(host);
+}
+
+function isPrivateIpv4(host: string): boolean {
+  const parts = host.split(".");
+  if (parts.length !== 4) return false;
+  const octets = parts.map((part) =>
+    /^\d{1,3}$/.test(part) ? Number(part) : Number.NaN,
+  );
+  if (octets.some((octet) => !Number.isInteger(octet) || octet > 255))
+    return false;
+  const [a, b] = octets;
+  return (
+    a === 10 ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 168) ||
+    (a === 169 && b === 254) ||
+    (a === 100 && b >= 64 && b <= 127)
+  );
+}
+
+function isPrivateIpv6(address: string): boolean {
+  const value = address.toLowerCase();
+  if (value.startsWith("::ffff:")) return isPrivateIpv4Mapped(value.slice(7));
+  if (value === "::1") return true;
+  const first = Number.parseInt(value.split(":")[0] || "0", 16);
+  return (first & 0xfe00) === 0xfc00 || (first & 0xffc0) === 0xfe80;
+}
+
+// WHATWG URL rewrites IPv4-mapped literals (`::ffff:192.168.1.2`) to hex
+// hextets (`::ffff:c0a8:102`), so accept both spellings.
+function isPrivateIpv4Mapped(rest: string): boolean {
+  if (rest.includes(".")) return isPrivateIpv4(rest);
+  const [high, low] = rest.split(":");
+  const highValue = Number.parseInt(high, 16);
+  const lowValue = Number.parseInt(low, 16);
+  if (!Number.isInteger(highValue) || !Number.isInteger(lowValue)) return false;
+  return isPrivateIpv4(
+    `${highValue >> 8}.${highValue & 0xff}.${lowValue >> 8}.${lowValue & 0xff}`,
+  );
 }
 
 export function usesDeferredProviderAuthentication(
@@ -47,8 +104,10 @@ export async function verifyProviderCredentials(
   signal?: AbortSignal,
 ): Promise<void> {
   const apiKey = credential.apiKey.trim();
+  const apiKeyRequired = credential.apiKeyRequired !== false;
   if (
-    (!apiKey &&
+    (apiKeyRequired &&
+      !apiKey &&
       !(credential.type === "stt" && credential.provider === "nvidia")) ||
     apiKey.length > 8192 ||
     /[\r\n]/.test(apiKey)
@@ -64,20 +123,27 @@ export async function verifyProviderCredentials(
     throw new ProviderCredentialError(
       "Enter a base URL without credentials or query parameters.",
     );
+  // Plaintext HTTP is only a credential risk when a key actually travels, and
+  // it never leaves the local network for loopback or private addresses.
   if (
     base.protocol !== "https:" &&
     !(
       base.protocol === "http:" &&
-      ["localhost", "127.0.0.1", "[::1]"].includes(base.hostname)
+      (isPrivateNetworkHost(base.hostname) || !apiKey)
     )
   )
-    throw new ProviderCredentialError("Use HTTPS for provider credentials.");
+    throw new ProviderCredentialError(
+      "Use HTTPS for provider credentials, or plain HTTP on a local network.",
+    );
 
   signal?.throwIfAborted();
   // These providers have no shared read-only credential probe.
   // Authenticate on the native session or transcription request instead.
   if (usesDeferredProviderAuthentication(credential.type, credential.provider))
     return;
+
+  // A keyless endpoint has no credential to probe; its URL is already validated.
+  if (!apiKey) return;
 
   const identity = providerCredentialIdentity({ ...credential, apiKey });
   const recent = verified.get(fetcher) ?? new Map<string, number>();

@@ -112,6 +112,87 @@ test("custom STT still rejects unsafe URLs and malformed keys before saving", as
   }
 });
 
+test("accepts plaintext HTTP on loopback and local networks", async () => {
+  for (const baseUrl of [
+    "http://localhost:8000/v1",
+    "http://127.0.0.1:8000/v1",
+    "http://[::1]:8000/v1",
+    "http://192.168.1.2:11435/v1",
+    "http://10.0.0.5:8080/v1",
+    "http://172.16.4.2/v1",
+    "http://172.31.255.254/v1",
+    "http://169.254.10.20/v1",
+    "http://100.100.1.1:11434/v1",
+    "http://studio.local:8081/v1",
+    "http://[fd00::2]:8000/v1",
+    "http://[fe80::1]:8000/v1",
+    "http://[::ffff:192.168.1.2]:8000/v1",
+  ]) {
+    await verifyProviderCredentials(
+      { ...credential, type: "stt", provider: "gradium", baseUrl },
+      async () => assert.fail("Deferred providers must not send requests"),
+    );
+  }
+});
+
+test("still rejects plaintext HTTP to public hosts", async () => {
+  for (const baseUrl of [
+    "http://provider.test/v1",
+    "http://8.8.8.8/v1",
+    "http://192.169.1.1/v1",
+    "http://172.32.0.1/v1",
+    "http://10.example/v1",
+    "http://[2606:4700::1111]/v1",
+  ]) {
+    await assert.rejects(
+      verifyProviderCredentials(
+        { ...credential, type: "stt", provider: "gradium", baseUrl },
+        async () => assert.fail("Invalid endpoints must not send requests"),
+      ),
+      (error) => {
+        assert.ok(error instanceof ProviderCredentialError);
+        assert.match(error.message, /Use HTTPS/);
+        return true;
+      },
+    );
+  }
+});
+
+test("accepts a keyless endpoint without probing it", async () => {
+  for (const baseUrl of [
+    "https://gateway.example/v1",
+    "http://192.168.1.2:11435/v1",
+    "http://provider.test/v1",
+  ]) {
+    await verifyProviderCredentials(
+      { ...credential, apiKey: "", apiKeyRequired: false, baseUrl },
+      async () => assert.fail("A keyless endpoint has nothing to probe"),
+    );
+  }
+});
+
+test("still requires a key for a private endpoint when the provider asks for one", async () => {
+  await assert.rejects(
+    verifyProviderCredentials(
+      { ...credential, apiKey: "", baseUrl: "http://192.168.1.2:11435/v1" },
+      async () => assert.fail("Missing keys must not send requests"),
+    ),
+    /valid API key/,
+  );
+});
+
+test("rejects malformed optional keys instead of silently accepting them", async () => {
+  for (const apiKey of ["bad\nkey", "x".repeat(8193)]) {
+    await assert.rejects(
+      verifyProviderCredentials(
+        { ...credential, apiKey, apiKeyRequired: false },
+        async () => assert.fail("Malformed keys must not send requests"),
+      ),
+      /valid API key/,
+    );
+  }
+});
+
 test("Custom LLM still requires key proof after accepting the same STT configuration", async () => {
   const custom = { ...credential, provider: "custom" };
   let calls = 0;
