@@ -89,7 +89,15 @@ fn main() -> anyhow::Result<()> {
         None => Startup::default(),
     };
     let (runtime, ready) = RuntimeHandle::start_with(Profile { database }, startup)?;
-    let zoom = desktop_gpui::zoom::Zoom::load(storage.root.join("zoom.json"));
+    let shipping_zoom = storage
+        .shipping_webview()
+        .and_then(|mirror| mirror.read().ok().flatten())
+        .and_then(|mirror| {
+            mirror
+                .get(anlg_desktop_identity::webview_storage::ZOOM_FACTOR)
+                .map(str::to_owned)
+        });
+    let zoom = desktop_gpui::zoom::Zoom::load_or(storage.root.join("zoom.json"), shipping_zoom);
     // GPUI's own Linux path prompts run on the main thread. Cargo unifies their zbus
     // backend with detect's Tokio feature, so keep a live reactor entered for the UI loop.
     // A stray `tokio::spawn` on the UI thread therefore runs on the portal runtime

@@ -23,7 +23,7 @@ use crate::{
     product::{
         cloud::{
             auth::SecureAuthProvider,
-            cloud_api::{CloudApi, REVISIONS_SQL, Revision},
+            cloud_api::{CloudApi, PROGRESS_FILE, REVISIONS_SQL, Revision},
         },
         local::developers_view::Developers,
     },
@@ -54,10 +54,7 @@ pub(super) fn start(native: &NativeServices, cx: &mut Context<ApplicationView>) 
     let Some(cloud) = native.cloud.service.clone() else {
         return;
     };
-    let api = CloudApi::new(
-        cloud.clone(),
-        native.local.storage_root.join("cloud-api.json"),
-    );
+    let api = CloudApi::new(cloud.clone(), native.local.storage_root.join(PROGRESS_FILE));
     cx.set_global(api.clone());
     let mut identities = cloud.identities();
     let reply = runtime.watch_changes(CHANGES_SQL.into(), vec![]);

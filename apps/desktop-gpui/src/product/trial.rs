@@ -1,10 +1,14 @@
 //! The personal Pro trial dialogs from `auth/billing.tsx`: trial started, payment reminder
 //! (7 and 3 days before the end, without a payment method) and trial ended. Each shows once
-//! per account; shipping keeps that in localStorage, the native app in `app_settings`.
+//! per account; shipping keeps that in localStorage, the native app in `app_settings`. A channel
+//! run also counts the dialogs shipping showed, from its bridge release's mirror.
 //! The reminder ends with shipping's referral nudge when the account can still refer friends.
 
 use std::collections::BTreeSet;
 
+use anlg_desktop_identity::webview_storage::{
+    Snapshot, TRIAL_ENDED_SEEN, TRIAL_PAYMENT_REMINDER_SEEN, TRIAL_STARTED_SEEN, WebviewStorage,
+};
 use desktop_runtime::{RuntimeHandle, ServiceError};
 use gpui::{
     Context, EventEmitter, FontWeight, Hsla, Render, SharedString, Window, div, prelude::*, px,
@@ -81,6 +85,24 @@ pub fn next(account: &Account, now: i64, seen: &BTreeSet<String>) -> Option<(Dia
     None
 }
 
+/// The dialogs shipping marked seen (`anarlog:<key>` = `"1"`); the keys here are the same without
+/// the `anarlog:` prefix.
+fn shipping_seen(mirror: &Snapshot) -> impl Iterator<Item = String> + '_ {
+    [
+        TRIAL_STARTED_SEEN,
+        TRIAL_ENDED_SEEN,
+        TRIAL_PAYMENT_REMINDER_SEEN,
+    ]
+    .into_iter()
+    .flat_map(move |prefix| {
+        let key = prefix.strip_prefix("anarlog:").unwrap_or(prefix);
+        mirror
+            .with_prefix(prefix)
+            .filter(|(_, value)| *value == "1")
+            .map(move |(rest, _)| format!("{key}{rest}"))
+    })
+}
+
 /// Shipping's `canRefer`: referrals are on, the account is eligible and has friends left.
 pub fn can_refer(referrals: &Referrals) -> bool {
     referrals.enabled && referrals.eligible && referrals.remaining > 0
@@ -101,7 +123,12 @@ pub struct TrialDialogs {
 impl EventEmitter<ReferFriend> for TrialDialogs {}
 
 impl TrialDialogs {
-    pub fn new(runtime: RuntimeHandle, cx: &mut Context<Self>) -> Self {
+    /// `shipping`: the bridge release's mirror, in a channel run.
+    pub fn new(
+        runtime: RuntimeHandle,
+        shipping: Option<WebviewStorage>,
+        cx: &mut Context<Self>,
+    ) -> Self {
         let account = cx.observe_global::<Account>(|this, cx| this.evaluate(cx));
         let this = Self {
             runtime: runtime.clone(),
@@ -113,11 +140,22 @@ impl TrialDialogs {
         };
         cx.spawn(async move |this, cx| {
             let stored = super::local::data::setting_value(&runtime, SEEN_KEY.into()).await;
-            let seen = stored
+            let mut seen = stored
                 .ok()
                 .flatten()
                 .and_then(|value| serde_json::from_value::<BTreeSet<String>>(value).ok())
                 .unwrap_or_default();
+            // Read once the runtime is ready, so after the replaced app's last write. Showing a
+            // dialog saves the merged set to `app_settings`.
+            if let Some(shipping) = shipping {
+                match cx.background_spawn(async move { shipping.read() }).await {
+                    Ok(Some(mirror)) => seen.extend(shipping_seen(&mirror)),
+                    Ok(None) => {}
+                    Err(error) => {
+                        tracing::warn!(%error, "shipping's trial dialog state is unreadable")
+                    }
+                }
+            }
             let _ = this.update(cx, |this, cx| {
                 this.seen = Some(seen);
                 this.evaluate(cx);
@@ -559,5 +597,40 @@ mod tests {
             next(&account(ended, Some(WorkspaceTier::Team)), now, &seen),
             None
         );
+    }
+
+    #[test]
+    fn trial_dialogs_shown_by_the_shipping_app_are_not_shown_again() {
+        let now = 1_000_000;
+        let trial_end = now + 5 * 86_400;
+        let trialing = Claims {
+            subscription_status: Some("trialing".into()),
+            trial_end: Some(trial_end),
+            has_payment_method: Some(false),
+            ..Claims::default()
+        };
+        let mirror = Snapshot {
+            id: "mirror".into(),
+            entries: [
+                ("anarlog:trial_started_seen:user".into(), "1".into()),
+                (
+                    format!(
+                        "anarlog:trial_payment_reminder_seen:user:{}:7",
+                        trial_end * 1000
+                    ),
+                    "1".into(),
+                ),
+                ("anarlog:trial_ended_seen:other".into(), "1".into()),
+            ]
+            .into(),
+        };
+        let seen = shipping_seen(&mirror).collect::<BTreeSet<_>>();
+
+        assert_eq!(next(&account(trialing.clone(), None), now, &seen), None);
+        let three_days_left = now + 2 * 86_400;
+        assert!(matches!(
+            next(&account(trialing, None), three_days_left, &seen),
+            Some((Dialog::Reminder { days: 3 }, _))
+        ));
     }
 }
