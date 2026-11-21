@@ -93,6 +93,18 @@ async setRecentlyOpenedSessions(v: string) : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+/**
+ * Mirrors the web view's localStorage for the native app that replaces this one, which
+ * cannot read it; `anlg_desktop_identity::webview_storage` keeps only the keys it imports.
+ */
+async mirrorLocalStorage(entries: Partial<{ [key in string]: string }>) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("mirror_local_storage", { entries }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async isCrashReportingEnabled() : Promise<Result<boolean, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("is_crash_reporting_enabled") };

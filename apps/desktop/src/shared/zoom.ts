@@ -9,6 +9,8 @@ import {
 
 import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
+import { mirrorLocalStorage } from "./local-storage-mirror";
+
 export const ZOOM_STORAGE_KEY = "anarlog-zoom-factor";
 export const ZOOM_CHANGED_EVENT = "anlg:zoom-factor-changed";
 
@@ -124,6 +126,7 @@ function persistZoomFactor(
   storage: Pick<Storage, "setItem"> = window.localStorage,
 ) {
   storage.setItem(ZOOM_STORAGE_KEY, String(factor));
+  mirrorLocalStorage();
 }
 
 function applyZoomFactor(factor: number): Promise<void> {

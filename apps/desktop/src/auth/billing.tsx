@@ -36,6 +36,7 @@ import { setSettingValues } from "~/settings/queries";
 import { getWorkspaceAccess, requireTeamContext } from "~/settings/team/client";
 import { useMyWorkspacesWithMirror } from "~/settings/team/mirror";
 import { useConfigValues } from "~/shared/config";
+import { mirrorLocalStorage } from "~/shared/local-storage-mirror";
 import { useTabs } from "~/store/zustand/tabs";
 import { getUnsupportedDesktopLocalSttRepair } from "~/stt/capabilities";
 
@@ -73,6 +74,7 @@ function readSeen(key: string): boolean {
 function markSeen(key: string): void {
   try {
     localStorage.setItem(key, "1");
+    mirrorLocalStorage();
   } catch {
     // ignore — modal will just show again next session
   }

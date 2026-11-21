@@ -766,6 +766,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::set_pinned_tabs::<tauri::Wry>,
             commands::get_recently_opened_sessions::<tauri::Wry>,
             commands::set_recently_opened_sessions::<tauri::Wry>,
+            commands::mirror_local_storage::<tauri::Wry>,
             commands::is_crash_reporting_enabled,
             commands::set_crash_reporting_enabled,
             commands::check_embedded_cli::<tauri::Wry>,

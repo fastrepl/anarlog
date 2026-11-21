@@ -9,6 +9,7 @@ import {
 
 import { useAuth } from "~/auth";
 import { useLiveQuery } from "~/db";
+import { mirrorLocalStorage } from "~/shared/local-storage-mirror";
 
 type SnapshotRevision = {
   deletedAt: string | null;
@@ -178,4 +179,5 @@ function storeSnapshotRevisions(
   } catch {
     return;
   }
+  mirrorLocalStorage();
 }
