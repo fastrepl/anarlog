@@ -37,6 +37,34 @@ test("accepts a visible demo link or an N/A reason", () => {
   }
 });
 
+test("accepts context, intention, and direction while keeping intention bounds", () => {
+  const body = (intention) => `## Summary
+
+**Context:** Reconnecting could create a second copy of a note.
+
+**Intention:** ${intention}
+
+**Direction:** Reuse the original note identity when retrying sync.
+
+## Demo
+
+N/A: description format only
+
+## Verification
+
+Ran the PR description validator.`;
+
+  for (const [intention, status] of [
+    ["Keep one note when a connection recovers.", 0],
+    ["", 1],
+    ["<!-- Keep one note when a connection recovers. -->", 1],
+    ["a".repeat(401), 1],
+  ]) {
+    const result = validate("", { PR_BODY: body(intention) });
+    assert.equal(result.status, status, `${intention}\n${result.stderr}`);
+  }
+});
+
 test("rejects missing, hidden, or reasonless demo evidence", () => {
   for (const demo of [
     "",
