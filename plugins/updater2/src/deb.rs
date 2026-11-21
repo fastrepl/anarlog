@@ -63,9 +63,10 @@ pub(crate) fn install(bytes: &[u8]) -> Result<(), crate::Error> {
     command.extend(APT_INSTALL.map(OsStr::new));
     command.extend(
         [
-            // Wait out unattended-upgrades instead of failing on the dpkg lock.
+            // Fail at once while unattended-upgrades holds the dpkg lock, as `dpkg -i` did: the
+            // caller checked for a recording just before, and a later tick retries.
             "-o",
-            "DPkg::Lock::Timeout=300",
+            "DPkg::Lock::Timeout=0",
             // Nobody can answer a config file prompt for an upgraded dependency.
             "-o",
             "Dpkg::Options::=--force-confdef",

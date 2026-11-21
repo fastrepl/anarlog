@@ -32,7 +32,7 @@ pub enum Error {
         "The update needs system packages apt can't install, so Anarlog stays on its current version ({0}). Run `sudo apt update`, then try the update again."
     )]
     DebDependencies(String),
-    #[error("The update wasn't installed, so Anarlog stays on its current version: {0}")]
+    #[error("The update failed to install: {0}")]
     DebInstall(String),
     #[error("failed to schedule installed app launch at {path}: {details}")]
     FailedToScheduleInstalledAppLaunch { path: String, details: String },
