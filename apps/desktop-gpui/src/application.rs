@@ -286,7 +286,9 @@ impl ApplicationView {
                         let _ = reply.send(result);
                     }
                     HostCommand::Relaunch(reply) => {
-                        crate::platform::windows::request_restart();
+                        crate::platform::windows::request_restart(
+                            crate::platform::windows::Restart::App,
+                        );
                         let _ = reply.send(Ok(()));
                         cx.background_executor()
                             .timer(Duration::from_millis(100))
@@ -1519,7 +1521,7 @@ impl ApplicationView {
                 Ok(()) => {
                     this.closing = false;
                     this.drained = true;
-                    cx.quit();
+                    quit_drained(cx);
                 }
                 Err(error) if this.shutdown_begun() => this.finish_drain(error, cx),
                 Err(error) => {
@@ -1556,7 +1558,7 @@ impl ApplicationView {
                 this.closing = false;
                 this.drained = true;
                 match result {
-                    Ok(()) => cx.quit(),
+                    Ok(()) => quit_drained(cx),
                     Err(error) => {
                         toasts::dismiss("quit", cx);
                         this.status(&format!("Quit paused: {error}"), cx);
@@ -1655,4 +1657,14 @@ impl Render for ApplicationView {
             .when_some(self.title_menu(window, cx), |view, menu| view.child(menu))
             .child(self.trial_dialogs.clone())
     }
+}
+
+/// Quits after the drain, starting a requested restart first on macOS, where quitting ends
+/// the process before `main` regains control.
+fn quit_drained(cx: &mut gpui::App) {
+    #[cfg(target_os = "macos")]
+    if let Err(error) = crate::platform::windows::run_requested_restart() {
+        tracing::error!(%error, "the app could not relaunch");
+    }
+    cx.quit();
 }

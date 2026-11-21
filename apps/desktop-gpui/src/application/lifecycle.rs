@@ -15,12 +15,9 @@ use chrono::{DateTime, FixedOffset, Local, NaiveDate, TimeZone, Utc};
 use chrono_tz::Tz;
 use desktop_runtime::{
     CancellationToken, ServiceError, SessionId,
-    updater::{
-        InstallConditions, NativeUpdater, ResolvedRelease, UpdateConfig, UpdateInstaller,
-        VerifiedUpdate,
-    },
+    updater::{InstallConditions, NativeUpdater, ResolvedRelease, VerifiedUpdate},
 };
-use gpui::{App, ClipboardItem, Context, Task, Window};
+use gpui::{App, AsyncApp, ClipboardItem, Context, Task, WeakEntity, Window};
 use serde_json::{Value, json};
 
 #[cfg(target_os = "macos")]
@@ -30,9 +27,13 @@ pub use quit::{QUIT_OVERLAY_DURATION, QuitKeys, QuitOverlay, QuitSignal};
 
 use super::ApplicationView;
 use crate::{
-    contracts::MeetingIntent,
+    contracts::{MeetingIntent, ProductRoute},
     meeting::capture::Phase,
-    platform::tray::{ScheduleEvent, TrayAction, TrayModel, TrayState, UpdateMenu},
+    platform::{
+        tray::{ScheduleEvent, TrayAction, TrayModel, TrayState, UpdateMenu},
+        updater::NativeInstaller,
+        windows::Restart,
+    },
     product::settings,
 };
 
@@ -82,29 +83,94 @@ fn notify(title: &'static str, message: String, cx: &mut App) {
         .detach();
 }
 
-fn updater() -> desktop_runtime::Result<Arc<NativeUpdater>> {
-    let variable = |name: &str, missing: &str| {
-        std::env::var(name).map_err(|_| ServiceError::Failed(missing.to_string().into()))
+/// Shipping's feed for this build's channel and package (`platform/updater.rs`), in a channel
+/// run.
+fn updater(cx: &App) -> desktop_runtime::Result<Arc<NativeUpdater>> {
+    let channel_run = crate::shipping_store::ShippingStore::get(cx).is_some();
+    NativeUpdater::new(crate::platform::updater::config(channel_run)?).map(Arc::new)
+}
+
+/// Who asked to install: the tray's dialogs, the update toast, or automatic updates.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Source {
+    Tray,
+    Toast,
+    Automatic,
+}
+
+/// "Automatically install updates" once preferences have loaded, which happens right after
+/// startup; preferences that never load leave the feed to manual updates.
+async fn automatic_updates(this: &WeakEntity<ApplicationView>, cx: &mut AsyncApp) -> Option<bool> {
+    for _ in 0..30 {
+        let automatic = this
+            .read_with(cx, |this, _| this.notifications.automatic_updates())
+            .ok()?;
+        if automatic.is_some() {
+            return automatic;
+        }
+        cx.background_executor().timer(Duration::from_secs(1)).await;
+    }
+    Some(false)
+}
+
+/// One pass of shipping's `plugins/updater2` loop, taking and returning its install-at-open
+/// intent; `None` once the app is gone. Every pass checks the feed, which also withdraws a
+/// downloaded update the feed no longer offers. With automatic updates on, a pass outside a
+/// meeting also downloads in the background, and the startup pass installs as soon as its
+/// download completes. A meeting, a deferral or a failed install keeps the intent for the next
+/// pass; finding nothing or turning automatic updates off drops it.
+async fn update_pass(
+    this: &WeakEntity<ApplicationView>,
+    updater: &Arc<NativeUpdater>,
+    install_at_open: bool,
+    cx: &mut AsyncApp,
+) -> Option<bool> {
+    let automatic = automatic_updates(this, cx).await?;
+    let check = this
+        .update(cx, |this, cx| {
+            let busy = matches!(this.lifecycle.update, UpdateMenu::Downloading(..));
+            (!busy && !this.lifecycle.checking && !this.lifecycle.installing && !this.closing)
+                .then(|| this.check_feed(updater.clone(), cx))
+        })
+        .ok()?;
+    if let Some(check) = check {
+        match check.await {
+            Ok(Some(_)) => {}
+            Ok(None) => return Some(false),
+            Err(error) => {
+                tracing::warn!(%error, "update check failed");
+                return Some(install_at_open);
+            }
+        }
+    }
+    if !automatic {
+        return Some(false);
+    }
+    // Never download or install (which restarts the app) while a meeting is captured.
+    let download = this
+        .update(cx, |this, cx| {
+            (!this.meeting_live()).then(|| this.start_download(false, cx))
+        })
+        .ok()?;
+    let Some(download) = download else {
+        return Some(install_at_open);
     };
-    let endpoint = variable(
-        "ANARLOG_NATIVE_UPDATE_URL",
-        "Native distribution update feed is not configured.",
-    )?;
-    let key = variable(
-        "ANARLOG_NATIVE_UPDATE_PUBLIC_KEY",
-        "Native update signing public key is not configured.",
-    )?;
-    let target = variable(
-        "ANARLOG_NATIVE_UPDATE_TARGET",
-        "Native update target is not configured.",
-    )?;
-    let url = endpoint
-        .parse()
-        .map_err(|_| ServiceError::Failed("Invalid native update URL".into()))?;
-    let version = crate::platform::package::VERSION
-        .parse()
-        .map_err(|_| ServiceError::Failed("Invalid native version".into()))?;
-    NativeUpdater::new(UpdateConfig::new(vec![url], version, target, key)).map(Arc::new)
+    if let Some(download) = download
+        && !download.await
+    {
+        return Some(install_at_open);
+    }
+    if !install_at_open {
+        return Some(false);
+    }
+    let install = this
+        .update(cx, |this, cx| this.install_update(Source::Automatic, cx))
+        .ok()?;
+    match install {
+        // A successful install quits into the new version.
+        Some(install) => Some(!install.await),
+        None => Some(true),
+    }
 }
 
 /// Timed calendar events for the tray, like shipping's `TrayScheduleSync` (all-day and ignored
@@ -381,7 +447,7 @@ impl ApplicationView {
             }
             TrayAction::Settings => {
                 self.show_main(window, cx);
-                self.open_product(crate::contracts::ProductRoute::Settings, window, cx);
+                self.open_product(ProductRoute::Settings, window, cx);
             }
             TrayAction::ToggleShowEvents => {
                 let show = !self.lifecycle.show_events;
@@ -635,14 +701,10 @@ impl ApplicationView {
                 this.lifecycle.checking = false;
                 let release = result?;
                 let found = release.as_ref().map(release_version);
-                let replace = match &this.lifecycle.update {
-                    UpdateMenu::CheckForUpdate | UpdateMenu::Available(_) => true,
-                    UpdateMenu::Failed(version, _) => {
-                        found.as_ref().is_some_and(|found| found != version)
-                    }
-                    UpdateMenu::Downloading(..) | UpdateMenu::RestartToApply(_) => false,
-                };
+                let replace = !this.lifecycle.installing
+                    && replaces_on_check(&this.lifecycle.update, found.as_ref());
                 if replace {
+                    this.lifecycle.ready = None;
                     this.lifecycle.update = found
                         .clone()
                         .map_or(UpdateMenu::CheckForUpdate, UpdateMenu::Available);
@@ -655,25 +717,20 @@ impl ApplicationView {
         })
     }
 
-    /// Like shipping's update banner, a configured build checks at startup and every 30 minutes.
+    /// Like shipping's updater, a build with a feed runs [`update_pass`] at startup and every
+    /// 30 minutes.
     pub(super) fn watch_updates(&mut self, cx: &mut Context<Self>) {
-        let Ok(updater) = updater() else {
-            return;
+        let updater = match updater(cx) {
+            Ok(updater) => updater,
+            Err(error) => {
+                tracing::info!(%error, "updates are off");
+                return;
+            }
         };
         cx.spawn(async move |this, cx| {
-            loop {
-                let alive = this.update(cx, |this, cx| {
-                    let busy = matches!(
-                        this.lifecycle.update,
-                        UpdateMenu::Downloading(..) | UpdateMenu::RestartToApply(_)
-                    );
-                    if !busy && !this.lifecycle.checking && !this.closing {
-                        this.check_feed(updater.clone(), cx).detach();
-                    }
-                });
-                if alive.is_err() {
-                    break;
-                }
+            let mut install_at_open = true;
+            while let Some(next) = update_pass(&this, &updater, install_at_open, cx).await {
+                install_at_open = next;
                 cx.background_executor().timer(UPDATE_CHECK_INTERVAL).await;
             }
         })
@@ -688,7 +745,7 @@ impl ApplicationView {
             _ if self.lifecycle.checking || self.closing => return,
             _ => {}
         }
-        let updater = match updater() {
+        let updater = match updater(cx) {
             Ok(updater) => updater,
             Err(error) => {
                 return notify(
@@ -737,16 +794,21 @@ impl ApplicationView {
     /// Downloads the release the last check found: the tray dialog's Download and the toast's
     /// Download and Retry.
     pub(super) fn download_update(&mut self, from_tray: bool, cx: &mut Context<Self>) {
+        if let Some(download) = self.start_download(from_tray, cx) {
+            download.detach();
+        }
+    }
+
+    /// The download, which resolves to whether it verified; `None` when nothing starts.
+    fn start_download(&mut self, from_tray: bool, cx: &mut Context<Self>) -> Option<Task<bool>> {
         let busy = matches!(
             self.lifecycle.update,
             UpdateMenu::Downloading(..) | UpdateMenu::RestartToApply(_)
         );
         if busy || self.lifecycle.installing || self.closing {
-            return;
+            return None;
         }
-        let Some((updater, release)) = self.lifecycle.release.clone() else {
-            return;
-        };
+        let (updater, release) = self.lifecycle.release.clone()?;
         let version = release_version(&release);
         let progress = Arc::new((AtomicU64::new(0), AtomicU64::new(0)));
         let reply = {
@@ -763,7 +825,7 @@ impl ApplicationView {
         };
         self.lifecycle.update = UpdateMenu::Downloading(version.clone(), None);
         cx.notify();
-        cx.spawn(async move |this, cx| {
+        Some(cx.spawn(async move |this, cx| {
             let download = async { reply?.receive().await };
             futures::pin_mut!(download);
             // Chunks arrive on the runtime; the percentage is published every 250 ms.
@@ -786,7 +848,7 @@ impl ApplicationView {
                             }
                         });
                         if alive.is_err() {
-                            return;
+                            return false;
                         }
                     }
                 }
@@ -811,7 +873,7 @@ impl ApplicationView {
                     }
                 }
             });
-            if from_tray && let Ok(Some(error)) = failed {
+            if from_tray && let Ok(Some(error)) = &failed {
                 alert(
                     "Update Failed",
                     &format!("Failed to download update: {error}"),
@@ -819,93 +881,131 @@ impl ApplicationView {
                 )
                 .await;
             }
-        })
-        .detach();
+            matches!(failed, Ok(None))
+        }))
     }
 
     /// Shipping's Restart (toast) and "Restart to Apply Update" (tray).
     pub(super) fn apply_update(&mut self, from_tray: bool, cx: &mut Context<Self>) {
-        if self.lifecycle.installing || self.closing {
-            return;
+        let source = if from_tray {
+            Source::Tray
+        } else {
+            Source::Toast
+        };
+        if let Some(install) = self.install_update(source, cx) {
+            install.detach();
         }
-        let installation =
-            std::env::var_os("ANARLOG_NATIVE_UPDATE_INSTALLATION").map(PathBuf::from);
-        let blocked = NativeUpdater::permit_install(InstallConditions {
+    }
+
+    /// Installs the downloaded update, then quits through the drain into it: the new package
+    /// relaunches, or on Windows the NSIS installer runs and relaunches it. The install resolves
+    /// to whether it succeeded; `None` when it doesn't start. An automatic install waits,
+    /// silently, for a meeting to end and for onboarding or a settings page to close.
+    fn install_update(&mut self, source: Source, cx: &mut Context<Self>) -> Option<Task<bool>> {
+        let automatic = source == Source::Automatic;
+        let ready = matches!(self.lifecycle.update, UpdateMenu::RestartToApply(_));
+        if self.lifecycle.installing || self.closing || (automatic && !ready) {
+            return None;
+        }
+        let onboarding = self
+            .product
+            .as_ref()
+            .is_some_and(|view| matches!(view.read(cx).route, ProductRoute::Onboarding));
+        let installer = NativeUpdater::permit_install(InstallConditions {
             meeting_active: self.meeting_live(),
-            ..Default::default()
+            onboarding,
+            automatic,
         })
-        .err()
-        .or_else(|| {
-            installation.is_none().then(|| {
-                ServiceError::Unsupported(
-                    "Set ANARLOG_NATIVE_UPDATE_INSTALLATION to the GPUI package to install its signed update.".into(),
-                )
-            })
-        })
-        .or_else(|| crate::platform::updater::PackageKind::current().err());
-        if let Some(error) = blocked {
-            let message = format!("Failed to install update: {error}");
-            return if from_tray {
-                notify("Update Failed", message, cx)
-            } else {
-                super::toasts::error(message, cx)
-            };
+        .and_then(|()| NativeInstaller::current());
+        let installer = match installer {
+            Ok(installer) => installer,
+            Err(error) => {
+                let message = format!("Failed to install update: {error}");
+                match source {
+                    Source::Tray => notify("Update Failed", message, cx),
+                    Source::Toast => super::toasts::error(message, cx),
+                    Source::Automatic => tracing::info!(%error, "automatic update deferred"),
+                }
+                return None;
+            }
+        };
+        if automatic && self.product.is_some() {
+            return None;
         }
         if self
             .product
             .as_ref()
             .is_some_and(|view| !view.update(cx, |view, cx| view.can_close(cx)))
         {
-            return;
+            return None;
         }
-        let (Some(update), Some(installation)) = (self.lifecycle.ready.take(), installation) else {
+        let Some(update) = self.lifecycle.ready.take() else {
             self.lifecycle.update = UpdateMenu::CheckForUpdate;
-            return;
+            return None;
+        };
+        let Some((updater, _)) = self.lifecycle.release.clone() else {
+            self.lifecycle.update = UpdateMenu::CheckForUpdate;
+            return None;
         };
         let version = release_version(&update.release);
         self.lifecycle.installing = true;
         cx.notify();
         let runtime = self.runtime.clone();
-        cx.spawn(async move |this, cx| {
-            let result: desktop_runtime::Result<()> = async {
+        Some(cx.spawn(async move |this, cx| {
+            // `None` when the feed no longer offers the downloaded release.
+            let result: desktop_runtime::Result<Option<Restart>> = async {
+                // Like shipping, re-check the feed before installing, so a release it withdrew
+                // (a rollback) is never installed, even when Restart races a check. Unlike
+                // shipping, a different offered version also withdraws the download: during
+                // the cutover that may be a rollback build, which the next check downloads.
+                let offered = updater
+                    .check(&runtime, CancellationToken::new())?
+                    .receive()
+                    .await?;
+                if offered.is_none_or(|offered| offered.version != update.release.version) {
+                    return Ok(None);
+                }
                 let pause = this
                     .update(cx, |this, cx| this.pause_writers(cx))
                     .map_err(|_| ServiceError::Closed)?;
                 pause.await?;
-                use crate::platform::updater::{NativeInstaller, PackageKind};
-                let installer = NativeInstaller {
-                    kind: PackageKind::current()?,
-                    staging_root: installation
-                        .parent()
-                        .ok_or_else(|| ServiceError::Failed("Invalid installation path".into()))?
-                        .to_owned(),
-                    installation,
-                };
                 runtime
                     .service(move |_| async move { installer.install(update).await })?
                     .receive()
                     .await
+                    .map(Some)
             }
             .await;
             let failed = this.update(cx, |this, cx| {
                 this.lifecycle.installing = false;
                 cx.notify();
                 match result {
-                    Ok(()) => {
-                        crate::platform::windows::request_restart();
+                    Ok(Some(restart)) => {
+                        crate::platform::windows::request_restart(restart);
                         this.request_quit(cx);
                         None
+                    }
+                    Ok(None) => {
+                        this.lifecycle.update = UpdateMenu::CheckForUpdate;
+                        this.lifecycle.release = None;
+                        Some(ServiceError::Unsupported(
+                            "This update is no longer available.".into(),
+                        ))
                     }
                     Err(error) => {
                         // The verified bytes were consumed; Retry downloads the release again.
                         this.lifecycle.update =
                             UpdateMenu::Failed(version, error.to_string().into());
-                        this.resume_writers(cx);
+                        if this.writers_paused {
+                            this.resume_writers(cx);
+                        }
                         Some(error)
                     }
                 }
             });
-            if from_tray && let Ok(Some(error)) = failed {
+            if source == Source::Tray
+                && let Ok(Some(error)) = &failed
+            {
                 alert(
                     "Update Failed",
                     &format!("Failed to install update: {error}"),
@@ -913,8 +1013,21 @@ impl ApplicationView {
                 )
                 .await;
             }
-        })
-        .detach();
+            matches!(failed, Ok(None))
+        }))
+    }
+}
+
+/// Whether a check's result replaces the update state, like shipping's update events: a found
+/// release becomes `Available` unless a download, a ready update or a same-version failure owns
+/// the state. A ready update the feed no longer offers, withdrawn or replaced (a rollback), is
+/// dropped rather than installed.
+fn replaces_on_check(current: &UpdateMenu, found: Option<&Arc<str>>) -> bool {
+    match current {
+        UpdateMenu::CheckForUpdate | UpdateMenu::Available(_) => true,
+        UpdateMenu::Failed(version, _) => found.is_some_and(|found| found != version),
+        UpdateMenu::RestartToApply(version) => found != Some(version),
+        UpdateMenu::Downloading(..) => false,
     }
 }
 
@@ -929,6 +1042,22 @@ fn download_percent(downloaded: u64, total: u64) -> Option<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_ready_update_the_feed_no_longer_offers_is_dropped() {
+        let (ready, newer) = (Arc::<str>::from("1.5.0"), Arc::<str>::from("1.5.1"));
+        let restart = UpdateMenu::RestartToApply(ready.clone());
+        assert!(replaces_on_check(&restart, None));
+        assert!(!replaces_on_check(&restart, Some(&ready)));
+        assert!(replaces_on_check(&restart, Some(&newer)));
+        let failed = UpdateMenu::Failed(ready.clone(), "offline".into());
+        assert!(!replaces_on_check(&failed, Some(&ready)));
+        assert!(replaces_on_check(&failed, Some(&newer)));
+        assert!(!replaces_on_check(
+            &UpdateMenu::Downloading(ready.clone(), None),
+            None
+        ));
+    }
 
     #[test]
     fn channel_tray_toggle_lives_in_shipping_store_json() {

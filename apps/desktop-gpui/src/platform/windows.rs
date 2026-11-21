@@ -1,11 +1,50 @@
-static RESTART: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
-
-pub fn request_restart() {
-    RESTART.store(true, std::sync::atomic::Ordering::Release);
+/// What runs once the app has quit through the drain.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Restart {
+    /// The app again, from the package it was launched from.
+    App,
+    /// A downloaded NSIS update, which replaces the install and then relaunches the app.
+    Installer(std::path::PathBuf),
 }
 
-pub fn restart_requested() -> bool {
-    RESTART.load(std::sync::atomic::Ordering::Acquire)
+static RESTART: std::sync::Mutex<Option<Restart>> = std::sync::Mutex::new(None);
+static LAUNCH: std::sync::OnceLock<(Option<std::path::PathBuf>, Vec<std::ffi::OsString>)> =
+    std::sync::OnceLock::new();
+
+pub fn request_restart(restart: Restart) {
+    *RESTART.lock().unwrap_or_else(|error| error.into_inner()) = Some(restart);
+}
+
+/// What a restart relaunches and with which arguments, recorded at launch before an update
+/// can replace the executable.
+pub fn remember_launch(executable: Option<std::path::PathBuf>, arguments: Vec<std::ffi::OsString>) {
+    let _ = LAUNCH.set((executable, arguments));
+}
+
+/// Starts the requested restart, once. macOS runs it just before quitting, since quitting there
+/// ends the process; Linux and Windows run it after the run loop has returned and released the
+/// single-instance claim.
+pub fn run_requested_restart() -> std::io::Result<()> {
+    let restart = RESTART
+        .lock()
+        .unwrap_or_else(|error| error.into_inner())
+        .take();
+    let Some(restart) = restart else {
+        return Ok(());
+    };
+    let (executable, arguments) = LAUNCH.get().cloned().unwrap_or_default();
+    let mut command = match restart {
+        Restart::App => std::process::Command::new(match executable {
+            Some(executable) => executable,
+            None => std::env::current_exe()?,
+        }),
+        Restart::Installer(installer) => {
+            let mut command = std::process::Command::new(installer);
+            command.args(crate::platform::updater::NSIS_UPDATE_ARGS);
+            command
+        }
+    };
+    command.args(arguments).spawn().map(drop)
 }
 
 use desktop_runtime::{Result, ServiceError, SessionId};
