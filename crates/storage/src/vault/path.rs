@@ -33,6 +33,16 @@ pub fn recorded_vault_path(global_base: &Path, default_base: &Path) -> Option<Pa
         .map(|path| expand_path(path, Some(default_base)))
 }
 
+/// The recorded custom storage location whose notes and recordings
+/// [`consolidate_custom_vault`] still has to move into `default_base`: an
+/// existing folder other than `default_base`. A recorded folder that is
+/// missing, such as an unmounted drive, or is `default_base` itself has
+/// nothing to move; consolidation only clears its override.
+pub fn pending_vault_path(global_base: &Path, default_base: &Path) -> Option<PathBuf> {
+    recorded_vault_path(global_base, default_base)
+        .filter(|path| holds_separate_data(path, default_base))
+}
+
 /// Moves the notes and recordings of a custom storage location into
 /// `default_base` and clears the override that pointed at it. Returns the
 /// folder that was consolidated, if there was one.
@@ -55,7 +65,7 @@ pub fn consolidate_custom_vault(
         return Ok(None);
     };
 
-    let has_separate_data = custom_path.is_dir() && !is_same_dir(&custom_path, default_base);
+    let has_separate_data = holds_separate_data(&custom_path, default_base);
     if has_separate_data {
         std::fs::create_dir_all(default_base)?;
         super::fs::copy_vault_items(&custom_path, default_base)?;
@@ -76,6 +86,10 @@ pub fn consolidate_custom_vault(
     }
 
     Ok(Some(custom_path))
+}
+
+fn holds_separate_data(path: &Path, default_base: &Path) -> bool {
+    path.is_dir() && !is_same_dir(path, default_base)
 }
 
 fn is_same_dir(a: &Path, b: &Path) -> bool {

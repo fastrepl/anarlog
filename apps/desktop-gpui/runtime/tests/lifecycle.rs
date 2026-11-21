@@ -197,6 +197,67 @@ async fn quitting_while_waiting_for_the_replaced_app_stops_without_opening() {
     assert!(!dir.path().join("app.db").exists());
 }
 
+/// Notes shipping has yet to move from an older storage folder keep the library closed: nothing
+/// is opened, reset, moved or marked. Once shipping has moved them, the library opens and the
+/// takeover is recorded.
+#[tokio::test]
+async fn shipping_data_with_an_unfinished_storage_move_stays_closed_and_untouched() {
+    let dir = tempfile::tempdir().unwrap();
+    let base = dir.path().join("base");
+    let custom = dir.path().join("vault");
+    std::fs::create_dir_all(custom.join("sessions/s1")).unwrap();
+    std::fs::write(custom.join("sessions/s1/audio.wav"), "custom").unwrap();
+    std::fs::create_dir_all(&base).unwrap();
+    std::fs::write(
+        base.join("global.json"),
+        json!({ "vault_path": custom }).to_string(),
+    )
+    .unwrap();
+    std::fs::write(base.join("app.db.reset-requested"), "").unwrap();
+    let takeover = anlg_desktop_identity::takeover::Takeover {
+        version: "1.6.0".into(),
+        at: "2026-11-21T09:30:00Z".into(),
+        bundle: None,
+    };
+    let start = || {
+        RuntimeHandle::start_with(
+            Profile {
+                database: base.join("app.db"),
+            },
+            Startup {
+                takeover: Some(takeover.clone()),
+                ..Startup::shipping(base.clone(), "com.hyprnote.staging")
+            },
+        )
+        .unwrap()
+    };
+
+    let (runtime, ready) = start();
+    assert!(ready.receive().await.is_err());
+    assert_eq!(
+        *runtime.startup().borrow(),
+        StartupStatus::UnfinishedMove(anlg_desktop_identity::vault::UnfinishedMove {
+            from: custom.clone(),
+            to: base.clone(),
+        })
+    );
+    assert!(base.join("app.db.reset-requested").exists());
+    assert!(!base.join("app.db").exists());
+    assert_eq!(anlg_desktop_identity::takeover::read(&base).unwrap(), None);
+    assert!(custom.join("sessions/s1/audio.wav").exists());
+    drop(runtime);
+
+    // What shipping's consolidation leaves once it has moved the notes.
+    std::fs::write(base.join("global.json"), "{}").unwrap();
+    let (runtime, ready) = start();
+    ready.receive().await.unwrap();
+    assert_eq!(
+        anlg_desktop_identity::takeover::read(&base).unwrap(),
+        Some(takeover)
+    );
+    runtime.shutdown().await.unwrap();
+}
+
 // Service jobs hold their own database sender, so dropping the last handle has to request
 // shutdown itself, or the runtime keeps running and its profile stays locked.
 #[tokio::test]

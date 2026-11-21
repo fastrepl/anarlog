@@ -78,7 +78,14 @@ fn main() -> anyhow::Result<()> {
     };
     events.open_urls(urls);
     let startup = match storage.channel {
-        Some(channel) => Startup::shipping(storage.vault(), channel.identifier()),
+        Some(channel) => Startup {
+            takeover: Some(anlg_desktop_identity::takeover::Takeover {
+                version: package::VERSION.into(),
+                at: chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+                bundle: package::bundle_type().map(|kind| format!("{kind:?}")),
+            }),
+            ..Startup::shipping(storage.vault(), channel.identifier())
+        },
         None => Startup::default(),
     };
     let (runtime, ready) = RuntimeHandle::start_with(Profile { database }, startup)?;

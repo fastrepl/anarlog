@@ -1,6 +1,7 @@
 //! Shipping's `LongLoadGate`: while the library takes long to open, the main window says why
 //! (waiting for the app an update replaced, or migrating), and a database from a newer app
-//! shows "Anarlog needs an update".
+//! shows "Anarlog needs an update". Notes shipping has yet to move from an older storage folder
+//! keep the library closed, and the window says where they are.
 
 use std::time::Duration;
 
@@ -23,6 +24,7 @@ impl Global for StartupGate {}
 enum Notice {
     Loading(SharedString),
     NeedsUpdate,
+    UnfinishedMove(SharedString),
 }
 
 /// Follows the runtime's startup; observe [`StartupGate`] to redraw.
@@ -64,6 +66,16 @@ fn notice(state: &RuntimeState, status: &StartupStatus) -> Option<Notice> {
         {
             return Some(Notice::NeedsUpdate);
         }
+        (RuntimeState::Closed(Err(_)), StartupStatus::UnfinishedMove(pending)) => {
+            return Some(Notice::UnfinishedMove(
+                format!(
+                    "Some notes and recordings are still in {}, a storage folder from an earlier version of Anarlog, and haven't finished moving into {}. This version doesn't move files, so both folders were left unchanged. Please contact support to finish the move.",
+                    pending.from.display(),
+                    pending.to.display()
+                )
+                .into(),
+            ));
+        }
         (RuntimeState::Starting, StartupStatus::Opening) => {
             "Checking your local database. This is taking longer than expected.".into()
         }
@@ -79,12 +91,21 @@ fn notice(state: &RuntimeState, status: &StartupStatus) -> Option<Notice> {
     Some(Notice::Loading(detail))
 }
 
+/// Startup refused the library and the window says why. Shipping exits then, so closing the
+/// window quits: a hidden process would answer the next launch without checking again.
+pub fn refused(cx: &App) -> bool {
+    cx.try_global::<StartupGate>()
+        .and_then(|gate| gate.0.as_ref())
+        .is_some_and(|notice| !matches!(notice, Notice::Loading(_)))
+}
+
 pub fn gate(window: &Window, cx: &App) -> Option<Div> {
     let notice = cx.try_global::<StartupGate>()?.0.clone()?;
     let colors = theme(window);
     let (title, detail): (Option<&str>, SharedString) = match notice {
         Notice::Loading(detail) => (None, detail),
         Notice::NeedsUpdate => (Some("Anarlog needs an update"), NEEDS_UPDATE.into()),
+        Notice::UnfinishedMove(detail) => (Some("Anarlog can't open your notes yet"), detail),
     };
     Some(
         div()

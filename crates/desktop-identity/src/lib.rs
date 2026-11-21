@@ -11,6 +11,8 @@ pub mod paths;
 pub mod secure_store;
 pub mod session;
 pub mod store_json;
+pub mod takeover;
+pub mod vault;
 
 pub use channel::Channel;
 pub use paths::Locations;

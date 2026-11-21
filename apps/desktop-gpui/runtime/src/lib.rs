@@ -53,6 +53,9 @@ pub struct Startup {
     pub vault: Option<PathBuf>,
     /// The shipping channel whose data this is; its app holds its running lock while it runs.
     pub channel: Option<String>,
+    /// Recorded in the vault, a channel's data folder, once its library opens; kept from the
+    /// first launch that does.
+    pub takeover: Option<anlg_desktop_identity::takeover::Takeover>,
 }
 
 impl Startup {
@@ -64,6 +67,7 @@ impl Startup {
             apply_reset: true,
             vault: Some(vault),
             channel: Some(identifier.to_owned()),
+            takeover: None,
         }
     }
 }
@@ -79,6 +83,8 @@ pub enum StartupStatus {
         current: usize,
         total: usize,
     },
+    /// Refused: the shipping app has yet to move notes from an older storage folder.
+    UnfinishedMove(anlg_desktop_identity::vault::UnfinishedMove),
 }
 
 #[derive(Clone, Debug)]
@@ -217,11 +223,17 @@ impl RuntimeHandle {
                             }) => lease?,
                         };
                         status_tx.send_replace(StartupStatus::Opening);
+                        if let Some(pending) = startup::unfinished_move(&startup) {
+                            let error = ServiceError::Unsupported(pending.to_string().into());
+                            status_tx.send_replace(StartupStatus::UnfinishedMove(pending));
+                            return Err(error);
+                        }
                         startup::check_reset(&profile, &startup)?;
                         let db = startup::open(&profile, |status| {
                             status_tx.send_replace(status);
                         })
                         .await?;
+                        startup::record_takeover(&startup);
                         let vault = startup.vault.clone().unwrap_or_else(|| {
                             let parent = profile.database.parent().unwrap_or(&profile.database);
                             std::fs::canonicalize(parent)
