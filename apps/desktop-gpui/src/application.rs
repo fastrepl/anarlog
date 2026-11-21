@@ -123,6 +123,8 @@ impl ApplicationView {
     ) -> Self {
         let profile = storage.root.clone();
         let shipping_store = storage.shipping_store();
+        let shipping_webview = storage.shipping_webview();
+        let trial_mirror = storage.shipping_webview();
         cx.set_global(crate::shipping_store::ShippingStore(shipping_store.clone()));
         // Installed first: the note and transcript views read the live meeting from it.
         let meeting_host = MeetingHost::install(cx);
@@ -317,6 +319,9 @@ impl ApplicationView {
                     tracing::warn!(%error, "the shipping app's onboarding state was not read");
                 }
             }
+            if let Some(mirror) = shipping_webview {
+                crate::shipping_webview::import(&mirror, &profile);
+            }
             let native =
                 NativeServices::new(startup_runtime.clone(), storage, effects.clone(), host)
                     .await?;
@@ -401,8 +406,8 @@ impl ApplicationView {
             });
         })
         .detach();
-        let trial_dialogs =
-            cx.new(|cx| crate::product::trial::TrialDialogs::new(runtime.clone(), cx));
+        let trial_dialogs = cx
+            .new(|cx| crate::product::trial::TrialDialogs::new(runtime.clone(), trial_mirror, cx));
         subscriptions.push(cx.subscribe(
             &trial_dialogs,
             |this, _, _: &crate::product::trial::ReferFriend, cx| {

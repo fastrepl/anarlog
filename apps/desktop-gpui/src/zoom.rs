@@ -105,7 +105,13 @@ impl Global for Zoom {}
 impl Zoom {
     /// Reads the factor saved at `path`, shipping's `anarlog-zoom-factor` local storage item.
     pub fn load(path: PathBuf) -> Self {
-        let saved = std::fs::read_to_string(&path).ok();
+        Self::load_or(path, None)
+    }
+
+    /// Like [`Zoom::load`], with `shipping`'s factor (as its bridge release mirrored it) until this
+    /// app saves its own.
+    pub fn load_or(path: PathBuf, shipping: Option<String>) -> Self {
+        let saved = std::fs::read_to_string(&path).ok().or(shipping);
         Self {
             factor: Factor::new(parse(saved.as_deref())),
             min_sizes: MinSizes::default(),

@@ -13,6 +13,7 @@ pub mod session;
 pub mod store_json;
 pub mod takeover;
 pub mod vault;
+pub mod webview_storage;
 
 pub use channel::Channel;
 pub use paths::Locations;

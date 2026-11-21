@@ -47,6 +47,7 @@ import { initializeAppExitFlush } from "./shared/app-exit";
 import { initializeAppStoreBuild, isAppStoreBuild } from "./shared/app-store";
 import { useConfigValue } from "./shared/config";
 import { ErrorComponent, NotFoundComponent } from "./shared/control";
+import { startLocalStorageMirror } from "./shared/local-storage-mirror";
 import { LongLoadGate } from "./shared/long-load-gate";
 import { startInteractionProfiler } from "./shared/perf/interaction-profiler";
 import { bootstrapThemeFromSettings } from "./shared/theme/apply";
@@ -153,6 +154,7 @@ if (isMainWindow) {
       });
     }
   } catch {}
+  startLocalStorageMirror();
   void initializeAppExitFlush().catch((error) => {
     captureOperationalError(error, {
       operation: "app_exit_flush_initialize",

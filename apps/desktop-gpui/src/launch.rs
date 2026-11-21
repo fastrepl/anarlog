@@ -7,7 +7,12 @@
 
 use std::{ffi::OsString, path::PathBuf, sync::Arc};
 
-use anlg_desktop_identity::{Channel, Locations, paths::STORE_FILENAME, store_json::StoreJson};
+use anlg_desktop_identity::{
+    Channel, Locations,
+    paths::STORE_FILENAME,
+    store_json::StoreJson,
+    webview_storage::{self, WebviewStorage},
+};
 
 use crate::platform::deeplinks::SCHEMES;
 
@@ -76,6 +81,13 @@ impl Storage {
     pub fn shipping_store(&self) -> Option<Arc<StoreJson>> {
         self.channel
             .map(|_| Arc::new(StoreJson::at(self.root.join(STORE_FILENAME))))
+    }
+
+    /// What the shipping app's bridge release mirrored from its web view's localStorage, which a
+    /// channel run imports (`shipping_webview.rs`).
+    pub fn shipping_webview(&self) -> Option<WebviewStorage> {
+        self.channel
+            .map(|_| WebviewStorage::at(self.root.join(webview_storage::FILENAME)))
     }
 }
 

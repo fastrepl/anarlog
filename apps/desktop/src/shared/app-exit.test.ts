@@ -49,7 +49,10 @@ vi.mock("~/store/zustand/tabs", () => ({
 }));
 
 vi.mock("~/types/tauri.gen", () => ({
-  commands: { completeAppExit: mocks.completeAppExit },
+  commands: {
+    completeAppExit: mocks.completeAppExit,
+    mirrorLocalStorage: vi.fn().mockResolvedValue({ status: "ok", data: null }),
+  },
 }));
 
 describe("initializeAppExitFlush", () => {

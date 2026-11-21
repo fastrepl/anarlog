@@ -1,10 +1,14 @@
 //! The personal Pro trial dialogs from `auth/billing.tsx`: trial started, payment reminder
 //! (7 and 3 days before the end, without a payment method) and trial ended. Each shows once
-//! per account; shipping keeps that in localStorage, the native app in `app_settings`.
+//! per account; shipping keeps that in localStorage, the native app in `app_settings`. A channel
+//! run also counts the dialogs shipping showed, from its bridge release's mirror.
 //! The reminder ends with shipping's referral nudge when the account can still refer friends.
 
 use std::collections::BTreeSet;
 
+use anlg_desktop_identity::webview_storage::{
+    Snapshot, TRIAL_ENDED_SEEN, TRIAL_PAYMENT_REMINDER_SEEN, TRIAL_STARTED_SEEN, WebviewStorage,
+};
 use desktop_runtime::{RuntimeHandle, ServiceError};
 use gpui::{
     Context, EventEmitter, FontWeight, Hsla, Render, SharedString, Window, div, prelude::*, px,
@@ -81,6 +85,24 @@ pub fn next(account: &Account, now: i64, seen: &BTreeSet<String>) -> Option<(Dia
     None
 }
 
+/// The dialogs shipping marked seen (`anarlog:<key>` = `"1"`); the keys here are the same without
+/// the `anarlog:` prefix.
+fn shipping_seen(mirror: &Snapshot) -> impl Iterator<Item = String> + '_ {
+    [
+        TRIAL_STARTED_SEEN,
+        TRIAL_ENDED_SEEN,
+        TRIAL_PAYMENT_REMINDER_SEEN,
+    ]
+    .into_iter()
+    .flat_map(move |prefix| {
+        let key = prefix.strip_prefix("anarlog:").unwrap_or(prefix);
+        mirror
+            .with_prefix(prefix)
+            .filter(|(_, value)| *value == "1")
+            .map(move |(rest, _)| format!("{key}{rest}"))
+    })
+}
+
 /// Shipping's `canRefer`: referrals are on, the account is eligible and has friends left.
 pub fn can_refer(referrals: &Referrals) -> bool {
     referrals.enabled && referrals.eligible && referrals.remaining > 0
@@ -101,7 +123,12 @@ pub struct TrialDialogs {
 impl EventEmitter<ReferFriend> for TrialDialogs {}
 
 impl TrialDialogs {
-    pub fn new(runtime: RuntimeHandle, cx: &mut Context<Self>) -> Self {
+    /// `shipping`: the bridge release's mirror, in a channel run.
+    pub fn new(
+        runtime: RuntimeHandle,
+        shipping: Option<WebviewStorage>,
+        cx: &mut Context<Self>,
+    ) -> Self {
         let account = cx.observe_global::<Account>(|this, cx| this.evaluate(cx));
         let this = Self {
             runtime: runtime.clone(),
@@ -112,12 +139,28 @@ impl TrialDialogs {
             _account: account,
         };
         cx.spawn(async move |this, cx| {
+            // Before the runtime is ready, reads fail as busy and every dialog would show again; a
+            // channel run is ready only after the replaced app released its locks, so its mirror
+            // below holds that app's last writes too.
+            if !crate::runtime_bridge::ready(&runtime).await {
+                return;
+            }
             let stored = super::local::data::setting_value(&runtime, SEEN_KEY.into()).await;
-            let seen = stored
+            let mut seen = stored
                 .ok()
                 .flatten()
                 .and_then(|value| serde_json::from_value::<BTreeSet<String>>(value).ok())
                 .unwrap_or_default();
+            // Showing a dialog saves the merged set to `app_settings`.
+            if let Some(shipping) = shipping {
+                match cx.background_spawn(async move { shipping.read() }).await {
+                    Ok(Some(mirror)) => seen.extend(shipping_seen(&mirror)),
+                    Ok(None) => {}
+                    Err(error) => {
+                        tracing::warn!(%error, "shipping's trial dialog state is unreadable")
+                    }
+                }
+            }
             let _ = this.update(cx, |this, cx| {
                 this.seen = Some(seen);
                 this.evaluate(cx);
@@ -559,5 +602,107 @@ mod tests {
             next(&account(ended, Some(WorkspaceTier::Team)), now, &seen),
             None
         );
+    }
+
+    #[test]
+    fn trial_dialogs_shown_by_the_shipping_app_are_not_shown_again() {
+        let now = 1_000_000;
+        let trial_end = now + 5 * 86_400;
+        let trialing = Claims {
+            subscription_status: Some("trialing".into()),
+            trial_end: Some(trial_end),
+            has_payment_method: Some(false),
+            ..Claims::default()
+        };
+        let mirror = Snapshot {
+            id: "mirror".into(),
+            entries: [
+                ("anarlog:trial_started_seen:user".into(), "1".into()),
+                (
+                    format!(
+                        "anarlog:trial_payment_reminder_seen:user:{}:7",
+                        trial_end * 1000
+                    ),
+                    "1".into(),
+                ),
+                ("anarlog:trial_ended_seen:other".into(), "1".into()),
+            ]
+            .into(),
+        };
+        let seen = shipping_seen(&mirror).collect::<BTreeSet<_>>();
+
+        assert_eq!(next(&account(trialing.clone(), None), now, &seen), None);
+        let three_days_left = now + 2 * 86_400;
+        assert!(matches!(
+            next(&account(trialing, None), three_days_left, &seen),
+            Some((Dialog::Reminder { days: 3 }, _))
+        ));
+    }
+
+    /// Created before the runtime was ready, the dialogs read their seen state as busy and showed
+    /// an already seen dialog again: in a channel run the runtime waits for the replaced app.
+    #[gpui::test]
+    fn a_seen_dialog_stays_seen_when_created_before_the_runtime_is_ready(
+        cx: &mut gpui::TestAppContext,
+    ) {
+        use std::time::Duration;
+
+        use desktop_runtime::{Profile, Startup};
+        use futures::executor::block_on;
+
+        cx.executor().allow_parking();
+        let directory = tempfile::tempdir().unwrap();
+        let profile = || Profile {
+            database: directory.path().join("app.db"),
+        };
+        let (previous, ready) = RuntimeHandle::start(profile()).unwrap();
+        block_on(ready.receive()).unwrap();
+        let seen = json!(["trial_started_seen:user"]).to_string();
+        let saved = previous
+            .submit(move |services| async move {
+                services
+                    .executor
+                    .execute(
+                        "INSERT INTO app_settings (id, value_json) VALUES (?1, ?2)".into(),
+                        vec![json!(SEEN_KEY), json!(seen)],
+                    )
+                    .await
+                    .map(|_| ())
+                    .map_err(|error| ServiceError::Failed(error.to_string().into()))
+            })
+            .unwrap();
+        block_on(saved.receive()).unwrap();
+        // The previous process still holds the profile, so this runtime is starting.
+        let startup = Startup {
+            lock_wait: Duration::from_secs(30),
+            ..Startup::default()
+        };
+        let (runtime, ready) = RuntimeHandle::start_with(profile(), startup).unwrap();
+        let trialing = Claims {
+            subscription_status: Some("trialing".into()),
+            // Five days left: the 7-day reminder is due, the started dialog was seen.
+            trial_end: Some(account::now() + 5 * 86_400),
+            has_payment_method: Some(false),
+            ..Claims::default()
+        };
+        cx.update(|cx| cx.set_global(account(trialing, None)));
+        let dialogs = cx.new(|cx| TrialDialogs::new(runtime.clone(), None, cx));
+        cx.run_until_parked();
+
+        block_on(previous.shutdown()).unwrap();
+        block_on(ready.receive()).unwrap();
+        for _ in 0..2000 {
+            cx.run_until_parked();
+            if dialogs.read_with(cx, |dialogs, _| dialogs.open.is_some()) {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        assert_eq!(
+            dialogs.read_with(cx, |dialogs, _| dialogs.open.clone()),
+            Some(Dialog::Reminder { days: 5 })
+        );
+        drop(dialogs);
+        block_on(runtime.shutdown()).unwrap();
     }
 }

@@ -2,11 +2,12 @@
 //! each meeting, its API keys, and the snapshot uploads that keep that copy current.
 //!
 //! Per-account progress (backfill done, pending uploads/deletes, last seen revisions) is kept in a
-//! profile file, like shipping's localStorage, so interrupted work resumes on the next launch.
+//! profile file, like shipping's localStorage, so interrupted work resumes on the next launch. A
+//! channel run first merges in the progress the shipping app's bridge release mirrored.
 
 use std::{
     collections::{BTreeSet, HashMap},
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::{
         Arc,
         atomic::{AtomicBool, Ordering},
@@ -14,6 +15,9 @@ use std::{
     time::Duration,
 };
 
+use anlg_desktop_identity::webview_storage::{
+    CLOUD_API_BACKFILL, CLOUD_API_PENDING, CLOUD_API_REVISIONS, Snapshot,
+};
 use desktop_runtime::{Result, ServiceError, Services};
 use futures::future::BoxFuture;
 use reqwest::{Method, StatusCode};
@@ -23,6 +27,8 @@ use sqlx::SqlitePool;
 
 use super::{CloudServices, transport::failure};
 
+/// The per-account progress, in the profile.
+pub const PROGRESS_FILE: &str = "cloud-api.json";
 const MAX_SNAPSHOT_BYTES: usize = 2 * 1024 * 1024;
 const BACKFILL_RETRY: Duration = Duration::from_secs(30);
 
@@ -81,6 +87,9 @@ struct Account {
     upserts: BTreeSet<String>,
     deletes: BTreeSet<String>,
     revisions: Option<HashMap<String, String>>,
+    /// The shipping app's last mirror merged into this account, so a launch merges each once.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    shipping_mirror: Option<String>,
     /// How often each session changed since launch: an upload clears its pending entry only if
     /// no newer revision arrived while it was in flight.
     #[serde(skip)]
@@ -454,7 +463,24 @@ impl CloudApi {
             return Ok(());
         }
         let mut first_error = None;
+        let pool = services.db.pool();
         for id in self.with(user, |account| account.deletes.clone()) {
+            // A delete queued before an Undo restored the note, here or in the shipping app whose
+            // queue was imported, would remove a live note's copy: upload it instead.
+            match is_live(pool, &id).await {
+                Ok(false) => {}
+                Ok(true) => {
+                    self.update(user, |account| {
+                        account.deletes.remove(&id);
+                        account.upserts.insert(id.clone());
+                    });
+                    continue;
+                }
+                Err(error) => {
+                    first_error.get_or_insert(ApiError::new("local_snapshot_unavailable", error));
+                    continue;
+                }
+            }
             match self.delete(user, &id).await {
                 Ok(()) => self.update(user, |account| {
                     account.deletes.remove(&id);
@@ -465,7 +491,6 @@ impl CloudApi {
             }
         }
         if !deletes_only {
-            let pool = services.db.pool();
             for id in self.with(user, |account| account.upserts.clone()) {
                 let (deleted, seen) = self.with(user, |account| {
                     (
@@ -586,6 +611,62 @@ impl CloudApi {
     }
 }
 
+/// Merges the progress the shipping app kept in localStorage (`client.ts`, `lifecycle.tsx`), as its
+/// bridge release mirrored it, into the progress file at `path`, once per mirror. Pending changes
+/// are a union in which a delete wins, so neither app's pending delete is lost; this app's own
+/// revisions are kept when it has them. A mirror merged again after this app finished some of its
+/// work only repeats those uploads and deletes.
+pub fn import_shipping(path: &Path, mirror: &Snapshot) -> std::io::Result<()> {
+    let mut accounts: HashMap<String, Account> = match std::fs::read(path) {
+        // `CloudApi::new` also starts over from an unreadable file.
+        Ok(bytes) => serde_json::from_slice(&bytes).unwrap_or_default(),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => HashMap::default(),
+        Err(error) => return Err(error),
+    };
+    let users: BTreeSet<&str> = [CLOUD_API_PENDING, CLOUD_API_BACKFILL, CLOUD_API_REVISIONS]
+        .into_iter()
+        .flat_map(|prefix| mirror.with_prefix(prefix).map(|(user, _)| user))
+        .collect();
+    let mut changed = false;
+    for user in users {
+        let account = accounts.entry(user.to_owned()).or_default();
+        if account.shipping_mirror.as_deref() == Some(mirror.id.as_str()) {
+            continue;
+        }
+        let entry = |prefix: &str| mirror.get(&format!("{prefix}{user}"));
+        // Shipping's `readPendingChanges`: anything unreadable is no pending change.
+        let pending: Value = entry(CLOUD_API_PENDING)
+            .and_then(|json| serde_json::from_str(json).ok())
+            .unwrap_or_default();
+        let ids = |kind: &str| -> Vec<String> {
+            pending[kind]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(|id| id.as_str().map(str::to_owned))
+                .collect()
+        };
+        account.deletes.extend(ids("deletes"));
+        account.upserts.extend(ids("upserts"));
+        let deletes = &account.deletes;
+        account.upserts.retain(|id| !deletes.contains(id));
+        account.backfilled |= entry(CLOUD_API_BACKFILL) == Some("complete");
+        if account.revisions.is_none() {
+            // `readStoredSnapshotRevisions`: `[[id, revision], ...]`, the same markers as here.
+            account.revisions = entry(CLOUD_API_REVISIONS)
+                .and_then(|json| serde_json::from_str::<Vec<(String, String)>>(json).ok())
+                .map(|pairs| pairs.into_iter().collect());
+        }
+        account.shipping_mirror = Some(mirror.id.clone());
+        changed = true;
+    }
+    if !changed {
+        return Ok(());
+    }
+    let json = serde_json::to_string(&accounts).map_err(std::io::Error::other)?;
+    anlg_storage::fs::atomic_write(path, &json)
+}
+
 /// `cloudApiSnapshotChanges`: deleted or vanished sessions become deletes, new or changed ones
 /// upserts. Without a previous snapshot, every live session is an upsert.
 pub fn snapshot_changes(
@@ -621,6 +702,15 @@ fn encode(segment: &str) -> String {
     url::form_urlencoded::byte_serialize(segment.as_bytes())
         .collect::<String>()
         .replace('+', "%20")
+}
+
+async fn is_live(pool: &SqlitePool, id: &str) -> std::result::Result<bool, String> {
+    sqlx::query_scalar::<_, i64>("SELECT 1 FROM sessions WHERE id = ? AND deleted_at IS NULL")
+        .bind(id)
+        .fetch_optional(pool)
+        .await
+        .map(|row| row.is_some())
+        .map_err(|error| error.to_string())
 }
 
 /// `list_cloud_snapshot_ids`: every meeting the local API lists.
@@ -709,7 +799,121 @@ fn jsonb_len(value: &Value) -> usize {
 
 #[cfg(test)]
 mod tests {
+    use anlg_desktop_identity::webview_storage::{FILENAME, WebviewStorage};
+
     use super::*;
+
+    /// What the bridge release writes for these localStorage entries, read back as this app does.
+    fn mirror(dir: &Path, entries: &[(&str, &str)]) -> Snapshot {
+        let storage = WebviewStorage::at(dir.join(FILENAME));
+        storage
+            .write(
+                entries
+                    .iter()
+                    .map(|(key, value)| (key.to_string(), value.to_string())),
+            )
+            .unwrap();
+        storage.read().unwrap().unwrap()
+    }
+
+    fn accounts(path: &Path) -> HashMap<String, Account> {
+        serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap()
+    }
+
+    fn ids(ids: &BTreeSet<String>) -> Vec<&str> {
+        ids.iter().map(String::as_str).collect()
+    }
+
+    #[test]
+    fn a_pending_delete_from_either_app_survives_the_shipping_import() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("cloud-api.json");
+        let kept = HashMap::from([("kept".to_owned(), "1".to_owned())]);
+        let own = Account {
+            upserts: BTreeSet::from(["edited-in-both".to_owned()]),
+            deletes: BTreeSet::from(["deleted-here".to_owned()]),
+            revisions: Some(kept.clone()),
+            ..Account::default()
+        };
+        std::fs::write(
+            &path,
+            serde_json::to_string(&HashMap::from([("user-1", own)])).unwrap(),
+        )
+        .unwrap();
+        let shipping = mirror(
+            dir.path(),
+            &[
+                (
+                    "anarlog.cloud-api-pending.v1.user-1",
+                    r#"{"upserts":["edited-there","deleted-here"],"deletes":["deleted-there","edited-in-both"]}"#,
+                ),
+                ("anarlog.cloud-api-backfill.v1.user-1", "complete"),
+                (
+                    "anarlog.cloud-api-revisions.v1.user-1",
+                    r#"[["ignored","1"]]"#,
+                ),
+                (
+                    "anarlog.cloud-api-pending.v1.user-2",
+                    r#"{"upserts":[],"deletes":["n"]}"#,
+                ),
+                (
+                    "anarlog.cloud-api-revisions.v1.user-2",
+                    r#"[["n","deleted:t"]]"#,
+                ),
+            ],
+        );
+
+        import_shipping(&path, &shipping).unwrap();
+
+        let accounts = accounts(&path);
+        let user = &accounts["user-1"];
+        assert_eq!(
+            ids(&user.deletes),
+            ["deleted-here", "deleted-there", "edited-in-both"]
+        );
+        assert_eq!(ids(&user.upserts), ["edited-there"]);
+        assert!(user.backfilled);
+        assert_eq!(user.revisions, Some(kept));
+        let other = &accounts["user-2"];
+        assert_eq!(ids(&other.deletes), ["n"]);
+        assert!(!other.backfilled);
+        let deleted = HashMap::from([("n".to_owned(), "deleted:t".to_owned())]);
+        assert_eq!(other.revisions, Some(deleted));
+    }
+
+    #[test]
+    fn a_merged_mirror_is_not_merged_again_until_a_rollback_writes_a_new_one() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("cloud-api.json");
+        let pending = |deletes: &str| format!(r#"{{"upserts":[],"deletes":[{deletes}]}}"#);
+        let first = mirror(
+            dir.path(),
+            &[(
+                "anarlog.cloud-api-pending.v1.user-1",
+                pending(r#""a""#).as_str(),
+            )],
+        );
+        import_shipping(&path, &first).unwrap();
+        // This app deletes `a` from the server copy and queues its own delete.
+        let mut saved = accounts(&path);
+        let account = saved.get_mut("user-1").unwrap();
+        account.deletes = BTreeSet::from(["own".to_owned()]);
+        std::fs::write(&path, serde_json::to_string(&saved).unwrap()).unwrap();
+
+        import_shipping(&path, &first).unwrap();
+        assert_eq!(ids(&accounts(&path)["user-1"].deletes), ["own"]);
+
+        // After a rollback the shipping app runs again and mirrors its own pending delete.
+        let after_rollback = mirror(
+            dir.path(),
+            &[(
+                "anarlog.cloud-api-pending.v1.user-1",
+                pending(r#""b""#).as_str(),
+            )],
+        );
+        import_shipping(&path, &after_rollback).unwrap();
+        assert_eq!(ids(&accounts(&path)["user-1"].deletes), ["b", "own"]);
+    }
 
     #[test]
     fn revision_changes_upload_edits_and_delete_removed_sessions() {

@@ -2,6 +2,7 @@ import { getCloudsyncStatus } from "@anlg/plugin-db";
 import { commands as notificationCommands } from "@anlg/plugin-notification";
 
 import { playCompletionSound } from "~/shared/completion-sound";
+import { mirrorLocalStorage } from "~/shared/local-storage-mirror";
 import { shouldShowNotification } from "~/shared/notification-policy";
 
 const POLL_INTERVAL_MS = 2_000;
@@ -25,6 +26,7 @@ function readCompleted(userId: string) {
 function markCompleted(userId: string) {
   try {
     localStorage.setItem(completionKey(userId), "1");
+    mirrorLocalStorage();
   } catch {
     // The completion notification may repeat after restart if storage is unavailable.
   }

@@ -5,6 +5,7 @@ import { commands as store2Commands } from "@anlg/plugin-store2";
 
 import { flushDatabaseWritesWithin } from "~/db/write-queue";
 import { flushAllCanonicalSessionEditors } from "~/session-sharing/editor-activity";
+import { flushLocalStorageMirror } from "~/shared/local-storage-mirror";
 import { confirmAllPendingDeletions } from "~/store/zustand/undo-delete";
 import { commands } from "~/types/tauri.gen";
 
@@ -40,6 +41,7 @@ async function flushApplicationStateWithin(timeoutMs: number): Promise<void> {
         analyticsCommands.event({ event: "app_exit_requested" }),
         flushDatabaseWritesWithin(timeoutMs),
         store2Commands.save(),
+        flushLocalStorageMirror(),
       ]),
       new Promise<never>((_, reject) => {
         timeout = setTimeout(

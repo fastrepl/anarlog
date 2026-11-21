@@ -4,6 +4,7 @@ import { commands as localApiCommands } from "@anlg/plugin-local-api";
 
 import { supabase } from "~/auth/client";
 import { env } from "~/env";
+import { mirrorLocalStorage } from "~/shared/local-storage-mirror";
 
 const REQUEST_TIMEOUT_MS = 30_000;
 const SCHEDULED_INVALID_REQUEST_RETRY_DELAYS_MS = [5_000, 15_000] as const;
@@ -680,6 +681,7 @@ function setStoredValue(key: string, value: string) {
   } catch {
     return;
   }
+  mirrorLocalStorage();
 }
 
 function removeStoredValue(key: string) {
@@ -688,6 +690,7 @@ function removeStoredValue(key: string) {
   } catch {
     return;
   }
+  mirrorLocalStorage();
 }
 
 function reportBackgroundError(error: unknown) {

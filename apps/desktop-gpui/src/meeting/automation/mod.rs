@@ -662,14 +662,17 @@ fn cloudsync_marker(profile: &std::path::Path) -> PathBuf {
     profile.join("cloudsync-initial-sync-completed.json")
 }
 
-fn cloudsync_announced(profile: &std::path::Path, user: &str) -> bool {
+pub(crate) fn cloudsync_announced(profile: &std::path::Path, user: &str) -> bool {
     std::fs::read(cloudsync_marker(profile))
         .ok()
         .and_then(|bytes| serde_json::from_slice::<Vec<String>>(&bytes).ok())
         .is_some_and(|users| users.iter().any(|known| known == user))
 }
 
-fn mark_cloudsync_announced(profile: &std::path::Path, user: &str) -> std::io::Result<()> {
+pub(crate) fn mark_cloudsync_announced(
+    profile: &std::path::Path,
+    user: &str,
+) -> std::io::Result<()> {
     let path = cloudsync_marker(profile);
     let mut users: Vec<String> = std::fs::read(&path)
         .ok()
