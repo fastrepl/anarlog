@@ -1182,6 +1182,14 @@ exit 1
         size: 20,
         signature: "sig-20",
       },
+      {
+        file: path.join(scratchDir, "Anarlog_x64.app.tar.gz"),
+        publicPlatform: null,
+        updatePlatform: "darwin-x86_64",
+        signatureFile: path.join(scratchDir, "Anarlog_x64.app.tar.gz.sig"),
+        size: 30,
+        signature: "sig-30",
+      },
     ],
   };
 
@@ -1214,7 +1222,8 @@ exit 1
   };
 
   // Partial draft with 1 matching signed asset (including trailing whitespace)
-  // uploads only the missing asset and writes the refreshed release snapshot.
+  // uploads only the missing installer and updater assets and writes the
+  // refreshed release snapshot.
   const partialBefore = {
     version: "1.4.0",
     status: "draft",
@@ -1240,6 +1249,13 @@ exit 1
         size: 10,
         signature: null,
       },
+      {
+        id: "asset-upd-x64",
+        publicPlatform: null,
+        updatePlatform: "darwin-x86_64",
+        size: 30,
+        signature: "sig-30",
+      },
     ],
   };
   const partial = await runUpload("partial", partialBefore, partialAfter);
@@ -1251,9 +1267,12 @@ exit 1
   const uploads = (await readFile(partial.uploadLog, "utf8"))
     .trim()
     .split("\n");
-  assert.equal(uploads.length, 1);
+  assert.equal(uploads.length, 2);
   assert.match(uploads[0], /--public-platform dmg-aarch64/);
   assert.doesNotMatch(uploads[0], /darwin-aarch64/);
+  assert.match(uploads[1], /--update-platform darwin-x86_64/);
+  assert.match(uploads[1], /--signature .*Anarlog_x64\.app\.tar\.gz\.sig/);
+  assert.doesNotMatch(uploads[1], /darwin-aarch64/);
   const refreshedRelease = JSON.parse(
     await readFile(
       path.join(partial.caseDir, "crabnebula-release.json"),
