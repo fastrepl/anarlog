@@ -368,7 +368,7 @@ mod win32 {
     use windows::Win32::{
         Foundation::HWND,
         UI::WindowsAndMessaging::{
-            IsZoomed, SHOW_WINDOW_CMD, SW_MAXIMIZE, SW_RESTORE, ShowWindowAsync,
+            IsWindow, IsZoomed, SHOW_WINDOW_CMD, SW_MAXIMIZE, SW_RESTORE, ShowWindowAsync,
         },
     };
 
@@ -385,13 +385,17 @@ mod win32 {
 
     pub fn show(window: &Window, command: SHOW_WINDOW_CMD) -> Result<()> {
         let native = hwnd(window)?;
-        // SAFETY: GPUI owns this open HWND. Post the visibility change to avoid reentering
-        // its window callbacks while the application view is borrowed.
-        if !unsafe { ShowWindowAsync(native, command) }.as_bool() {
+        // SAFETY: GPUI owns this open HWND. Validate the handle up front; ShowWindowAsync
+        // returns the prior visibility state (0 when already hidden), not success/failure,
+        // so a 0 return is normal on restore-from-tray or hiding an already-hidden window.
+        if !unsafe { IsWindow(Some(native)) }.as_bool() {
             return Err(ServiceError::Failed(
                 "Could not change native window visibility".into(),
             ));
         }
+        // SAFETY: `native` is a live HWND owned by GPUI. Post asynchronously to avoid
+        // reentering its window callbacks while the application view is borrowed.
+        let _ = unsafe { ShowWindowAsync(native, command) };
         Ok(())
     }
 
