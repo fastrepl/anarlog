@@ -98,14 +98,6 @@ fn main() -> anyhow::Result<()> {
                 .map(str::to_owned)
         });
     let zoom = desktop_gpui::zoom::Zoom::load_or(storage.root.join("zoom.json"), shipping_zoom);
-    // GPUI's own Linux path prompts run on the main thread. Cargo unifies their zbus
-    // backend with detect's Tokio feature, so keep a live reactor entered for the UI loop.
-    // A stray `tokio::spawn` on the UI thread therefore runs on the portal runtime
-    // instead of panicking.
-    #[cfg(target_os = "linux")]
-    let _portal_context = desktop_gpui::platform::os::portal_runtime()
-        .map_err(|error| anyhow::anyhow!("Could not start native portal runtime: {error}"))?
-        .enter();
     let application = zoom.application().with_assets(Assets);
     events.install(&application);
     // A `--profile` run of a channel build leaves the installed app's link handler alone.

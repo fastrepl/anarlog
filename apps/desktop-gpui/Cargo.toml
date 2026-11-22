@@ -203,7 +203,8 @@ tokio-tungstenite = { workspace = true }
 wiremock = { workspace = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-atspi = { version = "0.25", default-features = false, features = ["tokio", "zbus"] }
+# Keep zbus on async-io so Cargo feature unification does not force a Tokio reactor on GPUI/AccessKit worker threads.
+atspi = { version = "0.25", default-features = false, features = ["async-std", "zbus"] }
 gpui_platform = { git = "https://github.com/zed-industries/zed", rev = "053d91cb14b5fd138f221ec02bd76efb15e7b2af", features = ["x11", "wayland"] }
 ashpd = { version = "=0.11.1", default-features = false, features = ["async-std"] }
 x11rb = "=0.13.2"
