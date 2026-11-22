@@ -55,7 +55,7 @@ jobs:
   macos:
     runs-on: macos-26
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         include:
           - target: aarch64-apple-darwin
@@ -200,7 +200,7 @@ jobs:
   linux:
     if: ${{ inputs.include_linux }}
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         include:
           - runner: ubuntu-24.04
