@@ -671,3 +671,43 @@ fn an_unfinished_storage_move_keeps_the_library_closed_and_closing_quits() {
     app.settle();
     assert!(app.platform.quit.get());
 }
+
+#[test]
+fn refused_startup_exposes_support_links_copy_details_and_quit() {
+    let app = Harness::refused();
+    let tree = app.tree();
+    tree.find(Role::Heading, "Anarlog can't open your notes yet");
+    assert_named(&tree, "startup-refused");
+
+    let email = tree.find(Role::Link, "Email team@fastrepl.com");
+    assert!(email.clickable(), "{}", tree.outline());
+    app.press(email.id);
+
+    let discord = tree.find(Role::Link, "Discord (anarlog.so/discord)");
+    assert!(discord.clickable(), "{}", tree.outline());
+    app.press(discord.id);
+
+    let copy = tree.find(Role::Button, "Copy details");
+    assert!(copy.clickable(), "{}", tree.outline());
+    app.press(copy.id);
+
+    let copied = app
+        .app
+        .update(|cx| cx.read_from_clipboard().and_then(|item| item.text()))
+        .expect("diagnostic details in clipboard");
+    assert!(copied.contains("Previous folder:"), "{copied}");
+    assert!(copied.contains("vault"), "{copied}");
+    assert!(copied.contains("Current folder:"), "{copied}");
+    assert!(copied.contains("base"), "{copied}");
+    assert!(copied.contains("Version:"), "{copied}");
+
+    let tree = app.tree();
+    assert!(tree.find(Role::Button, "Copied details").clickable());
+    tree.find(Role::Status, "Details copied to clipboard");
+
+    let quit = tree.find(Role::Button, "Quit");
+    assert!(quit.clickable(), "{}", tree.outline());
+    assert!(!app.platform.quit.get());
+    app.press(quit.id);
+    assert!(app.platform.quit.get());
+}
