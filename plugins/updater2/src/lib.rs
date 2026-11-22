@@ -177,7 +177,7 @@ async fn wait_ready_to_auto_install_within<R: tauri::Runtime, M: tauri::Manager<
     }
 
     if !updater2
-        .wait_for_webview_storage_mirror(mirror_wait_timeout)
+        .flush_webview_storage_mirror(mirror_wait_timeout)
         .await
     {
         tracing::info!("automatic_update_deferred_webview_storage_not_mirrored");
@@ -216,6 +216,8 @@ mod test {
 
     #[tokio::test]
     async fn auto_install_waits_for_webview_storage_mirror_and_defers_on_timeout() {
+        use tauri::Listener;
+
         let app = tauri::test::mock_app();
         app.manage(UpdaterState::new());
         let updater2 = app.updater2();
@@ -234,5 +236,20 @@ mod test {
         assert!(
             wait_ready_to_auto_install_within(&updater2, std::time::Duration::from_secs(2)).await
         );
+
+        // Stale startup snapshot alone must not satisfy a later install check without a fresh write.
+        assert!(
+            !wait_ready_to_auto_install_within(&updater2, std::time::Duration::from_millis(25))
+                .await
+        );
+
+        let handle = app.handle().clone();
+        let listener = app.listen(FLUSH_WEBVIEW_STORAGE_EVENT, move |_| {
+            handle.updater2().mark_webview_storage_mirrored();
+        });
+        let ready =
+            wait_ready_to_auto_install_within(&updater2, std::time::Duration::from_secs(2)).await;
+        app.unlisten(listener);
+        assert!(ready);
     }
 }

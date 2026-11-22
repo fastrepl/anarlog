@@ -43,18 +43,22 @@ pub(crate) fn install(bytes: &[u8]) -> Result<(), crate::Error> {
     let (_dir, package) = stage_package(bytes)?;
 
     if !Path::new(APT_GET).exists() {
-        return run_as_root(&[OsStr::new("dpkg"), OsStr::new("-i"), package.as_os_str()]);
+        return run_as_root(
+            &[OsStr::new("dpkg"), OsStr::new("-i"), package.as_os_str()],
+            None,
+        );
     }
 
     // Unprivileged, so an update apt can't install is refused before any password prompt.
-    let simulation = simulate_apt_install_command(&package).output()?;
+    let simulation = simulate_apt_install_with(OsStr::new(APT_GET), &package)?;
     if !simulation.status.success() {
         log_output("deb_update_dependencies_unavailable", &simulation);
         return Err(crate::Error::DebDependencies(reason(&simulation)));
     }
 
-    let command = apt_install_command(&package);
-    run_as_root(&command)
+    let direct_command = apt_direct_command(OsStr::new(APT_GET), &package);
+    let env_command = apt_env_command(&direct_command);
+    run_as_root(&env_command, Some(&direct_command))
 }
 
 fn stage_package(bytes: &[u8]) -> std::io::Result<(tempfile::TempDir, PathBuf)> {
@@ -70,23 +74,17 @@ fn stage_package(bytes: &[u8]) -> std::io::Result<(tempfile::TempDir, PathBuf)> 
     Ok((dir, package))
 }
 
-fn simulate_apt_install_command(package: &Path) -> Command {
-    let mut command = Command::new(APT_GET);
-    command
+fn simulate_apt_install_with(apt_bin: &OsStr, package: &Path) -> std::io::Result<Output> {
+    Command::new(apt_bin)
         .env("LC_ALL", "C")
         .arg("--simulate")
         .args(APT_INSTALL)
-        .arg(package);
-    command
+        .arg(package)
+        .output()
 }
 
-fn apt_install_command(package: &Path) -> Vec<&OsStr> {
-    let mut command: Vec<&OsStr> = vec![
-        OsStr::new(ENV),
-        OsStr::new("DEBIAN_FRONTEND=noninteractive"),
-        OsStr::new("LC_ALL=C"),
-        OsStr::new(APT_GET),
-    ];
+fn apt_direct_command<'a>(apt_bin: &'a OsStr, package: &'a Path) -> Vec<&'a OsStr> {
+    let mut command: Vec<&OsStr> = vec![apt_bin];
     command.extend(APT_INSTALL.map(OsStr::new));
     command.extend(
         [
@@ -106,53 +104,124 @@ fn apt_install_command(package: &Path) -> Vec<&OsStr> {
     command
 }
 
+fn apt_env_command<'a>(direct: &[&'a OsStr]) -> Vec<&'a OsStr> {
+    let mut command: Vec<&OsStr> = Vec::with_capacity(3 + direct.len());
+    command.extend([
+        OsStr::new(ENV),
+        OsStr::new("DEBIAN_FRONTEND=noninteractive"),
+        OsStr::new("LC_ALL=C"),
+    ]);
+    command.extend_from_slice(direct);
+    command
+}
+
+fn run_pkexec(
+    pkexec_bin: &OsStr,
+    command: &[&OsStr],
+    direct_fallback: Option<&[&OsStr]>,
+) -> Option<Result<(), crate::Error>> {
+    let run = |args: &[&OsStr]| {
+        Command::new(pkexec_bin)
+            .env("DEBIAN_FRONTEND", "noninteractive")
+            .env("LC_ALL", "C")
+            .args(args)
+            .stdin(Stdio::null())
+            .output()
+    };
+    let output = match run(command) {
+        Ok(output) => output,
+        Err(error) => {
+            tracing::info!("pkexec_unavailable: {}", error);
+            return None;
+        }
+    };
+    match output.status.code() {
+        Some(0) => Some(Ok(())),
+        Some(126) => Some(Err(cancelled())),
+        // 127 signals polkit denial or missing agent. Retry the direct apt-get command once
+        // in case policy permits apt-get without `/usr/bin/env`.
+        Some(127) => {
+            let direct = direct_fallback?;
+            let output = match run(direct) {
+                Ok(output) => output,
+                Err(error) => {
+                    tracing::info!("pkexec_unavailable: {}", error);
+                    return None;
+                }
+            };
+            match output.status.code() {
+                Some(0) => Some(Ok(())),
+                Some(126) => Some(Err(cancelled())),
+                Some(127) => None,
+                _ => Some(Err(failed(&output))),
+            }
+        }
+        _ => Some(Err(failed(&output))),
+    }
+}
+
+fn run_sudo_with_password(
+    sudo_bin: &OsStr,
+    password: &str,
+    command: &[&OsStr],
+) -> std::io::Result<Output> {
+    let mut child = Command::new(sudo_bin)
+        .env("DEBIAN_FRONTEND", "noninteractive")
+        .env("LC_ALL", "C")
+        .args(["-S", "-p", ""])
+        .args(command)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()?;
+    if let Some(mut stdin) = child.stdin.take() {
+        let _ = writeln!(stdin, "{password}");
+    }
+    child.wait_with_output()
+}
+
 /// tauri-plugin-updater's escalation order: pkexec, else sudo with a zenity or kdialog
 /// password, else non-interactive sudo. Unlike the plugin, a dismissed prompt or a failed
 /// command ends here instead of running the install again the next way.
-fn run_as_root(command: &[&OsStr]) -> Result<(), crate::Error> {
-    match Command::new("pkexec").args(command).output() {
-        Ok(output) => match output.status.code() {
-            Some(0) => return Ok(()),
-            Some(126) => return Err(cancelled()),
-            // Not authorized, for example because no polkit agent is running.
-            Some(127) => {}
-            _ => return Err(failed(&output)),
-        },
-        Err(error) => tracing::info!("pkexec_unavailable: {}", error),
+fn run_as_root(command: &[&OsStr], direct_fallback: Option<&[&OsStr]>) -> Result<(), crate::Error> {
+    if let Some(result) = run_pkexec(OsStr::new("pkexec"), command, direct_fallback) {
+        return result;
     }
 
     match ask_password()? {
         Some(password) => {
-            let mut child = Command::new("sudo")
-                .env("LC_ALL", "C")
-                .args(["-S", "-p", ""])
-                .args(command)
-                .stdin(Stdio::piped())
-                .stdout(Stdio::piped())
-                .stderr(Stdio::piped())
-                .spawn()?;
-            if let Some(mut stdin) = child.stdin.take() {
-                let _ = writeln!(stdin, "{password}");
+            let mut output = run_sudo_with_password(OsStr::new("sudo"), &password, command)?;
+            if !output.status.success()
+                && let Some(direct) = direct_fallback
+                && is_sudo_command_denied(&output)
+            {
+                output = run_sudo_with_password(OsStr::new("sudo"), &password, direct)?;
             }
-            let output = child.wait_with_output()?;
             if output.status.success() {
                 Ok(())
             } else {
                 Err(failed(&output))
             }
         }
-        None => run_sudo_non_interactive(OsStr::new("sudo"), command),
+        None => run_sudo_non_interactive(OsStr::new("sudo"), command, direct_fallback),
     }
 }
 
-fn run_sudo_non_interactive(sudo_bin: &OsStr, command: &[&OsStr]) -> Result<(), crate::Error> {
-    let output = match Command::new(sudo_bin)
-        .env("LC_ALL", "C")
-        .arg("-n")
-        .args(command)
-        .stdin(Stdio::null())
-        .output()
-    {
+fn run_sudo_non_interactive(
+    sudo_bin: &OsStr,
+    command: &[&OsStr],
+    direct_fallback: Option<&[&OsStr]>,
+) -> Result<(), crate::Error> {
+    let run = |args: &[&OsStr]| {
+        Command::new(sudo_bin)
+            .env("DEBIAN_FRONTEND", "noninteractive")
+            .env("LC_ALL", "C")
+            .arg("-n")
+            .args(args)
+            .stdin(Stdio::null())
+            .output()
+    };
+    let mut output = match run(command) {
         Ok(output) => output,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
             tracing::info!("sudo_unavailable: {}", error);
@@ -160,6 +229,13 @@ fn run_sudo_non_interactive(sudo_bin: &OsStr, command: &[&OsStr]) -> Result<(), 
         }
         Err(error) => return Err(error.into()),
     };
+
+    if !output.status.success()
+        && let Some(direct) = direct_fallback
+        && (is_non_interactive_sudo_auth_failure(&output) || is_sudo_command_denied(&output))
+    {
+        output = run(direct)?;
+    }
 
     if output.status.success() {
         return Ok(());
@@ -171,6 +247,11 @@ fn run_sudo_non_interactive(sudo_bin: &OsStr, command: &[&OsStr]) -> Result<(), 
     }
 
     Err(failed(&output))
+}
+
+fn is_sudo_command_denied(output: &Output) -> bool {
+    let stderr = String::from_utf8_lossy(&output.stderr).to_ascii_lowercase();
+    stderr.contains("not allowed to execute")
 }
 
 fn is_non_interactive_sudo_auth_failure(output: &Output) -> bool {
@@ -324,7 +405,7 @@ mod tests {
     }
 
     #[test]
-    fn deb_staging_and_apt_commands_set_locale_env_and_apt_readable_permissions() {
+    fn deb_staging_and_install_preserve_permissions_and_env_across_pkexec() {
         let (dir, package) = super::stage_package(b"!<arch>\ndebian-binary").unwrap();
         assert_eq!(
             std::fs::metadata(dir.path()).unwrap().permissions().mode() & 0o777,
@@ -335,24 +416,108 @@ mod tests {
             0o644
         );
 
-        let sim = super::simulate_apt_install_command(&package);
-        assert_eq!(sim.get_program(), OsStr::new(super::APT_GET));
+        let sim_log = dir.path().join("sim.log");
+        let fake_apt = dir.path().join("fake-apt");
+        std::fs::write(
+            &fake_apt,
+            format!(
+                "#!/bin/sh\nprintf '%s\\n%s\\n%s\\n' \"$LC_ALL\" \"$DEBIAN_FRONTEND\" \"$*\" > \"{}\"\n",
+                sim_log.display()
+            ),
+        )
+        .unwrap();
+        std::fs::set_permissions(&fake_apt, std::fs::Permissions::from_mode(0o755)).unwrap();
+
+        let sim_output = super::simulate_apt_install_with(fake_apt.as_os_str(), &package).unwrap();
+        assert!(sim_output.status.success());
+        let sim_recorded = std::fs::read_to_string(&sim_log).unwrap();
+        assert!(sim_recorded.starts_with("C\n"), "{sim_recorded}");
+        assert!(sim_recorded.contains("--simulate"), "{sim_recorded}");
         assert!(
-            sim.get_envs()
-                .any(|(k, v)| k == OsStr::new("LC_ALL") && v == Some(OsStr::new("C")))
+            sim_recorded.contains(&package.display().to_string()),
+            "{sim_recorded}"
         );
 
-        let install = super::apt_install_command(&package);
-        assert_eq!(
-            &install[..4],
-            &[
-                OsStr::new(super::ENV),
-                OsStr::new("DEBIAN_FRONTEND=noninteractive"),
-                OsStr::new("LC_ALL=C"),
-                OsStr::new(super::APT_GET),
-            ]
+        let fake_pkexec = dir.path().join("fake-pkexec");
+        std::fs::write(&fake_pkexec, "#!/bin/sh\nexec env -i \"$@\"\n").unwrap();
+        std::fs::set_permissions(&fake_pkexec, std::fs::Permissions::from_mode(0o755)).unwrap();
+
+        let direct = super::apt_direct_command(fake_apt.as_os_str(), &package);
+        let wrapped = super::apt_env_command(&direct);
+        let installed =
+            super::run_pkexec(fake_pkexec.as_os_str(), &wrapped, Some(&direct)).unwrap();
+        assert!(installed.is_ok(), "{installed:?}");
+
+        let install_recorded = std::fs::read_to_string(&sim_log).unwrap();
+        assert!(
+            install_recorded.contains("C\nnoninteractive\n"),
+            "{install_recorded}"
         );
-        assert_eq!(install.last().copied(), Some(package.as_os_str()));
+        assert!(
+            install_recorded.contains(&package.display().to_string()),
+            "{install_recorded}"
+        );
+    }
+
+    #[test]
+    fn apt_only_policies_fall_back_from_env_wrapper_to_direct_apt() {
+        let dir = tempfile::tempdir().unwrap();
+        let ran = dir.path().join("ran.log");
+        let fake_apt = dir.path().join("apt-get");
+        std::fs::write(
+            &fake_apt,
+            format!(
+                "#!/bin/sh\nprintf '%s\\n' \"$0 $*\" >> \"{}\"\n",
+                ran.display()
+            ),
+        )
+        .unwrap();
+        std::fs::set_permissions(&fake_apt, std::fs::Permissions::from_mode(0o755)).unwrap();
+
+        let package = dir.path().join("update.deb");
+        let direct = super::apt_direct_command(fake_apt.as_os_str(), &package);
+        let wrapped = super::apt_env_command(&direct);
+
+        let policy_pkexec = dir.path().join("pkexec");
+        std::fs::write(
+            &policy_pkexec,
+            format!(
+                "#!/bin/sh\nif [ \"$1\" != \"{}\" ]; then exit 127; fi\nexec \"$@\"\n",
+                fake_apt.display()
+            ),
+        )
+        .unwrap();
+        std::fs::set_permissions(&policy_pkexec, std::fs::Permissions::from_mode(0o755)).unwrap();
+
+        let pkexec_result =
+            super::run_pkexec(policy_pkexec.as_os_str(), &wrapped, Some(&direct)).unwrap();
+        assert!(pkexec_result.is_ok(), "{pkexec_result:?}");
+
+        let policy_sudo = dir.path().join("sudo");
+        std::fs::write(
+            &policy_sudo,
+            format!(
+                "#!/bin/sh\nif [ \"$1\" != \"-n\" ]; then exit 99; fi\nshift\n\
+                 if read -r _unused; then exit 98; fi\n\
+                 if [ \"$1\" != \"{}\" ]; then\n  \
+                   echo \"Sorry, user is not allowed to execute '$1' as root.\" >&2\n  \
+                   exit 1\n\
+                 fi\nexec \"$@\"\n",
+                fake_apt.display()
+            ),
+        )
+        .unwrap();
+        std::fs::set_permissions(&policy_sudo, std::fs::Permissions::from_mode(0o755)).unwrap();
+
+        super::run_sudo_non_interactive(policy_sudo.as_os_str(), &wrapped, Some(&direct)).unwrap();
+
+        let recorded = std::fs::read_to_string(&ran).unwrap();
+        assert_eq!(recorded.lines().count(), 2, "{recorded}");
+        assert!(
+            recorded
+                .lines()
+                .all(|line| line.starts_with(&fake_apt.display().to_string()))
+        );
     }
 
     #[test]
@@ -368,9 +533,12 @@ mod tests {
         .unwrap();
         std::fs::set_permissions(&fake_sudo, std::fs::Permissions::from_mode(0o755)).unwrap();
 
-        let auth_err =
-            super::run_sudo_non_interactive(fake_sudo.as_os_str(), &[OsStr::new("/bin/true")])
-                .unwrap_err();
+        let auth_err = super::run_sudo_non_interactive(
+            fake_sudo.as_os_str(),
+            &[OsStr::new("/bin/true")],
+            None,
+        )
+        .unwrap_err();
         let crate::Error::DebInstall(message) = auth_err else {
             panic!("expected DebInstall error, got {auth_err:?}");
         };
@@ -380,6 +548,7 @@ mod tests {
         let missing_err = super::run_sudo_non_interactive(
             dir.path().join("missing-sudo").as_os_str(),
             &[OsStr::new("/bin/true")],
+            None,
         )
         .unwrap_err();
         assert!(matches!(missing_err, crate::Error::DebInstall(_)));

@@ -356,6 +356,27 @@ describe("useDesktopUpdateControl", () => {
     });
   });
 
+  it("aborts installation when flushing localStorage mirror fails", async () => {
+    flushLocalStorageMirrorMock.mockRejectedValueOnce(new Error("disk full"));
+    renderUpdateControl();
+
+    await waitFor(() =>
+      expect(eventHandlers.updateReady).toBeTypeOf("function"),
+    );
+
+    act(() => {
+      eventHandlers.updateReady?.({ payload: { version: "1.0.34" } });
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "install" }));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("status").textContent).toBe("failed"),
+    );
+    expect(screen.getByTestId("error").textContent).toBe("disk full");
+    expect(installAndRelaunchMock).not.toHaveBeenCalled();
+  });
+
   it("clears the update after the app reports it has updated", async () => {
     checkMock.mockResolvedValue({ status: "ok", data: "1.0.34" });
 
@@ -426,6 +447,7 @@ function UpdateControlProbe() {
       <span data-testid="progress">
         {update.progress === null ? "none" : String(update.progress)}
       </span>
+      <span data-testid="error">{update.errorMessage ?? "none"}</span>
       <button type="button" onClick={update.downloadUpdate}>
         download
       </button>

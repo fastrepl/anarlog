@@ -3,7 +3,7 @@ use std::{
     sync::LazyLock,
 };
 
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 use tauri_plugin_store2::Store2PluginExt;
 use tauri_plugin_updater::UpdaterExt;
 use tauri_specta::Event;
@@ -13,22 +13,24 @@ use crate::events::{
     UpdateDownloadingEvent, UpdateReadyEvent, UpdatedEvent,
 };
 
+pub const FLUSH_WEBVIEW_STORAGE_EVENT: &str = "updater2:flush-webview-storage";
+
 static DOWNLOAD_MUTEX: LazyLock<tokio::sync::Mutex<()>> =
     LazyLock::new(|| tokio::sync::Mutex::new(()));
 
 static MEETING_ACTIVE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 pub(crate) struct UpdaterState {
-    webview_storage_mirrored: tokio::sync::watch::Sender<bool>,
+    webview_storage_mirror_count: tokio::sync::watch::Sender<u64>,
     #[cfg(test)]
     base_dir_override: Option<PathBuf>,
 }
 
 impl UpdaterState {
     pub(crate) fn new() -> Self {
-        let (webview_storage_mirrored, _rx) = tokio::sync::watch::channel(false);
+        let (webview_storage_mirror_count, _rx) = tokio::sync::watch::channel(0);
         Self {
-            webview_storage_mirrored,
+            webview_storage_mirror_count,
             #[cfg(test)]
             base_dir_override: None,
         }
@@ -70,23 +72,40 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Updater2<'a, R, M> {
         MEETING_ACTIVE.store(active, std::sync::atomic::Ordering::Relaxed);
     }
 
-    /// Marks that the main WebView has completed at least one `localStorage` mirror write in this
-    /// launch so startup auto-install can proceed without dropping pre-cutover state.
+    /// Marks that the main WebView has completed a `localStorage` mirror write in this
+    /// launch so auto-install can advance without dropping pre-cutover state.
     pub fn mark_webview_storage_mirrored(&self) {
         if let Some(state) = self.manager.try_state::<UpdaterState>() {
-            state.webview_storage_mirrored.send_replace(true);
+            state
+                .webview_storage_mirror_count
+                .send_modify(|count| *count = count.saturating_add(1));
         }
     }
 
-    pub(crate) async fn wait_for_webview_storage_mirror(
-        &self,
-        timeout: std::time::Duration,
-    ) -> bool {
+    pub async fn flush_webview_storage_mirror(&self, timeout: std::time::Duration) -> bool {
         let Some(state) = self.manager.try_state::<UpdaterState>() else {
             return false;
         };
-        let mut rx = state.webview_storage_mirrored.subscribe();
-        tokio::time::timeout(timeout, rx.wait_for(|&mirrored| mirrored))
+        let mut rx = state.webview_storage_mirror_count.subscribe();
+        let before = *rx.borrow_and_update();
+        #[cfg(not(test))]
+        if before > 0
+            && self
+                .manager
+                .app_handle()
+                .get_webview_window("main")
+                .is_none()
+        {
+            return true;
+        }
+        if let Err(error) = self
+            .manager
+            .app_handle()
+            .emit(FLUSH_WEBVIEW_STORAGE_EVENT, ())
+        {
+            tracing::debug!(%error, "failed_to_emit_webview_storage_flush");
+        }
+        tokio::time::timeout(timeout, rx.wait_for(|&count| count > before))
             .await
             .is_ok_and(|res| res.is_ok())
     }
