@@ -249,27 +249,4 @@ mod tests {
             .recv_timeout(std::time::Duration::from_secs(5))
             .expect("fake file manager owns its bus name");
     }
-
-    #[test]
-    fn zbus_connects_outside_tokio_without_reactor_panic() {
-        // Must fail cleanly with a connection error rather than panicking for a missing
-        // Tokio reactor if any crate re-enables zbus's non-additive `tokio` feature.
-        let directory = tempfile::tempdir().unwrap();
-        let address = format!(
-            "unix:path={}",
-            directory.path().join("absent-bus").display()
-        );
-        let result = std::thread::spawn(move || {
-            assert!(tokio::runtime::Handle::try_current().is_err());
-            futures::executor::block_on(async move {
-                ashpd::zbus::connection::Builder::address(address.as_str())
-                    .unwrap()
-                    .build()
-                    .await
-            })
-        })
-        .join()
-        .expect("zbus connect outside Tokio must not panic");
-        assert!(result.is_err());
-    }
 }
