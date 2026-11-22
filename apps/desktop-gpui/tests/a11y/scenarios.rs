@@ -679,13 +679,29 @@ fn refused_startup_exposes_support_links_copy_details_and_quit() {
     tree.find(Role::Heading, "Anarlog can't open your notes yet");
     assert_named(&tree, "startup-refused");
 
+    // Keyboard navigation from initial refusal focus reaches every control in order.
+    app.keys(&["tab"]);
+    assert_eq!(app.tree().focused().label(), "Email team@fastrepl.com");
+    app.keys(&["tab"]);
+    assert_eq!(app.tree().focused().label(), "Discord (anarlog.so/discord)");
+    app.keys(&["tab"]);
+    assert_eq!(app.tree().focused().label(), "Copy details");
+    app.keys(&["tab"]);
+    assert_eq!(app.tree().focused().label(), "Quit");
+    app.keys(&["shift-tab"]);
+    assert_eq!(app.tree().focused().label(), "Copy details");
+
+    let tree = app.tree();
     let email = tree.find(Role::Link, "Email team@fastrepl.com");
     assert!(email.clickable(), "{}", tree.outline());
     app.press(email.id);
+    assert_eq!(app.tree().focused().label(), "Email team@fastrepl.com");
 
+    let tree = app.tree();
     let discord = tree.find(Role::Link, "Discord (anarlog.so/discord)");
     assert!(discord.clickable(), "{}", tree.outline());
     app.press(discord.id);
+    assert_eq!(app.tree().focused().label(), "Discord (anarlog.so/discord)");
 
     assert_eq!(
         app.platform.opened_urls.borrow().as_slice(),
@@ -695,16 +711,18 @@ fn refused_startup_exposes_support_links_copy_details_and_quit() {
         ]
     );
 
-    app.keys(&["tab", "tab", "tab"]);
+    app.keys(&["tab", "tab"]);
     let tree = app.tree();
-    assert_eq!(tree.focused().label(), "Copy details", "{}", tree.outline());
+    assert_eq!(tree.focused().label(), "Quit", "{}", tree.outline());
 
-    app.keys(&["tab"]);
-    assert_eq!(app.tree().focused().label(), "Quit");
-    app.keys(&["shift-tab"]);
-    assert_eq!(app.tree().focused().label(), "Copy details");
+    app.click(tree.find(Role::Button, "Copy details"));
+    assert!(!app.platform.quit.get());
+    assert_eq!(app.tree().focused().label(), "Copied details");
 
+    app.app
+        .update(|cx| cx.write_to_clipboard(gpui::ClipboardItem::new_string(String::new())));
     app.key_press("enter");
+    assert!(!app.platform.quit.get());
 
     let copied = app
         .app

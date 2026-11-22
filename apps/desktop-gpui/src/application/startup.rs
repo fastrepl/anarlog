@@ -239,6 +239,7 @@ fn support_link(
     window: &Window,
     colors: &Theme,
 ) -> gpui::Stateful<Div> {
+    let click_focus = focus.clone();
     div()
         .id(id)
         .track_focus(focus)
@@ -253,7 +254,10 @@ fn support_link(
         .underline()
         .cursor_pointer()
         .text_color(colors.foreground)
-        .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+        .on_mouse_down(MouseButton::Left, move |_, window, cx| {
+            click_focus.focus(window, cx);
+            cx.stop_propagation();
+        })
         .on_click(move |_, _, cx| cx.open_url(url))
         .child(text)
 }
@@ -335,6 +339,8 @@ pub fn gate(window: &mut Window, cx: &mut App) -> Option<Div> {
                     )
                     .when_some(refusal, |view, refusal| {
                         let copy_text = refusal.copy_text;
+                        let copy_focus = focus.copy_details.clone();
+                        let quit_focus = focus.quit.clone();
                         let copy_label = if copied {
                             "Copied details"
                         } else {
@@ -416,8 +422,9 @@ pub fn gate(window: &mut Window, cx: &mut App) -> Option<Div> {
                                         .font_weight(MEDIUM)
                                         .cursor_pointer()
                                         .hover(|style| style.bg(colors.accent))
-                                        .on_mouse_down(MouseButton::Left, |_, _, cx| {
-                                            cx.stop_propagation()
+                                        .on_mouse_down(MouseButton::Left, move |_, window, cx| {
+                                            copy_focus.focus(window, cx);
+                                            cx.stop_propagation();
                                         })
                                         .on_click(move |_, _, cx| {
                                             cx.write_to_clipboard(ClipboardItem::new_string(
@@ -450,8 +457,9 @@ pub fn gate(window: &mut Window, cx: &mut App) -> Option<Div> {
                                         .font_weight(MEDIUM)
                                         .cursor_pointer()
                                         .hover(|style| style.bg(colors.primary.opacity(0.9)))
-                                        .on_mouse_down(MouseButton::Left, |_, _, cx| {
-                                            cx.stop_propagation()
+                                        .on_mouse_down(MouseButton::Left, move |_, window, cx| {
+                                            quit_focus.focus(window, cx);
+                                            cx.stop_propagation();
                                         })
                                         .on_click(|_, _, cx| cx.quit())
                                         .child("Quit"),

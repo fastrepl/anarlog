@@ -219,6 +219,42 @@ impl Harness {
         self.settle();
     }
 
+    pub fn click(&self, node: tree::Node<'_>) {
+        let rect = node.raw().bounds().expect("clickable node bounds");
+        let position = point(
+            px(((rect.x0 + rect.x1) / 2.0) as f32),
+            px(((rect.y0 + rect.y1) / 2.0) as f32),
+        );
+        let window: AnyWindowHandle = self.window.into();
+        self.app.update(|cx| {
+            cx.update_window(window, |_, window, cx| {
+                window.draw(cx).clear(cx);
+                window.dispatch_event(
+                    gpui::PlatformInput::MouseDown(gpui::MouseDownEvent {
+                        button: gpui::MouseButton::Left,
+                        position,
+                        modifiers: gpui::Modifiers::default(),
+                        click_count: 1,
+                        first_mouse: false,
+                    }),
+                    cx,
+                );
+                window.dispatch_event(
+                    gpui::PlatformInput::MouseUp(gpui::MouseUpEvent {
+                        button: gpui::MouseButton::Left,
+                        position,
+                        modifiers: gpui::Modifiers::default(),
+                        click_count: 1,
+                    }),
+                    cx,
+                );
+            })
+            .unwrap()
+        });
+        self.platform.dispatcher.run_until_parked();
+        self.settle();
+    }
+
     pub fn keys(&self, keys: &[&'static str]) {
         let window: AnyWindowHandle = self.window.into();
         for key in keys {
