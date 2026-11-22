@@ -150,7 +150,13 @@ pub async fn mirror_local_storage<R: tauri::Runtime>(
     tauri::async_runtime::spawn_blocking(move || storage.write(entries))
         .await
         .map_err(|error| error.to_string())?
-        .map_err(|error| error.to_string())
+        .map_err(|error| error.to_string())?;
+    #[cfg(not(feature = "app-store"))]
+    {
+        use tauri_plugin_updater2::Updater2PluginExt;
+        app.updater2().mark_webview_storage_mirrored();
+    }
+    Ok(())
 }
 
 #[tauri::command]

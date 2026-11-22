@@ -53,3 +53,34 @@ it("never lands an older pending-delete snapshot after a newer one", async () =>
     { [PENDING_KEY]: '{"upserts":[],"deletes":["a","b"]}' },
   ]);
 });
+
+it("mirrors immediately at startup while still debouncing later changes", async () => {
+  const { mirrorLocalStorage, startLocalStorageMirror } =
+    await import("./local-storage-mirror");
+  mocks.mirrorLocalStorage.mockResolvedValue({ status: "ok", data: null });
+
+  try {
+    localStorage.setItem(PENDING_KEY, '{"upserts":[],"deletes":["a"]}');
+    startLocalStorageMirror();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(mocks.mirrorLocalStorage).toHaveBeenCalledTimes(1);
+
+    localStorage.setItem(PENDING_KEY, '{"upserts":[],"deletes":["a","b"]}');
+    mirrorLocalStorage();
+    localStorage.setItem(PENDING_KEY, '{"upserts":[],"deletes":["a","b","c"]}');
+    mirrorLocalStorage();
+    await vi.advanceTimersByTimeAsync(999);
+    expect(mocks.mirrorLocalStorage).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(mocks.mirrorLocalStorage).toHaveBeenCalledTimes(2);
+    expect(
+      mocks.mirrorLocalStorage.mock.calls.map(([entries]) => entries),
+    ).toEqual([
+      { [PENDING_KEY]: '{"upserts":[],"deletes":["a"]}' },
+      { [PENDING_KEY]: '{"upserts":[],"deletes":["a","b","c"]}' },
+    ]);
+  } finally {
+    window.removeEventListener("storage", mirrorLocalStorage);
+  }
+});

@@ -36,6 +36,10 @@ pub enum Error {
     DebInstall(String),
     #[error("failed to schedule installed app launch at {path}: {details}")]
     FailedToScheduleInstalledAppLaunch { path: String, details: String },
+    #[error(
+        "Updates are paused until your notes finish moving from your custom folder ({0}). Restart Anarlog to retry moving them, or contact support if this keeps happening."
+    )]
+    UnfinishedVaultMove(String),
 }
 
 impl Serialize for Error {

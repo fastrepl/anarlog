@@ -30,7 +30,7 @@ export function flushLocalStorageMirror(): Promise<void> {
 // the file ends with the latest entries even when two windows' writes race.
 export function startLocalStorageMirror(): void {
   window.addEventListener("storage", mirrorLocalStorage);
-  mirrorLocalStorage();
+  void write();
 }
 
 // One write at a time, each reading the entries when it starts, so an older

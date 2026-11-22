@@ -17803,6 +17803,7 @@ dependencies = [
 name = "tauri-plugin-updater2"
 version = "0.1.0"
 dependencies = [
+ "desktop-identity",
  "semver",
  "serde",
  "serde_json",

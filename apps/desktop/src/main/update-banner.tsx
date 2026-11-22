@@ -9,6 +9,7 @@ import {
 import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 import { isAppStoreBuild } from "~/shared/app-store";
+import { flushLocalStorageMirror } from "~/shared/local-storage-mirror";
 import { useDevtoolsOtaPreview } from "~/store/zustand/devtools-ota-preview";
 
 type UpdateBannerStatus = "available" | "downloading" | "ready" | "failed";
@@ -274,6 +275,7 @@ export function useDesktopUpdateControl(): DesktopUpdateControl {
 
   const { mutate: installUpdate, isPending: installing } = useMutation({
     mutationFn: async (version: string) => {
+      await flushLocalStorageMirror();
       unwrapResult(await updaterCommands.installAndRelaunch(version));
     },
     onError: (error, version) => {
