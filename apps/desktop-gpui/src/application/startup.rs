@@ -9,7 +9,8 @@ use anlg_desktop_identity::vault::UnfinishedMove;
 use desktop_runtime::{RuntimeHandle, RuntimeState, StartupStatus};
 use futures::{FutureExt, future::select};
 use gpui::{
-    App, ClipboardItem, Div, Global, MouseButton, SharedString, Window, div, prelude::*, px,
+    App, ClipboardItem, Div, FocusHandle, Global, KeyDownEvent, MouseButton, SharedString, Window,
+    div, prelude::*, px,
 };
 
 use crate::{
@@ -26,10 +27,44 @@ const NEEDS_UPDATE: &str = "Your data was updated by a newer version of Anarlog,
 const SUPPORT_EMAIL: &str = "team@fastrepl.com";
 const SUPPORT_DISCORD_URL: &str = "https://anarlog.so/discord";
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
+struct RefusalFocus {
+    gate: FocusHandle,
+    email: FocusHandle,
+    discord: FocusHandle,
+    copy_details: FocusHandle,
+    quit: FocusHandle,
+}
+
+impl RefusalFocus {
+    fn new(cx: &App) -> Self {
+        Self {
+            gate: cx.focus_handle().tab_stop(false).tab_index(0),
+            email: cx.focus_handle().tab_stop(true).tab_index(1),
+            discord: cx.focus_handle().tab_stop(true).tab_index(2),
+            copy_details: cx.focus_handle().tab_stop(true).tab_index(3),
+            quit: cx.focus_handle().tab_stop(true).tab_index(4),
+        }
+    }
+
+    fn contains_window_focus(&self, window: &Window) -> bool {
+        [
+            &self.gate,
+            &self.email,
+            &self.discord,
+            &self.copy_details,
+            &self.quit,
+        ]
+        .into_iter()
+        .any(|handle| handle.is_focused(window))
+    }
+}
+
+#[derive(Clone)]
 pub struct StartupGate {
     notice: Option<Notice>,
     copied: bool,
+    focus: RefusalFocus,
 }
 
 impl Global for StartupGate {}
@@ -51,7 +86,11 @@ struct Refusal {
 
 /// Follows the runtime's startup; observe [`StartupGate`] to redraw.
 pub fn install(runtime: &RuntimeHandle, cx: &mut App) {
-    cx.set_global(StartupGate::default());
+    cx.set_global(StartupGate {
+        notice: None,
+        copied: false,
+        focus: RefusalFocus::new(cx),
+    });
     let mut state = runtime.state();
     let mut status = runtime.startup();
     cx.spawn(async move |cx| {
@@ -65,10 +104,15 @@ pub fn install(runtime: &RuntimeHandle, cx: &mut App) {
                 )
             };
             cx.update(|cx| {
-                let copied = cx
+                let (copied, focus) = cx
                     .try_global::<StartupGate>()
-                    .is_some_and(|gate| gate.notice == notice && gate.copied);
-                cx.set_global(StartupGate { notice, copied });
+                    .map(|gate| (gate.notice == notice && gate.copied, gate.focus.clone()))
+                    .unwrap_or_else(|| (false, RefusalFocus::new(cx)));
+                cx.set_global(StartupGate {
+                    notice,
+                    copied,
+                    focus,
+                });
             });
             if !starting {
                 return;
@@ -191,11 +235,21 @@ fn support_link(
     label: &'static str,
     text: &'static str,
     url: &'static str,
+    focus: &FocusHandle,
+    window: &Window,
     colors: &Theme,
 ) -> gpui::Stateful<Div> {
     div()
         .id(id)
+        .track_focus(focus)
         .a11y_link(label)
+        .px_1()
+        .border_1()
+        .border_color(if focus.is_focused(window) {
+            colors.ring
+        } else {
+            colors.background
+        })
         .underline()
         .cursor_pointer()
         .text_color(colors.foreground)
@@ -204,7 +258,7 @@ fn support_link(
         .child(text)
 }
 
-pub fn gate(window: &Window, cx: &App) -> Option<Div> {
+pub fn gate(window: &mut Window, cx: &mut App) -> Option<Div> {
     let gate = cx.try_global::<StartupGate>()?;
     let notice = gate.notice.as_ref()?;
     let colors = theme(window);
@@ -216,6 +270,10 @@ pub fn gate(window: &Window, cx: &App) -> Option<Div> {
         (None, _) => unreachable!(),
     };
     let copied = gate.copied;
+    let focus = gate.focus.clone();
+    if refusal.is_some() && !focus.contains_window_focus(window) {
+        window.focus(&focus.gate, cx);
+    }
     Some(
         div()
             .size_full()
@@ -228,6 +286,27 @@ pub fn gate(window: &Window, cx: &App) -> Option<Div> {
             .on_mouse_down(MouseButton::Left, |_, window, _| window.start_window_move())
             .child(
                 div()
+                    .id("startup-gate")
+                    .when_some(refusal.as_ref().map(|r| r.title), |view, title| {
+                        view.a11y_group(gpui::Role::Region, title)
+                            .track_focus(&focus.gate)
+                    })
+                    .capture_key_down(|event: &KeyDownEvent, window, cx| {
+                        let stroke = &event.keystroke;
+                        if stroke.key == "tab"
+                            && !stroke.modifiers.control
+                            && !stroke.modifiers.alt
+                            && !stroke.modifiers.platform
+                            && !stroke.modifiers.function
+                        {
+                            if stroke.modifiers.shift {
+                                window.focus_prev(cx);
+                            } else {
+                                window.focus_next(cx);
+                            }
+                            cx.stop_propagation();
+                        }
+                    })
                     .max_w(px(460.))
                     .px_6()
                     .flex()
@@ -294,6 +373,8 @@ pub fn gate(window: &Window, cx: &App) -> Option<Div> {
                                     "Email team@fastrepl.com",
                                     SUPPORT_EMAIL,
                                     refusal.email_url,
+                                    &focus.email,
+                                    window,
                                     &colors,
                                 ))
                                 .child(support_link(
@@ -301,6 +382,8 @@ pub fn gate(window: &Window, cx: &App) -> Option<Div> {
                                     "Discord (anarlog.so/discord)",
                                     SUPPORT_DISCORD_URL,
                                     SUPPORT_DISCORD_URL,
+                                    &focus.discord,
+                                    window,
                                     &colors,
                                 )),
                         )
@@ -314,6 +397,7 @@ pub fn gate(window: &Window, cx: &App) -> Option<Div> {
                                 .child(
                                     div()
                                         .id("startup-copy-details")
+                                        .track_focus(&focus.copy_details)
                                         .a11y_button(copy_label)
                                         .h(px(36.))
                                         .px_4()
@@ -321,7 +405,11 @@ pub fn gate(window: &Window, cx: &App) -> Option<Div> {
                                         .items_center()
                                         .justify_center()
                                         .border_1()
-                                        .border_color(colors.border)
+                                        .border_color(if focus.copy_details.is_focused(window) {
+                                            colors.ring
+                                        } else {
+                                            colors.border
+                                        })
                                         .bg(colors.secondary)
                                         .text_color(colors.secondary_foreground)
                                         .text_sm()
@@ -342,12 +430,19 @@ pub fn gate(window: &Window, cx: &App) -> Option<Div> {
                                 .child(
                                     div()
                                         .id("startup-quit")
+                                        .track_focus(&focus.quit)
                                         .a11y_button("Quit")
                                         .h(px(36.))
                                         .px_4()
                                         .flex()
                                         .items_center()
                                         .justify_center()
+                                        .border_1()
+                                        .border_color(if focus.quit.is_focused(window) {
+                                            colors.ring
+                                        } else {
+                                            colors.primary
+                                        })
                                         .bg(colors.primary)
                                         .text_color(colors.primary_foreground)
                                         .shadow_xs()

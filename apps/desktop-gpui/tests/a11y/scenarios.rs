@@ -687,9 +687,24 @@ fn refused_startup_exposes_support_links_copy_details_and_quit() {
     assert!(discord.clickable(), "{}", tree.outline());
     app.press(discord.id);
 
-    let copy = tree.find(Role::Button, "Copy details");
-    assert!(copy.clickable(), "{}", tree.outline());
-    app.press(copy.id);
+    assert_eq!(
+        app.platform.opened_urls.borrow().as_slice(),
+        [
+            "mailto:team@fastrepl.com?subject=Anarlog%20storage%20move%20help",
+            "https://anarlog.so/discord",
+        ]
+    );
+
+    app.keys(&["tab", "tab", "tab"]);
+    let tree = app.tree();
+    assert_eq!(tree.focused().label(), "Copy details", "{}", tree.outline());
+
+    app.keys(&["tab"]);
+    assert_eq!(app.tree().focused().label(), "Quit");
+    app.keys(&["shift-tab"]);
+    assert_eq!(app.tree().focused().label(), "Copy details");
+
+    app.key_press("enter");
 
     let copied = app
         .app
@@ -705,9 +720,12 @@ fn refused_startup_exposes_support_links_copy_details_and_quit() {
     assert!(tree.find(Role::Button, "Copied details").clickable());
     tree.find(Role::Status, "Details copied to clipboard");
 
+    app.keys(&["tab"]);
+    let tree = app.tree();
     let quit = tree.find(Role::Button, "Quit");
     assert!(quit.clickable(), "{}", tree.outline());
+    assert_eq!(tree.focused().label(), "Quit", "{}", tree.outline());
     assert!(!app.platform.quit.get());
-    app.press(quit.id);
+    app.key_press("enter");
     assert!(app.platform.quit.get());
 }

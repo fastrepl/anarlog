@@ -22,6 +22,7 @@ import platform
 import plistlib
 import shlex
 import shutil
+import stat
 import struct
 import subprocess
 import sys
@@ -519,7 +520,15 @@ def verify_linux_appimage(config, args, appimage, checks):
         root = extract_appimage(appimage, Path(directory), args.target, checks)
         if root is None:
             return
-        checks.expect((root / "AppRun").exists(), f"Missing AppRun in {appimage.name}")
+        apprun = root / "AppRun"
+        checks.expect(
+            apprun.is_file(), f"Missing AppRun launcher file in {appimage.name}"
+        )
+        if apprun.is_file() and os.name != "nt":
+            checks.expect(
+                bool(stat.S_IMODE(apprun.stat().st_mode) & 0o111),
+                f"AppRun in {appimage.name} is not executable",
+            )
         verify_linux_layout(root, product, exe, config, f" in {appimage.name}", checks)
         binary = root / "usr/bin" / exe
         if can_run_linux_target(args.target):

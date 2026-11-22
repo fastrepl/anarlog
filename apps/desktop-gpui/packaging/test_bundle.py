@@ -65,9 +65,16 @@ def write_fake_appdir_contents(
     marker: bytes = b"__TAURI_BUNDLE_TYPE_VAR_APP",
     include_sidecar: bool = True,
     include_resource: bool = True,
+    apprun_mode: int = 0o755,
+    apprun_is_dir: bool = False,
 ):
     root.mkdir(parents=True, exist_ok=True)
-    (root / "AppRun").write_text("#!/bin/sh\nexit 0\n")
+    apprun = root / "AppRun"
+    if apprun_is_dir:
+        apprun.mkdir(parents=True, exist_ok=True)
+    else:
+        apprun.write_text("#!/bin/sh\nexit 0\n")
+        apprun.chmod(apprun_mode)
     usr_bin = root / "usr/bin"
     usr_bin.mkdir(parents=True, exist_ok=True)
     binary = usr_bin / exe
@@ -103,6 +110,8 @@ def write_self_extracting_appimage(
     bundle_type: str | None = "AppImage",
     include_sidecar: bool = True,
     include_resource: bool = True,
+    apprun_mode: int = 0o755,
+    apprun_is_dir: bool = False,
 ):
     payload_dir = path.parent / "_payload_src"
     payload_dir.mkdir(parents=True, exist_ok=True)
@@ -115,6 +124,8 @@ def write_self_extracting_appimage(
         bundle_type=bundle_type,
         include_sidecar=include_sidecar,
         include_resource=include_resource,
+        apprun_mode=apprun_mode,
+        apprun_is_dir=apprun_is_dir,
     )
     script = f"""#!/usr/bin/env python3
 import os, shutil, sys
@@ -329,6 +340,48 @@ shutil.copytree({str(payload_dir)!r}, dest)
                             ),
                             checks.failures,
                         )
+
+    def test_rejects_non_executable_or_directory_apprun(self):
+        for label, kwargs, expected_fragment in [
+            ("non_executable", {"apprun_mode": 0o644}, "not executable"),
+            (
+                "directory",
+                {"apprun_is_dir": True},
+                "Missing AppRun launcher file",
+            ),
+        ]:
+            with self.subTest(case=label):
+                with tempfile.TemporaryDirectory() as tmp:
+                    bundle_dir = Path(tmp) / "bundle"
+                    appimage_dir = bundle_dir / "appimage"
+                    appimage_dir.mkdir(parents=True)
+                    appimage = appimage_dir / "Anarlog Staging_1.5.0_amd64.AppImage"
+                    write_self_extracting_appimage(
+                        appimage,
+                        product="Anarlog Staging",
+                        exe="anarlog-staging",
+                        channel="staging",
+                        version="1.5.0",
+                        bundle_type="AppImage",
+                        **kwargs,
+                    )
+
+                    checks = bundle.Checks()
+                    with mock.patch.object(
+                        bundle, "can_run_linux_target", return_value=True
+                    ):
+                        bundle.verify_linux(
+                            make_config(),
+                            make_args(bundle_dir),
+                            checks,
+                        )
+
+                    self.assertTrue(
+                        any(
+                            expected_fragment in failure for failure in checks.failures
+                        ),
+                        checks.failures,
+                    )
 
 
 if __name__ == "__main__":
