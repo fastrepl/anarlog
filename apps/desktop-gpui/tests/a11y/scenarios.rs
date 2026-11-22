@@ -679,7 +679,6 @@ fn refused_startup_exposes_support_links_copy_details_and_quit() {
     tree.find(Role::Heading, "Anarlog can't open your notes yet");
     assert_named(&tree, "startup-refused");
 
-    // Keyboard navigation from initial refusal focus reaches every control in order.
     app.keys(&["tab"]);
     assert_eq!(app.tree().focused().label(), "Email team@fastrepl.com");
     app.keys(&["tab"]);
@@ -715,7 +714,7 @@ fn refused_startup_exposes_support_links_copy_details_and_quit() {
     let tree = app.tree();
     assert_eq!(tree.focused().label(), "Quit", "{}", tree.outline());
 
-    app.click(tree.find(Role::Button, "Copy details"));
+    app.press(tree.find(Role::Button, "Copy details").id);
     assert!(!app.platform.quit.get());
     assert_eq!(app.tree().focused().label(), "Copied details");
 
