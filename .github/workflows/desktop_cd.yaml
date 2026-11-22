@@ -73,6 +73,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
+      candidate_sha: ${{ steps.version.outputs.candidate_sha }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -114,8 +115,10 @@ jobs:
           elif [[ "$RELEASE_CHANNEL" == "staging" ]]; then
             VERSION=$(doxxer --config doxxer.desktop.toml next dev)
           fi
+          CANDIDATE_SHA=$(git rev-parse HEAD)
+          echo "candidate_sha=$CANDIDATE_SHA" >> $GITHUB_OUTPUT
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Computed version: $VERSION"
+          echo "Computed version: $VERSION (commit $CANDIDATE_SHA)"
 
   cn-draft:
     if: ${{ inputs.app != 'gpui' && inputs.channel != 'staging' }}
@@ -912,7 +915,7 @@ jobs:
     uses: $/.github/workflows/desktop_cd_gpui.yaml
     with:
       channel: ${{ inputs.channel }}
-      candidate_sha: ${{ inputs.candidate_sha || github.sha }}
+      candidate_sha: ${{ needs.compute-version.outputs.candidate_sha }}
       version: ${{ needs.compute-version.outputs.version }}
       include_linux: ${{ inputs.include_linux }}
       include_windows: ${{ inputs.include_windows }}

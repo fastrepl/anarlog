@@ -391,6 +391,22 @@ jobs:
           VITE_API_URL: https://api.anarlog.so
           VITE_APP_VERSION: ${{ inputs.version }}
         run: cargo build --locked --release --target "$TARGET"
+      # Tauri's bundler rewrites this marker before NSIS embeds the app even with --no-sign, which
+      # would invalidate a prior Authenticode signature. Stamp NSIS before signing so Tauri leaves
+      # the signed binary untouched.
+      - shell: bash
+        run: |
+          python -c '
+          from pathlib import Path
+          import sys
+          path = Path(sys.argv[1])
+          data = path.read_bytes()
+          old, new = b"__TAURI_BUNDLE_TYPE_VAR_UNK", b"__TAURI_BUNDLE_TYPE_VAR_NSS"
+          count = data.count(old)
+          if count != 1:
+              raise SystemExit(f"Expected 1 bundle-type marker in {path}, found {count}")
+          path.write_bytes(data.replace(old, new, 1))
+          ' "apps/desktop-gpui/target/$TARGET/release/desktop-gpui.exe"
       - if: ${{ inputs.channel != 'staging' }}
         uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3
         with:
@@ -492,11 +508,25 @@ jobs:
             throw "Packaged Windows CLI verification failed"
           }
 
-          # Stable checks what the installer put down, after the bundler patched the binary.
+          $installedApp = Join-Path $installRoot "$env:APP_BINARY.exe"
+          $reportRaw = & $installedApp --print-package
+          if ($LASTEXITCODE -ne 0) {
+            throw "Installed Windows app --print-package failed with exit code $LASTEXITCODE"
+          }
+          $report = ($reportRaw -join "`n") | ConvertFrom-Json
+          if (
+            $report.channel -ne $env:RELEASE_CHANNEL -or
+            $report.version -ne $env:APP_VERSION -or
+            $report.bundle_type -ne "Nsis"
+          ) {
+            throw "Unexpected installed Windows package report: $($report | ConvertTo-Json -Compress)"
+          }
+
+          # Stable checks what the installer put down, verifying the pre-patched app stayed validly signed.
           if ($env:RELEASE_CHANNEL -ne "staging") {
             $signedFiles = @(
               $env:INSTALLER_PATH,
-              (Join-Path $installRoot "$env:APP_BINARY.exe"),
+              $installedApp,
               (Join-Path $installRoot "anarlog-cli.exe")
             )
             foreach ($signedFile in $signedFiles) {
@@ -541,6 +571,10 @@ jobs:
       - env:
           CANDIDATE_SHA: ${{ inputs.candidate_sha }}
         run: |
+          if [[ ! "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::Expected a 40-character lowercase candidate commit SHA, got '$CANDIDATE_SHA'"
+            exit 1
+          fi
           mkdir -p provenance
           (cd artifacts && find . -type f | sort) | while read -r file; do
             path="artifacts/${file#./}"
