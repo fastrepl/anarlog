@@ -345,10 +345,7 @@ jobs:
                 ;;
               draft)
                 PUBLISH_NEEDED="true"
-                ASSET_COUNT=$(jq '(.assets // []) | length' "$RELEASE_FILE")
-                if [[ "$ASSET_COUNT" -eq 0 ]]; then
-                  UPLOAD_NEEDED="true"
-                fi
+                UPLOAD_NEEDED="true"
                 ;;
               *)
                 echo "::error::Unexpected CrabNebula release status: $STATUS"
@@ -361,6 +358,7 @@ jobs:
               "$CN_CLI" release draft "$CN_APPLICATION" "$VERSION" --channel "$CHANNEL"
               UPLOAD_NEEDED="true"
               PUBLISH_NEEDED="true"
+              : > "$RELEASE_FILE"
             else
               echo "::error::Failed to inspect CrabNebula release $CN_APPLICATION $VERSION"
               exit 1
@@ -368,12 +366,41 @@ jobs:
           fi
 
           if [[ "$UPLOAD_NEEDED" == "true" ]]; then
+            EXISTING_ASSETS='[]'
+            if [[ -s "$RELEASE_FILE" ]]; then
+              EXISTING_ASSETS=$(jq -c '.assets // []' "$RELEASE_FILE")
+            fi
+            UPLOADED_ANY="false"
+
             upload_count=$(jq '.uploads | length' "$PLAN_FILE")
             for ((index = 0; index < upload_count; index += 1)); do
               file=$(jq -er ".uploads[$index].file" "$PLAN_FILE")
               public_platform=$(jq -r ".uploads[$index].publicPlatform // empty" "$PLAN_FILE")
               update_platform=$(jq -r ".uploads[$index].updatePlatform // empty" "$PLAN_FILE")
               signature_file=$(jq -r ".uploads[$index].signatureFile // empty" "$PLAN_FILE")
+              expected_size=$(jq -er ".uploads[$index].size" "$PLAN_FILE")
+              expected_signature=$(jq -r ".uploads[$index].signature // empty" "$PLAN_FILE")
+
+              matching_assets=$(jq -c \
+                --arg public_platform "$public_platform" \
+                --arg update_platform "$update_platform" \
+                '[.[] | select((.publicPlatform // "") == $public_platform and (.updatePlatform // "") == $update_platform)]' \
+                <<< "$EXISTING_ASSETS")
+              match_count=$(jq 'length' <<< "$matching_assets")
+              if [[ "$match_count" -gt 1 ]]; then
+                echo "::error::Existing draft has duplicate assets for ($public_platform, $update_platform)"
+                exit 1
+              elif [[ "$match_count" -eq 1 ]]; then
+                if jq -e \
+                  --argjson expected_size "$expected_size" \
+                  --arg expected_signature "$expected_signature" \
+                  '.[0] | (((.size // 0) | tonumber) == $expected_size and (.signature // "") == $expected_signature)' \
+                  <<< "$matching_assets" > /dev/null; then
+                  continue
+                fi
+                echo "::error::Existing draft asset for ($public_platform, $update_platform) does not match verified provenance"
+                exit 1
+              fi
 
               upload_args=(
                 release upload "$CN_APPLICATION" "$VERSION"
@@ -391,9 +418,12 @@ jobs:
               fi
 
               "$CN_CLI" "${upload_args[@]}"
+              UPLOADED_ANY="true"
             done
 
-            "$CN_CLI" release show "$CN_APPLICATION" "$VERSION" --channel "$CHANNEL" > "$RELEASE_FILE"
+            if [[ "$UPLOADED_ANY" == "true" || ! -s "$RELEASE_FILE" ]]; then
+              "$CN_CLI" release show "$CN_APPLICATION" "$VERSION" --channel "$CHANNEL" > "$RELEASE_FILE"
+            fi
           fi
 
           echo "publish_needed=$PUBLISH_NEEDED" >> "$GITHUB_OUTPUT"
@@ -496,8 +526,7 @@ jobs:
             echo "::error::Expected published status after release publish, got '$PUBLISHED_STATUS'"
             exit 1
           fi
-      - name: Summarize publication
-        env:
+      - env:
           CANDIDATE_SHA: ${{ needs.parse.outputs.candidate_sha }}
           CHANNEL: ${{ needs.parse.outputs.channel }}
           CN_APPLICATION: ${{ needs.parse.outputs.cn_application }}

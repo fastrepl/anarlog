@@ -1122,3 +1122,193 @@ test("GPUI stable publish workflow enforces bridge-gate cutover safety and relea
     );
   }
 });
+
+test("GPUI stable publish upload step resumes partial drafts and rejects mismatched draft assets", async (t) => {
+  const workflow = await readFile(
+    ".github/workflows/desktop_publish_gpui.yaml",
+    "utf8",
+  );
+  const uploadBlock = workflow.slice(
+    workflow.indexOf("      - id: upload\n"),
+    workflow.indexOf(
+      "\n      - name: Verify CrabNebula release assets and platforms\n",
+    ),
+  );
+  const runMatch = uploadBlock.match(/        run: \|\n([\s\S]+)$/);
+  assert.ok(runMatch, "missing upload script");
+  const uploadScript = runMatch[1].replace(/^          /gm, "");
+
+  const scratchDir = await mkdtemp(path.join(os.tmpdir(), "gpui-upload-"));
+  t.after(() => rm(scratchDir, { recursive: true, force: true }));
+
+  const cnStub = path.join(scratchDir, "cn");
+  await writeFile(
+    cnStub,
+    `#!/usr/bin/env bash
+set -euo pipefail
+cmd="$1 $2"
+if [[ "$cmd" == "release show" ]]; then
+  echo "show" >> "$CN_SHOW_LOG"
+  if [[ -s "$CN_UPLOAD_LOG" && -n "\${CN_SHOW_AFTER:-}" ]]; then
+    printf '%s' "$CN_SHOW_AFTER"
+  else
+    printf '%s' "$CN_SHOW_BEFORE"
+  fi
+  exit 0
+elif [[ "$cmd" == "release upload" ]]; then
+  printf '%s\\n' "$*" >> "$CN_UPLOAD_LOG"
+  exit 0
+fi
+echo "unexpected command: $*" >&2
+exit 1
+`,
+  );
+  await chmod(cnStub, 0o755);
+
+  const plan = {
+    uploads: [
+      {
+        file: path.join(scratchDir, "Anarlog_1.4.0_aarch64.dmg"),
+        publicPlatform: "dmg-aarch64",
+        updatePlatform: null,
+        signatureFile: null,
+        size: 10,
+        signature: null,
+      },
+      {
+        file: path.join(scratchDir, "Anarlog.app.tar.gz"),
+        publicPlatform: null,
+        updatePlatform: "darwin-aarch64",
+        signatureFile: path.join(scratchDir, "Anarlog.app.tar.gz.sig"),
+        size: 20,
+        signature: "sig-20",
+      },
+    ],
+  };
+
+  const runUpload = async (caseName, showBefore, showAfter = "") => {
+    const caseDir = path.join(scratchDir, caseName);
+    await mkdir(caseDir, { recursive: true });
+    await writeFile(
+      path.join(caseDir, "gpui-upload-plan.json"),
+      JSON.stringify(plan),
+    );
+    const githubOutput = path.join(caseDir, "github-output");
+    const showLog = path.join(caseDir, "show.log");
+    const uploadLog = path.join(caseDir, "upload.log");
+    const result = spawnSync("bash", ["-e", "-c", uploadScript], {
+      encoding: "utf8",
+      env: {
+        PATH: process.env.PATH,
+        RUNNER_TEMP: caseDir,
+        GITHUB_OUTPUT: githubOutput,
+        CHANNEL: "stable",
+        CN_API_KEY: "test-key",
+        CN_APPLICATION: "fastrepl/anarlog-gpui",
+        CN_CLI: cnStub,
+        VERSION: "1.4.0",
+        CN_SHOW_BEFORE: JSON.stringify(showBefore),
+        CN_SHOW_AFTER: showAfter ? JSON.stringify(showAfter) : "",
+        CN_SHOW_LOG: showLog,
+        CN_UPLOAD_LOG: uploadLog,
+      },
+    });
+    return { result, githubOutput, showLog, uploadLog };
+  };
+
+  // Partial draft with 1 matching asset uploads only the missing asset.
+  const partialBefore = {
+    version: "1.4.0",
+    status: "draft",
+    assets: [
+      {
+        id: "asset-dmg",
+        publicPlatform: "dmg-aarch64",
+        updatePlatform: null,
+        size: 10,
+        signature: null,
+      },
+    ],
+  };
+  const partialAfter = {
+    version: "1.4.0",
+    status: "draft",
+    assets: [
+      ...partialBefore.assets,
+      {
+        id: "asset-upd",
+        publicPlatform: null,
+        updatePlatform: "darwin-aarch64",
+        size: 20,
+        signature: "sig-20",
+      },
+    ],
+  };
+  const partial = await runUpload("partial", partialBefore, partialAfter);
+  assert.equal(
+    partial.result.status,
+    0,
+    partial.result.stdout + partial.result.stderr,
+  );
+  const uploads = (await readFile(partial.uploadLog, "utf8"))
+    .trim()
+    .split("\n");
+  assert.equal(uploads.length, 1);
+  assert.match(uploads[0], /--update-platform darwin-aarch64/);
+  assert.doesNotMatch(uploads[0], /dmg-aarch64/);
+  const shows = (await readFile(partial.showLog, "utf8")).trim().split("\n");
+  assert.equal(shows.length, 2);
+  assert.match(
+    await readFile(partial.githubOutput, "utf8"),
+    /^publish_needed=true$/m,
+  );
+
+  // Mismatched size in existing draft fails closed without uploading.
+  const mismatch = await runUpload("mismatch", {
+    version: "1.4.0",
+    status: "draft",
+    assets: [
+      {
+        id: "asset-dmg",
+        publicPlatform: "dmg-aarch64",
+        updatePlatform: null,
+        size: 999,
+        signature: null,
+      },
+    ],
+  });
+  assert.notEqual(mismatch.result.status, 0);
+  assert.match(
+    mismatch.result.stdout + mismatch.result.stderr,
+    /does not match verified provenance/,
+  );
+  await assert.rejects(readFile(mismatch.uploadLog), { code: "ENOENT" });
+
+  // Duplicate existing assets for one platform fail closed without uploading.
+  const duplicate = await runUpload("duplicate", {
+    version: "1.4.0",
+    status: "draft",
+    assets: [
+      {
+        id: "asset-dmg-1",
+        publicPlatform: "dmg-aarch64",
+        updatePlatform: null,
+        size: 10,
+        signature: null,
+      },
+      {
+        id: "asset-dmg-2",
+        publicPlatform: "dmg-aarch64",
+        updatePlatform: null,
+        size: 10,
+        signature: null,
+      },
+    ],
+  });
+  assert.notEqual(duplicate.result.status, 0);
+  assert.match(
+    duplicate.result.stdout + duplicate.result.stderr,
+    /duplicate assets/,
+  );
+  await assert.rejects(readFile(duplicate.uploadLog), { code: "ENOENT" });
+});
