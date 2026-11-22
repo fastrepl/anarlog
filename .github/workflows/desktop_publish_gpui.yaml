@@ -394,7 +394,7 @@ jobs:
                 if jq -e \
                   --argjson expected_size "$expected_size" \
                   --arg expected_signature "$expected_signature" \
-                  '.[0] | (((.size // 0) | tonumber) == $expected_size and (.signature // "") == $expected_signature)' \
+                  '.[0] | (((.size // 0) | tonumber) == $expected_size and ((.signature // "") | sub("^\\s+"; "") | sub("\\s+$"; "")) == ($expected_signature | sub("^\\s+"; "") | sub("\\s+$"; "")))' \
                   <<< "$matching_assets" > /dev/null; then
                   continue
                 fi

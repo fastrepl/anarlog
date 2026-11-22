@@ -1148,7 +1148,6 @@ test("GPUI stable publish upload step resumes partial drafts and rejects mismatc
 set -euo pipefail
 cmd="$1 $2"
 if [[ "$cmd" == "release show" ]]; then
-  echo "show" >> "$CN_SHOW_LOG"
   if [[ -s "$CN_UPLOAD_LOG" && -n "\${CN_SHOW_AFTER:-}" ]]; then
     printf '%s' "$CN_SHOW_AFTER"
   else
@@ -1194,7 +1193,6 @@ exit 1
       JSON.stringify(plan),
     );
     const githubOutput = path.join(caseDir, "github-output");
-    const showLog = path.join(caseDir, "show.log");
     const uploadLog = path.join(caseDir, "upload.log");
     const result = spawnSync("bash", ["-e", "-c", uploadScript], {
       encoding: "utf8",
@@ -1209,24 +1207,24 @@ exit 1
         VERSION: "1.4.0",
         CN_SHOW_BEFORE: JSON.stringify(showBefore),
         CN_SHOW_AFTER: showAfter ? JSON.stringify(showAfter) : "",
-        CN_SHOW_LOG: showLog,
         CN_UPLOAD_LOG: uploadLog,
       },
     });
-    return { result, githubOutput, showLog, uploadLog };
+    return { caseDir, result, githubOutput, uploadLog };
   };
 
-  // Partial draft with 1 matching asset uploads only the missing asset.
+  // Partial draft with 1 matching signed asset (including trailing whitespace)
+  // uploads only the missing asset and writes the refreshed release snapshot.
   const partialBefore = {
     version: "1.4.0",
     status: "draft",
     assets: [
       {
-        id: "asset-dmg",
-        publicPlatform: "dmg-aarch64",
-        updatePlatform: null,
-        size: 10,
-        signature: null,
+        id: "asset-upd",
+        publicPlatform: null,
+        updatePlatform: "darwin-aarch64",
+        size: 20,
+        signature: "sig-20\n",
       },
     ],
   };
@@ -1236,11 +1234,11 @@ exit 1
     assets: [
       ...partialBefore.assets,
       {
-        id: "asset-upd",
-        publicPlatform: null,
-        updatePlatform: "darwin-aarch64",
-        size: 20,
-        signature: "sig-20",
+        id: "asset-dmg",
+        publicPlatform: "dmg-aarch64",
+        updatePlatform: null,
+        size: 10,
+        signature: null,
       },
     ],
   };
@@ -1254,10 +1252,15 @@ exit 1
     .trim()
     .split("\n");
   assert.equal(uploads.length, 1);
-  assert.match(uploads[0], /--update-platform darwin-aarch64/);
-  assert.doesNotMatch(uploads[0], /dmg-aarch64/);
-  const shows = (await readFile(partial.showLog, "utf8")).trim().split("\n");
-  assert.equal(shows.length, 2);
+  assert.match(uploads[0], /--public-platform dmg-aarch64/);
+  assert.doesNotMatch(uploads[0], /darwin-aarch64/);
+  const refreshedRelease = JSON.parse(
+    await readFile(
+      path.join(partial.caseDir, "crabnebula-release.json"),
+      "utf8",
+    ),
+  );
+  assert.deepEqual(refreshedRelease, partialAfter);
   assert.match(
     await readFile(partial.githubOutput, "utf8"),
     /^publish_needed=true$/m,
