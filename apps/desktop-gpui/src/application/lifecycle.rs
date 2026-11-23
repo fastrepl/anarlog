@@ -1436,7 +1436,10 @@ mod tests {
         wait_until(cx, |cx| !cx.read(|cx| editor.read(cx).is_dirty()));
     }
 
+    static QUIT_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
     struct DetachedNoteFixture {
+        _quit_guard: std::sync::MutexGuard<'static, ()>,
         _profile: tempfile::TempDir,
         runtime: desktop_runtime::RuntimeHandle,
         main_window: gpui::AnyWindowHandle,
@@ -1511,6 +1514,9 @@ mod tests {
     }
 
     fn open_app_with_detached_note(cx: &mut gpui::TestAppContext) -> DetachedNoteFixture {
+        let _quit_guard = QUIT_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
         crate::platform::os::go_headless();
         cx.executor().allow_parking();
         let profile = tempfile::tempdir().unwrap();
@@ -1671,6 +1677,7 @@ mod tests {
                         )
                     });
                 return DetachedNoteFixture {
+                    _quit_guard,
                     _profile: profile,
                     runtime,
                     main_window,
@@ -2518,5 +2525,381 @@ mod tests {
             });
             let _ = futures::executor::block_on(fixture.runtime.shutdown());
         }
+    }
+
+    struct GatedCapture {
+        capture: crate::meeting::capture::CaptureService,
+        resolver_calls: Arc<std::sync::atomic::AtomicUsize>,
+        resolver_started_rx: futures::channel::oneshot::Receiver<()>,
+        resolver_release_tx: Option<futures::channel::oneshot::Sender<()>>,
+    }
+
+    fn install_gated_capture(
+        fixture: &DetachedNoteFixture,
+        cx: &mut gpui::TestAppContext,
+    ) -> GatedCapture {
+        use std::sync::{
+            Mutex,
+            atomic::{AtomicUsize, Ordering},
+        };
+
+        use futures::channel::oneshot;
+
+        let resolver_calls = Arc::new(AtomicUsize::new(0));
+        let (started_tx, started_rx) = oneshot::channel::<()>();
+        let (release_tx, release_rx) = oneshot::channel::<()>();
+        let calls_for_resolver = resolver_calls.clone();
+        let started_tx = Arc::new(Mutex::new(Some(started_tx)));
+        let release_rx = Arc::new(Mutex::new(Some(release_rx)));
+        let resolver: crate::meeting::capture::StartResolver = Arc::new(move |_| {
+            let calls = calls_for_resolver.clone();
+            let started = started_tx.clone();
+            let release = release_rx.clone();
+            Box::pin(async move {
+                calls.fetch_add(1, Ordering::SeqCst);
+                let tx = started.lock().unwrap().take();
+                if let Some(tx) = tx {
+                    let _ = tx.send(());
+                }
+                let rx = release.lock().unwrap().take();
+                if let Some(rx) = rx {
+                    let _ = rx.await;
+                }
+                Err(ServiceError::Cancelled)
+            })
+        });
+        let storage = Arc::new(super::super::ProfileStorage {
+            root: fixture._profile.path().to_path_buf(),
+            vault: fixture._profile.path().to_path_buf(),
+        });
+        let capture = crate::meeting::capture::CaptureService::spawn(
+            fixture.runtime.clone(),
+            Arc::new(anlg_audio_mock::MockAudio::new(1)),
+            storage,
+            resolver,
+        )
+        .unwrap();
+        cx.update(|cx| {
+            fixture.app_entity.update(cx, |app, _| {
+                app.services.as_mut().unwrap().capture = capture.clone();
+            });
+            cx.global_mut::<crate::meeting::MeetingServices>().capture = capture.clone();
+        });
+        let mut ready_rx = capture.devices().unwrap();
+        wait_until(cx, |_| ready_rx.try_recv().is_ok());
+        GatedCapture {
+            capture,
+            resolver_calls,
+            resolver_started_rx: started_rx,
+            resolver_release_tx: Some(release_tx),
+        }
+    }
+
+    #[gpui::test]
+    fn capture_guards_block_start_during_pause_or_quit_and_defer_manual_update(
+        cx: &mut gpui::TestAppContext,
+    ) {
+        use std::sync::{
+            Mutex,
+            atomic::{AtomicBool, AtomicUsize, Ordering},
+        };
+
+        use futures::channel::oneshot;
+
+        // Subcase 1: capture requests are ignored/blocked while writers are paused, closing, or drained.
+        {
+            let fixture = open_app_with_detached_note(cx);
+            let mut gated = install_gated_capture(&fixture, cx);
+
+            let pause = cx.update(|cx| {
+                fixture
+                    .app_entity
+                    .update(cx, |app, cx| app.pause_writers(cx))
+            });
+            let (pause_tx, mut pause_rx) = oneshot::channel();
+            cx.spawn(async move |_| {
+                let _ = pause_tx.send(pause.await);
+            })
+            .detach();
+            wait_until(cx, |_| {
+                pause_rx
+                    .try_recv()
+                    .ok()
+                    .flatten()
+                    .transpose()
+                    .unwrap()
+                    .is_some()
+            });
+
+            cx.update(|cx| {
+                cx.update_window(fixture.main_window, |_, window, cx| {
+                    fixture.app_entity.update(cx, |app, cx| {
+                        app.automation_request(
+                            &crate::meeting::automation::Request::OpenSession {
+                                session: fixture.session_id.clone(),
+                                listen: true,
+                            },
+                            window,
+                            cx,
+                        );
+                    });
+                })
+                .unwrap();
+            });
+            let mut devices_rx = gated.capture.devices().unwrap();
+            wait_until(cx, |_| devices_rx.try_recv().is_ok());
+            assert_eq!(gated.resolver_calls.load(Ordering::SeqCst), 0);
+            cx.read(|cx| assert!(!fixture.app_entity.read(cx).meeting_live()));
+
+            cx.update(|cx| {
+                fixture
+                    .app_entity
+                    .update(cx, |app, cx| app.resume_writers(cx));
+            });
+
+            let (flush_started_tx, mut flush_started_rx) = oneshot::channel::<()>();
+            let (release_flush, held_flush) = oneshot::channel::<()>();
+            let flush_started_tx = Arc::new(Mutex::new(Some(flush_started_tx)));
+            futures::executor::block_on(
+                fixture
+                    .runtime
+                    .register_flush(Box::new(move || {
+                        let started = flush_started_tx.clone();
+                        let held = held_flush;
+                        Box::pin(async move {
+                            let tx = started.lock().unwrap().take();
+                            if let Some(tx) = tx {
+                                let _ = tx.send(());
+                            }
+                            let _ = held.await;
+                            Ok(())
+                        })
+                    }))
+                    .unwrap()
+                    .receive(),
+            )
+            .unwrap();
+
+            cx.update(|cx| {
+                fixture.app_entity.update(cx, |app, cx| {
+                    app.request_quit(cx);
+                    assert!(app.closing);
+                });
+            });
+            wait_until(cx, |_| flush_started_rx.try_recv().ok().flatten().is_some());
+
+            cx.update(|cx| {
+                cx.update_window(fixture.main_window, |_, window, cx| {
+                    fixture.app_entity.update(cx, |app, cx| {
+                        app.automation_request(
+                            &crate::meeting::automation::Request::OpenSession {
+                                session: fixture.session_id.clone(),
+                                listen: true,
+                            },
+                            window,
+                            cx,
+                        );
+                        app.open_meeting(
+                            MeetingIntent::Start {
+                                session_id: fixture.session_id.clone(),
+                            },
+                            window,
+                            cx,
+                        );
+                    });
+                })
+                .unwrap();
+            });
+            let mut devices_rx = gated.capture.devices().unwrap();
+            wait_until(cx, |_| devices_rx.try_recv().is_ok());
+            assert_eq!(gated.resolver_calls.load(Ordering::SeqCst), 0);
+            cx.read(|cx| assert!(!fixture.app_entity.read(cx).meeting_live()));
+
+            release_flush.send(()).unwrap();
+            wait_until(cx, |cx| cx.read(|cx| fixture.app_entity.read(cx).drained));
+
+            cx.update(|cx| {
+                cx.update_window(fixture.main_window, |_, window, cx| {
+                    fixture.app_entity.update(cx, |app, cx| {
+                        app.open_meeting(
+                            MeetingIntent::Start {
+                                session_id: fixture.session_id.clone(),
+                            },
+                            window,
+                            cx,
+                        );
+                    });
+                })
+                .unwrap();
+            });
+            let mut devices_rx = gated.capture.devices().unwrap();
+            wait_until(cx, |_| devices_rx.try_recv().is_ok());
+            assert_eq!(gated.resolver_calls.load(Ordering::SeqCst), 0);
+            cx.read(|cx| assert!(!fixture.app_entity.read(cx).meeting_live()));
+
+            drop(gated.resolver_release_tx.take());
+            let _ = futures::executor::block_on(fixture.runtime.shutdown());
+        }
+
+        // Subcase 2: manual install defers and preserves update bytes if capture starts during feed recheck.
+        {
+            let fixture = open_app_with_detached_note(cx);
+            let mut gated = install_gated_capture(&fixture, cx);
+
+            let (check2_started_tx, mut check2_started_rx) = oneshot::channel::<()>();
+            let (check2_release_tx, check2_release_rx) = oneshot::channel::<()>();
+            let check2_started_tx = Arc::new(Mutex::new(Some(check2_started_tx)));
+            let check2_release_rx = Arc::new(Mutex::new(Some(check2_release_rx)));
+            let checks = Arc::new(AtomicUsize::new(0));
+            let done = Arc::new(AtomicBool::new(false));
+            let done_flag = done.clone();
+            let app_for_task = fixture.app_entity.downgrade();
+
+            let _install_task = cx.spawn(async move |mut cx| {
+                let outcome = install_if_still_offered(
+                    &"1.5.0",
+                    "bytes",
+                    &mut cx,
+                    || {
+                        let attempt = checks.fetch_add(1, Ordering::SeqCst);
+                        let started = check2_started_tx.clone();
+                        let release = check2_release_rx.clone();
+                        async move {
+                            if attempt == 0 {
+                                Ok(Some("1.5.0"))
+                            } else {
+                                let tx = started.lock().unwrap().take();
+                                if let Some(tx) = tx {
+                                    let _ = tx.send(());
+                                }
+                                let rx = release.lock().unwrap().take();
+                                if let Some(rx) = rx {
+                                    let _ = rx.await;
+                                }
+                                Ok(Some("1.5.0"))
+                            }
+                        }
+                    },
+                    |cx| {
+                        app_for_task
+                            .update(cx, |this, cx| {
+                                this.can_install_now(false, cx)
+                                    .then(|| this.pause_writers(cx))
+                            })
+                            .map_err(|_| ServiceError::Closed)
+                    },
+                    |cx| {
+                        app_for_task
+                            .update(cx, |this, cx| this.can_install_now(false, cx))
+                            .map_err(|_| ServiceError::Closed)
+                    },
+                    |_| async { panic!("manual install must defer when capture goes live") },
+                )
+                .await
+                .unwrap();
+                assert_eq!(outcome, InstallOutcome::Deferred("bytes"));
+                app_for_task
+                    .update(&mut cx, |this, cx| {
+                        if this.writers_paused {
+                            this.resume_writers(cx);
+                        }
+                    })
+                    .unwrap();
+                done_flag.store(true, Ordering::SeqCst);
+            });
+
+            wait_until(cx, |_| {
+                check2_started_rx.try_recv().ok().flatten().is_some()
+            });
+            cx.update(|cx| {
+                fixture
+                    .app_entity
+                    .update(cx, |app, cx| assert!(app.can_install_now(false, cx)));
+            });
+
+            let mut start_rx = gated.capture.start(fixture.session_id.clone()).unwrap();
+            wait_until(cx, |cx| {
+                gated
+                    .resolver_started_rx
+                    .try_recv()
+                    .ok()
+                    .flatten()
+                    .is_some()
+                    && cx.read(|cx| fixture.app_entity.read(cx).meeting_live())
+            });
+            cx.update(|cx| {
+                fixture
+                    .app_entity
+                    .update(cx, |app, cx| assert!(!app.can_install_now(false, cx)));
+            });
+
+            check2_release_tx.send(()).unwrap();
+            wait_until(cx, |_| done.load(Ordering::SeqCst));
+
+            if let Some(release) = gated.resolver_release_tx.take() {
+                let _ = release.send(());
+            }
+            wait_until(cx, |cx| {
+                matches!(start_rx.try_recv(), Ok(Err(_)))
+                    && !cx.read(|cx| fixture.app_entity.read(cx).meeting_live())
+            });
+            verify_editable_and_flush(&fixture, "manual-defer", cx);
+            let _ = futures::executor::block_on(fixture.runtime.shutdown());
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    #[gpui::test]
+    fn retried_quit_after_failed_drain_runs_pending_macos_restart(cx: &mut gpui::TestAppContext) {
+        use std::os::unix::fs::PermissionsExt;
+
+        struct ClearRestart(PathBuf);
+        impl Drop for ClearRestart {
+            fn drop(&mut self) {
+                let _ = std::fs::remove_file(&self.0);
+                let _ = crate::platform::windows::run_requested_restart();
+            }
+        }
+
+        let dir = tempfile::tempdir().unwrap();
+        let script = dir.path().join("relaunch.sh");
+        let marker = dir.path().join("restarted");
+        std::fs::write(&script, "#!/bin/sh\n: > \"$(dirname \"$0\")/restarted\"\n").unwrap();
+        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let _clear = ClearRestart(script.clone());
+
+        let fixture = open_app_with_detached_note(cx);
+        futures::executor::block_on(
+            fixture
+                .runtime
+                .register_flush(Box::new(|| {
+                    Box::pin(async { Err(ServiceError::Failed("simulated drain failure".into())) })
+                }))
+                .unwrap()
+                .receive(),
+        )
+        .unwrap();
+
+        crate::platform::windows::request_restart(Restart::Installer(script));
+        cx.update(|cx| {
+            fixture
+                .app_entity
+                .update(cx, |app, cx| app.request_quit(cx));
+        });
+        wait_until(cx, |cx| {
+            cx.read(|cx| {
+                let app = fixture.app_entity.read(cx);
+                app.drained && !app.closing
+            })
+        });
+        assert!(!marker.exists());
+
+        cx.update(|cx| {
+            fixture
+                .app_entity
+                .update(cx, |app, cx| app.request_quit(cx));
+        });
+        wait_until(cx, |_| marker.exists());
+        let _ = futures::executor::block_on(fixture.runtime.shutdown());
     }
 }
