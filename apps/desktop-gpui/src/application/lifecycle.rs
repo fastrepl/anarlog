@@ -1792,29 +1792,27 @@ mod tests {
             wait_until(cx, |_| {
                 check2_started_rx.try_recv().ok().flatten().is_some()
             });
-            wait_until(cx, |cx| {
-                cx.read(|cx| {
-                    let note = fixture
-                        .app_entity
-                        .read(cx)
-                        .workspace
-                        .read(cx)
-                        .note()
-                        .read(cx);
-                    !fixture.main_summary.read(cx).is_dirty()
-                        && !note.has_unsaved_summary(cx)
-                        && !note.has_unsaved_title(cx)
-                })
-            });
-            assert!(cx.read(|cx| {
-                fixture
-                    .main_summary
+            cx.read(|cx| {
+                let note = fixture
+                    .app_entity
                     .read(cx)
-                    .init
-                    .document
-                    .body
-                    .contains("pending-summary")
-            }));
+                    .workspace
+                    .read(cx)
+                    .note()
+                    .read(cx);
+                assert!(!fixture.main_summary.read(cx).is_dirty());
+                assert!(!note.has_unsaved_summary(cx));
+                assert!(!note.has_unsaved_title(cx));
+                assert!(
+                    fixture
+                        .main_summary
+                        .read(cx)
+                        .init
+                        .document
+                        .body
+                        .contains("pending-summary")
+                );
+            });
             assert!(!try_edit(
                 fixture.main_window,
                 &fixture.main_memo,
@@ -1992,6 +1990,235 @@ mod tests {
                     });
                 });
             });
+            let _ = futures::executor::block_on(fixture.runtime.shutdown());
+        }
+    }
+
+    #[gpui::test]
+    fn pause_writers_waits_for_summary_rename_before_installing(cx: &mut gpui::TestAppContext) {
+        use std::sync::{
+            Mutex,
+            atomic::{AtomicBool, AtomicUsize, Ordering},
+        };
+
+        use futures::channel::oneshot;
+
+        use crate::{contracts::EditorEvent, platform::windows::Restart};
+
+        // Case A: an in-flight summary rename holds installation until it persists, then quits cleanly.
+        {
+            let fixture = open_app_with_detached_note(cx);
+            assert!(try_edit(
+                fixture.main_window,
+                &fixture.main_summary,
+                "Renamed ",
+                cx
+            ));
+
+            let (rename_gate_started_tx, mut rename_gate_started_rx) = oneshot::channel::<()>();
+            let (rename_gate_release_tx, rename_gate_release_rx) = oneshot::channel::<()>();
+            let rename_gate_started_tx = Arc::new(Mutex::new(Some(rename_gate_started_tx)));
+            let rename_gate_release_rx = Arc::new(Mutex::new(Some(rename_gate_release_rx)));
+            let runtime_for_gate = fixture.runtime.clone();
+            let _gate_sub = fixture.app_entity.update(cx, |_, cx| {
+                cx.subscribe(
+                    &fixture.main_summary,
+                    move |_, _, event: &EditorEvent, _| {
+                        if matches!(event, EditorEvent::Dirty { dirty: false, .. })
+                            && let Some(release) = rename_gate_release_rx.lock().unwrap().take()
+                        {
+                            let started = rename_gate_started_tx.clone();
+                            let _ = runtime_for_gate.submit(move |_| async move {
+                                if let Some(tx) = started.lock().unwrap().take() {
+                                    let _ = tx.send(());
+                                }
+                                let _ = release.await;
+                                Ok(())
+                            });
+                        }
+                    },
+                )
+            });
+
+            let checks = Arc::new(AtomicUsize::new(0));
+            let installed = Arc::new(AtomicBool::new(false));
+            let checks_for_task = checks.clone();
+            let installed_for_task = installed.clone();
+            let app_for_task = fixture.app_entity.downgrade();
+            let runtime_for_check = fixture.runtime.clone();
+            let session_id = fixture.session_id.clone();
+
+            let _install_task = cx.spawn(async move |mut cx| {
+                let outcome = install_if_still_offered(
+                    &"1.5.0",
+                    "bytes",
+                    &mut cx,
+                    || {
+                        checks_for_task.fetch_add(1, Ordering::SeqCst);
+                        async { Ok(Some("1.5.0")) }
+                    },
+                    |cx| {
+                        app_for_task
+                            .update(cx, |this, cx| {
+                                this.can_install_now(false, cx)
+                                    .then(|| this.pause_writers(cx))
+                            })
+                            .map_err(|_| ServiceError::Closed)
+                    },
+                    |cx| {
+                        app_for_task
+                            .update(cx, |this, cx| this.can_install_now(false, cx))
+                            .map_err(|_| ServiceError::Closed)
+                    },
+                    |_| {
+                        let installed = installed_for_task.clone();
+                        async move {
+                            installed.store(true, Ordering::SeqCst);
+                            Ok(Restart::App)
+                        }
+                    },
+                )
+                .await
+                .unwrap();
+                assert_eq!(outcome, InstallOutcome::Installed(Restart::App));
+                let saved = runtime_for_check
+                    .open_session(session_id, CancellationToken::new())
+                    .unwrap()
+                    .receive()
+                    .await
+                    .unwrap();
+                assert!(
+                    saved.summary.title.contains("Renamed "),
+                    "{}",
+                    saved.summary.title
+                );
+                app_for_task
+                    .update(&mut cx, |this, cx| this.request_quit(cx))
+                    .unwrap();
+            });
+
+            wait_until(cx, |_| {
+                rename_gate_started_rx.try_recv().ok().flatten().is_some()
+            });
+            for _ in 0..20 {
+                cx.executor().advance_clock(Duration::from_millis(5));
+                cx.run_until_parked();
+                std::thread::sleep(Duration::from_millis(5));
+            }
+            cx.read(|cx| {
+                let note = fixture
+                    .app_entity
+                    .read(cx)
+                    .workspace
+                    .read(cx)
+                    .note()
+                    .read(cx);
+                assert!(note.is_renaming());
+                assert_eq!(checks.load(Ordering::SeqCst), 1);
+                assert!(!installed.load(Ordering::SeqCst));
+            });
+
+            rename_gate_release_tx.send(()).unwrap();
+            wait_until(cx, |cx| cx.read(|cx| fixture.app_entity.read(cx).drained));
+            assert_eq!(checks.load(Ordering::SeqCst), 2);
+            assert!(installed.load(Ordering::SeqCst));
+            drop(_gate_sub);
+            let _ = futures::executor::block_on(fixture.runtime.shutdown());
+        }
+
+        // Case B: a failed summary rename aborts installation and resumes editing.
+        {
+            let fixture = open_app_with_detached_note(cx);
+            assert!(try_edit(
+                fixture.main_window,
+                &fixture.main_summary,
+                "Conflict ",
+                cx
+            ));
+
+            let injected = Arc::new(AtomicBool::new(false));
+            let runtime_for_conflict = fixture.runtime.clone();
+            let conflict_sid = fixture.session_id.0.clone();
+            let _conflict_sub = fixture.app_entity.update(cx, |_, cx| {
+                cx.subscribe(
+                    &fixture.main_summary,
+                    move |_, _, event: &EditorEvent, _| {
+                        if matches!(event, EditorEvent::Dirty { dirty: false, .. })
+                            && !injected.swap(true, Ordering::SeqCst)
+                        {
+                            let sid = conflict_sid.clone();
+                            let _ = runtime_for_conflict.submit(move |services| async move {
+                                services
+                                    .executor
+                                    .execute(
+                                        "UPDATE sessions SET title = 'External title', updated_at = '2099-01-01T00:00:00.000Z' WHERE id = ?".into(),
+                                        vec![serde_json::json!(sid)],
+                                    )
+                                    .await
+                                    .map(|_| ())
+                                    .map_err(|error| ServiceError::Failed(error.to_string().into()))
+                            });
+                        }
+                    },
+                )
+            });
+
+            let done = Arc::new(AtomicBool::new(false));
+            let done_flag = done.clone();
+            let app_for_task = fixture.app_entity.downgrade();
+            let _install_task = cx.spawn(async move |mut cx| {
+                let outcome = install_if_still_offered(
+                    &"1.5.0",
+                    "bytes",
+                    &mut cx,
+                    || async { Ok(Some("1.5.0")) },
+                    |cx| {
+                        app_for_task
+                            .update(cx, |this, cx| {
+                                this.can_install_now(false, cx)
+                                    .then(|| this.pause_writers(cx))
+                            })
+                            .map_err(|_| ServiceError::Closed)
+                    },
+                    |cx| {
+                        app_for_task
+                            .update(cx, |this, cx| this.can_install_now(false, cx))
+                            .map_err(|_| ServiceError::Closed)
+                    },
+                    |_| async { panic!("update install must abort on rename failure") },
+                )
+                .await;
+                assert!(outcome.is_err());
+                app_for_task
+                    .update(&mut cx, |this, cx| {
+                        if this.writers_paused {
+                            this.resume_writers(cx);
+                        }
+                    })
+                    .unwrap();
+                done_flag.store(true, Ordering::SeqCst);
+            });
+
+            wait_until(cx, |_| done.load(Ordering::SeqCst));
+            assert!(try_edit(
+                fixture.main_window,
+                &fixture.main_memo,
+                " resumed-memo",
+                cx
+            ));
+            assert!(try_edit(
+                fixture.main_window,
+                &fixture.main_summary,
+                " resumed-summary",
+                cx
+            ));
+            assert!(try_edit(
+                fixture.detached_window,
+                &fixture.detached_memo,
+                " resumed-detached",
+                cx
+            ));
+            drop(_conflict_sub);
             let _ = futures::executor::block_on(fixture.runtime.shutdown());
         }
     }

@@ -15,7 +15,14 @@ mod startup;
 pub mod team_invitations;
 pub mod toasts;
 
-use std::{path::PathBuf, sync::Arc, time::Duration};
+use std::{
+    path::PathBuf,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
+    time::Duration,
+};
 
 use desktop_runtime::{DocumentSnapshot, Reply, RuntimeHandle, ServiceError, SessionId};
 use futures::{StreamExt, future::BoxFuture};
@@ -45,7 +52,7 @@ use crate::{
     },
     runtime_bridge,
     ui::theme::theme,
-    workspace::{WorkspaceAction, WorkspaceView, navigation::Route, pins},
+    workspace::{NoteEvent, WorkspaceAction, WorkspaceView, navigation::Route, pins},
 };
 
 struct ProfileStorage {
@@ -729,6 +736,11 @@ impl ApplicationView {
         pause: bool,
         cx: &mut Context<Self>,
     ) -> BoxFuture<'static, desktop_runtime::Result<()>> {
+        let dirty_editor = self
+            .editor
+            .as_ref()
+            .filter(|editor| editor.read(cx).is_dirty())
+            .cloned();
         let editor_flush = self.editor.as_ref().map(|editor| {
             editor.update(cx, |editor, cx| {
                 if pause {
@@ -737,12 +749,19 @@ impl ApplicationView {
                 editor.flush()
             })
         });
-        let summaries = self
-            .workspace
-            .read(cx)
-            .note()
-            .clone()
-            .update(cx, |note, cx| note.flush_summaries(pause, cx));
+        let main_note = self.workspace.read(cx).note().clone();
+        let summaries = main_note.update(cx, |note, cx| note.flush_summaries(pause, cx));
+        let mut dirty_notes = Vec::new();
+        if !summaries.is_empty() {
+            dirty_notes.push(main_note);
+        }
+        for window in self.note_windows.values() {
+            if let Ok(note) = window.read(cx).map(|view| view.note())
+                && note.read(cx).has_unsaved_summary(cx)
+            {
+                dirty_notes.push(note);
+            }
+        }
         let notes = self
             .note_windows
             .values()
@@ -758,8 +777,33 @@ impl ApplicationView {
                     .ok()
             })
             .collect::<Vec<_>>();
+        let (wake_tx, mut wake_rx) = futures::channel::mpsc::unbounded::<()>();
+        let rename_failed = Arc::new(AtomicBool::new(false));
+        let mut subscriptions = Vec::new();
+        if let Some(editor) = &dirty_editor {
+            let tx = wake_tx.clone();
+            subscriptions.push(cx.observe(editor, move |_, _, _| {
+                let _ = tx.unbounded_send(());
+            }));
+        }
+        for note in &dirty_notes {
+            let tx = wake_tx.clone();
+            subscriptions.push(cx.observe(note, move |_, _, _| {
+                let _ = tx.unbounded_send(());
+            }));
+            let tx = wake_tx.clone();
+            let failed = rename_failed.clone();
+            subscriptions.push(cx.subscribe(note, move |_, _, event: &NoteEvent, _| {
+                if matches!(event, NoteEvent::RenameFailed) {
+                    failed.store(true, Ordering::SeqCst);
+                    let _ = tx.unbounded_send(());
+                }
+            }));
+        }
+        drop(wake_tx);
         let runtime = self.runtime.clone();
-        Box::pin(async move {
+        Box::pin(cx.spawn(async move |_, cx| -> desktop_runtime::Result<()> {
+            let _subscriptions = subscriptions;
             let mut first_error = None;
             if let Some(flush) = editor_flush
                 && let Err(error) = flush
@@ -786,8 +830,45 @@ impl ApplicationView {
             if let Some(error) = first_error {
                 return Err(error);
             }
+            if let Some(editor) = dirty_editor {
+                let editor = editor.downgrade();
+                while editor
+                    .read_with(cx, |editor, _| editor.is_dirty())
+                    .map_err(|_| ServiceError::Closed)?
+                {
+                    if wake_rx.next().await.is_none() {
+                        return Err(ServiceError::Closed);
+                    }
+                }
+            }
+            for note in dirty_notes {
+                let note = note.downgrade();
+                loop {
+                    if rename_failed.load(Ordering::SeqCst) {
+                        return Err(ServiceError::Failed("Title save failed.".into()));
+                    }
+                    let (unsaved_summary, renaming, unsaved_title) = note
+                        .read_with(cx, |note, cx| {
+                            (
+                                note.has_unsaved_summary(cx),
+                                note.is_renaming(),
+                                note.has_unsaved_title(cx),
+                            )
+                        })
+                        .map_err(|_| ServiceError::Closed)?;
+                    match (unsaved_summary, renaming, unsaved_title) {
+                        (false, false, false) => break,
+                        (false, false, true) => return Err(ServiceError::Busy),
+                        _ => {
+                            if wake_rx.next().await.is_none() {
+                                return Err(ServiceError::Closed);
+                            }
+                        }
+                    }
+                }
+            }
             runtime.flush()?.receive().await
-        })
+        }))
     }
 
     fn flush_drafts(
