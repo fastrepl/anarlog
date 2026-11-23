@@ -75,6 +75,7 @@ pub struct Contacts {
     focus: FocusHandle,
     message: SharedString,
     load_error_owner: Option<u64>,
+    notes_watch_id: Option<u64>,
     next_watch_id: u64,
     watching: bool,
     watch_cancel: CancellationToken,
@@ -239,6 +240,7 @@ impl Contacts {
             focus: cx.focus_handle(),
             message: SharedString::default(),
             load_error_owner: None,
+            notes_watch_id: None,
             next_watch_id: 0,
             watching: false,
             watch_cancel: CancellationToken::new(),
@@ -390,11 +392,22 @@ impl Contacts {
         .detach();
     }
 
-    fn watch_notes(&mut self, id: SharedString, cx: &mut Context<Self>) {
+    fn cancel_notes_watch(&mut self, cx: &mut Context<Self>) {
         self.notes_cancel.cancel();
+        if let Some(id) = self.notes_watch_id.take()
+            && self.load_error_owner == Some(id)
+        {
+            self.load_error_owner = None;
+            self.message = SharedString::default();
+            cx.notify();
+        }
+    }
+
+    fn watch_notes(&mut self, id: SharedString, cx: &mut Context<Self>) {
+        self.cancel_notes_watch(cx);
         self.notes_cancel = CancellationToken::new();
         let cancel = self.notes_cancel.clone();
-        self.watch(
+        self.notes_watch_id = Some(self.watch(
             data::NOTES_SQL,
             None,
             vec![Value::from(id.to_string())],
@@ -410,7 +423,7 @@ impl Contacts {
                     cx.notify();
                 }
             },
-        );
+        ));
     }
 
     /// With `read`, `sql` only signals that the tables `read` reads changed, and each change
@@ -423,7 +436,7 @@ impl Contacts {
         cancel: CancellationToken,
         cx: &mut Context<Self>,
         apply: impl Fn(&mut Self, Arc<[Value]>, &mut Context<Self>) + 'static,
-    ) {
+    ) -> u64 {
         const LOAD_ERROR_PREFIX: &str = "Could not load contacts: ";
         const READ_RETRY: Duration = Duration::from_millis(500);
         const READ_RETRY_MAX: Duration = Duration::from_secs(30);
@@ -445,12 +458,16 @@ impl Contacts {
                 Ok(reply) => match reply.receive().await {
                     Ok(watch) => watch,
                     Err(error) => {
-                        let _ = this.update(cx, |this, cx| fail(this, error.to_string(), cx));
+                        if !cancel.is_cancelled() {
+                            let _ = this.update(cx, |this, cx| fail(this, error.to_string(), cx));
+                        }
                         return;
                     }
                 },
                 Err(error) => {
-                    let _ = this.update(cx, |this, cx| fail(this, error.to_string(), cx));
+                    if !cancel.is_cancelled() {
+                        let _ = this.update(cx, |this, cx| fail(this, error.to_string(), cx));
+                    }
                     return;
                 }
             };
@@ -551,6 +568,7 @@ impl Contacts {
             let _ = watch.unsubscribe().await;
         })
         .detach();
+        owner
     }
 
     /// Rebuilds the page's inputs when the shown contact changes, like shipping's `key`.
@@ -574,7 +592,7 @@ impl Contacts {
         self.menu = false;
         self.prompt = false;
         self.scroll = ScrollHandle::new();
-        self.notes_cancel.cancel();
+        self.cancel_notes_watch(cx);
         self.page = match target {
             Some(Selection::Person(id)) => {
                 let human = self.data.human(&id).cloned().unwrap_or_default();
@@ -1148,6 +1166,35 @@ mod tests {
             assert!(view.message.is_empty(), "{}", view.message);
             assert_eq!(view.data.humans.len(), 1);
             assert_eq!(view.data.humans[0].name, "Recovered");
+        });
+        view.update(cx, |contacts, cx| {
+            // Cancelling a notes watch clears its own load error, while leaving another active
+            // watch's load error or a save error (`load_error_owner == None`) intact.
+            contacts.load_error_owner = Some(91);
+            contacts.notes_watch_id = Some(91);
+            contacts.message = "Could not load contacts: related notes failed".into();
+            contacts.cancel_notes_watch(cx);
+            assert!(contacts.message.is_empty());
+            assert_eq!(contacts.load_error_owner, None);
+
+            contacts.load_error_owner = Some(7);
+            contacts.notes_watch_id = Some(92);
+            contacts.message = "Could not load contacts: main list failed".into();
+            contacts.cancel_notes_watch(cx);
+            assert_eq!(
+                contacts.message.as_ref(),
+                "Could not load contacts: main list failed"
+            );
+            assert_eq!(contacts.load_error_owner, Some(7));
+
+            contacts.load_error_owner = None;
+            contacts.notes_watch_id = Some(93);
+            contacts.message = "Could not save the contact: busy".into();
+            contacts.cancel_notes_watch(cx);
+            assert_eq!(
+                contacts.message.as_ref(),
+                "Could not save the contact: busy"
+            );
         });
         cancel.cancel();
         drop(view);

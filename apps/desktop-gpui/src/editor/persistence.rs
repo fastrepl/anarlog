@@ -36,6 +36,7 @@ struct State {
     base: DocumentSnapshot,
     pending: Option<Draft>,
     acknowledged: u64,
+    save_seq: u64,
     first_dirty: Option<Instant>,
     last_edit: Instant,
     saving: bool,
@@ -66,6 +67,7 @@ impl SaveJournal {
                 base,
                 pending: None,
                 acknowledged: 0,
+                save_seq: 0,
                 first_dirty: None,
                 last_edit: Instant::now(),
                 saving: false,
@@ -125,6 +127,12 @@ impl SaveJournal {
             self.shared.wake.notify_one();
         }
         rx
+    }
+
+    /// The monotonic completed save sequence and its persisted snapshot (`0` before any save).
+    pub fn saved(&self) -> (u64, DocumentSnapshot) {
+        let state = self.shared.state.lock().expect("editor journal");
+        (state.save_seq, state.base.clone())
     }
 
     pub fn rebase_if_clean(&self, base: DocumentSnapshot) -> bool {
@@ -220,6 +228,7 @@ fn run(runtime: RuntimeHandle, shared: Arc<Shared>, mut events: mpsc::Sender<Sav
                 Ok(snapshot) => {
                     state.base = snapshot.clone();
                     state.acknowledged = draft.revision;
+                    state.save_seq += 1;
                     state.error = None;
                     if state
                         .pending

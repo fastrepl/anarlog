@@ -712,6 +712,10 @@ impl EditorPane {
             .map(|body| body.to_string())
     }
 
+    pub fn saved_snapshot(&self) -> Option<(u64, DocumentSnapshot)> {
+        self.journal.as_ref().map(SaveJournal::saved)
+    }
+
     /// Shipping's memo template: each titled section as an H2 over an empty paragraph,
     /// replacing the (pristine) memo in one undoable edit that autosaves.
     pub fn apply_template(&mut self, sections: &[&str], cx: &mut Context<Self>) {
