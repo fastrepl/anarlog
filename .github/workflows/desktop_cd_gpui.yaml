@@ -343,6 +343,57 @@ jobs:
                 exit 1
               fi
             '
+      - env:
+          DOCKER_ARCH: ${{ matrix.docker_arch }}
+        run: |
+          appimage=$(find "$BUNDLE_DIR/appimage" -maxdepth 1 -name '*.AppImage' -type f -print -quit)
+          if [[ -z "$appimage" ]]; then
+            echo "::error::Missing AppImage in $BUNDLE_DIR/appimage"
+            exit 1
+          fi
+          docker run --rm \
+            --platform "linux/$DOCKER_ARCH" \
+            --volume "$PWD:/workspace:ro" \
+            --env APPIMAGE_PATH="/workspace/$appimage" \
+            --env ANARLOG_DISABLE_SENTRY=1 \
+            --env RUST_BACKTRACE=1 \
+            ubuntu:24.04 \
+            bash -euxo pipefail -c '
+              export DEBIAN_FRONTEND=noninteractive
+              apt-get update
+              apt-get install -y --no-install-recommends \
+                ca-certificates \
+                dbus-x11 \
+                libasound2t64 \
+                libegl1 \
+                libgl1 \
+                libglx-mesa0 \
+                libpipewire-0.3-0 \
+                libwayland-client0 \
+                libx11-xcb1 \
+                xvfb
+              if dpkg-query -s libxkbcommon-x11-0 2>/dev/null | grep -Fq "Status: install ok installed"; then
+                echo "Unexpected host libxkbcommon-x11-0 in minimal AppImage smoke container"
+                exit 1
+              fi
+              cp "$APPIMAGE_PATH" /tmp/anarlog.AppImage
+              chmod +x /tmp/anarlog.AppImage
+              mkdir -p /tmp/home /tmp/runtime
+              chmod 700 /tmp/runtime
+              set +e
+              APPIMAGE_EXTRACT_AND_RUN=1 \
+                HOME=/tmp/home \
+                NO_AT_BRIDGE=1 \
+                XDG_RUNTIME_DIR=/tmp/runtime \
+                timeout --signal=TERM 20s xvfb-run -a dbus-run-session -- /tmp/anarlog.AppImage >/tmp/anarlog-appimage.log 2>&1
+              status=$?
+              set -e
+              cat /tmp/anarlog-appimage.log
+              if [[ $status -ne 124 ]]; then
+                echo "Anarlog AppImage exited before the smoke timeout with status $status"
+                exit 1
+              fi
+            '
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: anarlog-gpui-${{ inputs.channel }}-linux-${{ matrix.artifact_name }}
