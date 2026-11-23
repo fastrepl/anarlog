@@ -27,8 +27,10 @@ use crate::platform::{
 /// progress-only install that relaunches the app, followed by the app's own arguments.
 pub const NSIS_UPDATE_ARGS: [&str; 4] = ["/P", "/R", "/UPDATE", "/ARGS"];
 const WINDOWS_INSTALLER_PREFIX: &str = "anarlog-updater-";
+const STAGE_LOCK_FILE: &str = "stage.lock";
 
 static EXEC_LOCK: Mutex<Option<ExecutableLock>> = Mutex::new(None);
+static STAGED_INSTALLER_LOCK: Mutex<Option<fs::File>> = Mutex::new(None);
 
 struct ExecutableLock {
     path: PathBuf,
@@ -167,6 +169,16 @@ fn cleanup_stale_installers_in(root: &Path) {
         if !name.starts_with(WINDOWS_INSTALLER_PREFIX) {
             continue;
         }
+        let stage_lock = path.join(STAGE_LOCK_FILE);
+        if stage_lock.exists() {
+            let Ok(lock) = open_lock_file(&stage_lock) else {
+                continue;
+            };
+            if lock.try_lock().is_err() {
+                continue;
+            }
+            drop(lock);
+        }
         let installer = path.join("installer.exe");
         if installer.exists() && fs::remove_file(&installer).is_err() {
             continue;
@@ -175,21 +187,28 @@ fn cleanup_stale_installers_in(root: &Path) {
     }
 }
 
-fn stage_windows_installer_in(bytes: &[u8], root: &Path) -> Result<PathBuf> {
+fn stage_windows_installer_in(bytes: &[u8], root: &Path) -> Result<(PathBuf, fs::File)> {
     if !bytes.starts_with(b"MZ") {
         return Err(failure("Expected a signed NSIS executable"));
     }
-    // Keep the TempDir guard until write and sync finish so failures clean up automatically.
+    // Keep the TempDir guard until write and sync finish so failures clean up automatically, and
+    // hold `stage.lock` until this process exits after spawning NSIS so sibling channels don't
+    // prune a pending installer mid-drain.
     let stage = tempfile::Builder::new()
         .prefix(WINDOWS_INSTALLER_PREFIX)
         .tempdir_in(root)
         .map_err(failure)?;
+    let lock = open_lock_file(&stage.path().join(STAGE_LOCK_FILE))?;
+    lock.try_lock().map_err(|error| match error {
+        fs::TryLockError::WouldBlock => failure("Could not lock staged installer"),
+        fs::TryLockError::Error(error) => failure(error),
+    })?;
     let path = stage.path().join("installer.exe");
     let mut file = fs::File::create(&path).map_err(failure)?;
     file.write_all(bytes).map_err(failure)?;
     file.sync_all().map_err(failure)?;
     let _ = stage.keep();
-    Ok(path)
+    Ok((path, lock))
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -355,7 +374,12 @@ impl NativeInstaller {
                 ensure_sole_executable_instance()?;
                 cleanup_stale_installers();
                 match stage_windows_installer_in(bytes, &std::env::temp_dir()) {
-                    Ok(path) => return Ok(Restart::Installer(path)),
+                    Ok((path, lock)) => {
+                        *STAGED_INSTALLER_LOCK
+                            .lock()
+                            .unwrap_or_else(|error| error.into_inner()) = Some(lock);
+                        return Ok(Restart::Installer(path));
+                    }
                     Err(error) => {
                         downgrade_executable_lock();
                         return Err(error);
@@ -708,9 +732,10 @@ mod tests {
         assert!(!first.try_upgrade_exclusive().unwrap());
 
         // `first` must have re-acquired its shared lock after failing to upgrade.
-        let probe = ExecutableLock::acquire_shared(lock_path).unwrap();
+        let mut probe = ExecutableLock::acquire_shared(lock_path).unwrap();
         drop(second);
         assert!(!first.try_upgrade_exclusive().unwrap());
+        assert!(!probe.try_upgrade_exclusive().unwrap());
         drop(probe);
 
         assert!(first.try_upgrade_exclusive().unwrap());
@@ -725,8 +750,15 @@ mod tests {
         fs::create_dir(&keep_unrelated).unwrap();
         assert!(stage_windows_installer_in(b"not-pe", root.path()).is_err());
 
-        let installer = stage_windows_installer_in(b"MZ\x90\x00dummy", root.path()).unwrap();
+        let (installer, stage_lock) =
+            stage_windows_installer_in(b"MZ\x90\x00dummy", root.path()).unwrap();
         assert!(installer.is_file());
+        cleanup_stale_installers_in(root.path());
+        assert!(
+            installer.is_file(),
+            "held stage lock must protect pending installer"
+        );
+        drop(stage_lock);
         cleanup_stale_installers_in(root.path());
         assert!(!installer.parent().unwrap().exists());
         assert!(keep_unrelated.exists());

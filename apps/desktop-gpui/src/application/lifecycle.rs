@@ -985,6 +985,7 @@ impl ApplicationView {
             let outcome = install_if_still_offered(
                 &expected,
                 update,
+                cx,
                 || {
                     let updater = updater_for_check.clone();
                     let runtime = runtime_for_check.clone();
@@ -996,23 +997,16 @@ impl ApplicationView {
                             .map(|offered| offered.map(|offered| offered.version))
                     }
                 },
-                || {
+                |cx| {
                     this.update(cx, |this, cx| {
-                        if this.closing
-                            || (automatic
-                                && (this.product.is_some()
-                                    || this.meeting_live()
-                                    || this.notifications.automatic_updates() != Some(true)))
-                            || (!automatic
-                                && this.product.as_ref().is_some_and(|view| {
-                                    !view.update(cx, |view, cx| view.can_close(cx))
-                                }))
-                        {
-                            return None;
-                        }
-                        Some(this.pause_writers(cx))
+                        this.can_install_now(automatic, cx)
+                            .then(|| this.pause_writers(cx))
                     })
                     .map_err(|_| ServiceError::Closed)
+                },
+                |cx| {
+                    this.update(cx, |this, cx| this.can_install_now(automatic, cx))
+                        .map_err(|_| ServiceError::Closed)
                 },
                 |update| async move {
                     runtime
@@ -1032,6 +1026,9 @@ impl ApplicationView {
                         (true, None)
                     }
                     Ok(InstallOutcome::Deferred(update)) => {
+                        if this.writers_paused {
+                            this.resume_writers(cx);
+                        }
                         this.lifecycle.ready = Some(update);
                         (false, None)
                     }
@@ -1072,6 +1069,19 @@ impl ApplicationView {
             matches!(outcome, Ok((true, _)))
         }))
     }
+
+    fn can_install_now(&mut self, automatic: bool, cx: &mut Context<Self>) -> bool {
+        !(self.closing
+            || (automatic
+                && (self.product.is_some()
+                    || self.meeting_live()
+                    || self.notifications.automatic_updates() != Some(true)))
+            || (!automatic
+                && self
+                    .product
+                    .as_ref()
+                    .is_some_and(|view| !view.update(cx, |view, cx| view.can_close(cx)))))
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -1081,31 +1091,36 @@ enum InstallOutcome<U> {
     Deferred(U),
 }
 
-/// Re-checks the feed before pausing writers and again right before installing, dropping
-/// downloaded bytes if the release was withdrawn or replaced (a rollback) or restoring them if a
-/// UI/meeting guard defers installation.
+/// Re-checks the feed and install eligibility before pausing writers and again right before
+/// installing, dropping downloaded bytes if the release was withdrawn or replaced (a rollback) or
+/// restoring them if a UI/meeting guard defers installation.
 async fn install_if_still_offered<
+    C,
     V,
     U,
     FCheck,
     FCheckFut,
     FPause,
     FPauseFut,
+    FCanInstall,
     FInstall,
     FInstallFut,
 >(
     expected: &V,
     update: U,
+    cx: &mut C,
     mut check: FCheck,
     pause: FPause,
+    mut can_install: FCanInstall,
     install: FInstall,
 ) -> desktop_runtime::Result<InstallOutcome<U>>
 where
     V: PartialEq,
     FCheck: FnMut() -> FCheckFut,
     FCheckFut: std::future::Future<Output = desktop_runtime::Result<Option<V>>>,
-    FPause: FnOnce() -> desktop_runtime::Result<Option<FPauseFut>>,
+    FPause: FnOnce(&mut C) -> desktop_runtime::Result<Option<FPauseFut>>,
     FPauseFut: std::future::Future<Output = desktop_runtime::Result<()>>,
+    FCanInstall: FnMut(&mut C) -> desktop_runtime::Result<bool>,
     FInstall: FnOnce(U) -> FInstallFut,
     FInstallFut: std::future::Future<Output = desktop_runtime::Result<Restart>>,
 {
@@ -1113,13 +1128,16 @@ where
     if offered.is_none_or(|offered| &offered != expected) {
         return Ok(InstallOutcome::Withdrawn);
     }
-    let Some(pause) = pause()? else {
+    let Some(pause) = pause(cx)? else {
         return Ok(InstallOutcome::Deferred(update));
     };
     pause.await?;
     let offered = check().await?;
     if offered.is_none_or(|offered| &offered != expected) {
         return Ok(InstallOutcome::Withdrawn);
+    }
+    if !can_install(cx)? {
+        return Ok(InstallOutcome::Deferred(update));
     }
     install(update).await.map(InstallOutcome::Installed)
 }
@@ -1174,14 +1192,17 @@ mod tests {
         for offered in [None, Some("1.4.9")] {
             let paused = AtomicBool::new(false);
             let installed = AtomicBool::new(false);
+            let mut state = ();
             let result = block_on(install_if_still_offered(
                 &"1.5.0",
                 "bytes",
+                &mut state,
                 || async move { Ok(offered) },
-                || {
+                |_| {
                     paused.store(true, Ordering::SeqCst);
                     Ok(Some(async { Ok(()) }))
                 },
+                |_| Ok(true),
                 |_| {
                     installed.store(true, Ordering::SeqCst);
                     async { Ok(Restart::App) }
@@ -1195,14 +1216,17 @@ mod tests {
 
         let checks = AtomicUsize::new(0);
         let installed = AtomicBool::new(false);
+        let mut state = ();
         let deferred = block_on(install_if_still_offered(
             &"1.5.0",
             "bytes",
+            &mut state,
             || {
                 checks.fetch_add(1, Ordering::SeqCst);
                 async { Ok(Some("1.5.0")) }
             },
-            || Ok(None::<std::future::Ready<desktop_runtime::Result<()>>>),
+            |_| Ok(None::<std::future::Ready<desktop_runtime::Result<()>>>),
+            |_| Ok(true),
             |_| {
                 installed.store(true, Ordering::SeqCst);
                 async { Ok(Restart::App) }
@@ -1216,17 +1240,20 @@ mod tests {
         let checks = AtomicUsize::new(0);
         let paused = AtomicBool::new(false);
         let installed = AtomicBool::new(false);
+        let mut state = ();
         let withdrawn_after_pause = block_on(install_if_still_offered(
             &"1.5.0",
             "bytes",
+            &mut state,
             || {
                 let first = checks.fetch_add(1, Ordering::SeqCst) == 0;
                 async move { Ok(first.then_some("1.5.0")) }
             },
-            || {
+            |_| {
                 paused.store(true, Ordering::SeqCst);
                 Ok(Some(async { Ok(()) }))
             },
+            |_| Ok(true),
             |_| {
                 installed.store(true, Ordering::SeqCst);
                 async { Ok(Restart::App) }
@@ -1240,17 +1267,48 @@ mod tests {
 
         let checks = AtomicUsize::new(0);
         let paused = AtomicBool::new(false);
-        let result = block_on(install_if_still_offered(
+        let installed = AtomicBool::new(false);
+        let mut state = ();
+        let deferred_after_recheck = block_on(install_if_still_offered(
             &"1.5.0",
             "bytes",
+            &mut state,
             || {
                 checks.fetch_add(1, Ordering::SeqCst);
                 async { Ok(Some("1.5.0")) }
             },
-            || {
+            |_| {
                 paused.store(true, Ordering::SeqCst);
                 Ok(Some(async { Ok(()) }))
             },
+            |_| Ok(false),
+            |_| {
+                installed.store(true, Ordering::SeqCst);
+                async { Ok(Restart::App) }
+            },
+        ))
+        .unwrap();
+        assert_eq!(deferred_after_recheck, InstallOutcome::Deferred("bytes"));
+        assert_eq!(checks.load(Ordering::SeqCst), 2);
+        assert!(paused.load(Ordering::SeqCst));
+        assert!(!installed.load(Ordering::SeqCst));
+
+        let checks = AtomicUsize::new(0);
+        let paused = AtomicBool::new(false);
+        let mut state = ();
+        let result = block_on(install_if_still_offered(
+            &"1.5.0",
+            "bytes",
+            &mut state,
+            || {
+                checks.fetch_add(1, Ordering::SeqCst);
+                async { Ok(Some("1.5.0")) }
+            },
+            |_| {
+                paused.store(true, Ordering::SeqCst);
+                Ok(Some(async { Ok(()) }))
+            },
+            |_| Ok(true),
             |payload| async move {
                 assert_eq!(payload, "bytes");
                 Ok(Restart::App)

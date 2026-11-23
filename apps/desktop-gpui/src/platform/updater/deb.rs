@@ -148,12 +148,17 @@ fn run_pkexec(pkexec_bin: &OsStr, command: &[&OsStr]) -> Option<Result<()>> {
 fn run_sudo_with_password(
     sudo_bin: &OsStr,
     password: &str,
+    preserve_env: bool,
     command: &[&OsStr],
 ) -> std::io::Result<Output> {
-    let mut child = Command::new(sudo_bin)
-        .env("DEBIAN_FRONTEND", "noninteractive")
+    let mut cmd = Command::new(sudo_bin);
+    cmd.env("DEBIAN_FRONTEND", "noninteractive")
         .env("LC_ALL", "C")
-        .args(["-S", "-p", ""])
+        .args(["-S", "-p", ""]);
+    if preserve_env {
+        cmd.arg("--preserve-env=DEBIAN_FRONTEND,LC_ALL");
+    }
+    let mut child = cmd
         .args(command)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -179,14 +184,19 @@ fn run_as_root(
 
     match ask_password(programs)? {
         Some(password) => {
-            let mut output = run_sudo_with_password(OsStr::new(programs.sudo), &password, command)
-                .map_err(failure)?;
+            let mut output =
+                run_sudo_with_password(OsStr::new(programs.sudo), &password, false, command)
+                    .map_err(failure)?;
             if !output.status.success()
                 && let Some(direct) = direct_fallback
                 && is_sudo_command_denied(&output)
             {
-                output = run_sudo_with_password(OsStr::new(programs.sudo), &password, direct)
+                output = run_sudo_with_password(OsStr::new(programs.sudo), &password, true, direct)
                     .map_err(failure)?;
+                if is_sudo_env_denied(&output) {
+                    log_output("deb_update_env_unavailable", &output);
+                    return Err(sudo_env_preservation_unavailable());
+                }
             }
             if output.status.success() {
                 Ok(())
@@ -203,16 +213,17 @@ fn run_sudo_non_interactive(
     command: &[&OsStr],
     direct_fallback: Option<&[&OsStr]>,
 ) -> Result<()> {
-    let run = |args: &[&OsStr]| {
-        Command::new(sudo_bin)
-            .env("DEBIAN_FRONTEND", "noninteractive")
+    let run = |args: &[&OsStr], preserve_env: bool| {
+        let mut cmd = Command::new(sudo_bin);
+        cmd.env("DEBIAN_FRONTEND", "noninteractive")
             .env("LC_ALL", "C")
-            .arg("-n")
-            .args(args)
-            .stdin(Stdio::null())
-            .output()
+            .arg("-n");
+        if preserve_env {
+            cmd.arg("--preserve-env=DEBIAN_FRONTEND,LC_ALL");
+        }
+        cmd.args(args).stdin(Stdio::null()).output()
     };
-    let mut output = match run(command) {
+    let mut output = match run(command, false) {
         Ok(output) => output,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
             tracing::info!(%error, "sudo_unavailable");
@@ -225,7 +236,11 @@ fn run_sudo_non_interactive(
         && let Some(direct) = direct_fallback
         && (is_non_interactive_sudo_auth_failure(&output) || is_sudo_command_denied(&output))
     {
-        output = run(direct).map_err(failure)?;
+        output = run(direct, true).map_err(failure)?;
+        if is_sudo_env_denied(&output) {
+            log_output("deb_update_env_unavailable", &output);
+            return Err(sudo_env_preservation_unavailable());
+        }
     }
 
     if output.status.success() {
@@ -243,6 +258,18 @@ fn run_sudo_non_interactive(
 fn is_sudo_command_denied(output: &Output) -> bool {
     let stderr = String::from_utf8_lossy(&output.stderr).to_ascii_lowercase();
     stderr.contains("not allowed to execute")
+}
+
+fn is_sudo_env_denied(output: &Output) -> bool {
+    let stderr = String::from_utf8_lossy(&output.stderr).to_ascii_lowercase();
+    stderr.contains("not allowed to set the following environment variables")
+        || stderr.contains("not allowed to preserve")
+}
+
+fn sudo_env_preservation_unavailable() -> ServiceError {
+    install_failed(
+        "sudo policy does not permit running apt noninteractively; update Anarlog using `apt`",
+    )
 }
 
 fn is_non_interactive_sudo_auth_failure(output: &Output) -> bool {
@@ -496,6 +523,7 @@ mod tests {
             &format!(
                 "if [ \"$1\" != \"-n\" ]; then exit 99; fi\nshift\n\
                  if read -r _unused; then exit 98; fi\n\
+                 if [ \"$1\" = \"--preserve-env=DEBIAN_FRONTEND,LC_ALL\" ]; then shift; fi\n\
                  if [ \"$1\" != \"{fake_apt}\" ]; then\n  \
                    echo \"Sorry, user is not allowed to execute '$1' as root.\" >&2\n  \
                    exit 1\n\
@@ -503,6 +531,22 @@ mod tests {
             ),
         );
         run_sudo_non_interactive(OsStr::new(&policy_sudo), &wrapped, Some(&direct)).unwrap();
+
+        let deny_env_sudo = fake_script(
+            dir.path(),
+            "sudo-deny-env",
+            "if [ \"$1\" != \"-n\" ]; then exit 99; fi\nshift\n\
+             if read -r _unused; then exit 98; fi\n\
+             if [ \"$1\" = \"--preserve-env=DEBIAN_FRONTEND,LC_ALL\" ]; then\n  \
+               echo \"sudo: sorry, you are not allowed to set the following environment variables: DEBIAN_FRONTEND, LC_ALL\" >&2\n  \
+               exit 1\n\
+             fi\n\
+             echo \"Sorry, user is not allowed to execute '$1' as root.\" >&2\nexit 1",
+        );
+        let env_err = run_sudo_non_interactive(OsStr::new(&deny_env_sudo), &wrapped, Some(&direct))
+            .unwrap_err()
+            .to_string();
+        assert!(env_err.contains("update Anarlog using `apt`"), "{env_err}");
 
         let recorded = std::fs::read_to_string(&ran).unwrap();
         assert_eq!(recorded.lines().count(), 1, "{recorded}");
