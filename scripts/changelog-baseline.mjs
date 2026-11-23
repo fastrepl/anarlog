@@ -19,8 +19,7 @@ export function changelogBaseline(
   if (
     !versionPattern.test(version) ||
     !["desktop", "mobile"].includes(stream) ||
-    !["stable", "beta"].includes(channel) ||
-    (stream === "desktop" && channel !== "stable")
+    channel !== "stable"
   ) {
     throw new Error("Unsupported changelog stream, channel or version");
   }
@@ -47,7 +46,7 @@ export function changelogBaseline(
     const directory = `${cwd}/packages/changelog/content/mobile`;
     releases = readdirSync(directory)
       .filter((file) => /^\d+\.\d+\.\d+\.json$/.test(file))
-      .map((file) => {
+      .flatMap((file) => {
         const record = JSON.parse(readFileSync(`${directory}/${file}`, "utf8"));
         if (
           record.version !== file.replace(/\.json$/, "") ||
@@ -63,28 +62,17 @@ export function changelogBaseline(
         ) {
           throw new Error(`Invalid mobile publication record: ${file}`);
         }
-        return {
-          version: record.version,
-          source: record.sourceSha,
-          channel: record.channel,
-        };
+        // Beta records predate public store releases and are not baselines.
+        return record.channel === "stable"
+          ? [{ version: record.version, source: record.sourceSha }]
+          : [];
       });
   }
-  const requested = releases.find(
-    (release) =>
-      release.version === version &&
-      (stream === "desktop" || release.channel === channel),
-  );
+  const requested = releases.find((release) => release.version === version);
   if (source) current = git("rev-parse", "--verify", `${source}^{commit}`);
   else if (requested) current = requested.source;
   const previous = releases
-    .filter(
-      (release) =>
-        compare(release.version, version) < 0 &&
-        (stream === "desktop" ||
-          channel === "beta" ||
-          release.channel === "stable"),
-    )
+    .filter((release) => compare(release.version, version) < 0)
     .sort((a, b) => compare(b.version, a.version))[0];
   const roots = previous
     ? []

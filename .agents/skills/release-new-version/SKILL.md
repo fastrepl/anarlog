@@ -87,7 +87,7 @@ candidate/published revisions, checks, live or artifact evidence, and unresolved
 2. Read the five surface skills and current workflows. Implement and validate
    needed changes, including the Desktop or Mobile changelog for each requested stream. Prepare
    Mobile notes before freeze; record availability only after verifying the build
-   is available to the intended store/tester audience.
+   is available on the public App Store or Google Play.
    Merge release preparation to `main`, then freeze its exact SHA. A new source change requires renewed affected
    verification; do not mix runs or artifacts from different candidates.
 3. When desktop is in scope, follow [Desktop release procedures](references/desktop.md) for native CI,
