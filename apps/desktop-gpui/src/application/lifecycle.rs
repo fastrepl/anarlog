@@ -1446,6 +1446,7 @@ mod tests {
         main_summary: gpui::Entity<crate::editor::EditorPane>,
         detached_window: gpui::AnyWindowHandle,
         detached_memo: gpui::Entity<crate::editor::EditorPane>,
+        detached_summary: gpui::Entity<crate::editor::EditorPane>,
     }
 
     fn verify_editable_and_flush(
@@ -1616,6 +1617,19 @@ mod tests {
             let _ = cx.update(|cx| {
                 cx.update_window(main_window, |_, window, cx| window.draw(cx).clear(cx))
             });
+            let detached_handle = cx.read(|cx| {
+                app_entity
+                    .read(cx)
+                    .note_windows
+                    .get(&sid)
+                    .copied()
+                    .map(gpui::AnyWindowHandle::from)
+            });
+            if let Some(detached_window) = detached_handle {
+                let _ = cx.update(|cx| {
+                    cx.update_window(detached_window, |_, window, cx| window.draw(cx).clear(cx))
+                });
+            }
             let ready = cx.read(|cx| {
                 let app = app_entity.read(cx);
                 let note = app.workspace.read(cx).note().read(cx);
@@ -1628,18 +1642,34 @@ mod tests {
                         .note_windows
                         .get(&sid)
                         .and_then(|w| w.read(cx).ok())
-                        .is_some_and(|w| w.is_editor_loaded(cx))
+                        .is_some_and(|w| {
+                            w.is_editor_loaded(cx)
+                                && w.note()
+                                    .read(cx)
+                                    .summary_editors()
+                                    .first()
+                                    .is_some_and(|e| e.read(cx).is_loaded())
+                        })
             });
             if ready {
-                let (main_memo, main_summary, detached_window, detached_memo) = cx.read(|cx| {
-                    let app = app_entity.read(cx);
-                    let main_memo = app.editor.clone().unwrap();
-                    let main_summary =
-                        app.workspace.read(cx).note().read(cx).summary_editors()[0].clone();
-                    let note_window = app.note_windows[&session_id];
-                    let detached_memo = note_window.read(cx).unwrap().editor().unwrap();
-                    (main_memo, main_summary, note_window.into(), detached_memo)
-                });
+                let (main_memo, main_summary, detached_window, detached_memo, detached_summary) =
+                    cx.read(|cx| {
+                        let app = app_entity.read(cx);
+                        let main_memo = app.editor.clone().unwrap();
+                        let main_summary =
+                            app.workspace.read(cx).note().read(cx).summary_editors()[0].clone();
+                        let note_window = app.note_windows[&session_id];
+                        let view = note_window.read(cx).unwrap();
+                        let detached_memo = view.editor().unwrap();
+                        let detached_summary = view.note().read(cx).summary_editors()[0].clone();
+                        (
+                            main_memo,
+                            main_summary,
+                            note_window.into(),
+                            detached_memo,
+                            detached_summary,
+                        )
+                    });
                 return DetachedNoteFixture {
                     _profile: profile,
                     runtime,
@@ -1650,6 +1680,7 @@ mod tests {
                     main_summary,
                     detached_window,
                     detached_memo,
+                    detached_summary,
                 };
             }
             std::thread::sleep(Duration::from_millis(5));
@@ -2219,6 +2250,238 @@ mod tests {
                 cx
             ));
             drop(_conflict_sub);
+            let _ = futures::executor::block_on(fixture.runtime.shutdown());
+        }
+
+        // Case C: an in-flight detached summary rename holds installation until it persists, then quits cleanly.
+        {
+            let fixture = open_app_with_detached_note(cx);
+            let (main_note, detached_note) = cx.read(|cx| {
+                let app = fixture.app_entity.read(cx);
+                (
+                    app.workspace.read(cx).note().clone(),
+                    app.note_windows[&fixture.session_id]
+                        .read(cx)
+                        .unwrap()
+                        .note(),
+                )
+            });
+            assert!(try_edit(
+                fixture.detached_window,
+                &fixture.detached_summary,
+                "Detached ",
+                cx
+            ));
+            cx.read(|cx| {
+                assert!(detached_note.read(cx).has_unsaved_summary(cx));
+                assert!(!main_note.read(cx).has_unsaved_summary(cx));
+            });
+
+            let (rename_gate_started_tx, mut rename_gate_started_rx) = oneshot::channel::<()>();
+            let (rename_gate_release_tx, rename_gate_release_rx) = oneshot::channel::<()>();
+            let rename_gate_started_tx = Arc::new(Mutex::new(Some(rename_gate_started_tx)));
+            let rename_gate_release_rx = Arc::new(Mutex::new(Some(rename_gate_release_rx)));
+            let runtime_for_gate = fixture.runtime.clone();
+            let _gate_sub = fixture.app_entity.update(cx, |_, cx| {
+                cx.subscribe(
+                    &fixture.detached_summary,
+                    move |_, _, event: &EditorEvent, _| {
+                        if matches!(event, EditorEvent::Dirty { dirty: false, .. })
+                            && let Some(release) = rename_gate_release_rx.lock().unwrap().take()
+                        {
+                            let started = rename_gate_started_tx.clone();
+                            let _ = runtime_for_gate.submit(move |_| async move {
+                                if let Some(tx) = started.lock().unwrap().take() {
+                                    let _ = tx.send(());
+                                }
+                                let _ = release.await;
+                                Ok(())
+                            });
+                        }
+                    },
+                )
+            });
+
+            let checks = Arc::new(AtomicUsize::new(0));
+            let installed = Arc::new(AtomicBool::new(false));
+            let checks_for_task = checks.clone();
+            let installed_for_task = installed.clone();
+            let app_for_task = fixture.app_entity.downgrade();
+            let runtime_for_check = fixture.runtime.clone();
+            let session_id = fixture.session_id.clone();
+
+            let _install_task = cx.spawn(async move |mut cx| {
+                let outcome = install_if_still_offered(
+                    &"1.5.0",
+                    "bytes",
+                    &mut cx,
+                    || {
+                        checks_for_task.fetch_add(1, Ordering::SeqCst);
+                        async { Ok(Some("1.5.0")) }
+                    },
+                    |cx| {
+                        app_for_task
+                            .update(cx, |this, cx| {
+                                this.can_install_now(false, cx)
+                                    .then(|| this.pause_writers(cx))
+                            })
+                            .map_err(|_| ServiceError::Closed)
+                    },
+                    |cx| {
+                        app_for_task
+                            .update(cx, |this, cx| this.can_install_now(false, cx))
+                            .map_err(|_| ServiceError::Closed)
+                    },
+                    |_| {
+                        let installed = installed_for_task.clone();
+                        async move {
+                            installed.store(true, Ordering::SeqCst);
+                            Ok(Restart::App)
+                        }
+                    },
+                )
+                .await
+                .unwrap();
+                assert_eq!(outcome, InstallOutcome::Installed(Restart::App));
+                let saved = runtime_for_check
+                    .open_session(session_id, CancellationToken::new())
+                    .unwrap()
+                    .receive()
+                    .await
+                    .unwrap();
+                assert!(
+                    saved.summary.title.contains("Detached "),
+                    "{}",
+                    saved.summary.title
+                );
+                app_for_task
+                    .update(&mut cx, |this, cx| this.request_quit(cx))
+                    .unwrap();
+            });
+
+            wait_until(cx, |_| {
+                rename_gate_started_rx.try_recv().ok().flatten().is_some()
+            });
+            for _ in 0..20 {
+                cx.executor().advance_clock(Duration::from_millis(5));
+                cx.run_until_parked();
+                std::thread::sleep(Duration::from_millis(5));
+            }
+            cx.read(|cx| {
+                assert!(detached_note.read(cx).is_renaming());
+                assert_eq!(checks.load(Ordering::SeqCst), 1);
+                assert!(!installed.load(Ordering::SeqCst));
+            });
+
+            rename_gate_release_tx.send(()).unwrap();
+            wait_until(cx, |cx| cx.read(|cx| fixture.app_entity.read(cx).drained));
+            assert_eq!(checks.load(Ordering::SeqCst), 2);
+            assert!(installed.load(Ordering::SeqCst));
+            drop(_gate_sub);
+            let _ = futures::executor::block_on(fixture.runtime.shutdown());
+        }
+
+        // Case D: unlocked flush_drafts finishes without hanging on a later failing edit, and pause_writers surfaces the error.
+        {
+            let fixture = open_app_with_detached_note(cx);
+            let detached_note = cx.read(|cx| {
+                fixture.app_entity.read(cx).note_windows[&fixture.session_id]
+                    .read(cx)
+                    .unwrap()
+                    .note()
+            });
+
+            let (gate_started_tx, mut gate_started_rx) = oneshot::channel::<()>();
+            let (gate_release_tx, gate_release_rx) = oneshot::channel::<()>();
+            fixture
+                .runtime
+                .submit(move |_| async move {
+                    let _ = gate_started_tx.send(());
+                    let _ = gate_release_rx.await;
+                    Ok(())
+                })
+                .unwrap();
+            wait_until(cx, |_| gate_started_rx.try_recv().ok().flatten().is_some());
+
+            assert!(try_edit(
+                fixture.detached_window,
+                &fixture.detached_summary,
+                "Rev1 ",
+                cx
+            ));
+            let accepted_before = fixture.runtime.metrics().accepted;
+            let flush = cx.update(|cx| {
+                fixture
+                    .app_entity
+                    .update(cx, |app, cx| app.flush_drafts(cx))
+            });
+            let (flush_tx, mut flush_rx) = oneshot::channel();
+            cx.spawn(async move |_| {
+                let _ = flush_tx.send(flush.await);
+            })
+            .detach();
+            wait_until(cx, |_| fixture.runtime.metrics().accepted > accepted_before);
+
+            assert!(try_edit(
+                fixture.detached_window,
+                &fixture.detached_summary,
+                "Rev2 ",
+                cx
+            ));
+            fixture
+                .runtime
+                .submit(|services| async move {
+                    services
+                        .executor
+                        .execute(
+                            "UPDATE session_documents SET updated_at = '2099-01-01T00:00:00.000Z' WHERE id = 'quit-summary'".into(),
+                            vec![],
+                        )
+                        .await
+                        .map(|_| ())
+                        .map_err(|error| ServiceError::Failed(error.to_string().into()))
+                })
+                .unwrap();
+
+            gate_release_tx.send(()).unwrap();
+            let mut flushed = None;
+            wait_until(cx, |_| {
+                flushed = flush_rx.try_recv().ok().flatten();
+                flushed.is_some()
+            });
+            assert!(matches!(flushed, Some(Ok(()))), "{flushed:?}");
+
+            wait_until(cx, |cx| {
+                !cx.read(|cx| detached_note.read(cx).has_unsaved_title(cx))
+            });
+            assert!(cx.read(|cx| fixture.detached_summary.read(cx).is_dirty()));
+
+            let pause = cx.update(|cx| {
+                fixture
+                    .app_entity
+                    .update(cx, |app, cx| app.pause_writers(cx))
+            });
+            let (pause_tx, mut pause_rx) = oneshot::channel();
+            cx.spawn(async move |_| {
+                let _ = pause_tx.send(pause.await);
+            })
+            .detach();
+            let mut paused = None;
+            wait_until(cx, |_| {
+                paused = pause_rx.try_recv().ok().flatten();
+                paused.is_some()
+            });
+            assert!(
+                matches!(paused, Some(Err(ServiceError::Conflict))),
+                "{paused:?}"
+            );
+            cx.update(|cx| {
+                fixture.app_entity.update(cx, |app, cx| {
+                    if app.writers_paused {
+                        app.resume_writers(cx);
+                    }
+                });
+            });
             let _ = futures::executor::block_on(fixture.runtime.shutdown());
         }
     }

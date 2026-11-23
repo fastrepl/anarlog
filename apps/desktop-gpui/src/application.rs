@@ -736,11 +736,14 @@ impl ApplicationView {
         pause: bool,
         cx: &mut Context<Self>,
     ) -> BoxFuture<'static, desktop_runtime::Result<()>> {
-        let dirty_editor = self
-            .editor
-            .as_ref()
-            .filter(|editor| editor.read(cx).is_dirty())
-            .cloned();
+        let dirty_editor = pause
+            .then(|| {
+                self.editor
+                    .as_ref()
+                    .filter(|editor| editor.read(cx).is_dirty())
+                    .cloned()
+            })
+            .flatten();
         let editor_flush = self.editor.as_ref().map(|editor| {
             editor.update(cx, |editor, cx| {
                 if pause {
@@ -752,14 +755,16 @@ impl ApplicationView {
         let main_note = self.workspace.read(cx).note().clone();
         let summaries = main_note.update(cx, |note, cx| note.flush_summaries(pause, cx));
         let mut dirty_notes = Vec::new();
-        if !summaries.is_empty() {
-            dirty_notes.push(main_note);
-        }
-        for window in self.note_windows.values() {
-            if let Ok(note) = window.read(cx).map(|view| view.note())
-                && note.read(cx).has_unsaved_summary(cx)
-            {
-                dirty_notes.push(note);
+        if pause {
+            if !summaries.is_empty() {
+                dirty_notes.push(main_note);
+            }
+            for window in self.note_windows.values() {
+                if let Ok(note) = window.read(cx).map(|view| view.note())
+                    && note.read(cx).has_unsaved_summary(cx)
+                {
+                    dirty_notes.push(note);
+                }
             }
         }
         let notes = self
