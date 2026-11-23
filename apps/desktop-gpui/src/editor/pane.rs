@@ -745,6 +745,16 @@ impl EditorPane {
         self.apply_read_only(cx);
     }
 
+    #[cfg(test)]
+    pub(crate) fn is_loaded(&self) -> bool {
+        self.model.is_some() && self.journal.is_some()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn is_read_only(&self) -> bool {
+        self.read_only
+    }
+
     fn apply_read_only(&mut self, cx: &mut Context<Self>) {
         self.read_only = self.locked || NoteHolds::held(cx, &self.init.session_id);
         if let Some(model) = &mut self.model {

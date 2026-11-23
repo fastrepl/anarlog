@@ -689,9 +689,15 @@ impl ApplicationView {
 
     pub(super) fn resume_writers(&mut self, cx: &mut Context<Self>) {
         self.writers_paused = false;
+        if self.closing || self.drained || self.shutdown_begun() {
+            cx.notify();
+            return;
+        }
         if let Some(editor) = &self.editor {
             editor.update(cx, |editor, cx| editor.set_read_only(false, cx));
         }
+        let note = self.workspace.read(cx).note().clone();
+        note.update(cx, |note, cx| note.resume_summaries(cx));
         for window in self.note_windows.values() {
             let _ = window.update(cx, |view, _, cx| view.resume(cx));
         }
@@ -802,12 +808,16 @@ impl ApplicationView {
         &mut self,
         cx: &mut Context<Self>,
     ) -> BoxFuture<'static, desktop_runtime::Result<()>> {
-        if self.services.as_ref().is_some_and(|s| {
-            matches!(
-                s.capture.take_update(u64::MAX).phase,
-                Phase::Loading | Phase::Listening | Phase::Finalizing
-            )
-        }) {
+        if self.closing
+            || self.drained
+            || self.shutdown_begun()
+            || self.services.as_ref().is_some_and(|s| {
+                matches!(
+                    s.capture.take_update(u64::MAX).phase,
+                    Phase::Loading | Phase::Listening | Phase::Finalizing
+                )
+            })
+        {
             return Box::pin(async { Err(ServiceError::Busy) });
         }
         self.writers_paused = true;
@@ -1545,7 +1555,7 @@ impl ApplicationView {
     }
 
     /// The runtime stopped admitting work, so nothing can save again in this process.
-    fn shutdown_begun(&self) -> bool {
+    pub(super) fn shutdown_begun(&self) -> bool {
         !matches!(
             *self.runtime.state().borrow(),
             desktop_runtime::RuntimeState::Starting | desktop_runtime::RuntimeState::Ready

@@ -930,7 +930,12 @@ impl ApplicationView {
     fn install_update(&mut self, source: Source, cx: &mut Context<Self>) -> Option<Task<bool>> {
         let automatic = source == Source::Automatic;
         let ready = matches!(self.lifecycle.update, UpdateMenu::RestartToApply(_));
-        if self.lifecycle.installing || self.closing || (automatic && !ready) {
+        if self.lifecycle.installing
+            || self.closing
+            || self.drained
+            || self.shutdown_begun()
+            || (automatic && !ready)
+        {
             return None;
         }
         let onboarding = self
@@ -1072,6 +1077,8 @@ impl ApplicationView {
 
     fn can_install_now(&mut self, automatic: bool, cx: &mut Context<Self>) -> bool {
         !(self.closing
+            || self.drained
+            || self.shutdown_begun()
             || (automatic
                 && (self.product.is_some()
                     || self.meeting_live()
@@ -1371,5 +1378,337 @@ mod tests {
                 .collect::<Vec<_>>(),
             ["Today", "Tomorrow"]
         );
+    }
+
+    fn wait_until(
+        cx: &mut gpui::TestAppContext,
+        mut ready: impl FnMut(&mut gpui::TestAppContext) -> bool,
+    ) {
+        for _ in 0..500 {
+            cx.run_until_parked();
+            if ready(cx) {
+                return;
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        panic!("condition did not become true before timeout");
+    }
+
+    fn open_app_with_detached_note(
+        cx: &mut gpui::TestAppContext,
+    ) -> (
+        tempfile::TempDir,
+        desktop_runtime::RuntimeHandle,
+        gpui::Entity<ApplicationView>,
+        SessionId,
+        gpui::Entity<crate::note_window::NoteWindow>,
+    ) {
+        crate::platform::os::go_headless();
+        cx.executor().allow_parking();
+        let profile = tempfile::tempdir().unwrap();
+        let (runtime, ready) = crate::runtime_bridge::start(desktop_runtime::Profile {
+            database: profile.path().join("library.sqlite"),
+        })
+        .unwrap();
+        let mut state = runtime.state();
+        while matches!(
+            *state.borrow_and_update(),
+            desktop_runtime::RuntimeState::Starting
+        ) {
+            futures::executor::block_on(state.changed()).unwrap();
+        }
+        futures::executor::block_on(
+            runtime
+                .submit(|services| async move {
+                    sqlx::query("INSERT INTO app_settings (id, value_json) VALUES (?, 'false')")
+                        .bind(crate::product::onboarding::NEEDED_KEY)
+                        .execute(services.db.pool())
+                        .await
+                        .map(|_| ())
+                        .map_err(|error| ServiceError::Failed(error.to_string().into()))
+                })
+                .unwrap()
+                .receive(),
+        )
+        .unwrap();
+        let created = futures::executor::block_on(
+            runtime
+                .create_note("Quit drain note".into())
+                .unwrap()
+                .receive(),
+        )
+        .unwrap();
+        let session_id = created.summary.id;
+        cx.update(crate::ui::theme::UiFonts::init);
+        let rt = runtime.clone();
+        let root_path = profile.path().to_path_buf();
+        let window = cx.add_window(|window, cx| {
+            ApplicationView::new(
+                rt,
+                ready,
+                crate::launch::Storage {
+                    channel: None,
+                    root: root_path.clone(),
+                    pointer: Some(root_path.join("storage.json")),
+                },
+                window,
+                cx,
+            )
+        });
+        let app_entity = window.update(cx, |_, _, cx| cx.entity()).unwrap();
+        let sid = session_id.clone();
+        window
+            .update(cx, |app, _, cx| {
+                app.workspace.update(cx, |workspace, cx| {
+                    workspace.open_route(
+                        crate::workspace::navigation::Route::Session(sid.clone()),
+                        false,
+                        cx,
+                    );
+                    cx.emit(crate::workspace::WorkspaceAction::OpenNoteWindow(sid));
+                });
+            })
+            .unwrap();
+        let sid = session_id.clone();
+        wait_until(cx, |cx| {
+            cx.read(|cx| {
+                let app = app_entity.read(cx);
+                app.editor.as_ref().is_some_and(|e| e.read(cx).is_loaded())
+                    && app
+                        .note_windows
+                        .get(&sid)
+                        .and_then(|w| w.read(cx).ok())
+                        .is_some_and(|w| w.is_editor_loaded(cx))
+            })
+        });
+        let note_window = cx.read(|cx| app_entity.read(cx).note_windows[&session_id]);
+        let note_entity = note_window.update(cx, |_, _, cx| cx.entity()).unwrap();
+        (profile, runtime, app_entity, session_id, note_entity)
+    }
+
+    #[gpui::test]
+    fn deferred_update_during_quit_keeps_detached_note_window_locked(
+        cx: &mut gpui::TestAppContext,
+    ) {
+        use std::sync::{
+            Mutex,
+            atomic::{AtomicBool, AtomicUsize, Ordering},
+        };
+
+        use futures::channel::oneshot;
+
+        // Case 1: update deferral during an active quit drain keeps both windows locked.
+        {
+            let (_profile, runtime, app_entity, _session_id, note_entity) =
+                open_app_with_detached_note(cx);
+            let (release_flush, held_flush) = oneshot::channel::<()>();
+            futures::executor::block_on(
+                runtime
+                    .register_flush(Box::new(move || {
+                        Box::pin(async move {
+                            let _ = held_flush.await;
+                            Ok(())
+                        })
+                    }))
+                    .unwrap()
+                    .receive(),
+            )
+            .unwrap();
+
+            let (check2_started_tx, mut check2_started_rx) = oneshot::channel::<()>();
+            let (check2_release_tx, check2_release_rx) = oneshot::channel::<()>();
+            let check2_started_tx = Arc::new(Mutex::new(Some(check2_started_tx)));
+            let check2_release_rx = Arc::new(Mutex::new(Some(check2_release_rx)));
+            let checks = Arc::new(AtomicUsize::new(0));
+            let install_done = Arc::new(AtomicBool::new(false));
+            let install_done_flag = install_done.clone();
+            let app_for_task = app_entity.downgrade();
+
+            let _install_task = cx.spawn(async move |mut cx| {
+                let outcome = install_if_still_offered(
+                    &"1.5.0",
+                    "bytes",
+                    &mut cx,
+                    || {
+                        let attempt = checks.fetch_add(1, Ordering::SeqCst);
+                        let started = check2_started_tx.clone();
+                        let release = check2_release_rx.clone();
+                        async move {
+                            if attempt == 0 {
+                                Ok(Some("1.5.0"))
+                            } else {
+                                let tx = started.lock().unwrap().take();
+                                if let Some(tx) = tx {
+                                    let _ = tx.send(());
+                                }
+                                let rx = release.lock().unwrap().take();
+                                if let Some(rx) = rx {
+                                    let _ = rx.await;
+                                }
+                                Ok(Some("1.5.0"))
+                            }
+                        }
+                    },
+                    |cx| {
+                        app_for_task
+                            .update(cx, |this, cx| {
+                                this.can_install_now(false, cx)
+                                    .then(|| this.pause_writers(cx))
+                            })
+                            .map_err(|_| ServiceError::Closed)
+                    },
+                    |cx| {
+                        app_for_task
+                            .update(cx, |this, cx| this.can_install_now(false, cx))
+                            .map_err(|_| ServiceError::Closed)
+                    },
+                    |_| async { panic!("update install must defer while quit drains") },
+                )
+                .await
+                .unwrap();
+                assert_eq!(outcome, InstallOutcome::Deferred("bytes"));
+                app_for_task
+                    .update(&mut cx, |this, cx| {
+                        if this.writers_paused {
+                            this.resume_writers(cx);
+                        }
+                    })
+                    .unwrap();
+                install_done_flag.store(true, Ordering::SeqCst);
+            });
+
+            wait_until(cx, |_| {
+                check2_started_rx.try_recv().ok().flatten().is_some()
+            });
+            cx.update(|cx| {
+                app_entity.update(cx, |app, cx| {
+                    assert!(app.writers_paused);
+                    assert!(app.editor.as_ref().unwrap().read(cx).is_read_only());
+                    let note = note_entity.read(cx);
+                    assert!(note.is_paused());
+                    assert!(note.is_editor_read_only(cx));
+                    app.request_quit(cx);
+                    assert!(app.closing);
+                });
+            });
+            cx.run_until_parked();
+
+            check2_release_tx.send(()).unwrap();
+            wait_until(cx, |_| install_done.load(Ordering::SeqCst));
+
+            cx.read(|cx| {
+                let app = app_entity.read(cx);
+                assert!(!app.writers_paused);
+                assert!(app.closing);
+                assert!(app.editor.as_ref().unwrap().read(cx).is_read_only());
+                let note = note_entity.read(cx);
+                assert!(note.is_paused());
+                assert!(note.is_editor_read_only(cx));
+            });
+
+            release_flush.send(()).unwrap();
+            wait_until(cx, |cx| cx.read(|cx| app_entity.read(cx).drained));
+            let _ = futures::executor::block_on(runtime.shutdown());
+        }
+
+        // Case 2: pre-shutdown quit failure restores editing in both orderings.
+        {
+            let (_profile, runtime, app_entity, session_id, note_entity) =
+                open_app_with_detached_note(cx);
+
+            // Ordering A: updater resumes writers while quit is closing, then quit fails pre-shutdown.
+            let pause = cx.update(|cx| app_entity.update(cx, |app, cx| app.pause_writers(cx)));
+            let (pause_tx, mut pause_rx) = oneshot::channel();
+            cx.spawn(async move |_| {
+                let _ = pause_tx.send(pause.await);
+            })
+            .detach();
+            wait_until(cx, |_| {
+                pause_rx
+                    .try_recv()
+                    .ok()
+                    .flatten()
+                    .transpose()
+                    .unwrap()
+                    .is_some()
+            });
+            cx.update(|cx| {
+                app_entity.update(cx, |app, cx| {
+                    app.workspace
+                        .update(cx, |ws, cx| ws.set_recording(session_id.clone(), true, cx));
+                    app.request_quit(cx);
+                    assert!(app.closing);
+                    app.resume_writers(cx);
+                    assert!(!app.writers_paused);
+                    assert!(app.editor.as_ref().unwrap().read(cx).is_read_only());
+                    let note = note_entity.read(cx);
+                    assert!(note.is_paused());
+                    assert!(note.is_editor_read_only(cx));
+                });
+            });
+
+            wait_until(cx, |cx| cx.read(|cx| !app_entity.read(cx).closing));
+            cx.read(|cx| {
+                let app = app_entity.read(cx);
+                assert!(!app.shutdown_begun());
+                assert!(!app.drained);
+                assert!(!app.writers_paused);
+                assert!(!app.editor.as_ref().unwrap().read(cx).is_read_only());
+                let note = note_entity.read(cx);
+                assert!(!note.is_paused());
+                assert!(!note.is_editor_read_only(cx));
+            });
+
+            // Ordering B: quit fails pre-shutdown while updater still holds pause, then updater resumes.
+            let pause = cx.update(|cx| {
+                app_entity.update(cx, |app, cx| {
+                    app.workspace
+                        .update(cx, |ws, cx| ws.set_recording(session_id.clone(), false, cx));
+                    app.pause_writers(cx)
+                })
+            });
+            let (pause_tx, mut pause_rx) = oneshot::channel();
+            cx.spawn(async move |_| {
+                let _ = pause_tx.send(pause.await);
+            })
+            .detach();
+            wait_until(cx, |_| {
+                pause_rx
+                    .try_recv()
+                    .ok()
+                    .flatten()
+                    .transpose()
+                    .unwrap()
+                    .is_some()
+            });
+            cx.update(|cx| {
+                app_entity.update(cx, |app, cx| {
+                    app.workspace
+                        .update(cx, |ws, cx| ws.set_recording(session_id.clone(), true, cx));
+                    app.request_quit(cx);
+                    assert!(app.closing);
+                });
+            });
+            wait_until(cx, |cx| cx.read(|cx| !app_entity.read(cx).closing));
+            cx.update(|cx| {
+                app_entity.update(cx, |app, cx| {
+                    assert!(!app.shutdown_begun());
+                    assert!(app.writers_paused);
+                    assert!(app.editor.as_ref().unwrap().read(cx).is_read_only());
+                    let note = note_entity.read(cx);
+                    assert!(note.is_paused());
+                    assert!(note.is_editor_read_only(cx));
+                    app.resume_writers(cx);
+                    assert!(!app.writers_paused);
+                    assert!(!app.editor.as_ref().unwrap().read(cx).is_read_only());
+                    let note = note_entity.read(cx);
+                    assert!(!note.is_paused());
+                    assert!(!note.is_editor_read_only(cx));
+                    app.workspace
+                        .update(cx, |ws, cx| ws.set_recording(session_id.clone(), false, cx));
+                });
+            });
+            let _ = futures::executor::block_on(runtime.shutdown());
+        }
     }
 }

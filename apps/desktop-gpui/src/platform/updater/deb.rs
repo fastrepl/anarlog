@@ -504,7 +504,10 @@ mod tests {
         let fake_apt = fake_script(
             dir.path(),
             "apt-get",
-            &format!("printf '%s\\n' \"$0 $*\" >> \"{}\"", ran.display()),
+            &format!(
+                "printf '%s|%s|%s\\n' \"$DEBIAN_FRONTEND\" \"$LC_ALL\" \"$0 $*\" >> \"{}\"",
+                ran.display()
+            ),
         );
         let package = dir.path().join("update.deb");
         let direct = apt_direct_command(OsStr::new(&fake_apt), &package);
@@ -523,11 +526,16 @@ mod tests {
             &format!(
                 "if [ \"$1\" != \"-n\" ]; then exit 99; fi\nshift\n\
                  if read -r _unused; then exit 98; fi\n\
-                 if [ \"$1\" = \"--preserve-env=DEBIAN_FRONTEND,LC_ALL\" ]; then shift; fi\n\
+                 preserved=0\n\
+                 if [ \"$1\" = \"--preserve-env=DEBIAN_FRONTEND,LC_ALL\" ]; then preserved=1; shift; fi\n\
                  if [ \"$1\" != \"{fake_apt}\" ]; then\n  \
                    echo \"Sorry, user is not allowed to execute '$1' as root.\" >&2\n  \
                    exit 1\n\
-                 fi\nexec \"$@\""
+                 fi\n\
+                 if [ \"$preserved\" = \"1\" ]; then\n  \
+                   exec /usr/bin/env -i \"PATH=/usr/bin:/bin\" \"DEBIAN_FRONTEND=$DEBIAN_FRONTEND\" \"LC_ALL=$LC_ALL\" \"$@\"\n\
+                 fi\n\
+                 exec /usr/bin/env -i \"PATH=/usr/bin:/bin\" \"$@\""
             ),
         );
         run_sudo_non_interactive(OsStr::new(&policy_sudo), &wrapped, Some(&direct)).unwrap();
@@ -549,8 +557,12 @@ mod tests {
         assert!(env_err.contains("update Anarlog using `apt`"), "{env_err}");
 
         let recorded = std::fs::read_to_string(&ran).unwrap();
-        assert_eq!(recorded.lines().count(), 1, "{recorded}");
-        assert!(recorded.lines().all(|line| line.starts_with(&fake_apt)));
+        let lines = recorded.lines().collect::<Vec<_>>();
+        assert_eq!(lines.len(), 1, "{recorded}");
+        assert!(
+            lines[0].starts_with(&format!("noninteractive|C|{fake_apt} ")),
+            "{recorded}"
+        );
     }
 
     #[test]
