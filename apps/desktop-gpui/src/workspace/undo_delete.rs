@@ -961,7 +961,9 @@ mod tests {
         block_on(replayed_editor.update(cx, |editor, _| editor.flush()))
             .unwrap()
             .unwrap();
-        cx.run_until_parked();
+        settle(cx, |cx| {
+            !replayed_editor.read_with(cx, |editor, _| editor.is_dirty())
+        });
         assert_eq!(
             block_on(
                 runtime
@@ -975,6 +977,57 @@ mod tests {
             .as_ref(),
             "Launch plan"
         );
+        let (saved_seq, saved_snapshot) = replayed_editor.read_with(cx, |editor, _| {
+            editor.saved_snapshot().expect("saved summary snapshot")
+        });
+        assert!(
+            saved_snapshot.body.contains("Replayed title"),
+            "{}",
+            saved_snapshot.body
+        );
+
+        // Move focus off the summary editor so external sync updates rebase instead of deferring.
+        workspace.update_in(cx, |_, window, cx| {
+            cx.focus_handle().focus(window, cx);
+        });
+        cx.run_until_parked();
+
+        // An external rebase updates the displayed summary body without replacing saved_snapshot().
+        block_on(
+            runtime
+                .save_document(desktop_runtime::SaveDocument {
+                    base: saved_snapshot,
+                    body: summary_doc("External synced title").into(),
+                })
+                .unwrap()
+                .receive(),
+        )
+        .unwrap();
+        settle(cx, |cx| {
+            replayed_editor.read_with(cx, |editor, _| {
+                editor
+                    .document_body()
+                    .is_some_and(|body| body.contains("External synced title"))
+            })
+        });
+        let (seq_after_rebase, snapshot_after_rebase) =
+            replayed_editor.read_with(cx, |editor, _| {
+                editor
+                    .saved_snapshot()
+                    .expect("saved summary snapshot survives rebase")
+            });
+        assert_eq!(seq_after_rebase, saved_seq);
+        assert!(
+            snapshot_after_rebase.body.contains("Replayed title"),
+            "{}",
+            snapshot_after_rebase.body
+        );
+        assert!(
+            !snapshot_after_rebase.body.contains("External synced title"),
+            "{}",
+            snapshot_after_rebase.body
+        );
+
         cx.update(|_, cx| hold.release(cx));
         settle(cx, |_| {
             block_on(
@@ -989,6 +1042,20 @@ mod tests {
             .as_ref()
                 == "Replayed title"
         });
+        workspace.update(cx, |workspace, cx| {
+            workspace.delete_notes(std::slice::from_ref(&session), false, cx);
+        });
+        settle(cx, |_| deleted(&runtime, &session));
+        workspace.update(cx, |workspace, cx| workspace.undo_deletion(&session.0, cx));
+        settle(cx, |_| !deleted(&runtime, &session));
+        let restored = block_on(
+            runtime
+                .open_session(session.clone(), CancellationToken::new())
+                .unwrap()
+                .receive(),
+        )
+        .unwrap();
+        assert_eq!(restored.summary.title.as_ref(), "Replayed title");
         drop((editor, replayed_editor));
         shut_down(&runtime, cx);
     }
