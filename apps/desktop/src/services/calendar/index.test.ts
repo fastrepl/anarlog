@@ -37,7 +37,7 @@ import {
   syncCalendarEvents,
   syncCalendarEventsForRange,
 } from ".";
-import { useCalendarSyncIssues } from "./sync-errors";
+import { setCalendarSyncIssue, useCalendarSyncIssues } from "./sync-errors";
 
 import { createTaskScheduler } from "~/services/task-scheduler";
 
@@ -106,6 +106,46 @@ describe("syncCalendarEventsForRange", () => {
       storageMocks.syncConnectionEvents.mock.calls[1][0].ctx.calendars,
     ).toEqual(calendars);
     expect(useCalendarSyncIssues.getState()["google:conn-1"]).toBeUndefined();
+  });
+
+  test("continues syncing healthy Google calendars when Outlook discovery fails", async () => {
+    ctxMocks.getProviderConnections.mockResolvedValueOnce([
+      { provider: "outlook", connection_ids: ["outlook-1"] },
+      { provider: "google", connection_ids: ["conn-1"] },
+    ]);
+    ctxMocks.syncCalendars.mockResolvedValueOnce(
+      new Map([["outlook:outlook-1", "outlook_mailbox_unavailable"]]),
+    );
+    ctxMocks.createCtx.mockImplementation(
+      async (provider: string, connectionId: string) =>
+        provider === "outlook"
+          ? { ...ctx, provider, connectionId, calendars: [] }
+          : { ...ctx, provider, connectionId },
+    );
+    const googleEvent = { tracking_id_event: "evt-google-1" };
+    fetchMocks.fetchIncomingEvents.mockImplementation(async (argCtx) => ({
+      calendars: argCtx.calendars,
+      events: argCtx.provider === "google" ? [googleEvent] : [],
+      participants: new Map(),
+    }));
+
+    await syncCalendarEventsForRange({ from: ctx.from, to: ctx.to });
+
+    expect(storageMocks.syncConnectionEvents).toHaveBeenCalledTimes(1);
+    expect(
+      storageMocks.syncConnectionEvents.mock.calls[0][0].ctx.provider,
+    ).toBe("google");
+    expect(
+      storageMocks.syncConnectionEvents.mock.calls[0][0].ctx.connectionId,
+    ).toBe("conn-1");
+    expect(storageMocks.syncConnectionEvents.mock.calls[0][0].incoming).toEqual(
+      [googleEvent],
+    );
+    expect(useCalendarSyncIssues.getState()["outlook:outlook-1"]).toBe(
+      "outlook_mailbox_unavailable",
+    );
+    expect(useCalendarSyncIssues.getState()["google:conn-1"]).toBeUndefined();
+    setCalendarSyncIssue("outlook:outlook-1");
   });
 
   test.each([

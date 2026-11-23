@@ -59,6 +59,8 @@ describe("useOAuthCalendarSelection", () => {
     cleanup();
     mocks.scheduleSync.mockClear();
     mocks.calendars = [];
+    setCalendarSyncIssue("outlook:conn-1");
+    setCalendarSyncIssue("outlook:fixture");
   });
 
   it("shows the mailbox error on the affected account before calendar discovery and clears it after retry", () => {
@@ -92,6 +94,45 @@ describe("useOAuthCalendarSelection", () => {
     act(() => setCalendarSyncIssue("outlook:fixture"));
     expect(screen.queryByRole("alert")).toBeNull();
     expect(screen.getByText("No calendars found")).toBeTruthy();
+  });
+
+  it("attaches sync issues to an existing connection group when sourceName differs from account_identity", () => {
+    const provider = PROVIDERS.find((item) => item.id === "outlook")!;
+    mocks.calendars = [
+      {
+        id: "cal-1",
+        name: "Calendar",
+        enabled: true,
+        source: "Alex Rivera",
+        color: "#0078d4",
+        connection_id: "conn-1",
+      },
+    ];
+    const connections = [
+      {
+        integration_id: "outlook",
+        connection_id: "conn-1",
+        account_identity: "alex@example.com",
+      },
+    ];
+    function OutlookSelection() {
+      const { groups, handleToggle, handleRefresh, isLoading } =
+        useOAuthCalendarSelection(provider, connections);
+      return (
+        <OAuthCalendarSelection
+          groups={groups}
+          onToggle={handleToggle}
+          onRefresh={handleRefresh}
+          isLoading={isLoading}
+        />
+      );
+    }
+    setCalendarSyncIssue("outlook:conn-1", "outlook_mailbox_unavailable");
+    render(<OutlookSelection />);
+    expect(screen.getByText("Alex Rivera")).toBeTruthy();
+    expect(screen.queryByText("alex@example.com")).toBeNull();
+    expect(screen.getByRole("alert").textContent).toContain("Exchange Online");
+    setCalendarSyncIssue("outlook:conn-1");
   });
 
   it.each([

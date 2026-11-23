@@ -97,9 +97,9 @@ export function useOAuthCalendarSelection(
       const issue = issues[connectionKey(config.id, id)];
       if (!issue) continue;
       const account = connection.account_identity;
-      const group = groups.find(
-        (item) => item.id === id && (!account || item.sourceName === account),
-      );
+      const group =
+        groups.find((item) => item.id === id && item.sourceName === account) ??
+        groups.find((item) => item.id === id);
       if (group) group.issue = issue;
       else
         groups.push({
