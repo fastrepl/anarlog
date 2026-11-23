@@ -73,8 +73,8 @@
   text-decoration: none;
   transform: translate(-50%, -50%);
   transition:
-    background-color 140ms ease,
-    color 140ms ease;
+    background-color var(--default-transition-duration, 70ms),
+    color var(--default-transition-duration, 70ms);
 }
 
 #dictation .speech-flow-control:hover,

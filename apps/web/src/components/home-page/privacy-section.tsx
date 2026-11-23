@@ -110,7 +110,7 @@ function LocalFilesVisual() {
       <img
         src="/icons/file.webp"
         alt=""
-        className="w-10 rotate-[3deg] object-contain transition-transform duration-300 ease-out hover:rotate-[7deg]"
+        className="w-10 rotate-[3deg] object-contain transition-transform duration-75 hover:rotate-[7deg]"
         draggable={false}
       />
       <img
@@ -118,7 +118,7 @@ function LocalFilesVisual() {
         alt=""
         width={160}
         height={221}
-        className="w-10 rotate-[-5deg] object-contain transition-transform duration-300 ease-out hover:rotate-[-9deg]"
+        className="w-10 rotate-[-5deg] object-contain transition-transform duration-75 hover:rotate-[-9deg]"
         draggable={false}
       />
       <img
@@ -126,7 +126,7 @@ function LocalFilesVisual() {
         alt=""
         width={1004}
         height={841}
-        className="w-14 object-contain transition-transform duration-300 ease-out hover:rotate-[3deg]"
+        className="w-14 object-contain transition-transform duration-75 hover:rotate-[3deg]"
         draggable={false}
       />
       <img
@@ -134,13 +134,13 @@ function LocalFilesVisual() {
         alt=""
         width={160}
         height={221}
-        className="w-10 rotate-[6deg] object-contain transition-transform duration-300 ease-out hover:rotate-[10deg]"
+        className="w-10 rotate-[6deg] object-contain transition-transform duration-75 hover:rotate-[10deg]"
         draggable={false}
       />
       <img
         src="/icons/file.webp"
         alt=""
-        className="w-10 rotate-[-4deg] object-contain transition-transform duration-300 ease-out hover:rotate-[-8deg]"
+        className="w-10 rotate-[-4deg] object-contain transition-transform duration-75 hover:rotate-[-8deg]"
         draggable={false}
       />
     </div>
