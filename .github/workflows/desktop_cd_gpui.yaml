@@ -367,8 +367,12 @@ jobs:
                 dbus-x11 \
                 libasound2t64 \
                 libegl1 \
+                libfontconfig1 \
+                libfreetype6 \
+                libfribidi0 \
                 libgl1 \
                 libglx-mesa0 \
+                libharfbuzz0b \
                 libpipewire-0.3-0 \
                 libwayland-client0 \
                 libx11-xcb1 \
