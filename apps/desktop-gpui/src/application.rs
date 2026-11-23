@@ -704,35 +704,100 @@ impl ApplicationView {
         cx.notify();
     }
 
+    fn can_flush_drafts(&mut self, cx: &mut Context<Self>) -> bool {
+        if self.pins_saving
+            || self.pins_pending.is_some()
+            || self.note_windows.values().any(|window| {
+                window
+                    .read(cx)
+                    .is_ok_and(|view| view.note().read(cx).has_unsaved_title(cx))
+            })
+        {
+            return false;
+        }
+        let mounted_editor = self
+            .editor
+            .as_ref()
+            .map(|editor| editor.read(cx).init.session_id.clone());
+        self.workspace.update(cx, |view, cx| {
+            view.can_flush_to_close(mounted_editor.as_ref(), cx)
+        })
+    }
+
+    fn start_draft_flushes(
+        &mut self,
+        pause: bool,
+        cx: &mut Context<Self>,
+    ) -> BoxFuture<'static, desktop_runtime::Result<()>> {
+        let editor_flush = self.editor.as_ref().map(|editor| {
+            editor.update(cx, |editor, cx| {
+                if pause {
+                    editor.set_read_only(true, cx);
+                }
+                editor.flush()
+            })
+        });
+        let summaries = self
+            .workspace
+            .read(cx)
+            .note()
+            .clone()
+            .update(cx, |note, cx| note.flush_summaries(pause, cx));
+        let notes = self
+            .note_windows
+            .values()
+            .filter_map(|window| {
+                window
+                    .update(cx, |view, _, cx| {
+                        if pause {
+                            view.pause(cx)
+                        } else {
+                            view.flush(false, cx)
+                        }
+                    })
+                    .ok()
+            })
+            .collect::<Vec<_>>();
+        let runtime = self.runtime.clone();
+        Box::pin(async move {
+            let mut first_error = None;
+            if let Some(flush) = editor_flush
+                && let Err(error) = flush
+                    .await
+                    .map_err(|_| ServiceError::Closed)
+                    .and_then(|result| result)
+            {
+                first_error.get_or_insert(error);
+            }
+            for summary in summaries {
+                if let Err(error) = summary
+                    .await
+                    .map_err(|_| ServiceError::Closed)
+                    .and_then(|result| result)
+                {
+                    first_error.get_or_insert(error);
+                }
+            }
+            for note in notes {
+                if let Err(error) = note.await {
+                    first_error.get_or_insert(error);
+                }
+            }
+            if let Some(error) = first_error {
+                return Err(error);
+            }
+            runtime.flush()?.receive().await
+        })
+    }
+
     fn flush_drafts(
         &mut self,
         cx: &mut Context<Self>,
     ) -> BoxFuture<'static, desktop_runtime::Result<()>> {
-        if self.pins_saving
-            || self.pins_pending.is_some()
-            || !self.workspace.update(cx, |view, cx| view.can_close(cx))
-        {
+        if !self.can_flush_drafts(cx) {
             return Box::pin(async { Err(ServiceError::Busy) });
         }
-        let flush = self
-            .editor
-            .as_ref()
-            .map(|editor| editor.update(cx, |editor, _| editor.flush()));
-        let runtime = self.runtime.clone();
-        let notes = self
-            .note_windows
-            .values()
-            .filter_map(|window| window.update(cx, |view, _, cx| view.flush(false, cx)).ok())
-            .collect::<Vec<_>>();
-        Box::pin(async move {
-            if let Some(flush) = flush {
-                flush.await.map_err(|_| ServiceError::Closed)??;
-            }
-            for flush in notes {
-                flush.await?;
-            }
-            runtime.flush()?.receive().await
-        })
+        self.start_draft_flushes(false, cx)
     }
 
     fn open_note_window(&mut self, id: Option<SessionId>, cx: &mut Context<Self>) {
@@ -817,35 +882,16 @@ impl ApplicationView {
                     Phase::Loading | Phase::Listening | Phase::Finalizing
                 )
             })
+            || !self.can_flush_drafts(cx)
         {
             return Box::pin(async { Err(ServiceError::Busy) });
         }
         self.writers_paused = true;
-        if let Some(editor) = &self.editor {
-            editor.update(cx, |editor, cx| editor.set_read_only(true, cx));
-        }
-        let summaries = self
-            .workspace
-            .read(cx)
-            .note()
-            .clone()
-            .update(cx, |note, cx| note.flush_summaries(true, cx));
-        let flush = self.flush_drafts(cx);
-        let notes = self
-            .note_windows
-            .values()
-            .filter_map(|window| window.update(cx, |view, _, cx| view.pause(cx)).ok())
-            .collect::<Vec<_>>();
+        let flush = self.start_draft_flushes(true, cx);
         let cloud = self.native.as_ref().and_then(|n| n.cloud.service.clone());
         let runtime = self.runtime.clone();
         Box::pin(async move {
-            for summary in summaries {
-                summary.await.map_err(|_| ServiceError::Closed)??;
-            }
             flush.await?;
-            for note in notes {
-                note.await?;
-            }
             if let Some(cloud) = cloud {
                 cloud.shutdown().await?;
             }

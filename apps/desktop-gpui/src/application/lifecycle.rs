@@ -1423,7 +1423,7 @@ mod tests {
             let _ = tx.send(flush.await);
         })
         .detach();
-        wait_until(cx, |cx| {
+        wait_until(cx, |_| {
             rx.try_recv()
                 .ok()
                 .flatten()
@@ -1432,8 +1432,8 @@ mod tests {
                 .transpose()
                 .unwrap()
                 .is_some()
-                && !cx.read(|cx| editor.read(cx).is_dirty())
         });
+        wait_until(cx, |cx| !cx.read(|cx| editor.read(cx).is_dirty()));
     }
 
     struct DetachedNoteFixture {
@@ -1710,6 +1710,23 @@ mod tests {
             )
             .unwrap();
 
+            assert!(try_edit(
+                fixture.main_window,
+                &fixture.main_summary,
+                " pending-summary",
+                cx
+            ));
+            assert!(cx.read(|cx| {
+                fixture
+                    .app_entity
+                    .read(cx)
+                    .workspace
+                    .read(cx)
+                    .note()
+                    .read(cx)
+                    .has_unsaved_summary(cx)
+            }));
+
             let (check2_started_tx, mut check2_started_rx) = oneshot::channel::<()>();
             let (check2_release_tx, check2_release_rx) = oneshot::channel::<()>();
             let check2_started_tx = Arc::new(Mutex::new(Some(check2_started_tx)));
@@ -1775,6 +1792,29 @@ mod tests {
             wait_until(cx, |_| {
                 check2_started_rx.try_recv().ok().flatten().is_some()
             });
+            wait_until(cx, |cx| {
+                cx.read(|cx| {
+                    let note = fixture
+                        .app_entity
+                        .read(cx)
+                        .workspace
+                        .read(cx)
+                        .note()
+                        .read(cx);
+                    !fixture.main_summary.read(cx).is_dirty()
+                        && !note.has_unsaved_summary(cx)
+                        && !note.has_unsaved_title(cx)
+                })
+            });
+            assert!(cx.read(|cx| {
+                fixture
+                    .main_summary
+                    .read(cx)
+                    .init
+                    .document
+                    .body
+                    .contains("pending-summary")
+            }));
             assert!(!try_edit(
                 fixture.main_window,
                 &fixture.main_memo,

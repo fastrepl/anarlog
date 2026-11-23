@@ -28,6 +28,7 @@ use crate::platform::{
 pub const NSIS_UPDATE_ARGS: [&str; 4] = ["/P", "/R", "/UPDATE", "/ARGS"];
 const WINDOWS_INSTALLER_PREFIX: &str = "anarlog-updater-";
 const STAGE_LOCK_FILE: &str = "stage.lock";
+const STAGING_ROOT_LOCK_FILE: &str = "anarlog-updater-staging.lock";
 
 static EXEC_LOCK: Mutex<Option<ExecutableLock>> = Mutex::new(None);
 static STAGED_INSTALLER_LOCK: Mutex<Option<fs::File>> = Mutex::new(None);
@@ -152,6 +153,14 @@ pub fn cleanup_stale_installers() {
 }
 
 fn cleanup_stale_installers_in(root: &Path) {
+    // Skip cleanup while another process holds the staging root lock between mkdir and stage.lock
+    // creation so a nascent staging directory is never deleted before its stage lock exists.
+    let Ok(root_lock) = open_lock_file(&root.join(STAGING_ROOT_LOCK_FILE)) else {
+        return;
+    };
+    if root_lock.try_lock().is_err() {
+        return;
+    }
     let Ok(entries) = fs::read_dir(root) else {
         return;
     };
@@ -188,21 +197,33 @@ fn cleanup_stale_installers_in(root: &Path) {
 }
 
 fn stage_windows_installer_in(bytes: &[u8], root: &Path) -> Result<(PathBuf, fs::File)> {
+    stage_windows_installer_in_with(bytes, root, || {})
+}
+
+fn stage_windows_installer_in_with(
+    bytes: &[u8],
+    root: &Path,
+    after_mkdir: impl FnOnce(),
+) -> Result<(PathBuf, fs::File)> {
     if !bytes.starts_with(b"MZ") {
         return Err(failure("Expected a signed NSIS executable"));
     }
-    // Keep the TempDir guard until write and sync finish so failures clean up automatically, and
-    // hold `stage.lock` until this process exits after spawning NSIS so sibling channels don't
-    // prune a pending installer mid-drain.
+    // Serialize mkdir -> stage.lock creation with stale-temp cleanup, keep the TempDir guard until
+    // write and sync finish so failures clean up automatically, and hold `stage.lock` until exit
+    // after spawning NSIS so sibling channels don't prune a pending installer mid-drain.
+    let root_lock = open_lock_file(&root.join(STAGING_ROOT_LOCK_FILE))?;
+    root_lock.lock().map_err(failure)?;
     let stage = tempfile::Builder::new()
         .prefix(WINDOWS_INSTALLER_PREFIX)
         .tempdir_in(root)
         .map_err(failure)?;
+    after_mkdir();
     let lock = open_lock_file(&stage.path().join(STAGE_LOCK_FILE))?;
     lock.try_lock().map_err(|error| match error {
         fs::TryLockError::WouldBlock => failure("Could not lock staged installer"),
         fs::TryLockError::Error(error) => failure(error),
     })?;
+    drop(root_lock);
     let path = stage.path().join("installer.exe");
     let mut file = fs::File::create(&path).map_err(failure)?;
     file.write_all(bytes).map_err(failure)?;
@@ -750,8 +771,31 @@ mod tests {
         fs::create_dir(&keep_unrelated).unwrap();
         assert!(stage_windows_installer_in(b"not-pe", root.path()).is_err());
 
+        let mut cleaned_before_stage_lock = false;
         let (installer, stage_lock) =
-            stage_windows_installer_in(b"MZ\x90\x00dummy", root.path()).unwrap();
+            stage_windows_installer_in_with(b"MZ\x90\x00dummy", root.path(), || {
+                let nascent = fs::read_dir(root.path())
+                    .unwrap()
+                    .flatten()
+                    .map(|entry| entry.path())
+                    .find(|path| {
+                        path.is_dir()
+                            && path
+                                .file_name()
+                                .and_then(|name| name.to_str())
+                                .is_some_and(|name| name.starts_with(WINDOWS_INSTALLER_PREFIX))
+                    })
+                    .expect("nascent staging directory created before stage.lock");
+                assert!(!nascent.join(STAGE_LOCK_FILE).exists());
+                cleanup_stale_installers_in(root.path());
+                assert!(
+                    nascent.exists(),
+                    "staging root lock must protect nascent directory before stage.lock exists"
+                );
+                cleaned_before_stage_lock = true;
+            })
+            .unwrap();
+        assert!(cleaned_before_stage_lock);
         assert!(installer.is_file());
         cleanup_stale_installers_in(root.path());
         assert!(

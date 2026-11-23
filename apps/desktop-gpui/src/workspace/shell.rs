@@ -807,6 +807,36 @@ impl WorkspaceView {
         self.can_navigate(cx)
     }
 
+    /// Whether the workspace can flush and close once the caller flushes `mounted_editor` and
+    /// open summary editors. Recording, note creation, unsaved titles, and dirty memos outside
+    /// `mounted_editor` still block.
+    pub fn can_flush_to_close(
+        &mut self,
+        mounted_editor: Option<&SessionId>,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        if !self.recording.is_empty() {
+            self.set_status(
+                "Stop recording and finish saving before closing the window.".into(),
+                cx,
+            );
+            return false;
+        }
+        let note = self.note.read(cx);
+        if self.creating
+            || note.has_unsaved_title(cx)
+            || self.dirty.iter().any(|id| mounted_editor != Some(id))
+        {
+            self.set_status(
+                "Save or restore unsaved edits before closing or changing tabs.".into(),
+                cx,
+            );
+            false
+        } else {
+            true
+        }
+    }
+
     fn can_navigate(&mut self, cx: &mut Context<Self>) -> bool {
         let note = self.note.read(cx);
         if self.creating
