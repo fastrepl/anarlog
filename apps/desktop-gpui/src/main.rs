@@ -81,6 +81,11 @@ fn main() -> anyhow::Result<()> {
     else {
         return Ok(());
     };
+    #[cfg(target_os = "windows")]
+    {
+        desktop_gpui::platform::updater::hold_executable_lock();
+        desktop_gpui::platform::updater::cleanup_stale_installers();
+    }
     events.open_urls(urls);
     let startup = match storage.channel {
         Some(channel) => Startup {
@@ -199,6 +204,8 @@ fn main() -> anyhow::Result<()> {
     // The replacement serves this profile's launches next.
     #[cfg(any(target_os = "linux", target_os = "windows"))]
     drop(instance);
+    #[cfg(target_os = "windows")]
+    desktop_gpui::platform::updater::release_executable_lock();
     desktop_gpui::platform::windows::run_requested_restart()?;
     Ok(())
 }

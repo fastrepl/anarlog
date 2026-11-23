@@ -125,7 +125,7 @@ async fn update_pass(
     install_at_open: bool,
     cx: &mut AsyncApp,
 ) -> Option<bool> {
-    let automatic = automatic_updates(this, cx).await?;
+    let _ = automatic_updates(this, cx).await?;
     let check = this
         .update(cx, |this, cx| {
             let busy = matches!(this.lifecycle.update, UpdateMenu::Downloading(..));
@@ -143,6 +143,11 @@ async fn update_pass(
             }
         }
     }
+    let automatic = this
+        .read_with(cx, |this, _| {
+            this.notifications.automatic_updates() == Some(true)
+        })
+        .ok()?;
     if !automatic {
         return Some(false);
     }
@@ -163,13 +168,34 @@ async fn update_pass(
     if !install_at_open {
         return Some(false);
     }
+    let automatic = this
+        .read_with(cx, |this, _| {
+            this.notifications.automatic_updates() == Some(true)
+        })
+        .ok()?;
+    if !automatic {
+        return Some(false);
+    }
     let install = this
         .update(cx, |this, cx| this.install_update(Source::Automatic, cx))
         .ok()?;
     match install {
         // A successful install quits into the new version.
-        Some(install) => Some(!install.await),
-        None => Some(true),
+        Some(install) => {
+            if install.await {
+                Some(false)
+            } else {
+                this.read_with(cx, |this, _| {
+                    this.notifications.automatic_updates() == Some(true)
+                })
+                .ok()
+            }
+        }
+        None => this
+            .read_with(cx, |this, _| {
+                this.notifications.automatic_updates() == Some(true)
+            })
+            .ok(),
     }
 }
 
@@ -951,46 +977,76 @@ impl ApplicationView {
         self.lifecycle.installing = true;
         cx.notify();
         let runtime = self.runtime.clone();
+        let updater_for_check = updater.clone();
+        let runtime_for_check = runtime.clone();
         Some(cx.spawn(async move |this, cx| {
-            // `None` when the feed no longer offers the downloaded release.
-            let result: desktop_runtime::Result<Option<Restart>> = async {
-                // Like shipping, re-check the feed before installing, so a release it withdrew
-                // (a rollback) is never installed, even when Restart races a check. Unlike
-                // shipping, a different offered version also withdraws the download: during
-                // the cutover that may be a rollback build, which the next check downloads.
-                let offered = updater
-                    .check(&runtime, CancellationToken::new())?
-                    .receive()
-                    .await?;
-                if offered.is_none_or(|offered| offered.version != update.release.version) {
-                    return Ok(None);
-                }
-                let pause = this
-                    .update(cx, |this, cx| this.pause_writers(cx))
-                    .map_err(|_| ServiceError::Closed)?;
-                pause.await?;
-                runtime
-                    .service(move |_| async move { installer.install(update).await })?
-                    .receive()
-                    .await
-                    .map(Some)
-            }
+            // `Withdrawn` when the feed no longer offers the downloaded release.
+            let expected = update.release.version.clone();
+            let outcome = install_if_still_offered(
+                &expected,
+                update,
+                || {
+                    let updater = updater_for_check.clone();
+                    let runtime = runtime_for_check.clone();
+                    async move {
+                        updater
+                            .check(&runtime, CancellationToken::new())?
+                            .receive()
+                            .await
+                            .map(|offered| offered.map(|offered| offered.version))
+                    }
+                },
+                || {
+                    this.update(cx, |this, cx| {
+                        if this.closing
+                            || (automatic
+                                && (this.product.is_some()
+                                    || this.meeting_live()
+                                    || this.notifications.automatic_updates() != Some(true)))
+                            || (!automatic
+                                && this.product.as_ref().is_some_and(|view| {
+                                    !view.update(cx, |view, cx| view.can_close(cx))
+                                }))
+                        {
+                            return None;
+                        }
+                        Some(this.pause_writers(cx))
+                    })
+                    .map_err(|_| ServiceError::Closed)
+                },
+                |update| async move {
+                    runtime
+                        .service(move |_| async move { installer.install(update).await })?
+                        .receive()
+                        .await
+                },
+            )
             .await;
-            let failed = this.update(cx, |this, cx| {
+            let outcome = this.update(cx, |this, cx| {
                 this.lifecycle.installing = false;
                 cx.notify();
-                match result {
-                    Ok(Some(restart)) => {
+                match outcome {
+                    Ok(InstallOutcome::Installed(restart)) => {
                         crate::platform::windows::request_restart(restart);
                         this.request_quit(cx);
-                        None
+                        (true, None)
                     }
-                    Ok(None) => {
+                    Ok(InstallOutcome::Deferred(update)) => {
+                        this.lifecycle.ready = Some(update);
+                        (false, None)
+                    }
+                    Ok(InstallOutcome::Withdrawn) => {
+                        if this.writers_paused {
+                            this.resume_writers(cx);
+                        }
                         this.lifecycle.update = UpdateMenu::CheckForUpdate;
                         this.lifecycle.release = None;
-                        Some(ServiceError::Unsupported(
-                            "This update is no longer available.".into(),
-                        ))
+                        (
+                            false,
+                            Some(ServiceError::Unsupported(
+                                "This update is no longer available.".into(),
+                            )),
+                        )
                     }
                     Err(error) => {
                         // The verified bytes were consumed; Retry downloads the release again.
@@ -999,12 +1055,12 @@ impl ApplicationView {
                         if this.writers_paused {
                             this.resume_writers(cx);
                         }
-                        Some(error)
+                        (false, Some(error))
                     }
                 }
             });
             if source == Source::Tray
-                && let Ok(Some(error)) = &failed
+                && let Ok((_, Some(error))) = &outcome
             {
                 alert(
                     "Update Failed",
@@ -1013,9 +1069,59 @@ impl ApplicationView {
                 )
                 .await;
             }
-            matches!(failed, Ok(None))
+            matches!(outcome, Ok((true, _)))
         }))
     }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum InstallOutcome<U> {
+    Installed(Restart),
+    Withdrawn,
+    Deferred(U),
+}
+
+/// Re-checks the feed before pausing writers and again right before installing, dropping
+/// downloaded bytes if the release was withdrawn or replaced (a rollback) or restoring them if a
+/// UI/meeting guard defers installation.
+async fn install_if_still_offered<
+    V,
+    U,
+    FCheck,
+    FCheckFut,
+    FPause,
+    FPauseFut,
+    FInstall,
+    FInstallFut,
+>(
+    expected: &V,
+    update: U,
+    mut check: FCheck,
+    pause: FPause,
+    install: FInstall,
+) -> desktop_runtime::Result<InstallOutcome<U>>
+where
+    V: PartialEq,
+    FCheck: FnMut() -> FCheckFut,
+    FCheckFut: std::future::Future<Output = desktop_runtime::Result<Option<V>>>,
+    FPause: FnOnce() -> desktop_runtime::Result<Option<FPauseFut>>,
+    FPauseFut: std::future::Future<Output = desktop_runtime::Result<()>>,
+    FInstall: FnOnce(U) -> FInstallFut,
+    FInstallFut: std::future::Future<Output = desktop_runtime::Result<Restart>>,
+{
+    let offered = check().await?;
+    if offered.is_none_or(|offered| &offered != expected) {
+        return Ok(InstallOutcome::Withdrawn);
+    }
+    let Some(pause) = pause()? else {
+        return Ok(InstallOutcome::Deferred(update));
+    };
+    pause.await?;
+    let offered = check().await?;
+    if offered.is_none_or(|offered| &offered != expected) {
+        return Ok(InstallOutcome::Withdrawn);
+    }
+    install(update).await.map(InstallOutcome::Installed)
 }
 
 /// Whether a check's result replaces the update state, like shipping's update events: a found
@@ -1057,6 +1163,103 @@ mod tests {
             &UpdateMenu::Downloading(ready.clone(), None),
             None
         ));
+    }
+
+    #[test]
+    fn install_recheck_skips_withdrawn_or_replaced_release_before_pausing_writers() {
+        use std::sync::atomic::{AtomicBool, AtomicUsize};
+
+        use futures::executor::block_on;
+
+        for offered in [None, Some("1.4.9")] {
+            let paused = AtomicBool::new(false);
+            let installed = AtomicBool::new(false);
+            let result = block_on(install_if_still_offered(
+                &"1.5.0",
+                "bytes",
+                || async move { Ok(offered) },
+                || {
+                    paused.store(true, Ordering::SeqCst);
+                    Ok(Some(async { Ok(()) }))
+                },
+                |_| {
+                    installed.store(true, Ordering::SeqCst);
+                    async { Ok(Restart::App) }
+                },
+            ))
+            .unwrap();
+            assert_eq!(result, InstallOutcome::Withdrawn);
+            assert!(!paused.load(Ordering::SeqCst));
+            assert!(!installed.load(Ordering::SeqCst));
+        }
+
+        let checks = AtomicUsize::new(0);
+        let installed = AtomicBool::new(false);
+        let deferred = block_on(install_if_still_offered(
+            &"1.5.0",
+            "bytes",
+            || {
+                checks.fetch_add(1, Ordering::SeqCst);
+                async { Ok(Some("1.5.0")) }
+            },
+            || Ok(None::<std::future::Ready<desktop_runtime::Result<()>>>),
+            |_| {
+                installed.store(true, Ordering::SeqCst);
+                async { Ok(Restart::App) }
+            },
+        ))
+        .unwrap();
+        assert_eq!(deferred, InstallOutcome::Deferred("bytes"));
+        assert_eq!(checks.load(Ordering::SeqCst), 1);
+        assert!(!installed.load(Ordering::SeqCst));
+
+        let checks = AtomicUsize::new(0);
+        let paused = AtomicBool::new(false);
+        let installed = AtomicBool::new(false);
+        let withdrawn_after_pause = block_on(install_if_still_offered(
+            &"1.5.0",
+            "bytes",
+            || {
+                let first = checks.fetch_add(1, Ordering::SeqCst) == 0;
+                async move { Ok(first.then_some("1.5.0")) }
+            },
+            || {
+                paused.store(true, Ordering::SeqCst);
+                Ok(Some(async { Ok(()) }))
+            },
+            |_| {
+                installed.store(true, Ordering::SeqCst);
+                async { Ok(Restart::App) }
+            },
+        ))
+        .unwrap();
+        assert_eq!(withdrawn_after_pause, InstallOutcome::Withdrawn);
+        assert_eq!(checks.load(Ordering::SeqCst), 2);
+        assert!(paused.load(Ordering::SeqCst));
+        assert!(!installed.load(Ordering::SeqCst));
+
+        let checks = AtomicUsize::new(0);
+        let paused = AtomicBool::new(false);
+        let result = block_on(install_if_still_offered(
+            &"1.5.0",
+            "bytes",
+            || {
+                checks.fetch_add(1, Ordering::SeqCst);
+                async { Ok(Some("1.5.0")) }
+            },
+            || {
+                paused.store(true, Ordering::SeqCst);
+                Ok(Some(async { Ok(()) }))
+            },
+            |payload| async move {
+                assert_eq!(payload, "bytes");
+                Ok(Restart::App)
+            },
+        ))
+        .unwrap();
+        assert_eq!(result, InstallOutcome::Installed(Restart::App));
+        assert_eq!(checks.load(Ordering::SeqCst), 2);
+        assert!(paused.load(Ordering::SeqCst));
     }
 
     #[test]

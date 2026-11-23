@@ -120,20 +120,14 @@ fn apt_env_command<'a>(env_bin: &'a OsStr, direct: &[&'a OsStr]) -> Vec<&'a OsSt
     command
 }
 
-fn run_pkexec(
-    pkexec_bin: &OsStr,
-    command: &[&OsStr],
-    direct_fallback: Option<&[&OsStr]>,
-) -> Option<Result<()>> {
-    let run = |args: &[&OsStr]| {
-        Command::new(pkexec_bin)
-            .env("DEBIAN_FRONTEND", "noninteractive")
-            .env("LC_ALL", "C")
-            .args(args)
-            .stdin(Stdio::null())
-            .output()
-    };
-    let output = match run(command) {
+fn run_pkexec(pkexec_bin: &OsStr, command: &[&OsStr]) -> Option<Result<()>> {
+    let output = match Command::new(pkexec_bin)
+        .env("DEBIAN_FRONTEND", "noninteractive")
+        .env("LC_ALL", "C")
+        .args(command)
+        .stdin(Stdio::null())
+        .output()
+    {
         Ok(output) => output,
         Err(error) => {
             tracing::info!(%error, "pkexec_unavailable");
@@ -143,24 +137,10 @@ fn run_pkexec(
     match output.status.code() {
         Some(0) => Some(Ok(())),
         Some(126) => Some(Err(cancelled())),
-        // 127 signals polkit denial or missing agent. Retry the direct apt-get command once
-        // in case policy permits apt-get without `/usr/bin/env`.
-        Some(127) => {
-            let direct = direct_fallback?;
-            let output = match run(direct) {
-                Ok(output) => output,
-                Err(error) => {
-                    tracing::info!(%error, "pkexec_unavailable");
-                    return None;
-                }
-            };
-            match output.status.code() {
-                Some(0) => Some(Ok(())),
-                Some(126) => Some(Err(cancelled())),
-                Some(127) => None,
-                _ => Some(Err(failed(&output))),
-            }
-        }
+        // 127 signals polkit denial (e.g. policy rejects `/usr/bin/env`) or a missing agent. Do
+        // not invoke `apt-get` directly via `pkexec` because `pkexec` strips `DEBIAN_FRONTEND`;
+        // fall through to sudo instead.
+        Some(127) => None,
         _ => Some(Err(failed(&output))),
     }
 }
@@ -193,7 +173,7 @@ fn run_as_root(
     command: &[&OsStr],
     direct_fallback: Option<&[&OsStr]>,
 ) -> Result<()> {
-    if let Some(result) = run_pkexec(OsStr::new(programs.pkexec), command, direct_fallback) {
+    if let Some(result) = run_pkexec(OsStr::new(programs.pkexec), command) {
         return result;
     }
 
@@ -508,9 +488,7 @@ mod tests {
             "pkexec",
             &format!("if [ \"$1\" != \"{fake_apt}\" ]; then exit 127; fi\nexec \"$@\""),
         );
-        let pkexec_result =
-            run_pkexec(OsStr::new(&policy_pkexec), &wrapped, Some(&direct)).unwrap();
-        assert!(pkexec_result.is_ok(), "{pkexec_result:?}");
+        assert!(run_pkexec(OsStr::new(&policy_pkexec), &wrapped).is_none());
 
         let policy_sudo = fake_script(
             dir.path(),
@@ -527,7 +505,7 @@ mod tests {
         run_sudo_non_interactive(OsStr::new(&policy_sudo), &wrapped, Some(&direct)).unwrap();
 
         let recorded = std::fs::read_to_string(&ran).unwrap();
-        assert_eq!(recorded.lines().count(), 2, "{recorded}");
+        assert_eq!(recorded.lines().count(), 1, "{recorded}");
         assert!(recorded.lines().all(|line| line.starts_with(&fake_apt)));
     }
 

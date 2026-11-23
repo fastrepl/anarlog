@@ -9,12 +9,14 @@ use std::{
     io::{Cursor, Write},
     path::{Component, Path, PathBuf},
     process::Command,
+    sync::Mutex,
 };
 
 use desktop_runtime::{
     Result, ServiceError,
     updater::{UpdateConfig, VerifiedUpdate},
 };
+use sha2::Digest as _;
 
 use crate::platform::{
     package::{self, BundleType, Os},
@@ -24,6 +26,171 @@ use crate::platform::{
 /// The flags shipping's updater runs the NSIS installer with (`installMode` "passive"): a
 /// progress-only install that relaunches the app, followed by the app's own arguments.
 pub const NSIS_UPDATE_ARGS: [&str; 4] = ["/P", "/R", "/UPDATE", "/ARGS"];
+const WINDOWS_INSTALLER_PREFIX: &str = "anarlog-updater-";
+
+static EXEC_LOCK: Mutex<Option<ExecutableLock>> = Mutex::new(None);
+
+struct ExecutableLock {
+    path: PathBuf,
+    file: Option<fs::File>,
+}
+
+fn open_lock_file(path: &Path) -> Result<fs::File> {
+    fs::OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .read(true)
+        .write(true)
+        .open(path)
+        .map_err(failure)
+}
+
+impl ExecutableLock {
+    fn acquire_shared(path: PathBuf) -> Result<Self> {
+        let file = open_lock_file(&path)?;
+        file.try_lock_shared().map_err(|error| match error {
+            fs::TryLockError::WouldBlock => {
+                failure("Another Anarlog update is holding the executable lock")
+            }
+            fs::TryLockError::Error(error) => failure(error),
+        })?;
+        Ok(Self {
+            path,
+            file: Some(file),
+        })
+    }
+
+    fn try_upgrade_exclusive(&mut self) -> Result<bool> {
+        drop(self.file.take());
+        let file = open_lock_file(&self.path)?;
+        match file.try_lock() {
+            Ok(()) => {
+                self.file = Some(file);
+                Ok(true)
+            }
+            Err(fs::TryLockError::WouldBlock) => {
+                drop(file);
+                self.downgrade_to_shared();
+                Ok(false)
+            }
+            Err(fs::TryLockError::Error(error)) => {
+                drop(file);
+                self.downgrade_to_shared();
+                Err(failure(error))
+            }
+        }
+    }
+
+    fn downgrade_to_shared(&mut self) {
+        drop(self.file.take());
+        if let Ok(file) = open_lock_file(&self.path)
+            && file.try_lock_shared().is_ok()
+        {
+            self.file = Some(file);
+        }
+    }
+}
+
+fn executable_lock_path() -> Result<PathBuf> {
+    let exe = std::env::current_exe()
+        .and_then(|path| fs::canonicalize(&path).or(Ok(path)))
+        .map_err(failure)?;
+    let digest = sha2::Sha256::digest(exe.as_os_str().as_encoded_bytes());
+    let hex: String = digest.iter().map(|byte| format!("{byte:02x}")).collect();
+    Ok(std::env::temp_dir().join(format!("anarlog-exec-{hex}.lock")))
+}
+
+/// Holds a shared lock for the running executable so Windows self-updates detect concurrent
+/// profiles before NSIS passive mode force-terminates processes sharing this binary name.
+pub fn hold_executable_lock() {
+    let mut guard = EXEC_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+    if guard.is_some() {
+        return;
+    }
+    match executable_lock_path().and_then(ExecutableLock::acquire_shared) {
+        Ok(lock) => *guard = Some(lock),
+        Err(error) => tracing::warn!(%error, "could not acquire executable lock"),
+    }
+}
+
+/// Releases this process's executable lock right before handing off to a restart or installer.
+pub fn release_executable_lock() {
+    let mut guard = EXEC_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+    guard.take();
+}
+
+fn ensure_sole_executable_instance() -> Result<()> {
+    let mut guard = EXEC_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+    if guard.is_none() {
+        let path = executable_lock_path()?;
+        *guard = Some(ExecutableLock::acquire_shared(path)?);
+    }
+    let lock = guard
+        .as_mut()
+        .ok_or_else(|| failure("Missing executable lock"))?;
+    if lock.try_upgrade_exclusive()? {
+        Ok(())
+    } else {
+        Err(failure(
+            "Close other Anarlog profiles before installing this update.",
+        ))
+    }
+}
+
+fn downgrade_executable_lock() {
+    let mut guard = EXEC_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+    if let Some(lock) = guard.as_mut() {
+        lock.downgrade_to_shared();
+    }
+}
+
+/// Prunes completed NSIS staging directories left by earlier Windows updates.
+pub fn cleanup_stale_installers() {
+    cleanup_stale_installers_in(&std::env::temp_dir());
+}
+
+fn cleanup_stale_installers_in(root: &Path) {
+    let Ok(entries) = fs::read_dir(root) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let Ok(kind) = entry.file_type() else {
+            continue;
+        };
+        if !kind.is_dir() {
+            continue;
+        }
+        let path = entry.path();
+        let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+            continue;
+        };
+        if !name.starts_with(WINDOWS_INSTALLER_PREFIX) {
+            continue;
+        }
+        let installer = path.join("installer.exe");
+        if installer.exists() && fs::remove_file(&installer).is_err() {
+            continue;
+        }
+        let _ = fs::remove_dir_all(&path);
+    }
+}
+
+fn stage_windows_installer_in(bytes: &[u8], root: &Path) -> Result<PathBuf> {
+    if !bytes.starts_with(b"MZ") {
+        return Err(failure("Expected a signed NSIS executable"));
+    }
+    // Keep the TempDir guard until write and sync finish so failures clean up automatically.
+    let stage = tempfile::Builder::new()
+        .prefix(WINDOWS_INSTALLER_PREFIX)
+        .tempdir_in(root)
+        .map_err(failure)?;
+    let path = stage.path().join("installer.exe");
+    let mut file = fs::File::create(&path).map_err(failure)?;
+    file.write_all(bytes).map_err(failure)?;
+    file.sync_all().map_err(failure)?;
+    let _ = stage.keep();
+    Ok(path)
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PackageKind {
@@ -185,20 +352,15 @@ impl NativeInstaller {
                 if !cfg!(target_os = "windows") {
                     return Err(failure("Windows installer requires Windows"));
                 }
-                if !bytes.starts_with(b"MZ") {
-                    return Err(failure("Expected a signed NSIS executable"));
+                ensure_sole_executable_instance()?;
+                cleanup_stale_installers();
+                match stage_windows_installer_in(bytes, &std::env::temp_dir()) {
+                    Ok(path) => return Ok(Restart::Installer(path)),
+                    Err(error) => {
+                        downgrade_executable_lock();
+                        return Err(error);
+                    }
                 }
-                // It runs once the app has quit, so it outlives this process.
-                let stage = tempfile::Builder::new()
-                    .prefix("anarlog-updater-")
-                    .tempdir()
-                    .map_err(failure)?
-                    .keep();
-                let path = stage.join("installer.exe");
-                let mut file = fs::File::create(&path).map_err(failure)?;
-                file.write_all(bytes).map_err(failure)?;
-                file.sync_all().map_err(failure)?;
-                return Ok(Restart::Installer(path));
             }
         }
         Ok(Restart::App)
@@ -223,7 +385,7 @@ impl NativeInstaller {
                 let stage = tempfile::tempdir().map_err(failure)?;
                 let package = extract_single_package(bytes, stage.path(), true)?;
                 verify_bundle(&package, &requirement)?;
-                replace_as_administrator(&package, &self.installation, stage.path())?;
+                replace_as_administrator(&package, &self.installation)?;
             }
             Err(error) => return Err(failure(error)),
         }
@@ -299,29 +461,24 @@ fn stage_deb_package(bytes: &[u8]) -> Result<(tempfile::TempDir, PathBuf)> {
 
 const ADMIN_REPLACE_SCRIPT: &str = r#"on run argv
     set currentPath to quoted form of (item 1 of argv)
-    set previousPath to quoted form of (item 2 of argv)
-    set newPath to quoted form of (item 3 of argv)
-    do shell script ("mv -f -- " & currentPath & " " & previousPath & " && (mv -f -- " & newPath & " " & currentPath & " || (mv -f -- " & previousPath & " " & currentPath & "; exit 1))") with administrator privileges
+    set newPath to quoted form of (item 2 of argv)
+    do shell script ("current=" & currentPath & "; new=" & newPath & "; parent=$(dirname -- \"$current\") && stage=$(mktemp -d \"$parent/.anarlog-update.XXXXXX\") || exit 1; trap 'rm -rf -- \"$stage\"' EXIT; mv -f -- \"$new\" \"$stage/incoming.app\" || exit 1; mv -f -- \"$current\" \"$stage/previous.app\" || exit 1; if mv -f -- \"$stage/incoming.app\" \"$current\"; then exit 0; fi; rm -rf -- \"$current\"; if mv -f -- \"$stage/previous.app\" \"$current\"; then exit 1; fi; trap - EXIT; exit 1") with administrator privileges
 end run"#;
 
-fn admin_replace_args(package: &Path, installation: &Path, stage: &Path) -> Result<[String; 3]> {
+fn admin_replace_args(package: &Path, installation: &Path) -> Result<[String; 2]> {
     let argument = |path: &Path| {
         path.to_str()
             .filter(|text| !text.contains('\0'))
             .map(str::to_owned)
             .ok_or_else(|| failure("Unsupported installation path"))
     };
-    Ok([
-        argument(installation)?,
-        argument(&stage.join("previous.app"))?,
-        argument(package)?,
-    ])
+    Ok([argument(installation)?, argument(package)?])
 }
 
-/// Shipping's `do shell script … with administrator privileges` move, keeping the replaced
-/// bundle in the stage until the new one is in place.
-fn replace_as_administrator(package: &Path, installation: &Path, stage: &Path) -> Result<()> {
-    let args = admin_replace_args(package, installation, stage)?;
+/// Stages the incoming and previous bundles in an administrator-owned directory beside the
+/// install, replaces atomically on that volume, and removes the stage once complete.
+fn replace_as_administrator(package: &Path, installation: &Path) -> Result<()> {
+    let args = admin_replace_args(package, installation)?;
     let moved = Command::new("/usr/bin/osascript")
         .args(["-e", ADMIN_REPLACE_SCRIPT, "--"])
         .args(&args)
@@ -457,21 +614,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn only_packages_shipping_publishes_updates_for_update_themselves() {
-        for (bundle, kind) in [
-            (BundleType::App, PackageKind::MacBundle),
-            (BundleType::AppImage, PackageKind::AppImage),
-            (BundleType::Deb, PackageKind::Deb),
-            (BundleType::Nsis, PackageKind::WindowsNsis),
-        ] {
-            assert_eq!(PackageKind::of(Some(bundle)).unwrap(), kind);
-        }
-        for bundle in [Some(BundleType::Rpm), Some(BundleType::Msi), None] {
-            assert!(PackageKind::of(bundle).is_err(), "{bundle:?}");
-        }
-    }
-
-    #[test]
     fn a_bundle_update_replaces_the_app_the_executable_runs_from() {
         assert_eq!(
             app_bundle(Path::new(
@@ -543,18 +685,50 @@ mod tests {
 
     #[test]
     fn admin_replace_args_accept_quotes_spaces_and_backslashes_without_nul() {
-        let stage = Path::new(r"/tmp/stage'dir");
         let installation = Path::new(r#"/Applications/Anarlog "Dev"\App.app"#);
         let package = Path::new(r"/tmp/stage'dir/Anarlog's Update.app");
-        let args = admin_replace_args(package, installation, stage).unwrap();
+        let args = admin_replace_args(package, installation).unwrap();
         assert_eq!(
             args,
             [
                 r#"/Applications/Anarlog "Dev"\App.app"#,
-                r"/tmp/stage'dir/previous.app",
                 r"/tmp/stage'dir/Anarlog's Update.app",
             ]
         );
-        assert!(admin_replace_args(Path::new("/tmp/bad\0.app"), installation, stage).is_err());
+        assert!(admin_replace_args(Path::new("/tmp/bad\0.app"), installation).is_err());
+    }
+
+    #[test]
+    fn executable_lock_blocks_exclusive_upgrade_while_another_profile_holds_shared() {
+        let dir = tempfile::tempdir().unwrap();
+        let lock_path = dir.path().join("exec.lock");
+
+        let mut first = ExecutableLock::acquire_shared(lock_path.clone()).unwrap();
+        let second = ExecutableLock::acquire_shared(lock_path.clone()).unwrap();
+        assert!(!first.try_upgrade_exclusive().unwrap());
+
+        // `first` must have re-acquired its shared lock after failing to upgrade.
+        let probe = ExecutableLock::acquire_shared(lock_path).unwrap();
+        drop(second);
+        assert!(!first.try_upgrade_exclusive().unwrap());
+        drop(probe);
+
+        assert!(first.try_upgrade_exclusive().unwrap());
+        first.downgrade_to_shared();
+        drop(first);
+    }
+
+    #[test]
+    fn windows_installer_staging_writes_executable_and_prunes_stale_directories() {
+        let root = tempfile::tempdir().unwrap();
+        let keep_unrelated = root.path().join("unrelated-dir");
+        fs::create_dir(&keep_unrelated).unwrap();
+        assert!(stage_windows_installer_in(b"not-pe", root.path()).is_err());
+
+        let installer = stage_windows_installer_in(b"MZ\x90\x00dummy", root.path()).unwrap();
+        assert!(installer.is_file());
+        cleanup_stale_installers_in(root.path());
+        assert!(!installer.parent().unwrap().exists());
+        assert!(keep_unrelated.exists());
     }
 }

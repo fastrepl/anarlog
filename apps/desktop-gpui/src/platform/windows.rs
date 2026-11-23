@@ -21,6 +21,39 @@ pub fn remember_launch(executable: Option<std::path::PathBuf>, arguments: Vec<st
     let _ = LAUNCH.set((executable, arguments));
 }
 
+/// Matches `tauri-plugin-updater`'s `escape_nsis_current_exe_arg` so NSIS's `GetOptions` parser
+/// keeps values containing `/`, spaces, or tabs intact after `/ARGS`.
+#[cfg(any(windows, test))]
+fn escape_nsis_arg(arg: &std::ffi::OsStr) -> String {
+    let arg = arg.to_string_lossy();
+    let quote = arg.is_empty() || arg.chars().any(|c| c == ' ' || c == '\t' || c == '/');
+    let mut escaped = String::with_capacity(arg.len() + 2);
+    if quote {
+        escaped.push('"');
+    }
+    let mut backslashes = 0usize;
+    for ch in arg.chars() {
+        if ch == '\\' {
+            backslashes += 1;
+        } else {
+            if ch == '"' {
+                for _ in 0..=backslashes {
+                    escaped.push('\\');
+                }
+            }
+            backslashes = 0;
+        }
+        escaped.push(ch);
+    }
+    if quote {
+        for _ in 0..backslashes {
+            escaped.push('\\');
+        }
+        escaped.push('"');
+    }
+    escaped
+}
+
 /// Starts the requested restart, once. macOS runs it just before quitting, since quitting there
 /// ends the process; Linux and Windows run it after the run loop has returned and released the
 /// single-instance claim.
@@ -34,17 +67,30 @@ pub fn run_requested_restart() -> std::io::Result<()> {
     };
     let (executable, arguments) = LAUNCH.get().cloned().unwrap_or_default();
     let mut command = match restart {
-        Restart::App => std::process::Command::new(match executable {
-            Some(executable) => executable,
-            None => std::env::current_exe()?,
-        }),
+        Restart::App => {
+            let mut command = std::process::Command::new(match executable {
+                Some(executable) => executable,
+                None => std::env::current_exe()?,
+            });
+            command.args(arguments);
+            command
+        }
         Restart::Installer(installer) => {
             let mut command = std::process::Command::new(installer);
             command.args(crate::platform::updater::NSIS_UPDATE_ARGS);
+            #[cfg(windows)]
+            {
+                use std::os::windows::process::CommandExt;
+                for arg in &arguments {
+                    command.raw_arg(escape_nsis_arg(arg));
+                }
+            }
+            #[cfg(not(windows))]
+            command.args(arguments);
             command
         }
     };
-    command.args(arguments).spawn().map(drop)
+    command.spawn().map(drop)
 }
 
 use desktop_runtime::{Result, ServiceError, SessionId};
@@ -782,5 +828,23 @@ mod tests {
             1800.0
         );
         assert!(restore(saved, 0.0, 1.0, &[screen]).is_err());
+    }
+
+    #[test]
+    fn nsis_relaunch_args_quote_forward_slashes_spaces_and_quotes() {
+        use std::ffi::OsStr;
+
+        assert_eq!(escape_nsis_arg(OsStr::new("--profile")), "--profile");
+        assert_eq!(
+            escape_nsis_arg(OsStr::new("C:/qa/profile")),
+            "\"C:/qa/profile\""
+        );
+        assert_eq!(
+            escape_nsis_arg(OsStr::new(r"C:\qa dir\")),
+            r#""C:\qa dir\\""#
+        );
+        assert_eq!(escape_nsis_arg(OsStr::new(r#"a / "b""#)), r#""a / \"b\"""#);
+        assert_eq!(escape_nsis_arg(OsStr::new(r#"a"b"#)), r#"a\"b"#);
+        assert_eq!(escape_nsis_arg(OsStr::new("")), r#""""#);
     }
 }
