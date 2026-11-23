@@ -213,6 +213,9 @@ Installing pauses writers and quits through the drain into the new version:
 - Windows: the NSIS installer runs after the drain with shipping's `/P /R /UPDATE /ARGS` and
   relaunches the app itself.
 
+Which clients the stable feed offers a GPUI build is decided by `apps/web/vercel-build-config.ts`
+(`GPUI_BRIDGE_VERSION`).
+
 ## Architecture
 
 - `launch.rs` owns launch arguments and sandbox or channel selection; `main.rs`
