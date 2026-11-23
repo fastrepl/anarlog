@@ -713,35 +713,24 @@ async function assignSpeakerInTranscript({
 }): Promise<void> {
   let assigned = false;
   await mutateTranscript(transcriptId, (store) => {
-    const words = parseTranscriptWords(store, transcriptId);
-    const hints = parseTranscriptHints(store, transcriptId);
     const resolvedAnchorWordId =
       anchorWordId ??
-      findSpeakerAssignmentAnchorWordId(words, hints, segmentKey);
+      findSpeakerAssignmentAnchorWordId(
+        parseTranscriptWords(store, transcriptId),
+        parseTranscriptHints(store, transcriptId),
+        segmentKey,
+      );
     if (!resolvedAnchorWordId) {
       return false;
     }
 
-    // A speaker scope needs a provider speaker index. Without one, Apply to
-    // all names every word that renders under the same label instead.
-    const unnumberedSpeaker =
-      mode === "all" && !Number.isInteger(segmentKey.speaker_index);
     upsertSpeakerAssignment(
       store,
       transcriptId,
       segmentKey,
       humanId,
       resolvedAnchorWordId,
-      unnumberedSpeaker
-        ? {
-            mode: "segment",
-            wordIds: [
-              ...(wordIds ?? []),
-              ...findUnnumberedSpeakerWordIds(words, hints, segmentKey),
-            ],
-            extendToAdjacent: false,
-          }
-        : { mode, wordIds, extendToAdjacent },
+      { mode, wordIds, extendToAdjacent },
     );
     assigned = true;
     return true;
@@ -778,34 +767,6 @@ async function assignSpeakerInTranscript({
     .catch((error) => {
       console.error("[voiceprint] promotion failed", error);
     });
-}
-
-function findUnnumberedSpeakerWordIds(
-  words: WordWithId[],
-  hints: SpeakerHintWithId[],
-  segmentKey: SegmentKey,
-): string[] {
-  const input = buildRenderTranscriptRequestFromRows([
-    { words, speaker_hints: hints },
-  ])?.transcripts[0];
-  if (!input) return [];
-
-  const channel =
-    segmentKey.channel === "DirectMic"
-      ? 0
-      : segmentKey.channel === "RemoteParty"
-        ? 1
-        : 2;
-  const humanIdByWordId = resolveScopedWordHumanIds(input);
-  const segmentHumanId = segmentKey.speaker_human_id ?? null;
-  return input.words
-    .filter(
-      (word) =>
-        word.channel === channel &&
-        word.speaker_index == null &&
-        (humanIdByWordId.get(word.id) ?? null) === segmentHumanId,
-    )
-    .map((word) => word.id);
 }
 
 export function updateTranscriptSegmentText({

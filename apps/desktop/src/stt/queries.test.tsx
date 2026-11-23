@@ -880,46 +880,21 @@ describe("transcript SQLite queries", () => {
     });
   });
 
-  it("names every word under an unnumbered speaker label when Apply to all has no speaker index", async () => {
+  it("keeps selected words when Apply to all has no speaker index", async () => {
     mocks.execute
       .mockResolvedValueOnce([{ id: "transcript-1" }])
       .mockResolvedValueOnce([
         {
           words_json: JSON.stringify(
-            [
-              ["word-1", 2],
-              ["word-2", 2],
-              ["word-3", 2],
-              ["word-numbered", 2],
-              ["word-other-channel", 1],
-              ["word-bob", 2],
-            ].map(([id, channel], index) => ({
+            ["word-1", "word-2"].map((id, index) => ({
               id,
               text: id,
               start_ms: index * 100,
               end_ms: index * 100 + 100,
-              channel,
+              channel: 2,
             })),
           ),
-          speaker_hints_json: JSON.stringify([
-            {
-              id: "word-numbered:provider_speaker_index",
-              word_id: "word-numbered",
-              type: "provider_speaker_index",
-              value: JSON.stringify({ channel: 2, speaker_index: 0 }),
-            },
-            {
-              id: "word-bob:user_speaker_assignment:segment",
-              word_id: "word-bob",
-              type: "user_speaker_assignment",
-              value: JSON.stringify({
-                human_id: "bob",
-                scope: "segment",
-                word_ids: ["word-bob"],
-                extend_to_adjacent: false,
-              }),
-            },
-          ]),
+          speaker_hints_json: "[]",
           content_revision: 0,
           pending_deltas_json: "[]",
         },
@@ -941,10 +916,10 @@ describe("transcript SQLite queries", () => {
     const hints = JSON.parse(
       String(mocks.executeTransaction.mock.calls[0][0][0].params[1]),
     );
-    expect(JSON.parse(hints.at(-1).value)).toEqual({
+    expect(JSON.parse(hints[0].value)).toEqual({
       human_id: "alice",
       scope: "segment",
-      word_ids: ["word-1", "word-2", "word-3"],
+      word_ids: ["word-1", "word-2"],
       extend_to_adjacent: false,
     });
     expect(mocks.promoteVoiceprintCandidates).not.toHaveBeenCalled();

@@ -92,11 +92,12 @@ pub(super) fn create_speaker_state(
 
     for assignment in assignments {
         if let IdentityScope::Words { word_ids } = &assignment.scope {
+            let word_ids: HashSet<&str> = word_ids.iter().map(String::as_str).collect();
             for word in normalized_words {
-                let Some(word_id) = word.id.as_ref() else {
+                let Some(word_id) = word.id.as_deref() else {
                     continue;
                 };
-                if !word_ids.iter().any(|id| id == word_id) {
+                if !word_ids.contains(word_id) {
                     continue;
                 }
 
