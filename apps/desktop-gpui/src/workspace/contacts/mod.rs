@@ -11,7 +11,7 @@ pub(crate) mod ops;
 mod organization;
 mod person;
 
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use desktop_runtime::{CancellationToken, RuntimeHandle, SessionId};
 use futures::{
@@ -421,6 +421,10 @@ impl Contacts {
         cx: &mut Context<Self>,
         apply: impl Fn(&mut Self, Arc<[Value]>, &mut Context<Self>) + 'static,
     ) {
+        const LOAD_ERROR_PREFIX: &str = "Could not load contacts: ";
+        const READ_RETRY: Duration = Duration::from_millis(500);
+        const READ_RETRY_MAX: Duration = Duration::from_secs(30);
+
         let reply = match read {
             Some(_) => runtime.watch_changes(sql.into(), params.clone()),
             None => runtime.watch_query(sql.into(), params.clone()),
@@ -428,7 +432,7 @@ impl Contacts {
         let runtime = runtime.clone();
         cx.spawn(async move |this, cx| {
             let fail = |this: &mut Self, error: String, cx: &mut Context<Self>| {
-                this.message = format!("Could not load contacts: {error}").into();
+                this.message = format!("{LOAD_ERROR_PREFIX}{error}").into();
                 cx.notify();
             };
             let mut watch = match reply {
@@ -444,14 +448,22 @@ impl Contacts {
                     return;
                 }
             };
+            let mut retry: Option<Duration> = None;
             loop {
                 if cancel.is_cancelled() {
                     break;
                 }
                 let mut rows = watch.snapshots.borrow_and_update().rows.clone();
-                let mut error = watch
-                    .terminal_error()
-                    .or_else(|| watch.errors.try_recv().ok());
+                let mut transient = None;
+                while let Ok(error) = watch.errors.try_recv() {
+                    transient = Some(error);
+                }
+                let terminal = watch.terminal_error();
+                let mut error = if read.is_some() {
+                    terminal.clone()
+                } else {
+                    terminal.clone().or(transient)
+                };
                 if let (Some(read), None) = (read, &error) {
                     match async {
                         runtime
@@ -461,9 +473,20 @@ impl Contacts {
                     }
                     .await
                     {
-                        Ok(read) => rows = read.into(),
-                        Err(failed) => error = Some(failed),
+                        Ok(read) => {
+                            rows = read.into();
+                            retry = None;
+                        }
+                        // The change signal was already consumed; retry until a read succeeds.
+                        Err(failed) => {
+                            let delay =
+                                retry.map_or(READ_RETRY, |delay| (delay * 2).min(READ_RETRY_MAX));
+                            retry = Some(delay);
+                            error = Some(failed);
+                        }
                     }
+                } else if error.is_none() {
+                    retry = None;
                 }
                 let updated = this.update(cx, |this, cx| {
                     if cancel.is_cancelled() {
@@ -471,18 +494,32 @@ impl Contacts {
                     }
                     match error {
                         Some(error) => fail(this, error.to_string(), cx),
-                        None => apply(this, rows, cx),
+                        None => {
+                            if this.message.starts_with(LOAD_ERROR_PREFIX) {
+                                this.message = SharedString::default();
+                                cx.notify();
+                            }
+                            apply(this, rows, cx);
+                        }
                     }
                 });
-                if updated.is_err() || watch.terminal_error().is_some() {
+                if updated.is_err() || terminal.is_some() {
                     break;
                 }
-                match select(
+                let next = select(
                     watch.snapshots.changed().boxed(),
                     cancel.cancelled().boxed(),
-                )
-                .await
-                {
+                );
+                let woke = match retry {
+                    Some(delay) => {
+                        match select(next, cx.background_executor().timer(delay)).await {
+                            Either::Left((woke, _)) => woke,
+                            Either::Right(_) => continue,
+                        }
+                    }
+                    None => next.await,
+                };
+                match woke {
                     Either::Left((Ok(()), _)) => {}
                     _ => break,
                 }
@@ -987,5 +1024,110 @@ mod tests {
                 .iter()
                 .all(|channel| *channel > 240)
         );
+    }
+
+    #[gpui::test]
+    fn contacts_watch_retries_failed_read_and_clears_error(cx: &mut gpui::TestAppContext) {
+        use futures::executor::block_on;
+
+        cx.executor().allow_parking();
+        let directory = tempfile::tempdir().unwrap();
+        let (runtime, ready) = RuntimeHandle::start(desktop_runtime::Profile {
+            database: directory.path().join("library.sqlite"),
+        })
+        .unwrap();
+        block_on(ready.receive()).unwrap();
+
+        let view = cx.new(|cx| Contacts::new(runtime.clone(), cx));
+        let cancel = CancellationToken::new();
+        let watch_cancel = cancel.clone();
+        view.update(cx, |_, cx| {
+            Contacts::watch(
+                &runtime,
+                "SELECT EXISTS(SELECT 1 FROM humans) AS humans",
+                Some("SELECT id, name FROM contacts_retry_probe"),
+                vec![],
+                watch_cancel,
+                cx,
+                |this, rows, cx| {
+                    this.data = Arc::new(data::ContactsData {
+                        humans: rows
+                            .iter()
+                            .map(|row| data::Human {
+                                id: row["id"].as_str().unwrap_or_default().into(),
+                                name: row["name"].as_str().unwrap_or_default().into(),
+                                ..Default::default()
+                            })
+                            .collect(),
+                        ..Default::default()
+                    });
+                    cx.notify();
+                },
+            );
+        });
+
+        for _ in 0..400 {
+            cx.run_until_parked();
+            if view.read_with(cx, |view, _| !view.message.is_empty()) {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        assert!(view.read_with(cx, |view, _| !view.message.is_empty()));
+
+        // Create and populate the read table without touching `humans` (no snapshot signal).
+        block_on(
+            runtime
+                .submit(|services| async move {
+                    services
+                        .executor
+                        .execute(
+                            "CREATE TABLE contacts_retry_probe (id TEXT, name TEXT)".into(),
+                            vec![],
+                        )
+                        .await
+                        .map_err(|error| {
+                            desktop_runtime::ServiceError::Failed(error.to_string().into())
+                        })?;
+                    services
+                        .executor
+                        .execute(
+                            "INSERT INTO contacts_retry_probe (id, name) VALUES ('c1', 'Recovered')"
+                                .into(),
+                            vec![],
+                        )
+                        .await
+                        .map_err(|error| {
+                            desktop_runtime::ServiceError::Failed(error.to_string().into())
+                        })?;
+                    Ok(())
+                })
+                .unwrap()
+                .receive(),
+        )
+        .unwrap();
+
+        cx.run_until_parked();
+        cx.executor().advance_clock(Duration::from_millis(500));
+        for step in 0..400 {
+            cx.run_until_parked();
+            if view.read_with(cx, |view, _| {
+                view.message.is_empty() && view.data.humans.len() == 1
+            }) {
+                break;
+            }
+            if step % 20 == 19 {
+                cx.executor().advance_clock(Duration::from_millis(500));
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        view.read_with(cx, |view, _| {
+            assert!(view.message.is_empty(), "{}", view.message);
+            assert_eq!(view.data.humans.len(), 1);
+            assert_eq!(view.data.humans[0].name, "Recovered");
+        });
+        cancel.cancel();
+        drop(view);
+        block_on(runtime.shutdown()).unwrap();
     }
 }

@@ -6,9 +6,12 @@
 use std::{collections::VecDeque, sync::Arc, time::Duration};
 
 use desktop_runtime::{CancellationToken, Result, RuntimeHandle, SessionId};
-use futures::future::Either;
+use futures::{
+    FutureExt,
+    future::{Either, select},
+};
 use gpui::{Context, Task};
-use serde_json::json;
+use serde_json::{Value, json};
 
 use super::ApplicationView;
 use crate::{
@@ -31,6 +34,65 @@ use crate::{
 
 const MAX_DISCLOSED: usize = 256;
 const CALENDAR_SYNC_EVERY: Duration = Duration::from_secs(60);
+const READ_RETRY: Duration = Duration::from_millis(500);
+const READ_RETRY_MAX: Duration = Duration::from_secs(30);
+
+fn next_read_retry(previous: Option<Duration>) -> Duration {
+    previous.map_or(READ_RETRY, |delay| (delay * 2).min(READ_RETRY_MAX))
+}
+
+fn spawn_schedule_watch<T: 'static>(
+    runtime: &RuntimeHandle,
+    watch_sql: &'static str,
+    read_sql: &'static str,
+    cx: &mut Context<T>,
+    mut apply: impl FnMut(&mut T, Vec<Value>, &mut Context<T>) + 'static,
+) -> Task<()> {
+    let reply = runtime.watch_changes(watch_sql.into(), vec![]);
+    let runtime = runtime.clone();
+    cx.spawn(async move |this, cx| {
+        let Ok(mut watch) = async { reply?.receive().await }.await else {
+            return;
+        };
+        let mut retry: Option<Duration> = None;
+        loop {
+            // Drain transient errors without dropping the watch; terminal errors stop below.
+            while watch.errors.try_recv().is_ok() {}
+            watch.snapshots.borrow_and_update();
+            let read = async { runtime.read_rows(read_sql.into(), vec![])?.receive().await };
+            match read.await {
+                Ok(rows) => {
+                    retry = None;
+                    let updated = this.update(cx, |this, cx| apply(this, rows, cx));
+                    if updated.is_err() {
+                        break;
+                    }
+                }
+                // The change signal was already consumed; retry until a read succeeds.
+                Err(error) => {
+                    let delay = next_read_retry(retry);
+                    retry = Some(delay);
+                    tracing::warn!(%error, ?delay, "scheduled meetings could not be read");
+                }
+            }
+            if watch.terminal_error().is_some() {
+                break;
+            }
+            let changed = watch.snapshots.changed().boxed();
+            let woke = match retry {
+                Some(delay) => match select(changed, cx.background_executor().timer(delay)).await {
+                    Either::Left((result, _)) => result,
+                    Either::Right(_) => continue,
+                },
+                None => changed.await,
+            };
+            if woke.is_err() {
+                break;
+            }
+        }
+        let _ = watch.unsubscribe().await;
+    })
+}
 
 #[derive(Default)]
 pub(super) struct MeetingSchedule {
@@ -101,47 +163,17 @@ impl ApplicationView {
         self.schedule.started = true;
         // Every meeting in the calendars' history outgrows a watch's 1,000 rows, so a small
         // watch signals changes and each change reads the meetings in full.
-        let reply = self.runtime.watch_changes(
-            "SELECT EXISTS(SELECT 1 FROM events) AS events, EXISTS(SELECT 1 FROM app_settings) AS settings"
-                .into(),
-            vec![],
-        );
-        let runtime = self.runtime.clone();
-        self.schedule.tasks.push(cx.spawn(async move |this, cx| {
-            let Ok(mut watch) = async { reply?.receive().await }.await else {
-                return;
-            };
-            loop {
-                if watch.terminal_error().is_some() || watch.errors.try_recv().is_ok() {
-                    break;
-                }
-                watch.snapshots.borrow_and_update();
-                let read = async {
-                    runtime
-                        .read_rows(auto_start::MEETINGS_SQL.into(), vec![])?
-                        .receive()
-                        .await
-                };
-                match read.await {
-                    Ok(rows) => {
-                        let meetings = rows.iter().map(Meeting::from_row).collect();
-                        let updated = this.update(cx, |this, cx| {
-                            this.schedule.scheduler.replace(meetings);
-                            this.schedule_tick(cx);
-                        });
-                        if updated.is_err() {
-                            break;
-                        }
-                    }
-                    // The last schedule stays until the next change reads it again.
-                    Err(error) => tracing::warn!(%error, "scheduled meetings could not be read"),
-                }
-                if watch.snapshots.changed().await.is_err() {
-                    break;
-                }
-            }
-            let _ = watch.unsubscribe().await;
-        }));
+        self.schedule.tasks.push(spawn_schedule_watch(
+            &self.runtime,
+            "SELECT EXISTS(SELECT 1 FROM events) AS events, EXISTS(SELECT 1 FROM app_settings) AS settings",
+            auto_start::MEETINGS_SQL,
+            cx,
+            |this, rows, cx| {
+                let meetings = rows.iter().map(Meeting::from_row).collect();
+                this.schedule.scheduler.replace(meetings);
+                this.schedule_tick(cx);
+            },
+        ));
         self.schedule.tasks.push(cx.spawn(async move |this, cx| {
             loop {
                 cx.background_executor()
@@ -888,4 +920,100 @@ async fn session_eligible(runtime: &RuntimeHandle, session: &SessionId) -> Resul
         .receive()
         .await?;
     Ok(!rows.is_empty())
+}
+
+#[cfg(test)]
+mod tests {
+    use desktop_runtime::Profile;
+    use futures::executor::block_on;
+    use gpui::AppContext as _;
+
+    use super::*;
+
+    #[test]
+    fn read_retry_backoff_doubles_up_to_cap() {
+        let mut delay = next_read_retry(None);
+        assert_eq!(delay, Duration::from_millis(500));
+        for expected in [1, 2, 4, 8, 16, 30, 30] {
+            delay = next_read_retry(Some(delay));
+            assert_eq!(delay, Duration::from_secs(expected));
+        }
+    }
+
+    #[gpui::test]
+    fn schedule_watch_retries_failed_read_without_new_snapshot(cx: &mut gpui::TestAppContext) {
+        struct Probe {
+            _task: Task<()>,
+            rows: Vec<Vec<Value>>,
+        }
+
+        cx.executor().allow_parking();
+        let directory = tempfile::tempdir().unwrap();
+        let (runtime, ready) = RuntimeHandle::start(Profile {
+            database: directory.path().join("library.sqlite"),
+        })
+        .unwrap();
+        block_on(ready.receive()).unwrap();
+
+        let probe = cx.new(|cx| Probe {
+            _task: spawn_schedule_watch(
+                &runtime,
+                "SELECT EXISTS(SELECT 1 FROM events) AS events",
+                "SELECT id FROM retry_probe",
+                cx,
+                |probe: &mut Probe, rows, _| probe.rows.push(rows),
+            ),
+            rows: Vec::new(),
+        });
+
+        // Initial read fails because `retry_probe` does not exist yet.
+        for _ in 0..20 {
+            cx.run_until_parked();
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        assert!(probe.read_with(cx, |probe, _| probe.rows.is_empty()));
+
+        // Create and populate `retry_probe` without touching `events` (no snapshot signal).
+        block_on(
+            runtime
+                .submit(|services| async move {
+                    services
+                        .executor
+                        .execute("CREATE TABLE retry_probe (id TEXT)".into(), vec![])
+                        .await
+                        .map_err(failure)?;
+                    services
+                        .executor
+                        .execute(
+                            "INSERT INTO retry_probe (id) VALUES ('recovered')".into(),
+                            vec![],
+                        )
+                        .await
+                        .map_err(failure)?;
+                    Ok(())
+                })
+                .unwrap()
+                .receive(),
+        )
+        .unwrap();
+
+        cx.run_until_parked();
+        cx.executor().advance_clock(READ_RETRY);
+        for step in 0..400 {
+            cx.run_until_parked();
+            if probe.read_with(cx, |probe, _| !probe.rows.is_empty()) {
+                break;
+            }
+            if step % 20 == 19 {
+                cx.executor().advance_clock(READ_RETRY);
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        probe.read_with(cx, |probe, _| {
+            assert_eq!(probe.rows.len(), 1);
+            assert_eq!(probe.rows[0][0]["id"], "recovered");
+        });
+        drop(probe);
+        block_on(runtime.shutdown()).unwrap();
+    }
 }

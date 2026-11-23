@@ -20,7 +20,7 @@ use super::{NoteView, icon};
 use crate::ui::a11y::Accessible;
 use crate::{
     application::toasts,
-    editor::EditorPane,
+    editor::{EditorPane, holds::NoteHolds},
     meeting::{
         ai::{AiServices, StreamObserver, Structured},
         ai_view::AiViewServices,
@@ -1020,6 +1020,7 @@ impl NoteView {
         let pro = crate::product::account::is_pro(cx);
         self.mode == SessionMode::Inactive
             && self.brief_job.is_none()
+            && !self.session_id().is_some_and(|id| NoteHolds::held(cx, id))
             && self
                 .model
                 .is_some_and(|model| model.configured && !(model.hosted && !pro))
@@ -1068,6 +1069,20 @@ impl NoteView {
         )
     }
 
+    /// Cancels a streaming brief for any session in `ids` so it stops mutating a deleted or held memo.
+    pub(super) fn cancel_brief(&mut self, ids: &[SessionId], cx: &mut Context<Self>) {
+        if self
+            .brief_job
+            .as_ref()
+            .is_some_and(|job| ids.contains(&job.session))
+            && let Some(job) = self.brief_job.take()
+        {
+            job.cancellation.cancel();
+            brief_editor(&job.editor, false, cx);
+            cx.notify();
+        }
+    }
+
     /// Points a running brief at the session's memo editor once it is shown again.
     pub(super) fn adopt_brief_editor(
         &mut self,
@@ -1075,6 +1090,12 @@ impl NoteView {
         cx: &mut Context<Self>,
     ) {
         let session = self.current.as_ref().map(|s| s.summary.id.clone());
+        if let Some(id) = session.as_ref()
+            && NoteHolds::held(cx, id)
+        {
+            self.cancel_brief(std::slice::from_ref(id), cx);
+            return;
+        }
         if let Some(job) = &mut self.brief_job
             && Some(&job.session) == session.as_ref()
             && &job.editor != editor
@@ -1097,6 +1118,9 @@ impl NoteView {
         ) else {
             return;
         };
+        if NoteHolds::held(cx, &session) {
+            return;
+        }
         let notes: Vec<PastNote> = source_notes(&brief.notes).into_iter().cloned().collect();
         if notes.is_empty() {
             return;
@@ -1106,6 +1130,8 @@ impl NoteView {
             .clone()
             .unwrap_or_else(|| brief.fallback.clone());
         let cancellation = CancellationToken::new();
+        let job_cancel = cancellation.clone();
+        let job_session = session.clone();
         brief_editor(&editor, true, cx);
         self.brief_job = Some(BriefJob {
             session: session.clone(),
@@ -1145,6 +1171,9 @@ impl NoteView {
             let mut text = String::new();
             let mut shown = String::new();
             while let Some(delta) = deltas.next().await {
+                if job_cancel.is_cancelled() {
+                    break;
+                }
                 text.push_str(&delta);
                 let markdown = streamed_brief(&text);
                 if markdown.is_empty() || markdown == shown {
@@ -1152,7 +1181,11 @@ impl NoteView {
                 }
                 shown = markdown;
                 if this
-                    .update(cx, |this, cx| this.show_brief(&shown, false, cx))
+                    .update(cx, |this, cx| {
+                        if !job_cancel.is_cancelled() {
+                            this.show_brief(&shown, false, cx);
+                        }
+                    })
                     .is_err()
                 {
                     return;
@@ -1163,6 +1196,9 @@ impl NoteView {
                 Err(error) => Err(error),
             };
             let _ = this.update(cx, |this, cx| {
+                if job_cancel.is_cancelled() {
+                    return;
+                }
                 match result {
                     Ok(Some(markdown)) => this.show_brief(&markdown, true, cx),
                     Err(ServiceError::Cancelled) => {}
@@ -1171,7 +1207,12 @@ impl NoteView {
                         cx,
                     ),
                 }
-                if let Some(job) = this.brief_job.take() {
+                if this
+                    .brief_job
+                    .as_ref()
+                    .is_some_and(|job| job.session == job_session)
+                    && let Some(job) = this.brief_job.take()
+                {
                     brief_editor(&job.editor, false, cx);
                 }
                 cx.notify();
@@ -1185,6 +1226,9 @@ impl NoteView {
         let (Some(job), Some(body)) = (&self.brief_job, markdown_body(markdown)) else {
             return;
         };
+        if job.cancellation.is_cancelled() || NoteHolds::held(cx, &job.session) {
+            return;
+        }
         job.editor.update(cx, |editor, cx| {
             editor.replace_content(&body, cx);
             if flush {
@@ -1362,5 +1406,176 @@ mod tests {
             prompt.contains("Title: Pricing sync\nWhen: \nLocation: \nParticipants: Ana Lima\n")
         );
         runtime.shutdown().await.unwrap();
+    }
+
+    #[gpui::test]
+    fn a_held_note_cancels_its_streaming_brief_and_blocks_writes(cx: &mut gpui::TestAppContext) {
+        use std::sync::Mutex;
+
+        use futures::executor::block_on;
+
+        use crate::contracts::{EditorInit, LaneContext};
+        use crate::meeting::ai::{ProviderAdapter, ProviderEvent, Request};
+
+        struct PausingProvider {
+            delta: Mutex<Option<futures::channel::mpsc::UnboundedSender<Result<ProviderEvent>>>>,
+        }
+
+        impl ProviderAdapter for PausingProvider {
+            fn stream(
+                &self,
+                _request: Request,
+            ) -> futures::future::BoxFuture<
+                'static,
+                Result<futures::stream::BoxStream<'static, Result<ProviderEvent>>>,
+            > {
+                let (tx, rx) = futures::channel::mpsc::unbounded();
+                let _ = tx.unbounded_send(Ok(ProviderEvent::Text(
+                    r#"{"opener": "Confirm pricing"#.to_owned(),
+                )));
+                *self.delta.lock().unwrap() = Some(tx);
+                Box::pin(async move { Ok(rx.boxed()) })
+            }
+        }
+
+        cx.executor().allow_parking();
+        cx.update(crate::ui::theme::UiFonts::init);
+        let directory = tempfile::tempdir().unwrap();
+        let (runtime, ready) = RuntimeHandle::start(desktop_runtime::Profile {
+            database: directory.path().join("library.sqlite"),
+        })
+        .unwrap();
+        block_on(ready.receive()).unwrap();
+        let open = block_on(
+            runtime
+                .create_note("Pricing sync".into())
+                .unwrap()
+                .receive(),
+        )
+        .unwrap();
+        let session = open.summary.id.clone();
+
+        let provider = Arc::new(PausingProvider {
+            delta: Mutex::new(None),
+        });
+        let provider_handle = provider.clone();
+        let approvals = crate::meeting::tools::Approvals::default();
+        let ai_services = AiViewServices {
+            ai: Arc::new(
+                AiServices::new(
+                    runtime.clone(),
+                    Arc::new(move |_| {
+                        let provider = provider_handle.clone();
+                        Box::pin(async move { Ok(provider as Arc<dyn ProviderAdapter>) })
+                    }),
+                    crate::meeting::tools::executor(runtime.clone(), approvals.clone(), None),
+                    Arc::new(|_| false),
+                )
+                .unwrap(),
+            ),
+            context: crate::meeting::context::resolver(runtime.clone()),
+            approvals,
+        };
+        cx.update(|cx| cx.set_global(ai_services));
+
+        let (note, cx) =
+            cx.add_window_view(|window, cx| NoteView::new(runtime.clone(), window, cx));
+        let init = EditorInit {
+            session_id: session.clone(),
+            document: open.note.clone().unwrap(),
+            return_focus: cx.update(|_, cx| cx.focus_handle()),
+        };
+        let runtime_clone = runtime.clone();
+        let memo = cx.update(|window, cx| {
+            cx.new(|cx| {
+                EditorPane::new(
+                    LaneContext {
+                        runtime: runtime_clone,
+                    },
+                    init,
+                    window,
+                    cx,
+                )
+            })
+        });
+        for _ in 0..400 {
+            cx.run_until_parked();
+            if memo.read_with(cx, |editor, _| editor.is_pristine()) {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+
+        let upcoming = Arc::new(Brief {
+            event: None,
+            fallback: BriefEvent {
+                title: "Pricing sync".into(),
+                started_at: String::new(),
+                ended_at: String::new(),
+                is_all_day: false,
+                location: String::new(),
+                description: String::new(),
+                participants: vec![EventParticipant {
+                    name: "Ana Lima".into(),
+                    email: String::new(),
+                    is_current_user: false,
+                }],
+            },
+            has_participants: true,
+            notes: vec![PastNote {
+                title: "Pricing sync".into(),
+                date_label: "Mar 10, 2026".into(),
+                participant_names: vec!["Ana Lima".into()],
+                source_summary: "Key fact".into(),
+                relationship: Relationship::MatchingTitle,
+                summary: Some("Key fact".into()),
+                date_ms: 1,
+            }],
+        });
+
+        note.update(cx, |note, cx| {
+            note.show(open, cx);
+            note.set_content(&session, memo.clone().into(), cx);
+            note.model = Some(crate::workspace::open_note::summary::ModelState {
+                configured: true,
+                hosted: false,
+                local: false,
+            });
+            note.brief = Some(upcoming);
+            note.create_brief(cx);
+        });
+        assert!(note.read_with(cx, |note, _| note.brief_generating()));
+
+        // Holding the note (as during deletion) must cancel the job and block any brief writes.
+        let hold = cx.update(|_, cx| NoteHolds::hold(vec![session.clone()], cx));
+        for _ in 0..400 {
+            cx.run_until_parked();
+            if note.read_with(cx, |note, _| !note.brief_generating()) {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        note.read_with(cx, |note, cx| {
+            assert!(!note.brief_generating(), "held note must cancel brief_job");
+            assert!(
+                !note.brief_available(cx),
+                "brief must stay unavailable while held"
+            );
+        });
+        if let Some(tx) = provider.delta.lock().unwrap().take() {
+            let _ = tx.unbounded_send(Ok(ProviderEvent::Text(
+                r#", "bullets": ["One", "Two", "Three"]}"#.to_owned(),
+            )));
+            drop(tx);
+        }
+        note.update(cx, |note, cx| {
+            note.show_brief("**Should not apply**\n\n- One\n- Two\n- Three", true, cx);
+        });
+        cx.run_until_parked();
+        assert!(!memo.read_with(cx, |editor, _| editor.is_dirty()));
+
+        cx.update(|_, cx| hold.release(cx));
+        drop((memo, note));
+        block_on(runtime.shutdown()).unwrap();
     }
 }

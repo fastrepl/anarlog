@@ -785,4 +785,40 @@ mod tests {
             .unwrap();
         shut_down(&runtime, cx);
     }
+
+    #[gpui::test]
+    fn deleting_a_note_saves_its_pending_title_rename_first(cx: &mut gpui::TestAppContext) {
+        let (_directory, runtime, workspace, cx) = workspace(cx);
+        let open = block_on(runtime.create_note("Draft".into()).unwrap().receive()).unwrap();
+        let session = open.summary.id.clone();
+        workspace.update(cx, |workspace, cx| {
+            workspace.open_session(session.clone(), cx)
+        });
+        settle(cx, |cx| {
+            workspace.read_with(cx, |workspace, cx| {
+                workspace.note.read(cx).session_id() == Some(&session)
+            })
+        });
+        // Start an in-flight rename, then change the title again right before deleting.
+        workspace.update(cx, |workspace, cx| {
+            workspace.note.update(cx, |note, cx| {
+                note.edit_title_draft("Intermediate title".into(), cx);
+                note.rename(cx);
+                note.edit_title_draft("Final renamed title".into(), cx);
+            });
+            workspace.delete_notes(std::slice::from_ref(&session), false, cx);
+        });
+        settle(cx, |_| deleted(&runtime, &session));
+        workspace.update(cx, |workspace, cx| workspace.undo_deletion(&session.0, cx));
+        settle(cx, |_| !deleted(&runtime, &session));
+        let restored = block_on(
+            runtime
+                .open_session(session.clone(), CancellationToken::new())
+                .unwrap()
+                .receive(),
+        )
+        .unwrap();
+        assert_eq!(restored.summary.title.as_ref(), "Final renamed title");
+        shut_down(&runtime, cx);
+    }
 }

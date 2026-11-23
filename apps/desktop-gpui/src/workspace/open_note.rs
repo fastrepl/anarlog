@@ -73,6 +73,7 @@ pub struct NoteView {
     cancellation: CancellationToken,
     rename_pending: bool,
     rename_error: bool,
+    rename_waiters: Vec<futures::channel::oneshot::Sender<desktop_runtime::Result<()>>>,
     /// A newer stored session found while a title draft kept `current` as its base, paired with
     /// that base. Discarding the draft takes the newer one while `current` is still the base.
     newer_session: Option<(Arc<OpenSession>, Arc<OpenSession>)>,
@@ -453,6 +454,7 @@ impl NoteView {
             cancellation: CancellationToken::new(),
             rename_pending: false,
             rename_error: false,
+            rename_waiters: Vec::new(),
             newer_session: None,
             mode: SessionMode::Inactive,
             audio: None,
@@ -641,11 +643,13 @@ impl NoteView {
     }
 
     pub fn remove_sessions(&mut self, ids: &[SessionId], cx: &mut Context<Self>) {
+        self.cancel_brief(ids, cx);
         if self
             .current
             .as_ref()
             .is_some_and(|session| ids.contains(&session.summary.id))
         {
+            self.resolve_rename_waiters(|| Err(desktop_runtime::ServiceError::Cancelled));
             self.cancel_open();
             self.current = None;
             self.reset_details();
@@ -803,6 +807,7 @@ impl NoteView {
     }
 
     pub fn show(&mut self, session: OpenSession, cx: &mut Context<Self>) {
+        self.resolve_rename_waiters(|| Err(desktop_runtime::ServiceError::Cancelled));
         self.find.update(cx, |find, cx| find.close(cx));
         self.content = None;
         self.menu = false;
@@ -1041,19 +1046,35 @@ impl NoteView {
             .collect()
     }
 
+    fn resolve_rename_waiters(&mut self, result: impl Fn() -> desktop_runtime::Result<()>) {
+        for waiter in self.rename_waiters.drain(..) {
+            let _ = waiter.send(result());
+        }
+    }
+
+    #[cfg(test)]
+    pub(super) fn edit_title_draft(&mut self, title: String, cx: &mut Context<Self>) {
+        self.title.update(cx, |input, cx| input.set_text(title, cx));
+    }
+
     /// When the shown note is one of `ids`, starts saving its title and unsaved editor drafts,
     /// so they land before a deletion's tombstone, which rejects later saves.
     pub fn flush_drafts(&mut self, ids: &[SessionId], cx: &mut Context<Self>) -> Vec<Flush> {
         if !self.session_id().is_some_and(|id| ids.contains(id)) {
             return Vec::new();
         }
+        self.cancel_brief(ids, cx);
         self.rename(cx);
-        self.editors()
-            .into_iter()
-            .filter_map(|editor| {
-                editor.update(cx, |editor, _| editor.is_dirty().then(|| editor.flush()))
-            })
-            .collect()
+        let mut flushes = Vec::new();
+        if self.busy {
+            let (tx, rx) = futures::channel::oneshot::channel();
+            self.rename_waiters.push(tx);
+            flushes.push(rx);
+        }
+        flushes.extend(self.editors().into_iter().filter_map(|editor| {
+            editor.update(cx, |editor, _| editor.is_dirty().then(|| editor.flush()))
+        }));
+        flushes
     }
 
     /// The title, like the editors, takes no edits while a deletion holds the shown note.
@@ -1061,6 +1082,9 @@ impl NoteView {
         let held = self.session_id().is_some_and(|id| NoteHolds::held(cx, id));
         self.title
             .update(cx, |title, cx| title.set_read_only(held, cx));
+        if held && let Some(id) = self.session_id().cloned() {
+            self.cancel_brief(std::slice::from_ref(&id), cx);
+        }
     }
 
     /// The summary the note shows, which chat edits and corrections target by default.
@@ -1136,6 +1160,9 @@ impl NoteView {
                         if std::mem::take(&mut this.rename_pending) {
                             this.rename(cx);
                         }
+                        if !this.busy {
+                            this.resolve_rename_waiters(|| Ok(()));
+                        }
                     }
                     Err(error) => {
                         this.rename_pending = false;
@@ -1143,6 +1170,10 @@ impl NoteView {
                         this.message =
                             format!("Title not saved: {error}. Your input is preserved.");
                         cx.emit(NoteEvent::RenameFailed);
+                        let reason: Arc<str> = error.to_string().into();
+                        this.resolve_rename_waiters(|| {
+                            Err(desktop_runtime::ServiceError::Failed(reason.clone()))
+                        });
                     }
                 }
                 cx.notify();
@@ -1872,11 +1903,9 @@ impl NoteView {
     }
 
     fn rename_from_summary(&mut self, title: String, cx: &mut Context<Self>) {
-        if self
-            .current
-            .as_ref()
-            .is_some_and(|session| session.summary.title.as_ref() != title)
-        {
+        if self.current.as_ref().is_some_and(|session| {
+            session.summary.title.as_ref() != title && !NoteHolds::held(cx, &session.summary.id)
+        }) {
             self.title.update(cx, |input, cx| input.set_text(title, cx));
             self.rename(cx);
         }
