@@ -1167,36 +1167,100 @@ mod tests {
             assert_eq!(view.data.humans.len(), 1);
             assert_eq!(view.data.humans[0].name, "Recovered");
         });
-        view.update(cx, |contacts, cx| {
-            // Cancelling a notes watch clears its own load error, while leaving another active
-            // watch's load error or a save error (`load_error_owner == None`) intact.
-            contacts.load_error_owner = Some(91);
-            contacts.notes_watch_id = Some(91);
-            contacts.message = "Could not load contacts: related notes failed".into();
-            contacts.cancel_notes_watch(cx);
-            assert!(contacts.message.is_empty());
-            assert_eq!(contacts.load_error_owner, None);
-
-            contacts.load_error_owner = Some(7);
-            contacts.notes_watch_id = Some(92);
-            contacts.message = "Could not load contacts: main list failed".into();
-            contacts.cancel_notes_watch(cx);
-            assert_eq!(
-                contacts.message.as_ref(),
-                "Could not load contacts: main list failed"
-            );
-            assert_eq!(contacts.load_error_owner, Some(7));
-
-            contacts.load_error_owner = None;
-            contacts.notes_watch_id = Some(93);
-            contacts.message = "Could not save the contact: busy".into();
-            contacts.cancel_notes_watch(cx);
-            assert_eq!(
-                contacts.message.as_ref(),
-                "Could not save the contact: busy"
-            );
-        });
         cancel.cancel();
+        drop(view);
+        block_on(runtime.shutdown()).unwrap();
+    }
+
+    #[gpui::test]
+    fn switching_contacts_clears_a_failed_notes_watch_error(cx: &mut gpui::TestAppContext) {
+        use futures::executor::block_on;
+
+        cx.executor().allow_parking();
+        cx.update(crate::ui::theme::UiFonts::init);
+        let directory = tempfile::tempdir().unwrap();
+        let (runtime, ready) = RuntimeHandle::start(desktop_runtime::Profile {
+            database: directory.path().join("library.sqlite"),
+        })
+        .unwrap();
+        block_on(ready.receive()).unwrap();
+
+        let (view, cx) = cx.add_window_view(|_, cx| Contacts::new(runtime.clone(), cx));
+        let run_sql = |sql: &str| {
+            let sql = sql.to_owned();
+            block_on(
+                runtime
+                    .submit(move |services| async move {
+                        services
+                            .executor
+                            .execute(sql, vec![])
+                            .await
+                            .map_err(|error| {
+                                desktop_runtime::ServiceError::Failed(error.to_string().into())
+                            })
+                    })
+                    .unwrap()
+                    .receive(),
+            )
+            .unwrap()
+        };
+
+        // Hide `session_participants` so `p1`'s real `watch_notes` fails.
+        run_sql("ALTER TABLE session_participants RENAME TO session_participants_hidden");
+        view.update_in(cx, |contacts, window, cx| {
+            contacts.data = Arc::new(data::ContactsData {
+                humans: vec![
+                    data::Human {
+                        id: "p1".into(),
+                        name: "First".into(),
+                        ..Default::default()
+                    },
+                    data::Human {
+                        id: "p2".into(),
+                        name: "Second".into(),
+                        ..Default::default()
+                    },
+                ],
+                ..Default::default()
+            });
+            contacts.select(Some(Selection::Person("p1".into())), cx);
+            contacts.sync_page(window, cx);
+        });
+        for _ in 0..400 {
+            cx.run_until_parked();
+            if view.read_with(cx, |contacts, _| !contacts.message.is_empty()) {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        assert!(view.read_with(cx, |contacts, _| !contacts.message.is_empty()));
+
+        // Restore the table and switch to `p2`: cancelling `p1`'s watch must clear the error.
+        run_sql("ALTER TABLE session_participants_hidden RENAME TO session_participants");
+        view.update_in(cx, |contacts, window, cx| {
+            contacts.select(Some(Selection::Person("p2".into())), cx);
+            contacts.sync_page(window, cx);
+        });
+        for _ in 0..400 {
+            cx.run_until_parked();
+            if view.read_with(cx, |contacts, _| {
+                matches!(
+                    &contacts.page,
+                    Page::Person(page) if page.id.as_ref() == "p2" && page.notes.is_some()
+                ) && contacts.message.is_empty()
+            }) {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        view.read_with(cx, |contacts, _| {
+            assert!(contacts.message.is_empty(), "{}", contacts.message);
+            assert_eq!(contacts.load_error_owner, None);
+            assert!(matches!(
+                &contacts.page,
+                Page::Person(page) if page.id.as_ref() == "p2" && page.notes.is_some()
+            ));
+        });
         drop(view);
         block_on(runtime.shutdown()).unwrap();
     }

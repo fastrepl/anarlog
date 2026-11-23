@@ -1071,11 +1071,13 @@ impl NoteView {
         )
     }
 
-    /// Cancels a streaming brief for any session in `ids` so it stops mutating a deleted or held memo,
-    /// rolling back a partial brief only while the editor still holds what the brief last wrote.
+    /// Cancels a streaming brief for any session in `ids` so it stops mutating a deleted or held
+    /// memo, rolling back a partial brief only when no newer draft is dirty in another window and
+    /// the editor still holds what the brief last wrote.
     pub(super) fn cancel_brief(
         &mut self,
         ids: &[SessionId],
+        dirty_memos: &[(SessionId, Entity<EditorPane>)],
         cx: &mut Context<Self>,
     ) -> Option<crate::editor::persistence::Flush> {
         let mut rollback = None;
@@ -1086,7 +1088,10 @@ impl NoteView {
             && let Some(job) = self.brief_job.take()
         {
             job.cancellation.cancel();
-            if let Some(written) = job.last_written_body.as_deref() {
+            let superseded = dirty_memos
+                .iter()
+                .any(|(id, editor)| id == &job.session && editor != &job.editor);
+            if !superseded && let Some(written) = job.last_written_body.as_deref() {
                 rollback = job.editor.update(cx, |editor, cx| {
                     (editor.document_body().as_deref() == Some(written)).then(|| {
                         editor.replace_content(EMPTY_MEMO_DOC, cx);
@@ -1110,7 +1115,7 @@ impl NoteView {
         if let Some(id) = session.as_ref()
             && NoteHolds::held(cx, id)
         {
-            let _ = self.cancel_brief(std::slice::from_ref(id), cx);
+            let _ = self.cancel_brief(std::slice::from_ref(id), &[], cx);
             return;
         }
         if let Some(job) = &mut self.brief_job
@@ -1800,7 +1805,7 @@ mod tests {
         let reloaded = make_memo(reloaded_doc, cx);
         note.update(cx, |note, cx| {
             note.adopt_brief_editor(&reloaded, cx);
-            let flush = note.cancel_brief(std::slice::from_ref(&session), cx);
+            let flush = note.cancel_brief(std::slice::from_ref(&session), &[], cx);
             assert!(
                 flush.is_none(),
                 "cancelling must not overwrite newer saved edits"

@@ -713,7 +713,7 @@ impl EditorPane {
     }
 
     pub fn saved_snapshot(&self) -> Option<(u64, DocumentSnapshot)> {
-        self.journal.as_ref().map(SaveJournal::saved)
+        self.journal.as_ref().and_then(SaveJournal::saved)
     }
 
     /// Shipping's memo template: each titled section as an H2 over an empty paragraph,

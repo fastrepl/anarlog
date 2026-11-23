@@ -645,7 +645,7 @@ impl NoteView {
     }
 
     pub fn remove_sessions(&mut self, ids: &[SessionId], cx: &mut Context<Self>) {
-        let _ = self.cancel_brief(ids, cx);
+        let _ = self.cancel_brief(ids, &[], cx);
         if self
             .current
             .as_ref()
@@ -1085,11 +1085,28 @@ impl NoteView {
         ))
     }
 
+    #[cfg(test)]
+    pub(super) fn memo_editor_for_test(&self) -> Option<Entity<EditorPane>> {
+        self.memo_editor()
+    }
+
+    pub fn dirty_memo(&self, cx: &gpui::App) -> Option<(SessionId, Entity<EditorPane>)> {
+        self.session_id().cloned().zip(
+            self.memo_editor()
+                .filter(|editor| editor.read(cx).is_dirty()),
+        )
+    }
+
     /// When the shown note is one of `ids`, starts saving its title and unsaved editor drafts,
     /// so they land before a deletion's tombstone, which rejects later saves.
-    pub fn flush_drafts(&mut self, ids: &[SessionId], cx: &mut Context<Self>) -> Vec<Flush> {
+    pub fn flush_drafts(
+        &mut self,
+        ids: &[SessionId],
+        dirty_memos: &[(SessionId, Entity<EditorPane>)],
+        cx: &mut Context<Self>,
+    ) -> Vec<Flush> {
         let mut flushes = Vec::new();
-        if let Some(flush) = self.cancel_brief(ids, cx) {
+        if let Some(flush) = self.cancel_brief(ids, dirty_memos, cx) {
             flushes.push(flush);
         }
         if !self.session_id().is_some_and(|id| ids.contains(id)) {
@@ -1169,7 +1186,7 @@ impl NoteView {
             .map(|job| job.session.clone())
             .filter(|id| NoteHolds::held(cx, id))
         {
-            let _ = self.cancel_brief(std::slice::from_ref(&id), cx);
+            let _ = self.cancel_brief(std::slice::from_ref(&id), &[], cx);
         }
         if !held {
             self.apply_saved_summary_headings(false, cx);

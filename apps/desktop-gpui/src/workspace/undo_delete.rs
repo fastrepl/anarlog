@@ -236,9 +236,14 @@ impl WorkspaceView {
 
     /// Starts saving the notes' drafts in this window and in their note windows.
     fn flush_drafts(&mut self, ids: &[SessionId], cx: &mut Context<Self>) -> Vec<Flush> {
+        let notes = self.notes(cx);
+        let dirty_memos: Vec<_> = notes
+            .iter()
+            .filter_map(|note| note.read(cx).dirty_memo(cx))
+            .collect();
         let mut flushes = Vec::new();
-        for note in self.notes(cx) {
-            flushes.extend(note.update(cx, |note, cx| note.flush_drafts(ids, cx)));
+        for note in notes {
+            flushes.extend(note.update(cx, |note, cx| note.flush_drafts(ids, &dirty_memos, cx)));
         }
         flushes
     }
@@ -1126,6 +1131,128 @@ mod tests {
             json!({"type": "doc", "content": [{"type": "paragraph"}]})
         );
         drop(target_memo);
+        shut_down(&runtime, cx);
+    }
+
+    #[gpui::test]
+    fn deleting_a_note_with_dirty_edits_in_another_window_cancels_brief_without_conflict(
+        cx: &mut gpui::TestAppContext,
+    ) {
+        let (directory, runtime, workspace, cx) = workspace(cx);
+        cx.update(|_, cx| {
+            crate::ui::theme::UiFonts::init(cx);
+            NoteView::install_pausing_brief_provider(&runtime, cx);
+        });
+        let target = block_on(
+            runtime
+                .create_note("Pricing sync".into())
+                .unwrap()
+                .receive(),
+        )
+        .unwrap();
+        let other = block_on(runtime.create_note("Other note".into()).unwrap().receive()).unwrap();
+        let target_id = target.summary.id.clone();
+        let other_id = other.summary.id.clone();
+
+        workspace.update(cx, |workspace, cx| {
+            workspace.open_session(target_id.clone(), cx);
+        });
+        settle(cx, |cx| {
+            workspace.read_with(cx, |workspace, cx| {
+                workspace.note.read(cx).session_id() == Some(&target_id)
+            })
+        });
+        let target_memo = memo(&runtime, &target, cx);
+        workspace.update(cx, |workspace, cx| {
+            workspace.set_editor_content(&target_id, target_memo.clone().into(), cx);
+            workspace
+                .note
+                .update(cx, |note, cx| note.start_test_brief(cx));
+        });
+        settle(cx, |cx| {
+            !target_memo.read_with(cx, |editor, _| editor.is_pristine())
+        });
+        block_on(target_memo.update(cx, |editor, _| editor.flush()))
+            .unwrap()
+            .unwrap();
+
+        // Switch the main workspace away while the brief job stays alive in the background.
+        workspace.update(cx, |workspace, cx| {
+            workspace.open_session(other_id.clone(), cx);
+        });
+        settle(cx, |cx| {
+            workspace.read_with(cx, |workspace, cx| {
+                workspace.note.read(cx).session_id() == Some(&other_id)
+            })
+        });
+
+        // Open the same note in a standalone window with a newer unsaved draft.
+        let reopened = block_on(
+            runtime
+                .open_session(target_id.clone(), CancellationToken::new())
+                .unwrap()
+                .receive(),
+        )
+        .unwrap();
+        let window_runtime = runtime.clone();
+        let vault = directory.path().to_path_buf();
+        let weak_workspace = workspace.downgrade();
+        let standalone = cx
+            .update(|_, cx| {
+                cx.open_window(Default::default(), move |window, cx| {
+                    cx.new(|cx| {
+                        NoteWindow::new(window_runtime, reopened, vault, weak_workspace, window, cx)
+                    })
+                })
+            })
+            .unwrap();
+        settle(cx, |cx| {
+            standalone
+                .read_with(cx, |view, cx| {
+                    view.note()
+                        .read(cx)
+                        .memo_editor_for_test()
+                        .and_then(|editor| editor.read(cx).document_body())
+                })
+                .ok()
+                .flatten()
+                .is_some()
+        });
+        let standalone_memo = standalone
+            .read_with(cx, |view, cx| {
+                view.note().read(cx).memo_editor_for_test().unwrap()
+            })
+            .unwrap();
+        let edited_body = json!({"type": "doc", "content": [
+            {"type": "paragraph", "content": [{"type": "text", "text": "Send the price sheet"}]}
+        ]})
+        .to_string();
+        settle(cx, |cx| {
+            standalone_memo.update(cx, |editor, cx| {
+                if !editor.is_dirty() {
+                    editor.replace_content(&edited_body, cx);
+                }
+            });
+            standalone_memo.read_with(cx, |editor, _| editor.is_dirty())
+        });
+
+        workspace.update(cx, |workspace, cx| {
+            workspace.delete_notes(std::slice::from_ref(&target_id), false, cx);
+        });
+        settle(cx, |_| deleted(&runtime, &target_id));
+        workspace.update(cx, |workspace, cx| {
+            workspace.undo_deletion(&target_id.0, cx)
+        });
+        settle(cx, |_| !deleted(&runtime, &target_id));
+        let restored = block_on(
+            runtime
+                .open_session(target_id.clone(), CancellationToken::new())
+                .unwrap()
+                .receive(),
+        )
+        .unwrap();
+        assert!(restored.note.unwrap().body.contains("Send the price sheet"));
+        drop((target_memo, standalone_memo, standalone));
         shut_down(&runtime, cx);
     }
 }
