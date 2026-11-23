@@ -705,6 +705,17 @@ impl EditorPane {
             .is_some_and(|model| super::title::is_pristine(&model.document.root.children))
     }
 
+    pub fn document_body(&self) -> Option<String> {
+        self.model
+            .as_ref()
+            .and_then(|model| model.document.serialize().ok())
+            .map(|body| body.to_string())
+    }
+
+    pub fn saved_snapshot(&self) -> Option<(u64, DocumentSnapshot)> {
+        self.journal.as_ref().and_then(SaveJournal::saved)
+    }
+
     /// Shipping's memo template: each titled section as an H2 over an empty paragraph,
     /// replacing the (pristine) memo in one undoable edit that autosaves.
     pub fn apply_template(&mut self, sections: &[&str], cx: &mut Context<Self>) {

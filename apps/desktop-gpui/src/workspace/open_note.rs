@@ -73,6 +73,7 @@ pub struct NoteView {
     cancellation: CancellationToken,
     rename_pending: bool,
     rename_error: bool,
+    rename_waiters: Vec<futures::channel::oneshot::Sender<desktop_runtime::Result<()>>>,
     /// A newer stored session found while a title draft kept `current` as its base, paired with
     /// that base. Discarding the draft takes the newer one while `current` is still the base.
     newer_session: Option<(Arc<OpenSession>, Arc<OpenSession>)>,
@@ -142,6 +143,8 @@ struct SummaryEditor {
     /// The first line as last saved: only an edit of that line renames the note, so a save
     /// after a header rename does not rename it back.
     heading: Option<String>,
+    /// Highest `SaveJournal::saved().0` sequence already checked for a heading rename.
+    applied_save_seq: u64,
     /// Mirrors the editor's save conflict for the note's banner.
     conflict: bool,
     _subscriptions: [Subscription; 3],
@@ -453,6 +456,7 @@ impl NoteView {
             cancellation: CancellationToken::new(),
             rename_pending: false,
             rename_error: false,
+            rename_waiters: Vec::new(),
             newer_session: None,
             mode: SessionMode::Inactive,
             audio: None,
@@ -641,11 +645,13 @@ impl NoteView {
     }
 
     pub fn remove_sessions(&mut self, ids: &[SessionId], cx: &mut Context<Self>) {
+        let _ = self.cancel_brief(ids, &[], cx);
         if self
             .current
             .as_ref()
             .is_some_and(|session| ids.contains(&session.summary.id))
         {
+            self.resolve_rename_waiters(|| Err(desktop_runtime::ServiceError::Cancelled));
             self.cancel_open();
             self.current = None;
             self.reset_details();
@@ -803,6 +809,7 @@ impl NoteView {
     }
 
     pub fn show(&mut self, session: OpenSession, cx: &mut Context<Self>) {
+        self.resolve_rename_waiters(|| Err(desktop_runtime::ServiceError::Cancelled));
         self.find.update(cx, |find, cx| find.close(cx));
         self.content = None;
         self.menu = false;
@@ -1041,19 +1048,131 @@ impl NoteView {
             .collect()
     }
 
+    fn resolve_rename_waiters(&mut self, result: impl Fn() -> desktop_runtime::Result<()>) {
+        for waiter in self.rename_waiters.drain(..) {
+            let _ = waiter.send(result());
+        }
+    }
+
+    #[cfg(test)]
+    pub(super) fn edit_title_draft(&mut self, title: String, cx: &mut Context<Self>) {
+        self.title.update(cx, |input, cx| input.set_text(title, cx));
+    }
+
+    #[cfg(test)]
+    pub(super) fn open_summary_editor_for_test(
+        &mut self,
+        id: &str,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Option<Entity<EditorPane>> {
+        if let Some(summary) = self.summary_editors.get(&DocumentId(id.into())) {
+            return Some(summary.editor.clone());
+        }
+        let session = self.current.as_ref()?.clone();
+        let document = self
+            .details
+            .summaries
+            .iter()
+            .find(|summary| summary.id.0.as_ref() == id)?
+            .clone();
+        Some(self.open_summary_editor(
+            &session.summary.id,
+            document,
+            session.summary.title.to_string(),
+            window,
+            cx,
+        ))
+    }
+
+    #[cfg(test)]
+    pub(super) fn memo_editor_for_test(&self) -> Option<Entity<EditorPane>> {
+        self.memo_editor()
+    }
+
+    pub fn dirty_memo(&self, cx: &gpui::App) -> Option<(SessionId, Entity<EditorPane>)> {
+        self.session_id().cloned().zip(
+            self.memo_editor()
+                .filter(|editor| editor.read(cx).is_dirty()),
+        )
+    }
+
     /// When the shown note is one of `ids`, starts saving its title and unsaved editor drafts,
     /// so they land before a deletion's tombstone, which rejects later saves.
-    pub fn flush_drafts(&mut self, ids: &[SessionId], cx: &mut Context<Self>) -> Vec<Flush> {
+    pub fn flush_drafts(
+        &mut self,
+        ids: &[SessionId],
+        dirty_memos: &[(SessionId, Entity<EditorPane>)],
+        cx: &mut Context<Self>,
+    ) -> Vec<Flush> {
+        let mut flushes = Vec::new();
+        if let Some(flush) = self.cancel_brief(ids, dirty_memos, cx) {
+            flushes.push(flush);
+        }
+        if !self.session_id().is_some_and(|id| ids.contains(id)) {
+            return flushes;
+        }
+        self.rename(cx);
+        if self.busy {
+            let (tx, rx) = futures::channel::oneshot::channel();
+            self.rename_waiters.push(tx);
+            flushes.push(rx);
+        }
+        flushes.extend(self.editors().into_iter().filter_map(|editor| {
+            editor.update(cx, |editor, _| editor.is_dirty().then(|| editor.flush()))
+        }));
+        flushes
+    }
+
+    fn apply_saved_summary_headings(&mut self, allow_held: bool, cx: &mut Context<Self>) {
+        if !allow_held && self.session_id().is_some_and(|id| NoteHolds::held(cx, id)) {
+            return;
+        }
+        let mut next_title = None;
+        for summary in self.summary_editors.values_mut() {
+            let Some((save_seq, snapshot)) = summary.editor.read(cx).saved_snapshot() else {
+                continue;
+            };
+            if save_seq <= summary.applied_save_seq {
+                continue;
+            }
+            summary.applied_save_seq = save_seq;
+            let heading = first_line_title(&snapshot.body);
+            if summary.heading != heading {
+                summary.heading = heading.clone();
+                if let Some(title) = heading {
+                    next_title = Some(title);
+                }
+            }
+        }
+        if let Some(title) = next_title
+            && self
+                .current
+                .as_ref()
+                .is_some_and(|session| session.summary.title.as_ref() != title)
+        {
+            self.title.update(cx, |input, cx| input.set_text(title, cx));
+            self.rename(cx);
+        }
+    }
+
+    /// Starts any note rename implied by saved summary headings before tombstoning.
+    pub fn flush_summary_renames(
+        &mut self,
+        ids: &[SessionId],
+        cx: &mut Context<Self>,
+    ) -> Vec<Flush> {
         if !self.session_id().is_some_and(|id| ids.contains(id)) {
             return Vec::new();
         }
-        self.rename(cx);
-        self.editors()
-            .into_iter()
-            .filter_map(|editor| {
-                editor.update(cx, |editor, _| editor.is_dirty().then(|| editor.flush()))
-            })
-            .collect()
+        self.apply_saved_summary_headings(true, cx);
+        if self.busy {
+            let (tx, rx) = futures::channel::oneshot::channel();
+            self.rename_waiters.push(tx);
+            vec![rx]
+        } else {
+            Vec::new()
+        }
     }
 
     /// The title, like the editors, takes no edits while a deletion holds the shown note.
@@ -1061,6 +1180,17 @@ impl NoteView {
         let held = self.session_id().is_some_and(|id| NoteHolds::held(cx, id));
         self.title
             .update(cx, |title, cx| title.set_read_only(held, cx));
+        if let Some(id) = self
+            .brief_job
+            .as_ref()
+            .map(|job| job.session.clone())
+            .filter(|id| NoteHolds::held(cx, id))
+        {
+            let _ = self.cancel_brief(std::slice::from_ref(&id), &[], cx);
+        }
+        if !held {
+            self.apply_saved_summary_headings(false, cx);
+        }
     }
 
     /// The summary the note shows, which chat edits and corrections target by default.
@@ -1136,6 +1266,9 @@ impl NoteView {
                         if std::mem::take(&mut this.rename_pending) {
                             this.rename(cx);
                         }
+                        if !this.busy {
+                            this.resolve_rename_waiters(|| Ok(()));
+                        }
                     }
                     Err(error) => {
                         this.rename_pending = false;
@@ -1143,6 +1276,10 @@ impl NoteView {
                         this.message =
                             format!("Title not saved: {error}. Your input is preserved.");
                         cx.emit(NoteEvent::RenameFailed);
+                        let reason: Arc<str> = error.to_string().into();
+                        this.resolve_rename_waiters(|| {
+                            Err(desktop_runtime::ServiceError::Failed(reason.clone()))
+                        });
                     }
                 }
                 cx.notify();
@@ -1844,6 +1981,7 @@ impl NoteView {
             SummaryEditor {
                 editor: editor.clone(),
                 heading,
+                applied_save_seq: 0,
                 conflict: false,
                 _subscriptions: subscriptions,
             },
@@ -1851,34 +1989,15 @@ impl NoteView {
         editor
     }
 
-    fn summary_event(&mut self, id: &DocumentId, event: &EditorEvent, cx: &mut Context<Self>) {
+    fn summary_event(&mut self, _id: &DocumentId, event: &EditorEvent, cx: &mut Context<Self>) {
         match event {
             // Shipping renames the note from the summary's first line when it is edited.
-            EditorEvent::Saved(snapshot) => {
-                let heading = first_line_title(&snapshot.body);
-                if let Some(summary) = self.summary_editors.get_mut(id)
-                    && summary.heading != heading
-                {
-                    summary.heading = heading.clone();
-                    if let Some(title) = heading {
-                        self.rename_from_summary(title, cx);
-                    }
-                }
+            EditorEvent::Saved(_) => {
+                self.apply_saved_summary_headings(false, cx);
                 cx.notify();
             }
             EditorEvent::Dirty { .. } | EditorEvent::SaveFailed { .. } => cx.notify(),
             event => cx.emit(event.clone()),
-        }
-    }
-
-    fn rename_from_summary(&mut self, title: String, cx: &mut Context<Self>) {
-        if self
-            .current
-            .as_ref()
-            .is_some_and(|session| session.summary.title.as_ref() != title)
-        {
-            self.title.update(cx, |input, cx| input.set_text(title, cx));
-            self.rename(cx);
         }
     }
 

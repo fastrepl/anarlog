@@ -198,6 +198,14 @@ impl WorkspaceView {
             for flush in flushes {
                 saved &= matches!(flush.await, Ok(Ok(())));
             }
+            if saved
+                && let Ok(renames) =
+                    this.update(cx, |this, cx| this.flush_summary_renames(&ids, cx))
+            {
+                for flush in renames {
+                    saved &= matches!(flush.await, Ok(Ok(())));
+                }
+            }
             let _ = this.update(cx, |this, cx| {
                 if saved {
                     this.tombstone(&ids, batch, cx);
@@ -228,9 +236,22 @@ impl WorkspaceView {
 
     /// Starts saving the notes' drafts in this window and in their note windows.
     fn flush_drafts(&mut self, ids: &[SessionId], cx: &mut Context<Self>) -> Vec<Flush> {
+        let notes = self.notes(cx);
+        let dirty_memos: Vec<_> = notes
+            .iter()
+            .filter_map(|note| note.read(cx).dirty_memo(cx))
+            .collect();
+        let mut flushes = Vec::new();
+        for note in notes {
+            flushes.extend(note.update(cx, |note, cx| note.flush_drafts(ids, &dirty_memos, cx)));
+        }
+        flushes
+    }
+
+    fn flush_summary_renames(&mut self, ids: &[SessionId], cx: &mut Context<Self>) -> Vec<Flush> {
         let mut flushes = Vec::new();
         for note in self.notes(cx) {
-            flushes.extend(note.update(cx, |note, cx| note.flush_drafts(ids, cx)));
+            flushes.extend(note.update(cx, |note, cx| note.flush_summary_renames(ids, cx)));
         }
         flushes
     }
@@ -783,6 +804,503 @@ mod tests {
         block_on(editor.update(cx, |editor, _| editor.flush()))
             .unwrap()
             .unwrap();
+        shut_down(&runtime, cx);
+    }
+
+    #[gpui::test]
+    fn deleting_a_note_saves_its_pending_title_rename_first(cx: &mut gpui::TestAppContext) {
+        let (_directory, runtime, workspace, cx) = workspace(cx);
+        let open = block_on(runtime.create_note("Draft".into()).unwrap().receive()).unwrap();
+        let session = open.summary.id.clone();
+        workspace.update(cx, |workspace, cx| {
+            workspace.open_session(session.clone(), cx)
+        });
+        settle(cx, |cx| {
+            workspace.read_with(cx, |workspace, cx| {
+                workspace.note.read(cx).session_id() == Some(&session)
+            })
+        });
+        // Start an in-flight rename, then change the title again right before deleting.
+        workspace.update(cx, |workspace, cx| {
+            workspace.note.update(cx, |note, cx| {
+                note.edit_title_draft("Intermediate title".into(), cx);
+                note.rename(cx);
+                note.edit_title_draft("Final renamed title".into(), cx);
+            });
+            workspace.delete_notes(std::slice::from_ref(&session), false, cx);
+        });
+        settle(cx, |_| deleted(&runtime, &session));
+        workspace.update(cx, |workspace, cx| workspace.undo_deletion(&session.0, cx));
+        settle(cx, |_| !deleted(&runtime, &session));
+        let restored = block_on(
+            runtime
+                .open_session(session.clone(), CancellationToken::new())
+                .unwrap()
+                .receive(),
+        )
+        .unwrap();
+        assert_eq!(restored.summary.title.as_ref(), "Final renamed title");
+        shut_down(&runtime, cx);
+    }
+
+    #[gpui::test]
+    fn deleting_a_note_saves_a_pending_summary_heading_rename_first(cx: &mut gpui::TestAppContext) {
+        let (_directory, runtime, workspace, cx) = workspace(cx);
+        let open = block_on(runtime.create_note("Planning".into()).unwrap().receive()).unwrap();
+        let session = open.summary.id.clone();
+        let summary_doc = |heading: &str| {
+            json!({"type": "doc", "content": [
+                {"type": "heading", "attrs": {"level": 1}, "content": [{"type": "text", "text": heading}]},
+                {"type": "paragraph", "content": [{"type": "text", "text": "Details"}]}
+            ]})
+            .to_string()
+        };
+        let initial_body = summary_doc("Planning");
+        let id = session.0.clone();
+        block_on(
+            runtime
+                .submit(move |services| async move {
+                    services
+                        .executor
+                        .execute(
+                            "INSERT INTO session_documents (id, session_id, kind, title, body_format, body, sort_order)
+                             VALUES ('plan-summary', ?, 'summary', '', 'prosemirror_json', ?, 0)"
+                                .into(),
+                            vec![json!(id), json!(initial_body)],
+                        )
+                        .await
+                        .map_err(failure)
+                })
+                .unwrap()
+                .receive(),
+        )
+        .unwrap();
+
+        workspace.update(cx, |workspace, cx| {
+            workspace.open_session(session.clone(), cx)
+        });
+        settle(cx, |cx| {
+            workspace.update_in(cx, |workspace, window, cx| {
+                workspace
+                    .note
+                    .update(cx, |note, cx| {
+                        note.open_summary_editor_for_test("plan-summary", window, cx)
+                    })
+                    .is_some()
+            })
+        });
+        let editor = workspace.update_in(cx, |workspace, window, cx| {
+            workspace
+                .note
+                .update(cx, |note, cx| {
+                    note.open_summary_editor_for_test("plan-summary", window, cx)
+                })
+                .unwrap()
+        });
+        let updated_body = summary_doc("Launch plan");
+        settle(cx, |cx| {
+            editor.update(cx, |editor, cx| {
+                if !editor.is_dirty() {
+                    editor.replace_content(&updated_body, cx);
+                }
+            });
+            editor.read_with(cx, |editor, _| editor.is_dirty())
+        });
+        workspace.update(cx, |workspace, cx| {
+            workspace.delete_notes(std::slice::from_ref(&session), false, cx);
+        });
+        settle(cx, |_| deleted(&runtime, &session));
+        workspace.update(cx, |workspace, cx| workspace.undo_deletion(&session.0, cx));
+        settle(cx, |_| !deleted(&runtime, &session));
+        let restored = block_on(
+            runtime
+                .open_session(session.clone(), CancellationToken::new())
+                .unwrap()
+                .receive(),
+        )
+        .unwrap();
+        assert_eq!(restored.summary.title.as_ref(), "Launch plan");
+
+        // Releasing a deletion hold replays summary headings whose save completed while held.
+        settle(cx, |cx| {
+            workspace.read_with(cx, |workspace, cx| {
+                workspace.note.read(cx).session_id() == Some(&session)
+            })
+        });
+        settle(cx, |cx| {
+            workspace.update_in(cx, |workspace, window, cx| {
+                workspace
+                    .note
+                    .update(cx, |note, cx| {
+                        note.open_summary_editor_for_test("plan-summary", window, cx)
+                    })
+                    .is_some()
+            })
+        });
+        let replayed_editor = workspace.update_in(cx, |workspace, window, cx| {
+            workspace
+                .note
+                .update(cx, |note, cx| {
+                    note.open_summary_editor_for_test("plan-summary", window, cx)
+                })
+                .unwrap()
+        });
+        settle(cx, |cx| {
+            replayed_editor.read_with(cx, |editor, _| editor.document_body().is_some())
+        });
+        let second_body = summary_doc("Replayed title");
+        settle(cx, |cx| {
+            replayed_editor.update(cx, |editor, cx| {
+                if !editor.is_dirty() {
+                    editor.replace_content(&second_body, cx);
+                }
+            });
+            replayed_editor.read_with(cx, |editor, _| editor.is_dirty())
+        });
+        let hold = cx.update(|_, cx| NoteHolds::hold(vec![session.clone()], cx));
+        block_on(replayed_editor.update(cx, |editor, _| editor.flush()))
+            .unwrap()
+            .unwrap();
+        settle(cx, |cx| {
+            !replayed_editor.read_with(cx, |editor, _| editor.is_dirty())
+        });
+        assert_eq!(
+            block_on(
+                runtime
+                    .open_session(session.clone(), CancellationToken::new())
+                    .unwrap()
+                    .receive()
+            )
+            .unwrap()
+            .summary
+            .title
+            .as_ref(),
+            "Launch plan"
+        );
+        let base = replayed_editor.read_with(cx, |editor, _| editor.init.document.clone());
+        assert!(base.body.contains("Replayed title"), "{}", base.body);
+
+        // Move focus off the summary editor so external sync updates rebase instead of deferring.
+        workspace.update_in(cx, |_, window, cx| {
+            cx.focus_handle().focus(window, cx);
+        });
+        cx.run_until_parked();
+
+        // An external rebase updates the displayed summary body without replacing the pending save base.
+        // `EditorPane::remote_revision` deduplicates by millisecond-precision `updated_at`;
+        // advance past the saved millisecond so the external save always rebases the display.
+        std::thread::sleep(Duration::from_millis(5));
+        let external = block_on(
+            runtime
+                .save_document(desktop_runtime::SaveDocument {
+                    base: base.clone(),
+                    body: summary_doc("External synced title").into(),
+                })
+                .unwrap()
+                .receive(),
+        )
+        .unwrap();
+        assert_ne!(external.updated_at, base.updated_at);
+        settle(cx, |cx| {
+            replayed_editor.read_with(cx, |editor, _| {
+                editor
+                    .document_body()
+                    .is_some_and(|body| body.contains("External synced title"))
+            })
+        });
+
+        cx.update(|_, cx| hold.release(cx));
+        settle(cx, |_| {
+            block_on(
+                runtime
+                    .open_session(session.clone(), CancellationToken::new())
+                    .unwrap()
+                    .receive(),
+            )
+            .unwrap()
+            .summary
+            .title
+            .as_ref()
+                == "Replayed title"
+        });
+        workspace.update(cx, |workspace, cx| {
+            workspace.delete_notes(std::slice::from_ref(&session), false, cx);
+        });
+        settle(cx, |_| deleted(&runtime, &session));
+        workspace.update(cx, |workspace, cx| workspace.undo_deletion(&session.0, cx));
+        settle(cx, |_| !deleted(&runtime, &session));
+        let restored = block_on(
+            runtime
+                .open_session(session.clone(), CancellationToken::new())
+                .unwrap()
+                .receive(),
+        )
+        .unwrap();
+        assert_eq!(restored.summary.title.as_ref(), "Replayed title");
+        drop((editor, replayed_editor));
+        shut_down(&runtime, cx);
+    }
+
+    #[gpui::test]
+    fn deleting_a_note_leaves_an_untouched_markdown_summary_unrenamed(
+        cx: &mut gpui::TestAppContext,
+    ) {
+        let (_directory, runtime, workspace, cx) = workspace(cx);
+        let open = block_on(runtime.create_note("".into()).unwrap().receive()).unwrap();
+        let session = open.summary.id.clone();
+        let id = session.0.clone();
+        block_on(
+            runtime
+                .submit(move |services| async move {
+                    services
+                        .executor
+                        .execute(
+                            "INSERT INTO session_documents (id, session_id, kind, title, body_format, body, sort_order)
+                             VALUES ('md-summary', ?, 'summary', '', 'markdown', '## Decisions\n\nDetails', 0)"
+                                .into(),
+                            vec![json!(id)],
+                        )
+                        .await
+                        .map_err(failure)
+                })
+                .unwrap()
+                .receive(),
+        )
+        .unwrap();
+
+        let memo_editor = edit_open_note(&runtime, &workspace, &open, cx);
+        settle(cx, |cx| {
+            workspace.update_in(cx, |workspace, window, cx| {
+                workspace
+                    .note
+                    .update(cx, |note, cx| {
+                        note.open_summary_editor_for_test("md-summary", window, cx)
+                    })
+                    .is_some()
+            })
+        });
+        let summary_editor = workspace.update_in(cx, |workspace, window, cx| {
+            workspace
+                .note
+                .update(cx, |note, cx| {
+                    note.open_summary_editor_for_test("md-summary", window, cx)
+                })
+                .unwrap()
+        });
+        settle(cx, |cx| {
+            summary_editor.read_with(cx, |editor, _| editor.document_body().is_some())
+        });
+
+        workspace.update(cx, |workspace, cx| {
+            workspace.delete_notes(std::slice::from_ref(&session), false, cx);
+        });
+        settle(cx, |_| deleted(&runtime, &session));
+        workspace.update(cx, |workspace, cx| workspace.undo_deletion(&session.0, cx));
+        settle(cx, |_| !deleted(&runtime, &session));
+        let restored = block_on(
+            runtime
+                .open_session(session.clone(), CancellationToken::new())
+                .unwrap()
+                .receive(),
+        )
+        .unwrap();
+        assert_eq!(restored.summary.title.as_ref(), "");
+        drop((memo_editor, summary_editor));
+        shut_down(&runtime, cx);
+    }
+
+    #[gpui::test]
+    fn deleting_a_background_note_rolls_back_its_streaming_brief_before_tombstone(
+        cx: &mut gpui::TestAppContext,
+    ) {
+        let (_directory, runtime, workspace, cx) = workspace(cx);
+        cx.update(|_, cx| NoteView::install_pausing_brief_provider(&runtime, cx));
+        let target = block_on(
+            runtime
+                .create_note("Pricing sync".into())
+                .unwrap()
+                .receive(),
+        )
+        .unwrap();
+        let other = block_on(runtime.create_note("Other note".into()).unwrap().receive()).unwrap();
+        let target_id = target.summary.id.clone();
+        let other_id = other.summary.id.clone();
+
+        workspace.update(cx, |workspace, cx| {
+            workspace.open_session(target_id.clone(), cx);
+        });
+        settle(cx, |cx| {
+            workspace.read_with(cx, |workspace, cx| {
+                workspace.note.read(cx).session_id() == Some(&target_id)
+            })
+        });
+        let target_memo = memo(&runtime, &target, cx);
+        workspace.update(cx, |workspace, cx| {
+            workspace.set_editor_content(&target_id, target_memo.clone().into(), cx);
+            workspace
+                .note
+                .update(cx, |note, cx| note.start_test_brief(cx));
+        });
+        settle(cx, |cx| {
+            !target_memo.read_with(cx, |editor, _| editor.is_pristine())
+        });
+        block_on(target_memo.update(cx, |editor, _| editor.flush()))
+            .unwrap()
+            .unwrap();
+
+        // Switch away so the brief streams in the background, then delete the original note.
+        workspace.update(cx, |workspace, cx| {
+            workspace.open_session(other_id.clone(), cx);
+        });
+        settle(cx, |cx| {
+            workspace.read_with(cx, |workspace, cx| {
+                workspace.note.read(cx).session_id() == Some(&other_id)
+            })
+        });
+        workspace.update(cx, |workspace, cx| {
+            workspace.delete_notes(std::slice::from_ref(&target_id), false, cx);
+        });
+        settle(cx, |_| deleted(&runtime, &target_id));
+        workspace.update(cx, |workspace, cx| {
+            workspace.undo_deletion(&target_id.0, cx)
+        });
+        settle(cx, |_| !deleted(&runtime, &target_id));
+        let restored = block_on(
+            runtime
+                .open_session(target_id.clone(), CancellationToken::new())
+                .unwrap()
+                .receive(),
+        )
+        .unwrap();
+        let body = restored.note.unwrap().body;
+        assert!(!body.contains("Confirm pricing"), "{body}");
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&body).unwrap(),
+            json!({"type": "doc", "content": [{"type": "paragraph"}]})
+        );
+        drop(target_memo);
+        shut_down(&runtime, cx);
+    }
+
+    #[gpui::test]
+    fn deleting_a_note_with_dirty_edits_in_another_window_cancels_brief_without_conflict(
+        cx: &mut gpui::TestAppContext,
+    ) {
+        let (directory, runtime, workspace, cx) = workspace(cx);
+        cx.update(|_, cx| {
+            crate::ui::theme::UiFonts::init(cx);
+            NoteView::install_pausing_brief_provider(&runtime, cx);
+        });
+        let target = block_on(
+            runtime
+                .create_note("Pricing sync".into())
+                .unwrap()
+                .receive(),
+        )
+        .unwrap();
+        let other = block_on(runtime.create_note("Other note".into()).unwrap().receive()).unwrap();
+        let target_id = target.summary.id.clone();
+        let other_id = other.summary.id.clone();
+
+        workspace.update(cx, |workspace, cx| {
+            workspace.open_session(target_id.clone(), cx);
+        });
+        settle(cx, |cx| {
+            workspace.read_with(cx, |workspace, cx| {
+                workspace.note.read(cx).session_id() == Some(&target_id)
+            })
+        });
+        let target_memo = memo(&runtime, &target, cx);
+        workspace.update(cx, |workspace, cx| {
+            workspace.set_editor_content(&target_id, target_memo.clone().into(), cx);
+            workspace
+                .note
+                .update(cx, |note, cx| note.start_test_brief(cx));
+        });
+        settle(cx, |cx| {
+            !target_memo.read_with(cx, |editor, _| editor.is_pristine())
+        });
+        block_on(target_memo.update(cx, |editor, _| editor.flush()))
+            .unwrap()
+            .unwrap();
+
+        // Switch the main workspace away while the brief job stays alive in the background.
+        workspace.update(cx, |workspace, cx| {
+            workspace.open_session(other_id.clone(), cx);
+        });
+        settle(cx, |cx| {
+            workspace.read_with(cx, |workspace, cx| {
+                workspace.note.read(cx).session_id() == Some(&other_id)
+            })
+        });
+
+        // Open the same note in a standalone window with a newer unsaved draft.
+        let reopened = block_on(
+            runtime
+                .open_session(target_id.clone(), CancellationToken::new())
+                .unwrap()
+                .receive(),
+        )
+        .unwrap();
+        let window_runtime = runtime.clone();
+        let vault = directory.path().to_path_buf();
+        let weak_workspace = workspace.downgrade();
+        let standalone = cx
+            .update(|_, cx| {
+                cx.open_window(Default::default(), move |window, cx| {
+                    cx.new(|cx| {
+                        NoteWindow::new(window_runtime, reopened, vault, weak_workspace, window, cx)
+                    })
+                })
+            })
+            .unwrap();
+        settle(cx, |cx| {
+            standalone
+                .read_with(cx, |view, cx| {
+                    view.note()
+                        .read(cx)
+                        .memo_editor_for_test()
+                        .and_then(|editor| editor.read(cx).document_body())
+                })
+                .ok()
+                .flatten()
+                .is_some()
+        });
+        let standalone_memo = standalone
+            .read_with(cx, |view, cx| {
+                view.note().read(cx).memo_editor_for_test().unwrap()
+            })
+            .unwrap();
+        let edited_body = json!({"type": "doc", "content": [
+            {"type": "paragraph", "content": [{"type": "text", "text": "Send the price sheet"}]}
+        ]})
+        .to_string();
+        settle(cx, |cx| {
+            standalone_memo.update(cx, |editor, cx| {
+                if !editor.is_dirty() {
+                    editor.replace_content(&edited_body, cx);
+                }
+            });
+            standalone_memo.read_with(cx, |editor, _| editor.is_dirty())
+        });
+
+        workspace.update(cx, |workspace, cx| {
+            workspace.delete_notes(std::slice::from_ref(&target_id), false, cx);
+        });
+        settle(cx, |_| deleted(&runtime, &target_id));
+        workspace.update(cx, |workspace, cx| {
+            workspace.undo_deletion(&target_id.0, cx)
+        });
+        settle(cx, |_| !deleted(&runtime, &target_id));
+        let restored = block_on(
+            runtime
+                .open_session(target_id.clone(), CancellationToken::new())
+                .unwrap()
+                .receive(),
+        )
+        .unwrap();
+        assert!(restored.note.unwrap().body.contains("Send the price sheet"));
+        drop((target_memo, standalone_memo, standalone));
         shut_down(&runtime, cx);
     }
 }

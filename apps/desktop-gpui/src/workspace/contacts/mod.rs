@@ -11,7 +11,7 @@ pub(crate) mod ops;
 mod organization;
 mod person;
 
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use desktop_runtime::{CancellationToken, RuntimeHandle, SessionId};
 use futures::{
@@ -74,6 +74,9 @@ pub struct Contacts {
     scroll: ScrollHandle,
     focus: FocusHandle,
     message: SharedString,
+    load_error_owner: Option<u64>,
+    notes_watch_id: Option<u64>,
+    next_watch_id: u64,
     watching: bool,
     watch_cancel: CancellationToken,
     notes_cancel: CancellationToken,
@@ -236,6 +239,9 @@ impl Contacts {
             scroll: ScrollHandle::new(),
             focus: cx.focus_handle(),
             message: SharedString::default(),
+            load_error_owner: None,
+            notes_watch_id: None,
+            next_watch_id: 0,
             watching: false,
             watch_cancel: CancellationToken::new(),
             notes_cancel: CancellationToken::new(),
@@ -263,8 +269,7 @@ impl Contacts {
         self.watch_cancel.cancel();
         self.watch_cancel = CancellationToken::new();
         let cancel = self.watch_cancel.clone();
-        Self::watch(
-            &self.runtime,
+        self.watch(
             data::CONTACTS_CHANGES_SQL,
             Some(data::CONTACTS_SQL),
             vec![],
@@ -318,6 +323,7 @@ impl Contacts {
             if let Err(error) = result {
                 tracing::error!(%error, "contacts write failed");
                 let _ = this.update(cx, |this, cx| {
+                    this.load_error_owner = None;
                     this.message = format!("Could not save the contact: {error}").into();
                     cx.notify();
                 });
@@ -386,12 +392,22 @@ impl Contacts {
         .detach();
     }
 
-    fn watch_notes(&mut self, id: SharedString, cx: &mut Context<Self>) {
+    fn cancel_notes_watch(&mut self, cx: &mut Context<Self>) {
         self.notes_cancel.cancel();
+        if let Some(id) = self.notes_watch_id.take()
+            && self.load_error_owner == Some(id)
+        {
+            self.load_error_owner = None;
+            self.message = SharedString::default();
+            cx.notify();
+        }
+    }
+
+    fn watch_notes(&mut self, id: SharedString, cx: &mut Context<Self>) {
+        self.cancel_notes_watch(cx);
         self.notes_cancel = CancellationToken::new();
         let cancel = self.notes_cancel.clone();
-        Self::watch(
-            &self.runtime,
+        self.notes_watch_id = Some(self.watch(
             data::NOTES_SQL,
             None,
             vec![Value::from(id.to_string())],
@@ -407,51 +423,70 @@ impl Contacts {
                     cx.notify();
                 }
             },
-        );
+        ));
     }
 
     /// With `read`, `sql` only signals that the tables `read` reads changed, and each change
     /// reads `read` in full: contacts outgrow a watch's 1,000 rows.
     fn watch(
-        runtime: &RuntimeHandle,
+        &mut self,
         sql: &'static str,
         read: Option<&'static str>,
         params: Vec<Value>,
         cancel: CancellationToken,
         cx: &mut Context<Self>,
         apply: impl Fn(&mut Self, Arc<[Value]>, &mut Context<Self>) + 'static,
-    ) {
+    ) -> u64 {
+        const LOAD_ERROR_PREFIX: &str = "Could not load contacts: ";
+        const READ_RETRY: Duration = Duration::from_millis(500);
+        const READ_RETRY_MAX: Duration = Duration::from_secs(30);
+
+        let owner = self.next_watch_id;
+        self.next_watch_id = self.next_watch_id.wrapping_add(1);
         let reply = match read {
-            Some(_) => runtime.watch_changes(sql.into(), params.clone()),
-            None => runtime.watch_query(sql.into(), params.clone()),
+            Some(_) => self.runtime.watch_changes(sql.into(), params.clone()),
+            None => self.runtime.watch_query(sql.into(), params.clone()),
         };
-        let runtime = runtime.clone();
+        let runtime = self.runtime.clone();
         cx.spawn(async move |this, cx| {
             let fail = |this: &mut Self, error: String, cx: &mut Context<Self>| {
-                this.message = format!("Could not load contacts: {error}").into();
+                this.load_error_owner = Some(owner);
+                this.message = format!("{LOAD_ERROR_PREFIX}{error}").into();
                 cx.notify();
             };
             let mut watch = match reply {
                 Ok(reply) => match reply.receive().await {
                     Ok(watch) => watch,
                     Err(error) => {
-                        let _ = this.update(cx, |this, cx| fail(this, error.to_string(), cx));
+                        if !cancel.is_cancelled() {
+                            let _ = this.update(cx, |this, cx| fail(this, error.to_string(), cx));
+                        }
                         return;
                     }
                 },
                 Err(error) => {
-                    let _ = this.update(cx, |this, cx| fail(this, error.to_string(), cx));
+                    if !cancel.is_cancelled() {
+                        let _ = this.update(cx, |this, cx| fail(this, error.to_string(), cx));
+                    }
                     return;
                 }
             };
+            let mut retry: Option<Duration> = None;
             loop {
                 if cancel.is_cancelled() {
                     break;
                 }
                 let mut rows = watch.snapshots.borrow_and_update().rows.clone();
-                let mut error = watch
-                    .terminal_error()
-                    .or_else(|| watch.errors.try_recv().ok());
+                let mut transient = None;
+                while let Ok(error) = watch.errors.try_recv() {
+                    transient = Some(error);
+                }
+                let terminal = watch.terminal_error();
+                let mut error = if read.is_some() {
+                    terminal.clone()
+                } else {
+                    terminal.clone().or(transient)
+                };
                 if let (Some(read), None) = (read, &error) {
                     match async {
                         runtime
@@ -461,28 +496,71 @@ impl Contacts {
                     }
                     .await
                     {
-                        Ok(read) => rows = read.into(),
-                        Err(failed) => error = Some(failed),
+                        Ok(read) => {
+                            rows = read.into();
+                            retry = None;
+                        }
+                        // The change signal was already consumed; retry transient failures until a read succeeds.
+                        Err(failed) => {
+                            retry =
+                                if matches!(
+                                    failed,
+                                    desktop_runtime::ServiceError::Unsupported(_)
+                                        | desktop_runtime::ServiceError::Closed
+                                        | desktop_runtime::ServiceError::Cancelled
+                                ) {
+                                    None
+                                } else {
+                                    Some(retry.map_or(READ_RETRY, |delay| {
+                                        (delay * 2).min(READ_RETRY_MAX)
+                                    }))
+                                };
+                            error = Some(failed);
+                        }
                     }
+                } else if error.is_none() {
+                    retry = None;
                 }
+                let non_retryable = matches!(
+                    error,
+                    Some(
+                        desktop_runtime::ServiceError::Unsupported(_)
+                            | desktop_runtime::ServiceError::Closed
+                    )
+                );
                 let updated = this.update(cx, |this, cx| {
                     if cancel.is_cancelled() {
                         return;
                     }
                     match error {
                         Some(error) => fail(this, error.to_string(), cx),
-                        None => apply(this, rows, cx),
+                        None => {
+                            if this.load_error_owner == Some(owner) {
+                                this.load_error_owner = None;
+                                this.message = SharedString::default();
+                                cx.notify();
+                            }
+                            apply(this, rows, cx);
+                        }
                     }
                 });
-                if updated.is_err() || watch.terminal_error().is_some() {
+                if updated.is_err() || terminal.is_some() || non_retryable && read.is_none() {
                     break;
                 }
-                match select(
+                let next = select(
                     watch.snapshots.changed().boxed(),
                     cancel.cancelled().boxed(),
-                )
-                .await
-                {
+                );
+                let woke = match retry {
+                    Some(delay) => {
+                        match select(next, cx.background_executor().timer(delay)).await {
+                            Either::Left((woke, _)) => woke,
+                            Either::Right(_) => continue,
+                        }
+                    }
+                    None => next.await,
+                };
+                match woke {
                     Either::Left((Ok(()), _)) => {}
                     _ => break,
                 }
@@ -490,6 +568,7 @@ impl Contacts {
             let _ = watch.unsubscribe().await;
         })
         .detach();
+        owner
     }
 
     /// Rebuilds the page's inputs when the shown contact changes, like shipping's `key`.
@@ -513,7 +592,7 @@ impl Contacts {
         self.menu = false;
         self.prompt = false;
         self.scroll = ScrollHandle::new();
-        self.notes_cancel.cancel();
+        self.cancel_notes_watch(cx);
         self.page = match target {
             Some(Selection::Person(id)) => {
                 let human = self.data.human(&id).cloned().unwrap_or_default();
@@ -987,5 +1066,202 @@ mod tests {
                 .iter()
                 .all(|channel| *channel > 240)
         );
+    }
+
+    #[gpui::test]
+    fn contacts_watch_retries_failed_read_and_clears_error(cx: &mut gpui::TestAppContext) {
+        use futures::executor::block_on;
+
+        cx.executor().allow_parking();
+        let directory = tempfile::tempdir().unwrap();
+        let (runtime, ready) = RuntimeHandle::start(desktop_runtime::Profile {
+            database: directory.path().join("library.sqlite"),
+        })
+        .unwrap();
+        block_on(ready.receive()).unwrap();
+
+        let view = cx.new(|cx| Contacts::new(runtime.clone(), cx));
+        let cancel = CancellationToken::new();
+        let watch_cancel = cancel.clone();
+        view.update(cx, |contacts, cx| {
+            contacts.watch(
+                "SELECT EXISTS(SELECT 1 FROM humans) AS humans",
+                Some("SELECT id, name FROM contacts_retry_probe"),
+                vec![],
+                watch_cancel,
+                cx,
+                |this, rows, cx| {
+                    this.data = Arc::new(data::ContactsData {
+                        humans: rows
+                            .iter()
+                            .map(|row| data::Human {
+                                id: row["id"].as_str().unwrap_or_default().into(),
+                                name: row["name"].as_str().unwrap_or_default().into(),
+                                ..Default::default()
+                            })
+                            .collect(),
+                        ..Default::default()
+                    });
+                    cx.notify();
+                },
+            );
+        });
+
+        for _ in 0..400 {
+            cx.run_until_parked();
+            if view.read_with(cx, |view, _| !view.message.is_empty()) {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        assert!(view.read_with(cx, |view, _| !view.message.is_empty()));
+
+        // Create and populate the read table without touching `humans` (no snapshot signal).
+        block_on(
+            runtime
+                .submit(|services| async move {
+                    services
+                        .executor
+                        .execute(
+                            "CREATE TABLE contacts_retry_probe (id TEXT, name TEXT)".into(),
+                            vec![],
+                        )
+                        .await
+                        .map_err(|error| {
+                            desktop_runtime::ServiceError::Failed(error.to_string().into())
+                        })?;
+                    services
+                        .executor
+                        .execute(
+                            "INSERT INTO contacts_retry_probe (id, name) VALUES ('c1', 'Recovered')"
+                                .into(),
+                            vec![],
+                        )
+                        .await
+                        .map_err(|error| {
+                            desktop_runtime::ServiceError::Failed(error.to_string().into())
+                        })?;
+                    Ok(())
+                })
+                .unwrap()
+                .receive(),
+        )
+        .unwrap();
+
+        cx.run_until_parked();
+        cx.executor().advance_clock(Duration::from_millis(500));
+        for step in 0..400 {
+            cx.run_until_parked();
+            if view.read_with(cx, |view, _| {
+                view.message.is_empty() && view.data.humans.len() == 1
+            }) {
+                break;
+            }
+            if step % 20 == 19 {
+                cx.executor().advance_clock(Duration::from_millis(500));
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        view.read_with(cx, |view, _| {
+            assert!(view.message.is_empty(), "{}", view.message);
+            assert_eq!(view.data.humans.len(), 1);
+            assert_eq!(view.data.humans[0].name, "Recovered");
+        });
+        cancel.cancel();
+        drop(view);
+        block_on(runtime.shutdown()).unwrap();
+    }
+
+    #[gpui::test]
+    fn switching_contacts_clears_a_failed_notes_watch_error(cx: &mut gpui::TestAppContext) {
+        use futures::executor::block_on;
+
+        cx.executor().allow_parking();
+        cx.update(crate::ui::theme::UiFonts::init);
+        let directory = tempfile::tempdir().unwrap();
+        let (runtime, ready) = RuntimeHandle::start(desktop_runtime::Profile {
+            database: directory.path().join("library.sqlite"),
+        })
+        .unwrap();
+        block_on(ready.receive()).unwrap();
+
+        let (view, cx) = cx.add_window_view(|_, cx| Contacts::new(runtime.clone(), cx));
+        let run_sql = |sql: &str| {
+            let sql = sql.to_owned();
+            block_on(
+                runtime
+                    .submit(move |services| async move {
+                        services
+                            .executor
+                            .execute(sql, vec![])
+                            .await
+                            .map_err(|error| {
+                                desktop_runtime::ServiceError::Failed(error.to_string().into())
+                            })
+                    })
+                    .unwrap()
+                    .receive(),
+            )
+            .unwrap()
+        };
+
+        // Hide `session_participants` so `p1`'s real `watch_notes` fails.
+        run_sql("ALTER TABLE session_participants RENAME TO session_participants_hidden");
+        view.update_in(cx, |contacts, window, cx| {
+            contacts.data = Arc::new(data::ContactsData {
+                humans: vec![
+                    data::Human {
+                        id: "p1".into(),
+                        name: "First".into(),
+                        ..Default::default()
+                    },
+                    data::Human {
+                        id: "p2".into(),
+                        name: "Second".into(),
+                        ..Default::default()
+                    },
+                ],
+                ..Default::default()
+            });
+            contacts.select(Some(Selection::Person("p1".into())), cx);
+            contacts.sync_page(window, cx);
+        });
+        for _ in 0..400 {
+            cx.run_until_parked();
+            if view.read_with(cx, |contacts, _| !contacts.message.is_empty()) {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        assert!(view.read_with(cx, |contacts, _| !contacts.message.is_empty()));
+
+        // Restore the table and switch to `p2`: cancelling `p1`'s watch must clear the error.
+        run_sql("ALTER TABLE session_participants_hidden RENAME TO session_participants");
+        view.update_in(cx, |contacts, window, cx| {
+            contacts.select(Some(Selection::Person("p2".into())), cx);
+            contacts.sync_page(window, cx);
+        });
+        for _ in 0..400 {
+            cx.run_until_parked();
+            if view.read_with(cx, |contacts, _| {
+                matches!(
+                    &contacts.page,
+                    Page::Person(page) if page.id.as_ref() == "p2" && page.notes.is_some()
+                ) && contacts.message.is_empty()
+            }) {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        view.read_with(cx, |contacts, _| {
+            assert!(contacts.message.is_empty(), "{}", contacts.message);
+            assert_eq!(contacts.load_error_owner, None);
+            assert!(matches!(
+                &contacts.page,
+                Page::Person(page) if page.id.as_ref() == "p2" && page.notes.is_some()
+            ));
+        });
+        drop(view);
+        block_on(runtime.shutdown()).unwrap();
     }
 }

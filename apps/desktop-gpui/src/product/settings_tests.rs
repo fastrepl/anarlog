@@ -396,3 +396,123 @@ fn settings_decode_micro_workload() {
         elapsed[999]
     );
 }
+
+#[gpui::test]
+fn apply_stored_preferences_waits_for_starting_runtime(cx: &mut gpui::TestAppContext) {
+    use std::sync::Mutex;
+
+    use crate::platform::system_settings::{Effect, Installed, SystemSettings};
+
+    struct RecordedEffects(Mutex<Vec<Effect>>);
+
+    impl SystemSettings for RecordedEffects {
+        fn apply(&self, effect: Effect) -> Result<()> {
+            self.0.lock().unwrap().push(effect);
+            Ok(())
+        }
+    }
+
+    cx.executor().allow_parking();
+    let directory = tempfile::tempdir().unwrap();
+    let profile = Profile {
+        database: directory.path().join("library.sqlite"),
+    };
+    block_on(async {
+        let (runtime, ready) = RuntimeHandle::start(profile.clone()).unwrap();
+        ready.receive().await.unwrap();
+        runtime
+            .submit(|services| async move {
+                services
+                    .executor
+                    .execute(
+                        "INSERT INTO synced_preferences (id, value_json, updated_at) VALUES ('theme', '\"dark\"', 'fixture')"
+                            .into(),
+                        vec![],
+                    )
+                    .await
+                    .map_err(|error| ServiceError::Failed(error.to_string().into()))?;
+                services
+                    .executor
+                    .execute(
+                        "INSERT INTO app_settings (id, value_json, updated_at) VALUES ('autostart', 'true', 'fixture')"
+                            .into(),
+                        vec![],
+                    )
+                    .await
+                    .map_err(|error| ServiceError::Failed(error.to_string().into()))?;
+                Ok(())
+            })
+            .unwrap()
+            .receive()
+            .await
+            .unwrap();
+        runtime.shutdown().await.unwrap();
+    });
+
+    let recorded = Arc::new(RecordedEffects(Mutex::new(Vec::new())));
+    let held =
+        std::fs::File::create(directory.path().join("com.hyprnote.staging.running.lock")).unwrap();
+    held.try_lock().unwrap();
+    // Guarantee the runtime stays Starting on the profile lock while apply_stored_preferences runs.
+    let (runtime, _ready) = RuntimeHandle::start_with(
+        profile,
+        desktop_runtime::Startup {
+            lock_wait: std::time::Duration::from_secs(30),
+            ..desktop_runtime::Startup::shipping(
+                directory.path().to_path_buf(),
+                "com.hyprnote.staging",
+            )
+        },
+    )
+    .unwrap();
+    let mut status = runtime.startup();
+    block_on(async {
+        for _ in 0..400 {
+            if *status.borrow_and_update() == desktop_runtime::StartupStatus::WaitingForLock {
+                return;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        panic!("runtime did not enter WaitingForLock");
+    });
+    assert!(matches!(
+        *runtime.state().borrow(),
+        desktop_runtime::RuntimeState::Starting
+    ));
+    cx.update(|cx| {
+        cx.set_global(Installed(recorded.clone()));
+        apply_stored_preferences(&runtime, cx);
+    });
+    cx.run_until_parked();
+    assert!(
+        recorded.0.lock().unwrap().is_empty(),
+        "preferences applied before runtime became ready"
+    );
+
+    drop(held);
+    for _ in 0..400 {
+        cx.run_until_parked();
+        if recorded
+            .0
+            .lock()
+            .unwrap()
+            .contains(&Effect::LaunchAtLogin(true))
+        {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+    let effects = recorded.0.lock().unwrap().clone();
+    assert!(
+        effects.contains(&Effect::LaunchAtLogin(true)),
+        "stored autostart side effect was not applied: {effects:?}"
+    );
+    #[cfg(target_os = "macos")]
+    assert!(
+        effects.contains(&crate::platform::system_settings::dock_icon(
+            "default", "dark", false
+        )),
+        "stored dark theme did not configure dark dock icon: {effects:?}"
+    );
+    block_on(runtime.shutdown()).unwrap();
+}

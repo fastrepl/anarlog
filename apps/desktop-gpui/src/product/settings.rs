@@ -91,10 +91,25 @@ pub fn is_dark(cx: &gpui::App) -> bool {
 /// Applies the saved theme and the native side effects of stored settings once the library
 /// is readable, like shipping's `initializeApplicationSettings`.
 pub fn apply_stored_preferences(runtime: &RuntimeHandle, cx: &mut gpui::App) {
-    let Ok(reply) = watch(runtime) else {
-        return;
-    };
+    let runtime = runtime.clone();
     cx.spawn(async move |cx| {
+        let mut state = runtime.state();
+        loop {
+            match &*state.borrow() {
+                desktop_runtime::RuntimeState::Ready => break,
+                desktop_runtime::RuntimeState::Starting => {}
+                desktop_runtime::RuntimeState::Draining
+                | desktop_runtime::RuntimeState::Flushing
+                | desktop_runtime::RuntimeState::Delayed(_)
+                | desktop_runtime::RuntimeState::Closed(_) => return,
+            }
+            if state.changed().await.is_err() {
+                return;
+            }
+        }
+        let Ok(reply) = watch(&runtime) else {
+            return;
+        };
         let Ok(watch) = reply.receive().await else {
             return;
         };

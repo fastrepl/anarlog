@@ -36,6 +36,8 @@ struct State {
     base: DocumentSnapshot,
     pending: Option<Draft>,
     acknowledged: u64,
+    save_seq: u64,
+    last_saved: Option<(u64, DocumentSnapshot)>,
     first_dirty: Option<Instant>,
     last_edit: Instant,
     saving: bool,
@@ -66,6 +68,8 @@ impl SaveJournal {
                 base,
                 pending: None,
                 acknowledged: 0,
+                save_seq: 0,
+                last_saved: None,
                 first_dirty: None,
                 last_edit: Instant::now(),
                 saving: false,
@@ -125,6 +129,17 @@ impl SaveJournal {
             self.shared.wake.notify_one();
         }
         rx
+    }
+
+    /// The monotonic local save sequence and the exact snapshot it persisted (`None` before any
+    /// local save). Stored separately from `base` so external rebases cannot swap its snapshot.
+    pub fn saved(&self) -> Option<(u64, DocumentSnapshot)> {
+        self.shared
+            .state
+            .lock()
+            .expect("editor journal")
+            .last_saved
+            .clone()
     }
 
     pub fn rebase_if_clean(&self, base: DocumentSnapshot) -> bool {
@@ -220,6 +235,8 @@ fn run(runtime: RuntimeHandle, shared: Arc<Shared>, mut events: mpsc::Sender<Sav
                 Ok(snapshot) => {
                     state.base = snapshot.clone();
                     state.acknowledged = draft.revision;
+                    state.save_seq += 1;
+                    state.last_saved = Some((state.save_seq, snapshot.clone()));
                     state.error = None;
                     if state
                         .pending
