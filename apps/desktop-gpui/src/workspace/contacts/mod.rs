@@ -74,6 +74,8 @@ pub struct Contacts {
     scroll: ScrollHandle,
     focus: FocusHandle,
     message: SharedString,
+    load_error_owner: Option<u64>,
+    next_watch_id: u64,
     watching: bool,
     watch_cancel: CancellationToken,
     notes_cancel: CancellationToken,
@@ -236,6 +238,8 @@ impl Contacts {
             scroll: ScrollHandle::new(),
             focus: cx.focus_handle(),
             message: SharedString::default(),
+            load_error_owner: None,
+            next_watch_id: 0,
             watching: false,
             watch_cancel: CancellationToken::new(),
             notes_cancel: CancellationToken::new(),
@@ -263,8 +267,7 @@ impl Contacts {
         self.watch_cancel.cancel();
         self.watch_cancel = CancellationToken::new();
         let cancel = self.watch_cancel.clone();
-        Self::watch(
-            &self.runtime,
+        self.watch(
             data::CONTACTS_CHANGES_SQL,
             Some(data::CONTACTS_SQL),
             vec![],
@@ -318,6 +321,7 @@ impl Contacts {
             if let Err(error) = result {
                 tracing::error!(%error, "contacts write failed");
                 let _ = this.update(cx, |this, cx| {
+                    this.load_error_owner = None;
                     this.message = format!("Could not save the contact: {error}").into();
                     cx.notify();
                 });
@@ -390,8 +394,7 @@ impl Contacts {
         self.notes_cancel.cancel();
         self.notes_cancel = CancellationToken::new();
         let cancel = self.notes_cancel.clone();
-        Self::watch(
-            &self.runtime,
+        self.watch(
             data::NOTES_SQL,
             None,
             vec![Value::from(id.to_string())],
@@ -413,7 +416,7 @@ impl Contacts {
     /// With `read`, `sql` only signals that the tables `read` reads changed, and each change
     /// reads `read` in full: contacts outgrow a watch's 1,000 rows.
     fn watch(
-        runtime: &RuntimeHandle,
+        &mut self,
         sql: &'static str,
         read: Option<&'static str>,
         params: Vec<Value>,
@@ -425,13 +428,16 @@ impl Contacts {
         const READ_RETRY: Duration = Duration::from_millis(500);
         const READ_RETRY_MAX: Duration = Duration::from_secs(30);
 
+        let owner = self.next_watch_id;
+        self.next_watch_id = self.next_watch_id.wrapping_add(1);
         let reply = match read {
-            Some(_) => runtime.watch_changes(sql.into(), params.clone()),
-            None => runtime.watch_query(sql.into(), params.clone()),
+            Some(_) => self.runtime.watch_changes(sql.into(), params.clone()),
+            None => self.runtime.watch_query(sql.into(), params.clone()),
         };
-        let runtime = runtime.clone();
+        let runtime = self.runtime.clone();
         cx.spawn(async move |this, cx| {
             let fail = |this: &mut Self, error: String, cx: &mut Context<Self>| {
+                this.load_error_owner = Some(owner);
                 this.message = format!("{LOAD_ERROR_PREFIX}{error}").into();
                 cx.notify();
             };
@@ -477,17 +483,34 @@ impl Contacts {
                             rows = read.into();
                             retry = None;
                         }
-                        // The change signal was already consumed; retry until a read succeeds.
+                        // The change signal was already consumed; retry transient failures until a read succeeds.
                         Err(failed) => {
-                            let delay =
-                                retry.map_or(READ_RETRY, |delay| (delay * 2).min(READ_RETRY_MAX));
-                            retry = Some(delay);
+                            retry =
+                                if matches!(
+                                    failed,
+                                    desktop_runtime::ServiceError::Unsupported(_)
+                                        | desktop_runtime::ServiceError::Closed
+                                        | desktop_runtime::ServiceError::Cancelled
+                                ) {
+                                    None
+                                } else {
+                                    Some(retry.map_or(READ_RETRY, |delay| {
+                                        (delay * 2).min(READ_RETRY_MAX)
+                                    }))
+                                };
                             error = Some(failed);
                         }
                     }
                 } else if error.is_none() {
                     retry = None;
                 }
+                let non_retryable = matches!(
+                    error,
+                    Some(
+                        desktop_runtime::ServiceError::Unsupported(_)
+                            | desktop_runtime::ServiceError::Closed
+                    )
+                );
                 let updated = this.update(cx, |this, cx| {
                     if cancel.is_cancelled() {
                         return;
@@ -495,7 +518,8 @@ impl Contacts {
                     match error {
                         Some(error) => fail(this, error.to_string(), cx),
                         None => {
-                            if this.message.starts_with(LOAD_ERROR_PREFIX) {
+                            if this.load_error_owner == Some(owner) {
+                                this.load_error_owner = None;
                                 this.message = SharedString::default();
                                 cx.notify();
                             }
@@ -503,7 +527,7 @@ impl Contacts {
                         }
                     }
                 });
-                if updated.is_err() || terminal.is_some() {
+                if updated.is_err() || terminal.is_some() || non_retryable && read.is_none() {
                     break;
                 }
                 let next = select(
@@ -1041,9 +1065,8 @@ mod tests {
         let view = cx.new(|cx| Contacts::new(runtime.clone(), cx));
         let cancel = CancellationToken::new();
         let watch_cancel = cancel.clone();
-        view.update(cx, |_, cx| {
-            Contacts::watch(
-                &runtime,
+        view.update(cx, |contacts, cx| {
+            contacts.watch(
                 "SELECT EXISTS(SELECT 1 FROM humans) AS humans",
                 Some("SELECT id, name FROM contacts_retry_probe"),
                 vec![],

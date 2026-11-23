@@ -450,12 +450,46 @@ fn apply_stored_preferences_waits_for_starting_runtime(cx: &mut gpui::TestAppCon
     });
 
     let recorded = Arc::new(RecordedEffects(Mutex::new(Vec::new())));
-    // Start a fresh runtime and invoke apply_stored_preferences before ready.receive() resolves.
-    let (runtime, _ready) = RuntimeHandle::start(profile).unwrap();
+    let held =
+        std::fs::File::create(directory.path().join("com.hyprnote.staging.running.lock")).unwrap();
+    held.try_lock().unwrap();
+    // Guarantee the runtime stays Starting on the profile lock while apply_stored_preferences runs.
+    let (runtime, _ready) = RuntimeHandle::start_with(
+        profile,
+        desktop_runtime::Startup {
+            lock_wait: std::time::Duration::from_secs(30),
+            ..desktop_runtime::Startup::shipping(
+                directory.path().to_path_buf(),
+                "com.hyprnote.staging",
+            )
+        },
+    )
+    .unwrap();
+    let mut status = runtime.startup();
+    block_on(async {
+        for _ in 0..400 {
+            if *status.borrow_and_update() == desktop_runtime::StartupStatus::WaitingForLock {
+                return;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        panic!("runtime did not enter WaitingForLock");
+    });
+    assert!(matches!(
+        *runtime.state().borrow(),
+        desktop_runtime::RuntimeState::Starting
+    ));
     cx.update(|cx| {
         cx.set_global(Installed(recorded.clone()));
         apply_stored_preferences(&runtime, cx);
     });
+    cx.run_until_parked();
+    assert!(
+        recorded.0.lock().unwrap().is_empty(),
+        "preferences applied before runtime became ready"
+    );
+
+    drop(held);
     for _ in 0..400 {
         cx.run_until_parked();
         if recorded

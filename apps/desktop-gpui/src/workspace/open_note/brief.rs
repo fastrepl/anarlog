@@ -42,6 +42,7 @@ const MAX_SUMMARY_LENGTH: usize = 320;
 const BRIEF_TIMEOUT: Duration = Duration::from_secs(45);
 const BRIEF_MAX_OUTPUT_TOKENS: u32 = 512;
 const ERROR: &str = "Could not create the pre-meeting brief. Try again.";
+const EMPTY_MEMO_DOC: &str = r#"{"type":"doc","content":[{"type":"paragraph"}]}"#;
 
 /// Shipping's `useSessionCalendarEvent` (`SESSION_EVENT_MATCH`, `SESSION_EVENT_ORDER`).
 pub(super) const SESSION_EVENT_SQL: &str = "SELECT event.title, event.started_at, event.ended_at,
@@ -141,6 +142,7 @@ pub(super) struct BriefJob {
     pub(super) session: SessionId,
     pub(super) editor: Entity<EditorPane>,
     cancellation: CancellationToken,
+    wrote: bool,
 }
 
 impl Drop for BriefJob {
@@ -1078,6 +1080,12 @@ impl NoteView {
             && let Some(job) = self.brief_job.take()
         {
             job.cancellation.cancel();
+            if job.wrote {
+                job.editor.update(cx, |editor, cx| {
+                    editor.replace_content(EMPTY_MEMO_DOC, cx);
+                    drop(editor.flush());
+                });
+            }
             brief_editor(&job.editor, false, cx);
             cx.notify();
         }
@@ -1137,6 +1145,7 @@ impl NoteView {
             session: session.clone(),
             editor,
             cancellation: cancellation.clone(),
+            wrote: false,
         });
         cx.notify();
         let (send, mut deltas) = futures::channel::mpsc::unbounded::<String>();
@@ -1223,12 +1232,13 @@ impl NoteView {
 
     /// Shipping's `applyBriefToEditor`: the brief replaces the memo; the last one saves now.
     fn show_brief(&mut self, markdown: &str, flush: bool, cx: &mut Context<Self>) {
-        let (Some(job), Some(body)) = (&self.brief_job, markdown_body(markdown)) else {
+        let (Some(job), Some(body)) = (&mut self.brief_job, markdown_body(markdown)) else {
             return;
         };
         if job.cancellation.is_cancelled() || NoteHolds::held(cx, &job.session) {
             return;
         }
+        job.wrote = true;
         job.editor.update(cx, |editor, cx| {
             editor.replace_content(&body, cx);
             if flush {
@@ -1545,8 +1555,20 @@ mod tests {
             note.create_brief(cx);
         });
         assert!(note.read_with(cx, |note, _| note.brief_generating()));
+        // Wait until the initial delta actually streams into the memo before taking the hold.
+        for _ in 0..400 {
+            cx.run_until_parked();
+            if provider.delta.lock().unwrap().is_some()
+                && !memo.read_with(cx, |editor, _| editor.is_pristine())
+            {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        assert!(provider.delta.lock().unwrap().is_some());
+        assert!(!memo.read_with(cx, |editor, _| editor.is_pristine()));
 
-        // Holding the note (as during deletion) must cancel the job and block any brief writes.
+        // Holding the note (as during deletion) must cancel the job, revert partial content, and block writes.
         let hold = cx.update(|_, cx| NoteHolds::hold(vec![session.clone()], cx));
         for _ in 0..400 {
             cx.run_until_parked();
@@ -1562,6 +1584,10 @@ mod tests {
                 "brief must stay unavailable while held"
             );
         });
+        assert!(
+            memo.read_with(cx, |editor, _| editor.is_pristine()),
+            "cancelled partial brief must restore an empty memo"
+        );
         if let Some(tx) = provider.delta.lock().unwrap().take() {
             let _ = tx.unbounded_send(Ok(ProviderEvent::Text(
                 r#", "bullets": ["One", "Two", "Three"]}"#.to_owned(),
@@ -1572,9 +1598,12 @@ mod tests {
             note.show_brief("**Should not apply**\n\n- One\n- Two\n- Three", true, cx);
         });
         cx.run_until_parked();
-        assert!(!memo.read_with(cx, |editor, _| editor.is_dirty()));
+        assert!(memo.read_with(cx, |editor, _| editor.is_pristine()));
 
         cx.update(|_, cx| hold.release(cx));
+        block_on(memo.update(cx, |editor, _| editor.flush()))
+            .unwrap()
+            .unwrap();
         drop((memo, note));
         block_on(runtime.shutdown()).unwrap();
     }

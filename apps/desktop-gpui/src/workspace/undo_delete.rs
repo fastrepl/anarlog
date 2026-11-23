@@ -198,6 +198,14 @@ impl WorkspaceView {
             for flush in flushes {
                 saved &= matches!(flush.await, Ok(Ok(())));
             }
+            if saved
+                && let Ok(renames) =
+                    this.update(cx, |this, cx| this.flush_summary_renames(&ids, cx))
+            {
+                for flush in renames {
+                    saved &= matches!(flush.await, Ok(Ok(())));
+                }
+            }
             let _ = this.update(cx, |this, cx| {
                 if saved {
                     this.tombstone(&ids, batch, cx);
@@ -231,6 +239,14 @@ impl WorkspaceView {
         let mut flushes = Vec::new();
         for note in self.notes(cx) {
             flushes.extend(note.update(cx, |note, cx| note.flush_drafts(ids, cx)));
+        }
+        flushes
+    }
+
+    fn flush_summary_renames(&mut self, ids: &[SessionId], cx: &mut Context<Self>) -> Vec<Flush> {
+        let mut flushes = Vec::new();
+        for note in self.notes(cx) {
+            flushes.extend(note.update(cx, |note, cx| note.flush_summary_renames(ids, cx)));
         }
         flushes
     }
@@ -819,6 +835,87 @@ mod tests {
         )
         .unwrap();
         assert_eq!(restored.summary.title.as_ref(), "Final renamed title");
+        shut_down(&runtime, cx);
+    }
+
+    #[gpui::test]
+    fn deleting_a_note_saves_a_pending_summary_heading_rename_first(cx: &mut gpui::TestAppContext) {
+        let (_directory, runtime, workspace, cx) = workspace(cx);
+        let open = block_on(runtime.create_note("Planning".into()).unwrap().receive()).unwrap();
+        let session = open.summary.id.clone();
+        let summary_doc = |heading: &str| {
+            json!({"type": "doc", "content": [
+                {"type": "heading", "attrs": {"level": 1}, "content": [{"type": "text", "text": heading}]},
+                {"type": "paragraph", "content": [{"type": "text", "text": "Details"}]}
+            ]})
+            .to_string()
+        };
+        let initial_body = summary_doc("Planning");
+        let id = session.0.clone();
+        block_on(
+            runtime
+                .submit(move |services| async move {
+                    services
+                        .executor
+                        .execute(
+                            "INSERT INTO session_documents (id, session_id, kind, title, body_format, body, sort_order)
+                             VALUES ('plan-summary', ?, 'summary', '', 'prosemirror_json', ?, 0)"
+                                .into(),
+                            vec![json!(id), json!(initial_body)],
+                        )
+                        .await
+                        .map_err(failure)
+                })
+                .unwrap()
+                .receive(),
+        )
+        .unwrap();
+
+        workspace.update(cx, |workspace, cx| {
+            workspace.open_session(session.clone(), cx)
+        });
+        settle(cx, |cx| {
+            workspace.update_in(cx, |workspace, window, cx| {
+                workspace
+                    .note
+                    .update(cx, |note, cx| {
+                        note.open_summary_editor_for_test("plan-summary", window, cx)
+                    })
+                    .is_some()
+            })
+        });
+        let editor = workspace.update_in(cx, |workspace, window, cx| {
+            workspace
+                .note
+                .update(cx, |note, cx| {
+                    note.open_summary_editor_for_test("plan-summary", window, cx)
+                })
+                .unwrap()
+        });
+        let updated_body = summary_doc("Launch plan");
+        settle(cx, |cx| {
+            editor.update(cx, |editor, cx| {
+                if !editor.is_dirty() {
+                    editor.replace_content(&updated_body, cx);
+                }
+            });
+            editor.read_with(cx, |editor, _| editor.is_dirty())
+        });
+        workspace.update(cx, |workspace, cx| {
+            workspace.delete_notes(std::slice::from_ref(&session), false, cx);
+        });
+        settle(cx, |_| deleted(&runtime, &session));
+        workspace.update(cx, |workspace, cx| workspace.undo_deletion(&session.0, cx));
+        settle(cx, |_| !deleted(&runtime, &session));
+        let restored = block_on(
+            runtime
+                .open_session(session.clone(), CancellationToken::new())
+                .unwrap()
+                .receive(),
+        )
+        .unwrap();
+        assert_eq!(restored.summary.title.as_ref(), "Launch plan");
+        drop(editor);
         shut_down(&runtime, cx);
     }
 }

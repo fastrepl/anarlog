@@ -1057,6 +1057,32 @@ impl NoteView {
         self.title.update(cx, |input, cx| input.set_text(title, cx));
     }
 
+    #[cfg(test)]
+    pub(super) fn open_summary_editor_for_test(
+        &mut self,
+        id: &str,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Option<Entity<EditorPane>> {
+        if let Some(summary) = self.summary_editors.get(&DocumentId(id.into())) {
+            return Some(summary.editor.clone());
+        }
+        let session = self.current.as_ref()?.clone();
+        let document = self
+            .details
+            .summaries
+            .iter()
+            .find(|summary| summary.id.0.as_ref() == id)?
+            .clone();
+        Some(self.open_summary_editor(
+            &session.summary.id,
+            document,
+            session.summary.title.to_string(),
+            window,
+            cx,
+        ))
+    }
+
     /// When the shown note is one of `ids`, starts saving its title and unsaved editor drafts,
     /// so they land before a deletion's tombstone, which rejects later saves.
     pub fn flush_drafts(&mut self, ids: &[SessionId], cx: &mut Context<Self>) -> Vec<Flush> {
@@ -1075,6 +1101,47 @@ impl NoteView {
             editor.update(cx, |editor, _| editor.is_dirty().then(|| editor.flush()))
         }));
         flushes
+    }
+
+    /// Starts any note rename implied by flushed summary headings before tombstoning.
+    pub fn flush_summary_renames(
+        &mut self,
+        ids: &[SessionId],
+        cx: &mut Context<Self>,
+    ) -> Vec<Flush> {
+        if !self.session_id().is_some_and(|id| ids.contains(id)) {
+            return Vec::new();
+        }
+        let mut next_title = None;
+        for summary in self.summary_editors.values_mut() {
+            let heading = summary
+                .editor
+                .read(cx)
+                .document_body()
+                .and_then(|body| first_line_title(&body));
+            if summary.heading != heading {
+                summary.heading = heading.clone();
+                if let Some(title) = heading {
+                    next_title = Some(title);
+                }
+            }
+        }
+        if let Some(title) = next_title
+            && self
+                .current
+                .as_ref()
+                .is_some_and(|session| session.summary.title.as_ref() != title)
+        {
+            self.title.update(cx, |input, cx| input.set_text(title, cx));
+            self.rename(cx);
+        }
+        if self.busy {
+            let (tx, rx) = futures::channel::oneshot::channel();
+            self.rename_waiters.push(tx);
+            vec![rx]
+        } else {
+            Vec::new()
+        }
     }
 
     /// The title, like the editors, takes no edits while a deletion holds the shown note.
@@ -1887,7 +1954,9 @@ impl NoteView {
             // Shipping renames the note from the summary's first line when it is edited.
             EditorEvent::Saved(snapshot) => {
                 let heading = first_line_title(&snapshot.body);
-                if let Some(summary) = self.summary_editors.get_mut(id)
+                let held = self.session_id().is_some_and(|id| NoteHolds::held(cx, id));
+                if !held
+                    && let Some(summary) = self.summary_editors.get_mut(id)
                     && summary.heading != heading
                 {
                     summary.heading = heading.clone();

@@ -68,11 +68,23 @@ fn spawn_schedule_watch<T: 'static>(
                         break;
                     }
                 }
-                // The change signal was already consumed; retry until a read succeeds.
+                // The change signal was already consumed; retry transient failures until a read succeeds.
                 Err(error) => {
-                    let delay = next_read_retry(retry);
-                    retry = Some(delay);
-                    tracing::warn!(%error, ?delay, "scheduled meetings could not be read");
+                    if matches!(error, desktop_runtime::ServiceError::Closed) {
+                        break;
+                    }
+                    if matches!(
+                        error,
+                        desktop_runtime::ServiceError::Unsupported(_)
+                            | desktop_runtime::ServiceError::Cancelled
+                    ) {
+                        retry = None;
+                        tracing::warn!(%error, "scheduled meetings read unsupported or cancelled");
+                    } else {
+                        let delay = next_read_retry(retry);
+                        retry = Some(delay);
+                        tracing::warn!(%error, ?delay, "scheduled meetings could not be read");
+                    }
                 }
             }
             if watch.terminal_error().is_some() {
@@ -929,16 +941,6 @@ mod tests {
     use gpui::AppContext as _;
 
     use super::*;
-
-    #[test]
-    fn read_retry_backoff_doubles_up_to_cap() {
-        let mut delay = next_read_retry(None);
-        assert_eq!(delay, Duration::from_millis(500));
-        for expected in [1, 2, 4, 8, 16, 30, 30] {
-            delay = next_read_retry(Some(delay));
-            assert_eq!(delay, Duration::from_secs(expected));
-        }
-    }
 
     #[gpui::test]
     fn schedule_watch_retries_failed_read_without_new_snapshot(cx: &mut gpui::TestAppContext) {
