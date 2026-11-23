@@ -3,7 +3,7 @@ use std::{
     sync::LazyLock,
 };
 
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 use tauri_plugin_store2::Store2PluginExt;
 use tauri_plugin_updater::UpdaterExt;
 use tauri_specta::Event;
@@ -13,10 +13,36 @@ use crate::events::{
     UpdateDownloadingEvent, UpdateReadyEvent, UpdatedEvent,
 };
 
+pub const FLUSH_WEBVIEW_STORAGE_EVENT: &str = "updater2:flush-webview-storage";
+
 static DOWNLOAD_MUTEX: LazyLock<tokio::sync::Mutex<()>> =
     LazyLock::new(|| tokio::sync::Mutex::new(()));
 
 static MEETING_ACTIVE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+pub(crate) struct UpdaterState {
+    webview_storage_mirror_count: tokio::sync::watch::Sender<u64>,
+    #[cfg(test)]
+    base_dir_override: Option<PathBuf>,
+}
+
+impl UpdaterState {
+    pub(crate) fn new() -> Self {
+        let (webview_storage_mirror_count, _rx) = tokio::sync::watch::channel(0);
+        Self {
+            webview_storage_mirror_count,
+            #[cfg(test)]
+            base_dir_override: None,
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn with_base_dir_override(base_dir: PathBuf) -> Self {
+        let mut state = Self::new();
+        state.base_dir_override = Some(base_dir);
+        state
+    }
+}
 
 pub struct Updater2<'a, R: tauri::Runtime, M: tauri::Manager<R>> {
     manager: &'a M,
@@ -44,6 +70,80 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Updater2<'a, R, M> {
 
     pub fn set_meeting_active(&self, active: bool) {
         MEETING_ACTIVE.store(active, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    /// Marks that the main WebView has completed a `localStorage` mirror write in this
+    /// launch so auto-install can advance without dropping pre-cutover state.
+    pub fn mark_webview_storage_mirrored(&self) {
+        if let Some(state) = self.manager.try_state::<UpdaterState>() {
+            state
+                .webview_storage_mirror_count
+                .send_modify(|count| *count = count.saturating_add(1));
+        }
+    }
+
+    pub async fn flush_webview_storage_mirror(&self, timeout: std::time::Duration) -> bool {
+        let Some(state) = self.manager.try_state::<UpdaterState>() else {
+            return false;
+        };
+        let mut rx = state.webview_storage_mirror_count.subscribe();
+        let before = *rx.borrow_and_update();
+        #[cfg(not(test))]
+        if before > 0
+            && self
+                .manager
+                .app_handle()
+                .get_webview_window("main")
+                .is_none()
+        {
+            return true;
+        }
+        if let Err(error) = self
+            .manager
+            .app_handle()
+            .emit(FLUSH_WEBVIEW_STORAGE_EVENT, ())
+        {
+            tracing::debug!(%error, "failed_to_emit_webview_storage_flush");
+        }
+        tokio::time::timeout(timeout, rx.wait_for(|&count| count > before))
+            .await
+            .is_ok_and(|res| res.is_ok())
+    }
+
+    fn data_base(&self) -> Option<PathBuf> {
+        #[cfg(test)]
+        if let Some(base) = self
+            .manager
+            .try_state::<UpdaterState>()
+            .and_then(|state| state.base_dir_override.clone())
+        {
+            return Some(base);
+        }
+
+        anlg_desktop_identity::Locations::resolve(&self.manager.config().identifier)
+            .map(|locations| locations.base)
+    }
+
+    /// Returns any pending legacy custom-vault consolidation that must complete before updating.
+    pub fn unfinished_vault_move(&self) -> Option<anlg_desktop_identity::vault::UnfinishedMove> {
+        let base = self.data_base()?;
+        anlg_desktop_identity::vault::unfinished_move(&base)
+    }
+
+    fn withhold_if_unfinished_vault_move(
+        &self,
+        action: &str,
+        version: Option<&str>,
+    ) -> Option<anlg_desktop_identity::vault::UnfinishedMove> {
+        let unfinished = self.unfinished_vault_move()?;
+        tracing::warn!(
+            action,
+            version = version.unwrap_or(""),
+            from = %unfinished.from.display(),
+            to = %unfinished.to.display(),
+            "update_withheld_unfinished_vault_move"
+        );
+        Some(unfinished)
     }
 
     pub fn get_last_seen_version(&self) -> Result<Option<String>, crate::Error> {
@@ -107,6 +207,13 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Updater2<'a, R, M> {
     }
 
     pub async fn check(&self) -> Result<Option<String>, crate::Error> {
+        if self
+            .withhold_if_unfinished_vault_move("check", None)
+            .is_some()
+        {
+            return Ok(None);
+        }
+
         let updater = self.manager.updater()?;
         let update = updater.check().await?;
         let version = update.map(|u| u.version);
@@ -141,6 +248,11 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Updater2<'a, R, M> {
     }
 
     pub async fn download(&self, version: &str) -> Result<(), crate::Error> {
+        if let Some(unfinished) = self.withhold_if_unfinished_vault_move("download", Some(version))
+        {
+            return Err(crate::Error::UnfinishedVaultMove(unfinished.to_string()));
+        }
+
         let _download_guard = DOWNLOAD_MUTEX.lock().await;
 
         if self.has_cached_update(version) {
@@ -244,6 +356,12 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Updater2<'a, R, M> {
     // is what prevents an install/relaunch loop, since the installed artifact
     // stays cached until check() prunes it.
     pub async fn install_and_relaunch(&self, version: &str) -> Result<(), crate::Error> {
+        if let Some(unfinished) =
+            self.withhold_if_unfinished_vault_move("install_and_relaunch", Some(version))
+        {
+            return Err(crate::Error::UnfinishedVaultMove(unfinished.to_string()));
+        }
+
         let current = self.manager.config().version.clone().unwrap_or_default();
         let is_newer = match (
             semver::Version::parse(version),
@@ -351,7 +469,8 @@ fn prune_updates_dir(dir: &Path, keep: Option<&str>) {
 
 #[cfg(test)]
 mod tests {
-    use super::prune_updates_dir;
+    use super::{Updater2PluginExt, UpdaterState, prune_updates_dir};
+    use tauri::Manager;
 
     fn write_bins(dir: &std::path::Path, versions: &[&str]) {
         for v in versions {
@@ -388,5 +507,42 @@ mod tests {
 
         assert!(!dir.path().join("1.4.1.bin").exists());
         assert!(!dir.path().join("1.4.2.bin").exists());
+    }
+
+    #[tokio::test]
+    async fn withholds_updates_while_custom_vault_move_is_unfinished() {
+        let temp = tempfile::tempdir().unwrap();
+        let base = temp.path().join("base");
+        let custom = temp.path().join("custom");
+        std::fs::create_dir_all(&base).unwrap();
+        std::fs::create_dir_all(custom.join("sessions/s1")).unwrap();
+        std::fs::write(custom.join("sessions/s1/note.md"), "hello").unwrap();
+        std::fs::write(
+            base.join("global.json"),
+            serde_json::json!({ "vault_path": custom }).to_string(),
+        )
+        .unwrap();
+
+        let app = tauri::test::mock_app();
+        app.manage(UpdaterState::with_base_dir_override(base.clone()));
+        let updater2 = app.updater2();
+
+        assert!(updater2.unfinished_vault_move().is_some());
+        assert_eq!(updater2.check().await.unwrap(), None);
+        assert!(matches!(
+            updater2.download("9.9.9").await,
+            Err(crate::Error::UnfinishedVaultMove(_))
+        ));
+        assert!(matches!(
+            updater2.install_and_relaunch("9.9.9").await,
+            Err(crate::Error::UnfinishedVaultMove(_))
+        ));
+
+        std::fs::remove_file(base.join("global.json")).unwrap();
+        assert_eq!(updater2.unfinished_vault_move(), None);
+        assert!(matches!(
+            updater2.install_and_relaunch("0.0.0").await,
+            Err(crate::Error::UpdateNotNewer { .. })
+        ));
     }
 }

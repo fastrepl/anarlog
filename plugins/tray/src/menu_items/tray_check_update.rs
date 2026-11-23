@@ -61,6 +61,17 @@ impl TrayCheckUpdate {
     }
 
     async fn apply_update(app: AppHandle<tauri::Wry>, version: String) {
+        if !app
+            .updater2()
+            .flush_webview_storage_mirror(std::time::Duration::from_secs(5))
+            .await
+        {
+            app.dialog()
+                .message("Failed to save local app settings before updating. Please try again.")
+                .title("Update Failed")
+                .show(|_| {});
+            return;
+        }
         if let Err(e) = app.updater2().install_and_relaunch(&version).await {
             app.dialog()
                 .message(format!("Failed to install update: {}", e))
@@ -111,6 +122,16 @@ impl MenuItemHandler for TrayCheckUpdate {
 
         let app = app.clone();
         tauri::async_runtime::spawn(async move {
+            if let Some(unfinished) = app.updater2().unfinished_vault_move() {
+                app.dialog()
+                    .message(
+                        tauri_plugin_updater2::Error::UnfinishedVaultMove(unfinished.to_string())
+                            .to_string(),
+                    )
+                    .title("Updates Paused")
+                    .show(|_| {});
+                return;
+            }
             match app.updater2().check().await {
                 Ok(Some(version)) => {
                     if app.updater2().has_cached_update(&version) {

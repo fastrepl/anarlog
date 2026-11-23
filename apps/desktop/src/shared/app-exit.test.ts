@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   listener: null as
     | ((event: { payload: { quick?: boolean } | null }) => void)
     | null,
+  mirrorLocalStorage: vi.fn().mockResolvedValue({ status: "ok", data: null }),
   save: vi.fn().mockResolvedValue(undefined),
 }));
 
@@ -51,7 +52,7 @@ vi.mock("~/store/zustand/tabs", () => ({
 vi.mock("~/types/tauri.gen", () => ({
   commands: {
     completeAppExit: mocks.completeAppExit,
-    mirrorLocalStorage: vi.fn().mockResolvedValue({ status: "ok", data: null }),
+    mirrorLocalStorage: mocks.mirrorLocalStorage,
   },
 }));
 
@@ -63,6 +64,8 @@ describe("initializeAppExitFlush", () => {
     mocks.listener = null;
     mocks.analyticsEvent.mockResolvedValue({ status: "ok", data: null });
     mocks.completeAppExit.mockResolvedValue(undefined);
+    mocks.mirrorLocalStorage.mockReset();
+    mocks.mirrorLocalStorage.mockResolvedValue({ status: "ok", data: null });
     mocks.save.mockResolvedValue(undefined);
   });
 
@@ -159,5 +162,54 @@ describe("initializeAppExitFlush", () => {
     await vi.advanceTimersByTimeAsync(1);
     expect(mocks.completeAppExit).toHaveBeenCalledOnce();
     vi.useRealTimers();
+  });
+
+  it("flushes localStorage mirror before a confirmed quick exit completes", async () => {
+    let finishMirror = () => {};
+    mocks.mirrorLocalStorage.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishMirror = () => resolve({ status: "ok", data: null });
+        }),
+    );
+    const { initializeAppExitFlush } = await import("./app-exit");
+    await initializeAppExitFlush();
+
+    mocks.listener?.({ payload: { quick: true } });
+
+    await vi.waitFor(() =>
+      expect(mocks.mirrorLocalStorage).toHaveBeenCalledOnce(),
+    );
+    expect(mocks.completeAppExit).not.toHaveBeenCalled();
+
+    finishMirror();
+
+    await vi.waitFor(() =>
+      expect(mocks.completeAppExit).toHaveBeenCalledOnce(),
+    );
+  });
+
+  it("still exits a confirmed quick quit when localStorage mirroring stalls", async () => {
+    vi.useFakeTimers();
+    try {
+      mocks.mirrorLocalStorage.mockReturnValueOnce(new Promise(() => {}));
+      const consoleError = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+      try {
+        const { initializeAppExitFlush } = await import("./app-exit");
+        await initializeAppExitFlush();
+
+        mocks.listener?.({ payload: { quick: true } });
+        await vi.advanceTimersByTimeAsync(1999);
+        expect(mocks.completeAppExit).not.toHaveBeenCalled();
+        await vi.advanceTimersByTimeAsync(1);
+        expect(mocks.completeAppExit).toHaveBeenCalledOnce();
+      } finally {
+        consoleError.mockRestore();
+      }
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

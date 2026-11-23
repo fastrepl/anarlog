@@ -13,6 +13,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const {
   checkMock,
   downloadMock,
+  flushLocalStorageMirrorMock,
   installAndRelaunchMock,
   isDownloadedMock,
   updateAvailableListenMock,
@@ -25,6 +26,7 @@ const {
 } = vi.hoisted(() => ({
   checkMock: vi.fn(),
   downloadMock: vi.fn(),
+  flushLocalStorageMirrorMock: vi.fn(),
   installAndRelaunchMock: vi.fn(),
   isDownloadedMock: vi.fn(),
   updateAvailableListenMock: vi.fn(),
@@ -61,6 +63,10 @@ const {
           payload: { previous: string | null; current: string };
         }) => void),
   },
+}));
+
+vi.mock("~/shared/local-storage-mirror", () => ({
+  flushLocalStorageMirror: flushLocalStorageMirrorMock,
 }));
 
 vi.mock("@anlg/plugin-updater2", () => ({
@@ -100,6 +106,7 @@ describe("useDesktopUpdateControl", () => {
   beforeEach(() => {
     checkMock.mockReset();
     downloadMock.mockReset();
+    flushLocalStorageMirrorMock.mockReset();
     installAndRelaunchMock.mockReset();
     isDownloadedMock.mockReset();
     updateAvailableListenMock.mockReset();
@@ -118,6 +125,7 @@ describe("useDesktopUpdateControl", () => {
 
     checkMock.mockResolvedValue({ status: "ok", data: null });
     downloadMock.mockResolvedValue({ status: "ok", data: null });
+    flushLocalStorageMirrorMock.mockResolvedValue(undefined);
     installAndRelaunchMock.mockResolvedValue({ status: "ok", data: null });
     isDownloadedMock.mockResolvedValue({ status: "ok", data: false });
 
@@ -316,6 +324,59 @@ describe("useDesktopUpdateControl", () => {
     });
   });
 
+  it("flushes localStorage mirror before installing and relaunching", async () => {
+    let resolveFlush = () => {};
+    flushLocalStorageMirrorMock.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveFlush = resolve;
+        }),
+    );
+    renderUpdateControl();
+
+    await waitFor(() =>
+      expect(eventHandlers.updateReady).toBeTypeOf("function"),
+    );
+
+    act(() => {
+      eventHandlers.updateReady?.({ payload: { version: "1.0.34" } });
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "install" }));
+
+    await waitFor(() =>
+      expect(flushLocalStorageMirrorMock).toHaveBeenCalledOnce(),
+    );
+    expect(installAndRelaunchMock).not.toHaveBeenCalled();
+
+    resolveFlush();
+
+    await waitFor(() => {
+      expect(installAndRelaunchMock).toHaveBeenCalledWith("1.0.34");
+    });
+  });
+
+  it("aborts installation when flushing localStorage mirror fails", async () => {
+    flushLocalStorageMirrorMock.mockRejectedValueOnce(new Error("disk full"));
+    renderUpdateControl();
+
+    await waitFor(() =>
+      expect(eventHandlers.updateReady).toBeTypeOf("function"),
+    );
+
+    act(() => {
+      eventHandlers.updateReady?.({ payload: { version: "1.0.34" } });
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "install" }));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("status").textContent).toBe("failed"),
+    );
+    expect(screen.getByTestId("error").textContent).toBe("disk full");
+    expect(installAndRelaunchMock).not.toHaveBeenCalled();
+  });
+
   it("clears the update after the app reports it has updated", async () => {
     checkMock.mockResolvedValue({ status: "ok", data: "1.0.34" });
 
@@ -386,6 +447,7 @@ function UpdateControlProbe() {
       <span data-testid="progress">
         {update.progress === null ? "none" : String(update.progress)}
       </span>
+      <span data-testid="error">{update.errorMessage ?? "none"}</span>
       <button type="button" onClick={update.downloadUpdate}>
         download
       </button>
