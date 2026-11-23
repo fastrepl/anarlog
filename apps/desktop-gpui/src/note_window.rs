@@ -222,6 +222,18 @@ impl NoteWindow {
         self.note.update(cx, |note, cx| note.resume_summaries(cx));
     }
 
+    #[cfg(test)]
+    pub(crate) fn is_editor_loaded(&self, cx: &gpui::App) -> bool {
+        self.editor
+            .as_ref()
+            .is_some_and(|editor| editor.read(cx).is_loaded())
+    }
+
+    #[cfg(test)]
+    pub(crate) fn editor(&self) -> Option<Entity<EditorPane>> {
+        self.editor.clone()
+    }
+
     fn close(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.closing {
             return;

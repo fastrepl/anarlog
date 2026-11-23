@@ -2032,6 +2032,19 @@ impl NoteView {
         }
     }
 
+    /// Whether a note title rename RPC is currently in flight.
+    pub fn is_renaming(&self) -> bool {
+        self.busy
+    }
+
+    #[cfg(test)]
+    pub(crate) fn summary_editors(&self) -> Vec<Entity<EditorPane>> {
+        self.summary_editors
+            .values()
+            .map(|summary| summary.editor.clone())
+            .collect()
+    }
+
     /// Shipping's `FolderPicker` trigger: the folder's icon and path, opening the picker under
     /// it (`align` end when the chip sits on the right).
     fn folder_chip(

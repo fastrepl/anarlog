@@ -178,6 +178,41 @@ checks the channel, version and package type it reports, and that the folders it
 resources and sidecars from are where the bundler put them. `--bundles` limits both
 commands to the package types it names.
 
+## Updates
+
+A channel build updates itself as shipping does (`src/platform/updater.rs`). Its feed URL and
+signing key are shipping's `plugins.updater` for the channel, compiled in from the same
+`tauri.conf` files CD merges, with `{{target}}`, `{{arch}}` and `{{bundle_type}}` filled in as
+Tauri fills them (`darwin-aarch64`, `linux-x86_64-appimage`, `linux-x86_64-deb`,
+`windows-x86_64-nsis`). Stable and nightly have a feed; dev and staging have none, as in
+shipping. A `--profile` run of a channel build doesn't update the package it shares.
+`ANARLOG_NATIVE_UPDATE_URL` replaces the feed for rehearsals (also in a `--profile` run); the
+signing key stays the compiled one.
+
+The feed is checked at startup and every 30 minutes. With "Automatically install updates" on
+(shipping's `automatic_updates` setting), a check outside a meeting also downloads in the
+background, and the update found at startup installs as soon as it has downloaded, unless a
+meeting, onboarding or a settings page is open. Otherwise the toast and tray offer Download and
+Restart. A downloaded update installs only while the feed still offers that version, which every
+install re-checks; one the feed withdrew or replaced (a rollback) is dropped.
+Installing pauses writers and quits through the drain into the new version:
+
+- macOS: the `.app.tar.gz` bundle must satisfy the running app's designated requirement
+  (identifier and team), then replaces the bundle in place, keeping the previous one beside it
+  as `<name>.previous-<id>`. When the folder isn't writable, an administrator prompt moves it,
+  as in shipping, and no previous copy is kept. The executable path started at launch
+  relaunches as the old process quits.
+- AppImage: replaces `$APPIMAGE` the same way and relaunches it.
+- deb: shipping's deb update (`plugins/updater2/src/deb.rs`). An unprivileged
+  `apt-get --simulate` refuses an update whose dependencies apt can't install before any
+  password prompt; then `apt-get install --no-remove --no-install-recommends` of the
+  downloaded deb runs through `pkexec`, else `sudo -S` with a zenity or kdialog password, else
+  `sudo -n`, and a dismissed prompt or failed install stops there. A held dpkg lock fails at once
+  (the meeting check ran just before) and a later pass retries. Without apt-get it falls back
+  to `dpkg -i`. Then `/usr/bin/<executable>` relaunches.
+- Windows: the NSIS installer runs after the drain with shipping's `/P /R /UPDATE /ARGS` and
+  relaunches the app itself.
+
 ## Architecture
 
 - `launch.rs` owns launch arguments and sandbox or channel selection; `main.rs`

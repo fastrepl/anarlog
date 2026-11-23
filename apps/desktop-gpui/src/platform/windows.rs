@@ -1,11 +1,96 @@
-static RESTART: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
-
-pub fn request_restart() {
-    RESTART.store(true, std::sync::atomic::Ordering::Release);
+/// What runs once the app has quit through the drain.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Restart {
+    /// The app again, from the package it was launched from.
+    App,
+    /// A downloaded NSIS update, which replaces the install and then relaunches the app.
+    Installer(std::path::PathBuf),
 }
 
-pub fn restart_requested() -> bool {
-    RESTART.load(std::sync::atomic::Ordering::Acquire)
+static RESTART: std::sync::Mutex<Option<Restart>> = std::sync::Mutex::new(None);
+static LAUNCH: std::sync::OnceLock<(Option<std::path::PathBuf>, Vec<std::ffi::OsString>)> =
+    std::sync::OnceLock::new();
+
+pub fn request_restart(restart: Restart) {
+    *RESTART.lock().unwrap_or_else(|error| error.into_inner()) = Some(restart);
+}
+
+/// What a restart relaunches and with which arguments, recorded at launch before an update
+/// can replace the executable.
+pub fn remember_launch(executable: Option<std::path::PathBuf>, arguments: Vec<std::ffi::OsString>) {
+    let _ = LAUNCH.set((executable, arguments));
+}
+
+/// Matches `tauri-plugin-updater`'s `escape_nsis_current_exe_arg` so NSIS's `GetOptions` parser
+/// keeps values containing `/`, spaces, or tabs intact after `/ARGS`.
+#[cfg(any(windows, test))]
+fn escape_nsis_arg(arg: &std::ffi::OsStr) -> String {
+    let arg = arg.to_string_lossy();
+    let quote = arg.is_empty() || arg.chars().any(|c| c == ' ' || c == '\t' || c == '/');
+    let mut escaped = String::with_capacity(arg.len() + 2);
+    if quote {
+        escaped.push('"');
+    }
+    let mut backslashes = 0usize;
+    for ch in arg.chars() {
+        if ch == '\\' {
+            backslashes += 1;
+        } else {
+            if ch == '"' {
+                for _ in 0..=backslashes {
+                    escaped.push('\\');
+                }
+            }
+            backslashes = 0;
+        }
+        escaped.push(ch);
+    }
+    if quote {
+        for _ in 0..backslashes {
+            escaped.push('\\');
+        }
+        escaped.push('"');
+    }
+    escaped
+}
+
+/// Starts the requested restart, once. macOS runs it just before quitting, since quitting there
+/// ends the process; Linux and Windows run it after the run loop has returned and released the
+/// single-instance claim.
+pub fn run_requested_restart() -> std::io::Result<()> {
+    let restart = RESTART
+        .lock()
+        .unwrap_or_else(|error| error.into_inner())
+        .take();
+    let Some(restart) = restart else {
+        return Ok(());
+    };
+    let (executable, arguments) = LAUNCH.get().cloned().unwrap_or_default();
+    let mut command = match restart {
+        Restart::App => {
+            let mut command = std::process::Command::new(match executable {
+                Some(executable) => executable,
+                None => std::env::current_exe()?,
+            });
+            command.args(arguments);
+            command
+        }
+        Restart::Installer(installer) => {
+            let mut command = std::process::Command::new(installer);
+            command.args(crate::platform::updater::NSIS_UPDATE_ARGS);
+            #[cfg(windows)]
+            {
+                use std::os::windows::process::CommandExt;
+                for arg in &arguments {
+                    command.raw_arg(escape_nsis_arg(arg));
+                }
+            }
+            #[cfg(not(windows))]
+            command.args(arguments);
+            command
+        }
+    };
+    command.spawn().map(drop)
 }
 
 use desktop_runtime::{Result, ServiceError, SessionId};
@@ -743,5 +828,23 @@ mod tests {
             1800.0
         );
         assert!(restore(saved, 0.0, 1.0, &[screen]).is_err());
+    }
+
+    #[test]
+    fn nsis_relaunch_args_quote_forward_slashes_spaces_and_quotes() {
+        use std::ffi::OsStr;
+
+        assert_eq!(escape_nsis_arg(OsStr::new("--profile")), "--profile");
+        assert_eq!(
+            escape_nsis_arg(OsStr::new("C:/qa/profile")),
+            "\"C:/qa/profile\""
+        );
+        assert_eq!(
+            escape_nsis_arg(OsStr::new(r"C:\qa dir\")),
+            r#""C:\qa dir\\""#
+        );
+        assert_eq!(escape_nsis_arg(OsStr::new(r#"a / "b""#)), r#""a / \"b\"""#);
+        assert_eq!(escape_nsis_arg(OsStr::new(r#"a"b"#)), r#"a\"b"#);
+        assert_eq!(escape_nsis_arg(OsStr::new("")), r#""""#);
     }
 }

@@ -39,6 +39,11 @@ fn main() -> anyhow::Result<()> {
         }
         Launch::Run { mode, urls } => (mode, urls),
     };
+    // Before an update can replace it: a deb update leaves `/proc/self/exe` deleted.
+    desktop_gpui::platform::windows::remember_launch(
+        package::launch_executable().ok(),
+        launch::relaunch_args(std::env::args_os().skip(1)),
+    );
     let (storage, database) = match mode {
         Mode::Sandbox(profile) => {
             let pointer = profile.with_extension("storage.json");
@@ -76,6 +81,11 @@ fn main() -> anyhow::Result<()> {
     else {
         return Ok(());
     };
+    #[cfg(target_os = "windows")]
+    {
+        desktop_gpui::platform::updater::hold_executable_lock();
+        desktop_gpui::platform::updater::cleanup_stale_installers();
+    }
     events.open_urls(urls);
     let startup = match storage.channel {
         Some(channel) => Startup {
@@ -194,10 +204,8 @@ fn main() -> anyhow::Result<()> {
     // The replacement serves this profile's launches next.
     #[cfg(any(target_os = "linux", target_os = "windows"))]
     drop(instance);
-    if desktop_gpui::platform::windows::restart_requested() {
-        std::process::Command::new(std::env::current_exe()?)
-            .args(launch::relaunch_args(std::env::args_os().skip(1)))
-            .spawn()?;
-    }
+    #[cfg(target_os = "windows")]
+    desktop_gpui::platform::updater::release_executable_lock();
+    desktop_gpui::platform::windows::run_requested_restart()?;
     Ok(())
 }
