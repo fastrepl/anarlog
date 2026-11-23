@@ -115,9 +115,12 @@ describe("useOAuthCalendarSelection", () => {
         account_identity: "alex@example.com",
       },
     ];
+    let renderedGroups: ReturnType<typeof useOAuthCalendarSelection>["groups"] =
+      [];
     function OutlookSelection() {
       const { groups, handleToggle, handleRefresh, isLoading } =
         useOAuthCalendarSelection(provider, connections);
+      renderedGroups = groups;
       return (
         <OAuthCalendarSelection
           groups={groups}
@@ -129,9 +132,78 @@ describe("useOAuthCalendarSelection", () => {
     }
     setCalendarSyncIssue("outlook:conn-1", "outlook_mailbox_unavailable");
     render(<OutlookSelection />);
+    expect(renderedGroups).toHaveLength(1);
+    expect(renderedGroups[0]).toMatchObject({
+      id: "conn-1",
+      sourceName: "Alex Rivera",
+      issue: "outlook_mailbox_unavailable",
+    });
     expect(screen.getByText("Alex Rivera")).toBeTruthy();
     expect(screen.queryByText("alex@example.com")).toBeNull();
-    expect(screen.getByRole("alert").textContent).toContain("Exchange Online");
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
+    setCalendarSyncIssue("outlook:conn-1");
+  });
+
+  it("places the sync warning in a separate account group when multiple owner groups share a connection and none match account_identity", () => {
+    const provider = PROVIDERS.find((item) => item.id === "outlook")!;
+    mocks.calendars = [
+      {
+        id: "cal-shared",
+        name: "Appointments",
+        enabled: true,
+        source: "Jordan Lee",
+        color: "#0078d4",
+        connection_id: "conn-1",
+      },
+      {
+        id: "cal-own",
+        name: "Calendar",
+        enabled: true,
+        source: "Alex Rivera",
+        color: "#0078d4",
+        connection_id: "conn-1",
+      },
+    ];
+    const connections = [
+      {
+        integration_id: "outlook",
+        connection_id: "conn-1",
+        account_identity: "alex@example.com",
+      },
+    ];
+    let renderedGroups: ReturnType<typeof useOAuthCalendarSelection>["groups"] =
+      [];
+    function OutlookSelection() {
+      const { groups, handleToggle, handleRefresh, isLoading } =
+        useOAuthCalendarSelection(provider, connections);
+      renderedGroups = groups;
+      return (
+        <OAuthCalendarSelection
+          groups={groups}
+          onToggle={handleToggle}
+          onRefresh={handleRefresh}
+          isLoading={isLoading}
+        />
+      );
+    }
+    setCalendarSyncIssue("outlook:conn-1", "outlook_mailbox_unavailable");
+    render(<OutlookSelection />);
+    expect(
+      renderedGroups.map(({ id, sourceName, issue }) => ({
+        id,
+        sourceName,
+        issue,
+      })),
+    ).toEqual([
+      { id: "conn-1", sourceName: "Jordan Lee", issue: undefined },
+      { id: "conn-1", sourceName: "Alex Rivera", issue: undefined },
+      {
+        id: "conn-1",
+        sourceName: "alex@example.com",
+        issue: "outlook_mailbox_unavailable",
+      },
+    ]);
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
     setCalendarSyncIssue("outlook:conn-1");
   });
 
