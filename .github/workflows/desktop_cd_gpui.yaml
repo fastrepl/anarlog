@@ -355,6 +355,7 @@ jobs:
             --platform "linux/$DOCKER_ARCH" \
             --volume "$PWD:/workspace:ro" \
             --env APPIMAGE_PATH="/workspace/$appimage" \
+            --env APP_BINARY="$APP_BINARY" \
             --env ANARLOG_DISABLE_SENTRY=1 \
             --env RUST_BACKTRACE=1 \
             ubuntu:24.04 \
@@ -385,14 +386,40 @@ jobs:
                 HOME=/tmp/home \
                 NO_AT_BRIDGE=1 \
                 XDG_RUNTIME_DIR=/tmp/runtime \
-                timeout --signal=TERM 20s xvfb-run -a dbus-run-session -- /tmp/anarlog.AppImage >/tmp/anarlog-appimage.log 2>&1
+                timeout --signal=TERM --kill-after=5s 20s \
+                xvfb-run -a dbus-run-session -- /tmp/anarlog.AppImage >/tmp/anarlog-appimage.log 2>&1 &
+              smoke_pid=$!
+              set -e
+
+              app_started=""
+              for _ in {1..20}; do
+                if grep -aqF "/usr/bin/$APP_BINARY" /proc/[0-9]*/cmdline 2>/dev/null; then
+                  app_started=1
+                  break
+                fi
+                if ! kill -0 "$smoke_pid" 2>/dev/null; then
+                  break
+                fi
+                sleep 1
+              done
+
+              set +e
+              wait "$smoke_pid"
               status=$?
               set -e
               cat /tmp/anarlog-appimage.log
-              if [[ $status -ne 124 ]]; then
-                echo "Anarlog AppImage exited before the smoke timeout with status $status"
+              if [[ -z "$app_started" ]]; then
+                echo "AppImage did not launch $APP_BINARY within 20 seconds"
                 exit 1
               fi
+              case "$status" in
+                124 | 137)
+                  ;;
+                *)
+                  echo "Anarlog AppImage exited before the smoke timeout with status $status"
+                  exit 1
+                  ;;
+              esac
             '
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
