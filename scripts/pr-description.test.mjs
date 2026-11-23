@@ -37,6 +37,84 @@ test("accepts a visible demo link or an N/A reason", () => {
   }
 });
 
+test("accepts context, intention, and direction while keeping intention bounds", () => {
+  const body = (intention) => `## Summary
+
+**Context:** Reconnecting could create a second copy of a note.
+
+**Intention:** ${intention}
+
+**Direction:** Reuse the original note identity when retrying sync.
+
+## Demo
+
+N/A: description format only
+
+## Verification
+
+Ran the PR description validator.`;
+
+  for (const [intention, status] of [
+    ["Keep one note when a connection recovers.", 0],
+    ["", 1],
+    ["<!-- Keep one note when a connection recovers. -->", 1],
+    ["a".repeat(401), 1],
+  ]) {
+    const result = validate("", { PR_BODY: body(intention) });
+    assert.equal(result.status, status, `${intention}\n${result.stderr}`);
+  }
+});
+
+test("accepts legacy Intent only when Intention is blank, without letting legacy Intent mask invalid Intention", () => {
+  const mixedBody = (intention, legacyIntent) => `## Summary
+
+**Context:** Reconnecting could create a second copy of a note.
+
+**Intention:** ${intention}
+
+**Intent:** ${legacyIntent}
+
+**Direction:** Reuse the original note identity when retrying sync.
+
+## Demo
+
+N/A: description format only`;
+
+  const valid = validate("", {
+    PR_BODY: mixedBody(
+      "<!-- Why was that off? -->",
+      "Prevent duplicate notes when the connection recovers.",
+    ),
+  });
+  assert.equal(valid.status, 0, valid.stderr);
+
+  const shortIntentionWithValidLegacy = validate("", {
+    PR_BODY: mixedBody(
+      "Too short.",
+      "Prevent duplicate notes when the connection recovers.",
+    ),
+  });
+  assert.equal(
+    shortIntentionWithValidLegacy.status,
+    1,
+    shortIntentionWithValidLegacy.stderr,
+  );
+  assert.match(shortIntentionWithValidLegacy.stderr, /at least 20 characters/);
+
+  const longIntentionWithValidLegacy = validate("", {
+    PR_BODY: mixedBody(
+      "a".repeat(401),
+      "Prevent duplicate notes when the connection recovers.",
+    ),
+  });
+  assert.equal(
+    longIntentionWithValidLegacy.status,
+    1,
+    longIntentionWithValidLegacy.stderr,
+  );
+  assert.match(longIntentionWithValidLegacy.stderr, /400 characters max/);
+});
+
 test("rejects missing, hidden, or reasonless demo evidence", () => {
   for (const demo of [
     "",

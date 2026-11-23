@@ -82,8 +82,7 @@ candidate/published revisions, checks, live or artifact evidence, and unresolved
 ## Execution order
 
 1. Record the selected version, platforms/channel, prior published versions, and
-   candidate source in the matching Linear release issue. Follow
-   [Anarlog workflow](../anarlog-workflow/SKILL.md); keep one release record.
+   candidate source in the matching Linear release issue. Keep one release record.
 2. Read the five surface skills and current workflows. Implement and validate
    needed changes, including the Desktop or Mobile changelog for each requested stream. Prepare
    Mobile notes before freeze; record availability only after verifying the build
