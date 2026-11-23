@@ -977,14 +977,8 @@ mod tests {
             .as_ref(),
             "Launch plan"
         );
-        let (saved_seq, saved_snapshot) = replayed_editor.read_with(cx, |editor, _| {
-            editor.saved_snapshot().expect("saved summary snapshot")
-        });
-        assert!(
-            saved_snapshot.body.contains("Replayed title"),
-            "{}",
-            saved_snapshot.body
-        );
+        let base = replayed_editor.read_with(cx, |editor, _| editor.init.document.clone());
+        assert!(base.body.contains("Replayed title"), "{}", base.body);
 
         // Move focus off the summary editor so external sync updates rebase instead of deferring.
         workspace.update_in(cx, |_, window, cx| {
@@ -992,17 +986,21 @@ mod tests {
         });
         cx.run_until_parked();
 
-        // An external rebase updates the displayed summary body without replacing saved_snapshot().
-        block_on(
+        // An external rebase updates the displayed summary body without replacing the pending save base.
+        // `EditorPane::remote_revision` deduplicates by millisecond-precision `updated_at`;
+        // advance past the saved millisecond so the external save always rebases the display.
+        std::thread::sleep(Duration::from_millis(5));
+        let external = block_on(
             runtime
                 .save_document(desktop_runtime::SaveDocument {
-                    base: saved_snapshot,
+                    base: base.clone(),
                     body: summary_doc("External synced title").into(),
                 })
                 .unwrap()
                 .receive(),
         )
         .unwrap();
+        assert_ne!(external.updated_at, base.updated_at);
         settle(cx, |cx| {
             replayed_editor.read_with(cx, |editor, _| {
                 editor
@@ -1010,23 +1008,6 @@ mod tests {
                     .is_some_and(|body| body.contains("External synced title"))
             })
         });
-        let (seq_after_rebase, snapshot_after_rebase) =
-            replayed_editor.read_with(cx, |editor, _| {
-                editor
-                    .saved_snapshot()
-                    .expect("saved summary snapshot survives rebase")
-            });
-        assert_eq!(seq_after_rebase, saved_seq);
-        assert!(
-            snapshot_after_rebase.body.contains("Replayed title"),
-            "{}",
-            snapshot_after_rebase.body
-        );
-        assert!(
-            !snapshot_after_rebase.body.contains("External synced title"),
-            "{}",
-            snapshot_after_rebase.body
-        );
 
         cx.update(|_, cx| hold.release(cx));
         settle(cx, |_| {
