@@ -171,7 +171,7 @@ function option(
 }
 
 describe("SpeakerAssignPopover", () => {
-  it("offers only word-scoped assignment when a segment has no speaker index", async () => {
+  it("offers Apply to all when a segment has no speaker index", async () => {
     render(
       createElement(SpeakerAssignPopover, {
         segment: {
@@ -203,16 +203,18 @@ describe("SpeakerAssignPopover", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Unknown speaker" }));
-    expect(screen.queryByRole("checkbox")).toBeNull();
+    expect((screen.getByRole("checkbox") as HTMLInputElement).checked).toBe(
+      true,
+    );
     fireEvent.click(screen.getByRole("button", { name: "Alice" }));
     fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
 
     await waitFor(() =>
-      expect(assignTranscriptSpeakerMock).toHaveBeenCalledWith(
-        expect.objectContaining({ mode: "segment", wordIds: ["word-1"] }),
+      expect(assignSessionTranscriptSpeakerMock).toHaveBeenCalledWith(
+        expect.objectContaining({ wordIds: ["word-1"] }),
       ),
     );
-    expect(assignSessionTranscriptSpeakerMock).not.toHaveBeenCalled();
+    expect(assignTranscriptSpeakerMock).not.toHaveBeenCalled();
   });
 
   it("assigns only after confirmation and defaults to all matching segments", async () => {

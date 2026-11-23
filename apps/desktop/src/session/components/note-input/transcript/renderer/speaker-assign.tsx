@@ -128,7 +128,6 @@ export function SpeakerAssignPopover({
         <SpeakerParticipantPicker
           sessionId={sessionId}
           onSelect={handleAssign}
-          showAssignmentScope={Number.isInteger(segment.key.speaker_index)}
         />
       </PopoverContent>
     </Popover>
