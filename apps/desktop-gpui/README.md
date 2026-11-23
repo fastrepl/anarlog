@@ -207,7 +207,7 @@ Installing pauses writers and quits through the drain into the new version:
   `apt-get --simulate` refuses an update whose dependencies apt can't install before any
   password prompt; then `apt-get install --no-remove --no-install-recommends` of the
   downloaded deb runs through `pkexec`, else `sudo -S` with a zenity or kdialog password, else
-  `sudo`, and a dismissed prompt or failed install stops there. A held dpkg lock fails at once
+  `sudo -n`, and a dismissed prompt or failed install stops there. A held dpkg lock fails at once
   (the meeting check ran just before) and a later pass retries. Without apt-get it falls back
   to `dpkg -i`. Then `/usr/bin/<executable>` relaunches.
 - Windows: the NSIS installer runs after the drain with shipping's `/P /R /UPDATE /ARGS` and

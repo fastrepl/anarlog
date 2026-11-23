@@ -172,15 +172,7 @@ impl NativeInstaller {
                 if !cfg!(target_os = "linux") {
                     return Err(failure("Debian package installation requires Linux"));
                 }
-                if !bytes.starts_with(b"!<arch>\ndebian-binary") {
-                    return Err(failure("Expected a Debian package"));
-                }
-                let stage = tempfile::Builder::new()
-                    .prefix("anarlog_deb_update")
-                    .tempdir()
-                    .map_err(failure)?;
-                let package = stage.path().join("package.deb");
-                fs::write(&package, bytes).map_err(failure)?;
+                let (_stage, package) = stage_deb_package(bytes)?;
                 deb::install(&package)?;
             }
             PackageKind::MacBundle => {
@@ -283,26 +275,56 @@ fn verify_bundle(bundle: &Path, requirement: &str) -> Result<()> {
     }
 }
 
+fn stage_deb_package(bytes: &[u8]) -> Result<(tempfile::TempDir, PathBuf)> {
+    if !bytes.starts_with(b"!<arch>\ndebian-binary") {
+        return Err(failure("Expected a Debian package"));
+    }
+    let stage = tempfile::Builder::new()
+        .prefix("anarlog_deb_update")
+        .tempdir()
+        .map_err(failure)?;
+    let package = stage.path().join("package.deb");
+    fs::write(&package, bytes).map_err(failure)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+
+        // Allow `_apt` to traverse the staging directory and read `package.deb` without
+        // falling back to an unsandboxed root download.
+        fs::set_permissions(&package, fs::Permissions::from_mode(0o644)).map_err(failure)?;
+        fs::set_permissions(stage.path(), fs::Permissions::from_mode(0o755)).map_err(failure)?;
+    }
+    Ok((stage, package))
+}
+
+const ADMIN_REPLACE_SCRIPT: &str = r#"on run argv
+    set currentPath to quoted form of (item 1 of argv)
+    set previousPath to quoted form of (item 2 of argv)
+    set newPath to quoted form of (item 3 of argv)
+    do shell script ("mv -f -- " & currentPath & " " & previousPath & " && (mv -f -- " & newPath & " " & currentPath & " || (mv -f -- " & previousPath & " " & currentPath & "; exit 1))") with administrator privileges
+end run"#;
+
+fn admin_replace_args(package: &Path, installation: &Path, stage: &Path) -> Result<[String; 3]> {
+    let argument = |path: &Path| {
+        path.to_str()
+            .filter(|text| !text.contains('\0'))
+            .map(str::to_owned)
+            .ok_or_else(|| failure("Unsupported installation path"))
+    };
+    Ok([
+        argument(installation)?,
+        argument(&stage.join("previous.app"))?,
+        argument(package)?,
+    ])
+}
+
 /// Shipping's `do shell script … with administrator privileges` move, keeping the replaced
 /// bundle in the stage until the new one is in place.
 fn replace_as_administrator(package: &Path, installation: &Path, stage: &Path) -> Result<()> {
-    let quoted = |path: &Path| {
-        let text = path
-            .to_str()
-            .filter(|text| !text.contains(['\'', '"', '\\']));
-        text.map(|text| format!("'{text}'"))
-            .ok_or_else(|| failure("Unsupported installation path"))
-    };
-    let (new, current, previous) = (
-        quoted(package)?,
-        quoted(installation)?,
-        quoted(&stage.join("previous.app"))?,
-    );
-    let script = format!(
-        "do shell script \"mv -f {current} {previous} && (mv -f {new} {current} || (mv -f {previous} {current}; exit 1))\" with administrator privileges"
-    );
+    let args = admin_replace_args(package, installation, stage)?;
     let moved = Command::new("/usr/bin/osascript")
-        .args(["-e", &script])
+        .args(["-e", ADMIN_REPLACE_SCRIPT, "--"])
+        .args(&args)
         .status()
         .map_err(failure)?
         .success();
@@ -496,5 +518,43 @@ mod tests {
         assert!(relative_path(Path::new("App.app/Contents/Resources")));
         assert!(replace_with_backup(&root.path().join("missing"), &old).is_err());
         assert_eq!(fs::read(old.join("version")).unwrap(), b"3");
+    }
+
+    #[test]
+    fn deb_staging_rejects_invalid_headers_and_sets_apt_readable_permissions() {
+        assert!(stage_deb_package(b"not a deb").is_err());
+        #[cfg_attr(not(unix), allow(unused_variables))]
+        let (stage, package) = stage_deb_package(b"!<arch>\ndebian-binary").unwrap();
+        assert_eq!(fs::read(&package).unwrap(), b"!<arch>\ndebian-binary");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+
+            assert_eq!(
+                fs::metadata(stage.path()).unwrap().permissions().mode() & 0o777,
+                0o755
+            );
+            assert_eq!(
+                fs::metadata(&package).unwrap().permissions().mode() & 0o777,
+                0o644
+            );
+        }
+    }
+
+    #[test]
+    fn admin_replace_args_accept_quotes_spaces_and_backslashes_without_nul() {
+        let stage = Path::new(r"/tmp/stage'dir");
+        let installation = Path::new(r#"/Applications/Anarlog "Dev"\App.app"#);
+        let package = Path::new(r"/tmp/stage'dir/Anarlog's Update.app");
+        let args = admin_replace_args(package, installation, stage).unwrap();
+        assert_eq!(
+            args,
+            [
+                r#"/Applications/Anarlog "Dev"\App.app"#,
+                r"/tmp/stage'dir/previous.app",
+                r"/tmp/stage'dir/Anarlog's Update.app",
+            ]
+        );
+        assert!(admin_replace_args(Path::new("/tmp/bad\0.app"), installation, stage).is_err());
     }
 }
