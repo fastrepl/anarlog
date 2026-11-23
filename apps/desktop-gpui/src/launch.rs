@@ -22,6 +22,10 @@ pub const COMPILED_CHANNEL: Option<&str> = option_env!("ANARLOG_CHANNEL");
 const SANDBOX_DIRECTORY: &str = ".anarlog-gpui-sandbox";
 const CRASH_REPORTER_SERVER_ARG: &str = "--crash-reporter-server";
 const PRINT_PACKAGE_ARG: &str = "--print-package";
+// `bundle.py verify` runs only a binary that holds the flag's literal bytes; a plain match arm
+// compiles to integer compares in release builds and drops them.
+#[used]
+static PRINT_PACKAGE_ARG_BYTES: &str = PRINT_PACKAGE_ARG;
 
 pub const HELP: &str = "Anarlog native preview\nUsage: desktop-gpui [--profile DIRECTORY]\nDefault: $HOME/.anarlog-gpui-sandbox/library.sqlite\nUse only an isolated profile or a backup copy, never the shipping app's live profile.";
 
@@ -118,7 +122,9 @@ pub fn parse(
         };
         match text {
             "--help" => return Ok(Launch::Help),
-            PRINT_PACKAGE_ARG => return Ok(Launch::Package),
+            text if text == std::hint::black_box(PRINT_PACKAGE_ARG_BYTES) => {
+                return Ok(Launch::Package);
+            }
             "--profile" => {
                 let directory = args
                     .next()
@@ -294,6 +300,22 @@ mod tests {
                 Launch::CrashReporter
             );
         }
+    }
+
+    #[test]
+    fn print_package_flag_stays_in_binary_for_bundle_verification() {
+        let flag = ["--print", "package"].join("-");
+        assert_eq!(
+            run(&[&flag], Some("staging"), false).unwrap(),
+            Launch::Package
+        );
+        let binary = std::fs::read(std::env::current_exe().unwrap()).unwrap();
+        assert!(
+            binary
+                .windows(flag.len())
+                .any(|window| window == flag.as_bytes()),
+            "compiled binary must retain {flag} bytes for bundle.py verify"
+        );
     }
 
     /// Shipping's `global_base` (settings, models) and `vault_base` (notes, recordings,

@@ -1,0 +1,615 @@
+# The GPUI app's lane of desktop_cd.yaml (app=gpui). Each platform job follows its Tauri
+# counterpart there: the same sidecars, compiled-in configuration, signing, notarization and
+# package checks, but the binary comes from apps/desktop-gpui and packaging/bundle.py runs
+# Tauri's bundler over it with shipping's configuration. The packages and a provenance manifest
+# stay on the run as artifacts; nothing is uploaded to CrabNebula.
+on:
+  workflow_call:
+    inputs:
+      channel:
+        required: true
+        type: string
+      candidate_sha:
+        required: true
+        type: string
+      version:
+        required: true
+        type: string
+      include_linux:
+        required: true
+        type: boolean
+      include_windows:
+        required: true
+        type: boolean
+    secrets:
+      APPLE_CERTIFICATE:
+        required: true
+      APPLE_CERTIFICATE_PASSWORD:
+        required: true
+      KEYCHAIN_PASSWORD:
+        required: true
+      APPLE_ID:
+        required: true
+      APPLE_PASSWORD:
+        required: true
+      APPLE_TEAM_ID:
+        required: true
+      TAURI_SIGNING_PRIVATE_KEY:
+        required: true
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD:
+        required: true
+      VITE_SUPABASE_URL:
+        required: true
+      VITE_SUPABASE_ANON_KEY:
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  RELEASE_CHANNEL: ${{ inputs.channel }}
+  APP_VERSION: ${{ inputs.version }}
+  APP_BINARY: ${{ inputs.channel == 'stable' && 'anarlog' || format('anarlog-{0}', inputs.channel) }}
+
+jobs:
+  macos:
+    runs-on: macos-26
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: aarch64-apple-darwin
+            arch: aarch64
+            swift_arch: arm64
+            artifact_name: silicon
+          - target: x86_64-apple-darwin
+            arch: x86_64
+            swift_arch: x86_64
+            artifact_name: intel
+    defaults:
+      run:
+        shell: bash
+    env:
+      TARGET: ${{ matrix.target }}
+      BUNDLE_DIR: apps/desktop-gpui/target/packaging.noindex/${{ matrix.target }}/release/bundle
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.candidate_sha }}
+          persist-credentials: false
+      - uses: $/.github/actions/macos_tcc
+      - uses: $/.github/actions/install_desktop_deps
+        with:
+          target: macos
+      - uses: $/.github/actions/rust_install
+        with:
+          platform: macos
+      # The GPUI workspace pins its own toolchain.
+      - working-directory: apps/desktop-gpui
+        run: |
+          rustup toolchain install
+          rustup target add "$TARGET"
+      - run: echo "SDKROOT=$(xcrun --sdk macosx --show-sdk-path)" >> "$GITHUB_ENV"
+      - uses: $/.github/actions/pnpm_install
+      # Shipping's build.rs compiles check-permissions during `tauri build`; the GPUI lane
+      # doesn't build that crate, so compile it the same way.
+      - env:
+          SWIFT_TARGET: ${{ matrix.swift_arch }}-apple-macosx15.0
+        run: |
+          TAURI_ENV_TARGET_TRIPLE="$TARGET" cargo xtask prepare-binaries
+          swiftc -O -target "$SWIFT_TARGET" \
+            -o "apps/desktop/src-tauri/binaries/check-permissions-$TARGET" \
+            plugins/permissions/swift/check-permissions.swift
+      - uses: $/.github/actions/apple_cert
+        id: apple-cert
+        with:
+          apple-certificate: ${{ secrets.APPLE_CERTIFICATE }}
+          apple-certificate-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          keychain-password: ${{ secrets.KEYCHAIN_PASSWORD }}
+      - env:
+          CLOUDSYNC_DYLIB: crates/cloudsync/vendor/cloudsync/macos/${{ matrix.arch }}/cloudsync.dylib
+          SIGNING_IDENTITY: ${{ steps.apple-cert.outputs.cert-id }}
+        run: |
+          codesign --force --sign "$SIGNING_IDENTITY" --timestamp --options runtime "$CLOUDSYNC_DYLIB"
+          codesign --verify --strict --verbose=2 "$CLOUDSYNC_DYLIB"
+      - working-directory: apps/desktop-gpui
+        env:
+          ANARLOG_CHANNEL: ${{ inputs.channel }}
+          CARGO_PROFILE_RELEASE_DEBUG: line-tables-only
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_APP_URL: "https://anarlog.so"
+          VITE_API_URL: "https://api.anarlog.so"
+          VITE_APP_VERSION: ${{ inputs.version }}
+        run: cargo build --locked --release --target "$TARGET"
+      - env:
+          # Shipping's CD opts in to the DMG's Finder layout the same way.
+          CI: false
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ steps.apple-cert.outputs.cert-id }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          python3 apps/desktop-gpui/packaging/bundle.py bundle \
+            --channel "$RELEASE_CHANNEL" \
+            --target "$TARGET" \
+            --version "$APP_VERSION" \
+            --binary "apps/desktop-gpui/target/$TARGET/release/desktop-gpui" \
+            --bundles app,dmg \
+            --team-id "$APPLE_TEAM_ID"
+      - id: find-dmg
+        run: |
+          shopt -s nullglob
+          dmgs=("$BUNDLE_DIR"/dmg/*.dmg)
+          if [[ ${#dmgs[@]} -ne 1 ]]; then
+            echo "::error::Expected one DMG in $BUNDLE_DIR/dmg, found ${#dmgs[@]}"
+            exit 1
+          fi
+          echo "path=${dmgs[0]}" >> "$GITHUB_OUTPUT"
+      - uses: $/.github/actions/macos_notarize_dmg
+        with:
+          dmg-path: ${{ steps.find-dmg.outputs.path }}
+          signing-identity: ${{ steps.apple-cert.outputs.cert-id }}
+          apple-id: ${{ secrets.APPLE_ID }}
+          apple-password: ${{ secrets.APPLE_PASSWORD }}
+          apple-team-id: ${{ secrets.APPLE_TEAM_ID }}
+      - env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          shopt -s nullglob
+          apps=("$BUNDLE_DIR"/macos/*.app)
+          if [[ ${#apps[@]} -ne 1 ]]; then
+            echo "::error::Expected one macOS app in $BUNDLE_DIR/macos, found ${#apps[@]}"
+            exit 1
+          fi
+          xcrun stapler validate "${apps[0]}"
+          python3 apps/desktop-gpui/packaging/bundle.py verify \
+            --channel "$RELEASE_CHANNEL" \
+            --target "$TARGET" \
+            --version "$APP_VERSION" \
+            --bundles app,dmg \
+            --team-id "$APPLE_TEAM_ID" \
+            "$BUNDLE_DIR"
+          python3 scripts/verify-packaged-cli.py "${apps[0]}" "$APP_VERSION"
+      - if: ${{ inputs.channel != 'staging' }}
+        run: |
+          shopt -s nullglob
+          artifacts=("$BUNDLE_DIR"/macos/*.app.tar.gz)
+          if [[ ${#artifacts[@]} -ne 1 ]]; then
+            echo "::error::Expected one macOS updater artifact, found ${#artifacts[@]}"
+            exit 1
+          fi
+          cargo run --locked -p updater-core --bin verify-updater-signature -- \
+            "${artifacts[0]}" \
+            "${artifacts[0]}.sig" \
+            apps/desktop/src-tauri/tauri.conf.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: anarlog-gpui-${{ inputs.channel }}-macos-${{ matrix.artifact_name }}
+          path: |
+            ${{ env.BUNDLE_DIR }}/dmg/*.dmg
+            ${{ env.BUNDLE_DIR }}/macos/*.app.tar.gz
+            ${{ env.BUNDLE_DIR }}/macos/*.app.tar.gz.sig
+          if-no-files-found: error
+          retention-days: 7
+
+  linux:
+    if: ${{ inputs.include_linux }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+            rust_platform: linux-x86_64
+            artifact_name: x64
+            debian_arch: amd64
+            file_arch: x86-64
+            docker_arch: amd64
+            appimage_arch: x86_64
+          - runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            rust_platform: linux-aarch64
+            artifact_name: arm64
+            debian_arch: arm64
+            file_arch: ARM aarch64
+            docker_arch: arm64
+            appimage_arch: aarch64
+    runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      TARGET: ${{ matrix.target }}
+      BUNDLE_DIR: apps/desktop-gpui/target/packaging.noindex/${{ matrix.target }}/release/bundle
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.candidate_sha }}
+          persist-credentials: false
+      - uses: $/.github/actions/install_desktop_deps
+        with:
+          target: linux
+      # What GPUI links beyond shipping's packages (gpui_ci.yaml).
+      - run: |
+          sudo apt-get -o Acquire::Retries=5 install -y ninja-build \
+            libfontconfig1-dev libfreetype6-dev libxkbcommon-dev libxkbcommon-x11-dev \
+            libwayland-dev libx11-dev libxcb1-dev
+      - uses: $/.github/actions/rust_install
+        with:
+          platform: ${{ matrix.rust_platform }}
+      - working-directory: apps/desktop-gpui
+        run: |
+          rustup toolchain install
+          rustup target add "$TARGET"
+      - uses: $/.github/actions/pnpm_install
+      - run: TAURI_ENV_TARGET_TRIPLE="$TARGET" cargo xtask prepare-binaries
+      - working-directory: apps/desktop-gpui
+        env:
+          ANARLOG_CHANNEL: ${{ inputs.channel }}
+          CARGO_PROFILE_RELEASE_DEBUG: line-tables-only
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_APP_URL: https://anarlog.so
+          VITE_API_URL: https://api.anarlog.so
+          VITE_APP_VERSION: ${{ inputs.version }}
+        run: cargo build --locked --release --target "$TARGET"
+      - env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          python3 apps/desktop-gpui/packaging/bundle.py bundle \
+            --channel "$RELEASE_CHANNEL" \
+            --target "$TARGET" \
+            --version "$APP_VERSION" \
+            --binary "apps/desktop-gpui/target/$TARGET/release/desktop-gpui" \
+            --bundles deb,appimage
+      - env:
+          ARCH: ${{ matrix.appimage_arch }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: node scripts/repack-linux-appimage.mjs "$BUNDLE_DIR/appimage"
+      - env:
+          DEBIAN_ARCH: ${{ matrix.debian_arch }}
+          FILE_ARCH: ${{ matrix.file_arch }}
+        run: |
+          python3 apps/desktop-gpui/packaging/bundle.py verify \
+            --channel "$RELEASE_CHANNEL" \
+            --target "$TARGET" \
+            --version "$APP_VERSION" \
+            --bundles deb,appimage \
+            "$BUNDLE_DIR"
+
+          shopt -s nullglob
+          appimages=("$BUNDLE_DIR"/appimage/*.AppImage)
+          debs=("$BUNDLE_DIR"/deb/*.deb)
+          if [[ ${#appimages[@]} -ne 1 || ${#debs[@]} -ne 1 ]]; then
+            echo "::error::Expected one AppImage and one .deb for $TARGET"
+            exit 1
+          fi
+          package_arch=$(dpkg-deb --field "${debs[0]}" Architecture)
+          if [[ "$package_arch" != "$DEBIAN_ARCH" ]]; then
+            echo "::error::Expected Debian architecture $DEBIAN_ARCH, got $package_arch"
+            exit 1
+          fi
+          if ! file "${appimages[0]}" | grep -Fq "$FILE_ARCH"; then
+            file "${appimages[0]}"
+            echo "::error::AppImage architecture does not match $TARGET"
+            exit 1
+          fi
+          if [[ "$RELEASE_CHANNEL" != "staging" ]]; then
+            for package in "${appimages[0]}" "${debs[0]}"; do
+              cargo run --locked -p updater-core --bin verify-updater-signature -- \
+                "$package" "$package.sig" apps/desktop/src-tauri/tauri.conf.json
+            done
+          fi
+
+          cli_package="$RUNNER_TEMP/anarlog-cli-package"
+          dpkg-deb --extract "${debs[0]}" "$cli_package"
+          python3 scripts/verify-packaged-cli.py "$cli_package" "$APP_VERSION"
+
+          for package in "${appimages[0]}" "${debs[0]}"; do
+            # The basename, so `sha256sum -c` works against the downloaded artifact.
+            (cd "$(dirname "$package")" && sha256sum "$(basename "$package")" > "$(basename "$package").sha256")
+          done
+      - env:
+          DOCKER_ARCH: ${{ matrix.docker_arch }}
+        run: |
+          deb=$(find "$BUNDLE_DIR/deb" -maxdepth 1 -name '*.deb' -type f -print -quit)
+          docker run --rm \
+            --platform "linux/$DOCKER_ARCH" \
+            --volume "$PWD:/workspace:ro" \
+            --env DEB_PATH="/workspace/$deb" \
+            --env BINARY_PATH="/usr/bin/$APP_BINARY" \
+            --env ANARLOG_DISABLE_SENTRY=1 \
+            --env RUST_BACKTRACE=1 \
+            ubuntu:24.04 \
+            bash -euxo pipefail -c '
+              export DEBIAN_FRONTEND=noninteractive
+              apt-get update
+              apt-get install -y "$DEB_PATH"
+              apt-get install -y dbus-x11 xvfb
+              set +e
+              timeout --signal=TERM 20s xvfb-run -a dbus-run-session -- "$BINARY_PATH" >/tmp/anarlog.log 2>&1
+              status=$?
+              set -e
+              cat /tmp/anarlog.log
+              if [[ $status -ne 124 ]]; then
+                echo "Anarlog exited before the smoke timeout with status $status"
+                exit 1
+              fi
+            '
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: anarlog-gpui-${{ inputs.channel }}-linux-${{ matrix.artifact_name }}
+          path: |
+            ${{ env.BUNDLE_DIR }}/appimage/*.AppImage*
+            ${{ env.BUNDLE_DIR }}/deb/*.deb*
+          if-no-files-found: error
+          retention-days: 7
+
+  windows:
+    if: ${{ inputs.include_windows }}
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: windows-latest
+    env:
+      TARGET: x86_64-pc-windows-msvc
+      BUNDLE_DIR: apps/desktop-gpui/target/packaging.noindex/x86_64-pc-windows-msvc/release/bundle
+      CLI_SIDECAR: apps/desktop/src-tauri/resources/cli/anarlog-cli-x86_64-pc-windows-msvc.exe
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.candidate_sha }}
+          persist-credentials: false
+      - uses: $/.github/actions/rust_install
+        with:
+          platform: windows
+      - shell: bash
+        working-directory: apps/desktop-gpui
+        run: |
+          rustup toolchain install
+          rustup target add "$TARGET"
+      - uses: $/.github/actions/pnpm_install
+      - shell: bash
+        run: |
+          cargo build --locked --release -p anarlog-cli --target "$TARGET"
+          cp "target/$TARGET/release/anarlog.exe" "$CLI_SIDECAR"
+      - shell: bash
+        working-directory: apps/desktop-gpui
+        env:
+          ANARLOG_CHANNEL: ${{ inputs.channel }}
+          CARGO_PROFILE_RELEASE_DEBUG: line-tables-only
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_APP_URL: https://anarlog.so
+          VITE_API_URL: https://api.anarlog.so
+          VITE_APP_VERSION: ${{ inputs.version }}
+        run: cargo build --locked --release --target "$TARGET"
+      # Tauri's bundler rewrites this marker before NSIS embeds the app even with --no-sign, which
+      # would invalidate a prior Authenticode signature. Stamp NSIS before signing so Tauri leaves
+      # the signed binary untouched.
+      - shell: bash
+        run: |
+          python -c '
+          from pathlib import Path
+          import sys
+          path = Path(sys.argv[1])
+          data = path.read_bytes()
+          old, new = b"__TAURI_BUNDLE_TYPE_VAR_UNK", b"__TAURI_BUNDLE_TYPE_VAR_NSS"
+          count = data.count(old)
+          if count != 1:
+              raise SystemExit(f"Expected 1 bundle-type marker in {path}, found {count}")
+          path.write_bytes(data.replace(old, new, 1))
+          ' "apps/desktop-gpui/target/$TARGET/release/desktop-gpui.exe"
+      - if: ${{ inputs.channel != 'staging' }}
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - if: ${{ inputs.channel != 'staging' }}
+        uses: azure/artifact-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82 # v2
+        with:
+          endpoint: ${{ vars.AZURE_ARTIFACT_SIGNING_ENDPOINT }}
+          signing-account-name: ${{ vars.AZURE_ARTIFACT_SIGNING_ACCOUNT_NAME }}
+          certificate-profile-name: ${{ vars.AZURE_ARTIFACT_SIGNING_CERTIFICATE_PROFILE_NAME }}
+          files: |
+            ${{ github.workspace }}\apps\desktop-gpui\target\x86_64-pc-windows-msvc\release\desktop-gpui.exe
+            ${{ github.workspace }}\apps\desktop\src-tauri\resources\cli\anarlog-cli-x86_64-pc-windows-msvc.exe
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+      # Shipping bundles unsigned too: staging ships unsigned, stable signs the installer below.
+      - shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          python apps/desktop-gpui/packaging/bundle.py bundle \
+            --channel "$RELEASE_CHANNEL" \
+            --target "$TARGET" \
+            --version "$APP_VERSION" \
+            --binary "apps/desktop-gpui/target/$TARGET/release/desktop-gpui.exe" \
+            --bundles nsis \
+            --no-sign
+      - id: installer
+        shell: pwsh
+        run: |
+          $installers = @(Get-ChildItem "$env:BUNDLE_DIR/nsis" -Filter "*-setup.exe")
+          if ($installers.Count -ne 1) {
+            throw "Expected one NSIS installer in $env:BUNDLE_DIR/nsis, found $($installers.Count)"
+          }
+          "path=$($installers[0].FullName)" |
+            Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+      - if: ${{ inputs.channel != 'staging' }}
+        uses: azure/artifact-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82 # v2
+        with:
+          endpoint: ${{ vars.AZURE_ARTIFACT_SIGNING_ENDPOINT }}
+          signing-account-name: ${{ vars.AZURE_ARTIFACT_SIGNING_ACCOUNT_NAME }}
+          certificate-profile-name: ${{ vars.AZURE_ARTIFACT_SIGNING_CERTIFICATE_PROFILE_NAME }}
+          files: ${{ steps.installer.outputs.path }}
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+      - if: ${{ inputs.channel != 'staging' }}
+        shell: pwsh
+        env:
+          INSTALLER_PATH: ${{ steps.installer.outputs.path }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          $signaturePath = "$env:INSTALLER_PATH.sig"
+          Remove-Item $signaturePath -Force -ErrorAction SilentlyContinue
+          pnpm -F desktop tauri signer sign $env:INSTALLER_PATH
+          if ($LASTEXITCODE -ne 0 -or -not (Test-Path $signaturePath)) {
+            throw "Could not create the Windows updater signature"
+          }
+          cargo run --locked -p updater-core --bin verify-updater-signature -- `
+            $env:INSTALLER_PATH $signaturePath apps/desktop/src-tauri/tauri.conf.json
+          if ($LASTEXITCODE -ne 0) {
+            throw "Windows updater signature verification failed"
+          }
+      - shell: bash
+        run: |
+          verify_args=()
+          if [[ "$RELEASE_CHANNEL" == "staging" ]]; then
+            verify_args+=(--no-sign)
+          fi
+          python apps/desktop-gpui/packaging/bundle.py verify \
+            --channel "$RELEASE_CHANNEL" \
+            --target "$TARGET" \
+            --version "$APP_VERSION" \
+            --bundles nsis \
+            "${verify_args[@]}" \
+            "$BUNDLE_DIR"
+      - shell: pwsh
+        env:
+          INSTALLER_PATH: ${{ steps.installer.outputs.path }}
+          WINDOWS_SIGNER_ORGANIZATION: ${{ vars.WINDOWS_SIGNER_ORGANIZATION }}
+        run: |
+          $installRoot = Join-Path $env:RUNNER_TEMP "anarlog-cli-package"
+          $installation = Start-Process -FilePath $env:INSTALLER_PATH `
+            -ArgumentList @("/S", "/D=$installRoot") -PassThru
+          if (-not $installation.WaitForExit(120000)) {
+            $installation.Kill()
+            throw "Windows package installation timed out"
+          }
+          if ($installation.ExitCode -ne 0) {
+            throw "Windows package installation failed: $($installation.ExitCode)"
+          }
+          python scripts/verify-packaged-cli.py $installRoot $env:APP_VERSION
+          if ($LASTEXITCODE -ne 0) {
+            throw "Packaged Windows CLI verification failed"
+          }
+
+          $installedApp = Join-Path $installRoot "$env:APP_BINARY.exe"
+          $reportRaw = & $installedApp --print-package
+          if ($LASTEXITCODE -ne 0) {
+            throw "Installed Windows app --print-package failed with exit code $LASTEXITCODE"
+          }
+          $report = ($reportRaw -join "`n") | ConvertFrom-Json
+          if (
+            $report.channel -ne $env:RELEASE_CHANNEL -or
+            $report.version -ne $env:APP_VERSION -or
+            $report.bundle_type -ne "Nsis"
+          ) {
+            throw "Unexpected installed Windows package report: $($report | ConvertTo-Json -Compress)"
+          }
+
+          # Stable checks what the installer put down, verifying the pre-patched app stayed validly signed.
+          if ($env:RELEASE_CHANNEL -ne "staging") {
+            $signedFiles = @(
+              $env:INSTALLER_PATH,
+              $installedApp,
+              (Join-Path $installRoot "anarlog-cli.exe")
+            )
+            foreach ($signedFile in $signedFiles) {
+              $signature = Get-AuthenticodeSignature $signedFile
+              if ($signature.Status -ne "Valid") {
+                throw "Invalid Authenticode signature for $signedFile`: $($signature.Status)"
+              }
+              $signerOrganization = $signature.SignerCertificate.GetNameInfo(
+                [System.Security.Cryptography.X509Certificates.X509NameType]::SimpleName,
+                $false
+              )
+              if ($signerOrganization -ne $env:WINDOWS_SIGNER_ORGANIZATION) {
+                throw "Unexpected Authenticode signer '$signerOrganization' for $signedFile"
+              }
+              if (-not $signature.TimeStamperCertificate) {
+                throw "Authenticode signature is missing a trusted timestamp for $signedFile"
+              }
+            }
+          }
+
+          $installer = Get-Item $env:INSTALLER_PATH
+          $hash = (Get-FileHash -Algorithm SHA256 $installer.FullName).Hash.ToLowerInvariant()
+          "$hash  $($installer.Name)" |
+            Out-File "$($installer.FullName).sha256" -Encoding ascii -NoNewline
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: anarlog-gpui-${{ inputs.channel }}-windows-x64
+          path: ${{ env.BUNDLE_DIR }}/nsis/*-setup.exe*
+          if-no-files-found: error
+          retention-days: 7
+
+  # Hashes of exactly what the run uploaded, so a later publish step can check what it ships.
+  provenance:
+    needs: [macos, linux, windows]
+    if: ${{ !cancelled() && needs.macos.result == 'success' && (!inputs.include_linux || needs.linux.result == 'success') && (!inputs.include_windows || needs.windows.result == 'success') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: anarlog-gpui-${{ inputs.channel }}-*
+          path: artifacts
+      - env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+        run: |
+          if [[ ! "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::Expected a 40-character lowercase candidate commit SHA, got '$CANDIDATE_SHA'"
+            exit 1
+          fi
+          mkdir -p provenance
+          (cd artifacts && find . -type f | sort) | while read -r file; do
+            path="artifacts/${file#./}"
+            artifact="${file#./}"
+            jq -n \
+              --arg artifact "${artifact%%/*}" \
+              --arg name "$(basename "$file")" \
+              --argjson size "$(stat -c %s "$path")" \
+              --arg sha256 "$(sha256sum "$path" | cut -d ' ' -f 1)" \
+              '{artifact: $artifact, name: $name, size: $size, sha256: $sha256}'
+          done | jq -s \
+            --arg sha "${CANDIDATE_SHA,,}" \
+            --arg run_id "$GITHUB_RUN_ID" \
+            --arg run_attempt "$GITHUB_RUN_ATTEMPT" \
+            --arg version "$APP_VERSION" \
+            --arg channel "$RELEASE_CHANNEL" \
+            '{
+              schemaVersion: 1,
+              app: "gpui",
+              sourceWorkflow: ".github/workflows/desktop_cd.yaml",
+              workflowRunId: $run_id,
+              runAttempt: $run_attempt,
+              candidateSha: $sha,
+              version: $version,
+              channel: $channel,
+              assets: .
+            }' > provenance/manifest.json
+          if [[ "$(jq '.assets | length' provenance/manifest.json)" -eq 0 ]]; then
+            echo "::error::No GPUI artifacts to record"
+            exit 1
+          fi
+          cat provenance/manifest.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: desktop-gpui-provenance-${{ inputs.channel }}-${{ inputs.version }}-${{ inputs.candidate_sha }}
+          path: provenance/manifest.json
+          if-no-files-found: error
+          retention-days: 30
