@@ -36,6 +36,7 @@ pub struct A11yPlatform {
     text_system: Arc<dyn PlatformTextSystem>,
     pub windows: RefCell<Vec<(AnyWindowHandle, Rc<RefCell<WindowState>>)>>,
     clipboard: RefCell<Option<ClipboardItem>>,
+    pub opened_urls: RefCell<Vec<String>>,
     /// The app asked to quit.
     pub quit: std::cell::Cell<bool>,
 }
@@ -51,6 +52,7 @@ impl A11yPlatform {
             text_system: Arc::new(NoopTextSystem::new()),
             windows: RefCell::default(),
             clipboard: RefCell::default(),
+            opened_urls: RefCell::default(),
             quit: Default::default(),
         })
     }
@@ -175,7 +177,9 @@ impl Platform for A11yPlatform {
         WindowAppearance::Light
     }
 
-    fn open_url(&self, _: &str) {}
+    fn open_url(&self, url: &str) {
+        self.opened_urls.borrow_mut().push(url.to_string());
+    }
 
     fn on_open_urls(&self, _: Box<dyn FnMut(Vec<String>)>) {}
 

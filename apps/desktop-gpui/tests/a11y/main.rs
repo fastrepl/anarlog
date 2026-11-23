@@ -233,6 +233,31 @@ impl Harness {
         }
         self.settle();
     }
+
+    pub fn key_press(&self, key: &'static str) {
+        let window: AnyWindowHandle = self.window.into();
+        let stroke = gpui::Keystroke::parse(key).unwrap();
+        self.app.update(|cx| {
+            cx.update_window(window, |_, window, cx| {
+                window.draw(cx).clear(cx);
+                window.dispatch_event(
+                    gpui::PlatformInput::KeyDown(gpui::KeyDownEvent {
+                        keystroke: stroke.clone(),
+                        is_held: false,
+                        prefer_character_input: false,
+                    }),
+                    cx,
+                );
+                window.dispatch_event(
+                    gpui::PlatformInput::KeyUp(gpui::KeyUpEvent { keystroke: stroke }),
+                    cx,
+                );
+            })
+            .unwrap()
+        });
+        self.platform.dispatcher.run_until_parked();
+        self.settle();
+    }
 }
 
 /// Onboarding done and the screens library seeded, before any window exists.

@@ -671,3 +671,78 @@ fn an_unfinished_storage_move_keeps_the_library_closed_and_closing_quits() {
     app.settle();
     assert!(app.platform.quit.get());
 }
+
+#[test]
+fn refused_startup_exposes_support_links_copy_details_and_quit() {
+    let app = Harness::refused();
+    let tree = app.tree();
+    tree.find(Role::Heading, "Anarlog can't open your notes yet");
+    assert_named(&tree, "startup-refused");
+
+    app.keys(&["tab"]);
+    assert_eq!(app.tree().focused().label(), "Email team@fastrepl.com");
+    app.keys(&["tab"]);
+    assert_eq!(app.tree().focused().label(), "Discord (anarlog.so/discord)");
+    app.keys(&["tab"]);
+    assert_eq!(app.tree().focused().label(), "Copy details");
+    app.keys(&["tab"]);
+    assert_eq!(app.tree().focused().label(), "Quit");
+    app.keys(&["shift-tab"]);
+    assert_eq!(app.tree().focused().label(), "Copy details");
+
+    let tree = app.tree();
+    let email = tree.find(Role::Link, "Email team@fastrepl.com");
+    assert!(email.clickable(), "{}", tree.outline());
+    app.press(email.id);
+    assert_eq!(app.tree().focused().label(), "Email team@fastrepl.com");
+
+    let tree = app.tree();
+    let discord = tree.find(Role::Link, "Discord (anarlog.so/discord)");
+    assert!(discord.clickable(), "{}", tree.outline());
+    app.press(discord.id);
+    assert_eq!(app.tree().focused().label(), "Discord (anarlog.so/discord)");
+
+    assert_eq!(
+        app.platform.opened_urls.borrow().as_slice(),
+        [
+            "mailto:team@fastrepl.com?subject=Anarlog%20storage%20move%20help",
+            "https://anarlog.so/discord",
+        ]
+    );
+
+    app.keys(&["tab", "tab"]);
+    let tree = app.tree();
+    assert_eq!(tree.focused().label(), "Quit", "{}", tree.outline());
+
+    app.press(tree.find(Role::Button, "Copy details").id);
+    assert!(!app.platform.quit.get());
+    assert_eq!(app.tree().focused().label(), "Copied details");
+
+    app.app
+        .update(|cx| cx.write_to_clipboard(gpui::ClipboardItem::new_string(String::new())));
+    app.key_press("enter");
+    assert!(!app.platform.quit.get());
+
+    let copied = app
+        .app
+        .update(|cx| cx.read_from_clipboard().and_then(|item| item.text()))
+        .expect("diagnostic details in clipboard");
+    assert!(copied.contains("Previous folder:"), "{copied}");
+    assert!(copied.contains("vault"), "{copied}");
+    assert!(copied.contains("Current folder:"), "{copied}");
+    assert!(copied.contains("base"), "{copied}");
+    assert!(copied.contains("Version:"), "{copied}");
+
+    let tree = app.tree();
+    assert!(tree.find(Role::Button, "Copied details").clickable());
+    tree.find(Role::Status, "Details copied to clipboard");
+
+    app.keys(&["tab"]);
+    let tree = app.tree();
+    let quit = tree.find(Role::Button, "Quit");
+    assert!(quit.clickable(), "{}", tree.outline());
+    assert_eq!(tree.focused().label(), "Quit", "{}", tree.outline());
+    assert!(!app.platform.quit.get());
+    app.key_press("enter");
+    assert!(app.platform.quit.get());
+}

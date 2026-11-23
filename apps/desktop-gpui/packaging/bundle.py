@@ -18,9 +18,12 @@ import argparse
 import glob
 import json
 import os
+import platform
 import plistlib
 import shlex
 import shutil
+import stat
+import struct
 import subprocess
 import sys
 import tempfile
@@ -62,6 +65,12 @@ DESIGNATED_REQUIREMENT = (
 TAURI_DEB_DEPENDS = ["libwebkit2gtk-4.1-0", "libgtk-3-0"]
 
 MACHO_CPU = {"aarch64": 0x0100000C, "x86_64": 0x01000007}
+HOST_ARCH = {
+    "x86_64": "x86_64",
+    "amd64": "x86_64",
+    "aarch64": "aarch64",
+    "arm64": "aarch64",
+}
 
 
 def platform_of(target):
@@ -211,7 +220,7 @@ def run(*command):
     return subprocess.run(command, capture_output=True, text=True)
 
 
-def check_binary(binary, expected, args, checks):
+def check_binary(binary, expected, args, checks, extra_env=None):
     """The app's own view, run from the bundle (`--print-package`, src/platform/package.rs): the
     channel and version it was built with, the package type the bundler patched in, and the
     folders it reads its resources and sidecars from, which must be where they are."""
@@ -227,6 +236,8 @@ def check_binary(binary, expected, args, checks):
         for key, value in os.environ.items()
         if key not in ("ANARLOG_NATIVE_RESOURCES", "APPDIR", "APPIMAGE")
     }
+    if extra_env:
+        env.update(extra_env)
     try:
         result = subprocess.run(
             [str(binary), "--print-package"],
@@ -381,6 +392,172 @@ def check_signature(artifact, args, checks):
         )
 
 
+def can_run_linux_target(target):
+    return (
+        sys.platform.startswith("linux")
+        and HOST_ARCH.get(platform.machine().lower()) == target.split("-")[0]
+    )
+
+
+def squashfs_offset(appimage):
+    max_scan = 4 * 1024 * 1024
+    chunk_size = 65536
+    with appimage.open("rb") as handle:
+        header = handle.read(64)
+        if (
+            len(header) >= 64
+            and header[:4] == b"\x7fELF"
+            and header[4] == 2
+            and header[5] == 1
+        ):
+            e_shoff = struct.unpack_from("<Q", header, 40)[0]
+            e_shentsize, e_shnum = struct.unpack_from("<HH", header, 58)
+            if e_shoff:
+                candidate = e_shoff + e_shentsize * e_shnum
+                handle.seek(candidate)
+                if handle.read(4) == b"hsqs":
+                    return candidate
+        handle.seek(0)
+        scanned = 0
+        tail = b""
+        while scanned < max_scan:
+            chunk = handle.read(min(chunk_size, max_scan - scanned))
+            if not chunk:
+                break
+            buf = tail + chunk
+            index = buf.find(b"hsqs")
+            if index != -1:
+                return scanned - len(tail) + index
+            scanned += len(chunk)
+            tail = buf[-3:]
+    return None
+
+
+def extract_appimage(appimage, workdir, target, checks):
+    extract_error = None
+    if can_run_linux_target(target):
+        copy = workdir / appimage.name
+        shutil.copy2(appimage, copy)
+        copy.chmod(copy.stat().st_mode | 0o111)
+        try:
+            result = subprocess.run(
+                [str(copy), "--appimage-extract"],
+                cwd=workdir,
+                capture_output=True,
+                text=True,
+                timeout=120,
+            )
+            extracted = workdir / "squashfs-root"
+            if result.returncode == 0 and extracted.is_dir():
+                return extracted
+            extract_error = (
+                f"{appimage.name} --appimage-extract exited {result.returncode}: "
+                + result.stderr.strip()
+            )
+        except (OSError, subprocess.TimeoutExpired) as error:
+            extract_error = f"{appimage.name} --appimage-extract failed: {error}"
+
+    unsquashfs = shutil.which("unsquashfs")
+    offset = squashfs_offset(appimage)
+    if unsquashfs and offset is not None:
+        extracted = workdir / "squashfs-root"
+        try:
+            result = subprocess.run(
+                [
+                    unsquashfs,
+                    "-no-progress",
+                    "-f",
+                    "-d",
+                    str(extracted),
+                    "-o",
+                    str(offset),
+                    str(appimage),
+                ],
+                capture_output=True,
+                text=True,
+                timeout=120,
+            )
+            if result.returncode == 0 and extracted.is_dir():
+                return extracted
+            extract_error = (
+                f"unsquashfs exited {result.returncode}: " + result.stderr.strip()
+            )
+        except (OSError, subprocess.TimeoutExpired) as error:
+            extract_error = f"unsquashfs failed: {error}"
+    elif extract_error is None:
+        reason = (
+            "missing `unsquashfs`"
+            if not unsquashfs
+            else "could not locate SquashFS payload"
+        )
+        extract_error = f"Could not extract {appimage.name}: {reason}"
+
+    checks.expect(False, extract_error)
+    return None
+
+
+def verify_linux_layout(root, product, exe, config, scope, checks):
+    checks.expect((root / "usr/bin" / exe).is_file(), f"Missing /usr/bin/{exe}{scope}")
+    for sidecar in EXTERNAL_BIN["linux"]:
+        name = Path(sidecar).name
+        checks.expect(
+            (root / "usr/bin" / name).is_file(), f"Missing /usr/bin/{name}{scope}"
+        )
+    checks.expect(
+        (root / "usr/lib" / product).is_dir(),
+        f"Missing /usr/lib/{product}{scope}",
+    )
+    for destination in config["bundle"]["resources"].values():
+        path = root / "usr/lib" / product / destination
+        checks.expect(
+            path.exists(), f"Missing resource /{path.relative_to(root)}{scope}"
+        )
+
+
+def verify_linux_appimage(config, args, appimage, checks):
+    product, exe = config["productName"], config["mainBinaryName"]
+    with tempfile.TemporaryDirectory() as directory:
+        root = extract_appimage(appimage, Path(directory), args.target, checks)
+        if root is None:
+            return
+        apprun = root / "AppRun"
+        checks.expect(
+            apprun.is_file(), f"Missing AppRun launcher file in {appimage.name}"
+        )
+        if apprun.is_file() and os.name != "nt":
+            checks.expect(
+                bool(stat.S_IMODE(apprun.stat().st_mode) & 0o111),
+                f"AppRun in {appimage.name} is not executable",
+            )
+        verify_linux_layout(root, product, exe, config, f" in {appimage.name}", checks)
+        binary = root / "usr/bin" / exe
+        if can_run_linux_target(args.target):
+            check_binary(
+                binary,
+                {
+                    "bundle_type": "AppImage",
+                    "resources": root / "usr/lib" / product,
+                    "executables": root / "usr/bin",
+                },
+                args,
+                checks,
+                extra_env={
+                    "APPDIR": str(root.resolve()),
+                    "APPIMAGE": str(appimage.resolve()),
+                },
+            )
+        else:
+            data = binary.read_bytes() if binary.is_file() else b""
+            checks.expect(
+                b"__TAURI_BUNDLE_TYPE_VAR_APP" in data,
+                f"{binary.name} in {appimage.name} lacks __TAURI_BUNDLE_TYPE_VAR_APP",
+            )
+            checks.expect(
+                b"--print-package" in data,
+                f"{binary.name} in {appimage.name} can't report its package (--print-package)",
+            )
+
+
 def verify_linux(config, args, checks):
     product, exe = config["productName"], config["mainBinaryName"]
     bundles = requested_bundles(args)
@@ -388,6 +565,8 @@ def verify_linux(config, args, checks):
     if "appimage" in bundles:
         appimage = artifact(config, args, "appimage", ".AppImage", checks)
         check_signature(appimage, args, checks)
+        if appimage:
+            verify_linux_appimage(config, args, appimage, checks)
     if "deb" not in bundles:
         return
     deb = artifact(config, args, "deb", ".deb", checks)
@@ -418,7 +597,7 @@ def verify_linux(config, args, checks):
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory)
         subprocess.run(["dpkg-deb", "-x", str(deb), str(root)], check=True)
-        checks.expect((root / "usr/bin" / exe).is_file(), f"Missing /usr/bin/{exe}")
+        verify_linux_layout(root, product, exe, config, "", checks)
         check_binary(
             root / "usr/bin" / exe,
             {
@@ -429,14 +608,6 @@ def verify_linux(config, args, checks):
             args,
             checks,
         )
-        for sidecar in EXTERNAL_BIN["linux"]:
-            name = Path(sidecar).name
-            checks.expect(
-                (root / "usr/bin" / name).is_file(), f"Missing /usr/bin/{name}"
-            )
-        for destination in config["bundle"]["resources"].values():
-            path = root / "usr/lib" / product / destination
-            checks.expect(path.exists(), f"Missing resource /{path.relative_to(root)}")
         desktop = root / "usr/share/applications" / f"{product}.desktop"
         entry = desktop.read_text() if desktop.is_file() else ""
         checks.expect(f"Exec={exe}" in entry, f"{desktop.name} does not launch {exe}")
