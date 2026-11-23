@@ -1,0 +1,545 @@
+# Publishes verified stable GPUI desktop artifacts built by desktop_cd.yaml
+# (app=gpui, channel=stable) to a dedicated CrabNebula app (default:
+# fastrepl/anarlog-gpui, --channel stable) while leaving fastrepl/hyprnote2
+# untouched as the Tauri bridge release.
+#
+# Cutover safety while the Vercel bridge version gate is active:
+# - Do NOT run linux-package-bump: APT (apps/web/public/apt) and AUR
+#   (packaging/aur/anarlog-bin) bypass the feed's bridge version gate, and AUR
+#   does not declare libxkbcommon-x11.
+# - Do NOT publish a makeLatest: true GitHub Release or Microsoft Store
+#   submission from this workflow while the bridge gate controls cutover.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish (e.g., 1.0.2)"
+        required: true
+        type: string
+      candidate_sha:
+        description: "Exact 40-character main commit used to build the candidate"
+        required: true
+        type: string
+      dry_run_id:
+        description: "Successful desktop_cd.yaml (app=gpui, channel=stable) run that built the candidate"
+        required: true
+        type: string
+      cn_application:
+        description: "Target CrabNebula application slug (never fastrepl/hyprnote2)"
+        required: false
+        type: string
+        default: "fastrepl/anarlog-gpui"
+      include_linux:
+        description: "Publish Linux artifacts from the candidate"
+        type: boolean
+        default: true
+      include_windows:
+        description: "Publish Windows artifacts from the candidate"
+        type: boolean
+        default: true
+
+concurrency:
+  group: desktop-gpui-stable-release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  parse:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.parse.outputs.version }}
+      channel: ${{ steps.parse.outputs.channel }}
+      candidate_sha: ${{ steps.parse.outputs.candidate_sha }}
+      dry_run_id: ${{ steps.parse.outputs.dry_run_id }}
+      cn_application: ${{ steps.parse.outputs.cn_application }}
+      include_linux: ${{ steps.parse.outputs.include_linux }}
+      include_windows: ${{ steps.parse.outputs.include_windows }}
+    steps:
+      - id: parse
+        env:
+          EXECUTION_REF: ${{ github.ref }}
+          EXECUTION_SHA: ${{ github.sha }}
+          INPUT_CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          INPUT_CN_APPLICATION: ${{ inputs.cn_application }}
+          INPUT_DRY_RUN_ID: ${{ inputs.dry_run_id }}
+          INPUT_INCLUDE_LINUX: ${{ inputs.include_linux }}
+          INPUT_INCLUDE_WINDOWS: ${{ inputs.include_windows }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if [[ ! "$INPUT_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "::error::Version must be a canonical semantic version such as 1.4.0"
+            exit 1
+          fi
+
+          if [[ ! "$INPUT_CANDIDATE_SHA" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "::error::Candidate SHA must be a full 40-character commit SHA"
+            exit 1
+          fi
+
+          if [[ ! "$INPUT_DRY_RUN_ID" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::Dry-run workflow ID must be a positive integer"
+            exit 1
+          fi
+
+          if [[ "$INPUT_INCLUDE_LINUX" != "true" && "$INPUT_INCLUDE_LINUX" != "false" ]]; then
+            echo "::error::include_linux must be true or false"
+            exit 1
+          fi
+          if [[ "$INPUT_INCLUDE_WINDOWS" != "true" && "$INPUT_INCLUDE_WINDOWS" != "false" ]]; then
+            echo "::error::include_windows must be true or false"
+            exit 1
+          fi
+
+          CN_APPLICATION=$(printf '%s' "${INPUT_CN_APPLICATION:-fastrepl/anarlog-gpui}" | tr -d '[:space:]')
+          if [[ ! "$CN_APPLICATION" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
+            echo "::error::CrabNebula application must be an org/app slug, got '$CN_APPLICATION'"
+            exit 1
+          fi
+          CN_APPLICATION_LOWER=$(printf '%s' "$CN_APPLICATION" | tr '[:upper:]' '[:lower:]')
+          if [[ "$CN_APPLICATION_LOWER" == "fastrepl/hyprnote2" ]]; then
+            echo "::error::Refusing to publish GPUI artifacts to Tauri bridge app fastrepl/hyprnote2"
+            exit 1
+          fi
+
+          VERSION="$INPUT_VERSION"
+          CANDIDATE_SHA=$(printf '%s' "$INPUT_CANDIDATE_SHA" | tr '[:upper:]' '[:lower:]')
+          EXECUTION_SHA_LOWER=$(printf '%s' "$EXECUTION_SHA" | tr '[:upper:]' '[:lower:]')
+          if [[ "$EXECUTION_REF" != "refs/heads/main" ]]; then
+            echo "::error::GPUI stable publication requires refs/heads/main, got $EXECUTION_REF"
+            exit 1
+          fi
+          if [[ "$EXECUTION_SHA_LOWER" != "$CANDIDATE_SHA" ]]; then
+            echo "::error::Executing workflow SHA $EXECUTION_SHA does not match candidate $CANDIDATE_SHA"
+            exit 1
+          fi
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "channel=stable" >> "$GITHUB_OUTPUT"
+          echo "candidate_sha=$CANDIDATE_SHA" >> "$GITHUB_OUTPUT"
+          echo "dry_run_id=$INPUT_DRY_RUN_ID" >> "$GITHUB_OUTPUT"
+          echo "cn_application=$CN_APPLICATION" >> "$GITHUB_OUTPUT"
+          echo "include_linux=$INPUT_INCLUDE_LINUX" >> "$GITHUB_OUTPUT"
+          echo "include_windows=$INPUT_INCLUDE_WINDOWS" >> "$GITHUB_OUTPUT"
+
+  verify-candidate:
+    needs: parse
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ needs.parse.outputs.candidate_sha }}
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+      - env:
+          EXPECTED_SHA: ${{ needs.parse.outputs.candidate_sha }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.parse.outputs.version }}
+        run: |
+          gh auth setup-git
+          git fetch origin main --no-tags
+
+          TARGET=$(git rev-parse HEAD)
+          if [[ "$TARGET" != "$EXPECTED_SHA" ]]; then
+            echo "::error::Checked out $TARGET instead of candidate $EXPECTED_SHA"
+            exit 1
+          fi
+
+          bash scripts/verify-release-candidate.sh "$EXPECTED_SHA"
+
+          if [[ ! -f "packages/changelog/content/desktop/$VERSION.md" ]]; then
+            echo "::error::Missing changelog for $VERSION at candidate $EXPECTED_SHA"
+            exit 1
+          fi
+
+  verify-windows-signature:
+    if: ${{ needs.parse.outputs.include_windows == 'true' }}
+    needs: [parse, verify-candidate]
+    runs-on: windows-latest
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ needs.parse.outputs.candidate_sha }}
+          persist-credentials: false
+      - name: Verify and unpack Windows GPUI candidate
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ needs.parse.outputs.candidate_sha }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_ID: ${{ needs.parse.outputs.dry_run_id }}
+          VERSION: ${{ needs.parse.outputs.version }}
+        run: |
+          RUN=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID")
+          if ! echo "$RUN" | jq -e \
+            --arg repo "$GITHUB_REPOSITORY" \
+            --arg sha "$EXPECTED_SHA" \
+            --arg workflow ".github/workflows/desktop_cd.yaml" \
+            --argjson run_id "$RUN_ID" \
+            '
+              .id == $run_id
+              and .status == "completed"
+              and .conclusion == "success"
+              and .run_attempt == 1
+              and .event == "workflow_dispatch"
+              and (.head_sha | ascii_downcase) == $sha
+              and .repository.full_name == $repo
+              and .head_repository.full_name == $repo
+              and (.path | split("@")[0]) == $workflow
+            ' > /dev/null; then
+            echo "::error::Run $RUN_ID is not an unrerun, successful desktop CD run for candidate $EXPECTED_SHA"
+            exit 1
+          fi
+
+          rm -rf "$RUNNER_TEMP/gpui-provenance" "$RUNNER_TEMP/gpui-artifacts"
+          mkdir -p "$RUNNER_TEMP/gpui-provenance" "$RUNNER_TEMP/gpui-artifacts/anarlog-gpui-stable-windows-x64"
+
+          gh run download "$RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "desktop-gpui-provenance-stable-$VERSION-$EXPECTED_SHA" \
+            --dir "$RUNNER_TEMP/gpui-provenance"
+
+          gh run download "$RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "anarlog-gpui-stable-windows-x64" \
+            --dir "$RUNNER_TEMP/gpui-artifacts/anarlog-gpui-stable-windows-x64"
+
+          node scripts/desktop-release-provenance.mjs verify-gpui \
+            --manifest "$RUNNER_TEMP/gpui-provenance/manifest.json" \
+            --artifact-dir "$RUNNER_TEMP/gpui-artifacts" \
+            --artifact "anarlog-gpui-stable-windows-x64" \
+            --version "$VERSION" \
+            --candidate-sha "$EXPECTED_SHA" \
+            --run-id "$RUN_ID" \
+            --tauri-config "apps/desktop/src-tauri/tauri.conf.json" \
+            --plan-output "$RUNNER_TEMP/windows-upload-plan.json"
+      - name: Verify Windows Authenticode signature
+        shell: pwsh
+        env:
+          WINDOWS_SIGNER_ORGANIZATION: ${{ vars.WINDOWS_SIGNER_ORGANIZATION }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:WINDOWS_SIGNER_ORGANIZATION)) {
+            throw "WINDOWS_SIGNER_ORGANIZATION repository variable is missing"
+          }
+          $plan = Get-Content (Join-Path $env:RUNNER_TEMP "windows-upload-plan.json") -Raw | ConvertFrom-Json
+          if ($plan.uploads.Count -ne 1) {
+            throw "Expected exactly one Windows installer in upload plan, found $($plan.uploads.Count)"
+          }
+          $installerPath = $plan.uploads[0].file
+          $signature = Get-AuthenticodeSignature $installerPath
+          if ($signature.Status -ne "Valid") {
+            throw "Invalid Windows Authenticode signature for $installerPath`: $($signature.Status)"
+          }
+          if (-not $signature.SignerCertificate) {
+            throw "Windows Authenticode signer certificate is missing"
+          }
+          $signerOrganization = $signature.SignerCertificate.GetNameInfo(
+            [System.Security.Cryptography.X509Certificates.X509NameType]::SimpleName,
+            $false
+          )
+          if ($signerOrganization -ne $env:WINDOWS_SIGNER_ORGANIZATION) {
+            throw "Unexpected Windows Authenticode signer '$signerOrganization'"
+          }
+          if (-not $signature.TimeStamperCertificate) {
+            throw "Windows Authenticode signature is missing a trusted timestamp"
+          }
+
+  cn-publish:
+    needs: [parse, verify-candidate, verify-windows-signature]
+    if: ${{ !cancelled() && needs.parse.result == 'success' && needs.verify-candidate.result == 'success' && (needs.parse.outputs.include_windows != 'true' || needs.verify-windows-signature.result == 'success') }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ needs.parse.outputs.candidate_sha }}
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+      - id: cn-install
+        uses: $/.github/actions/cn_install
+      - name: Download and verify GPUI candidate artifacts
+        env:
+          EXPECTED_SHA: ${{ needs.parse.outputs.candidate_sha }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INCLUDE_LINUX: ${{ needs.parse.outputs.include_linux }}
+          INCLUDE_WINDOWS: ${{ needs.parse.outputs.include_windows }}
+          RUN_ID: ${{ needs.parse.outputs.dry_run_id }}
+          VERSION: ${{ needs.parse.outputs.version }}
+        run: |
+          RUN=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID")
+          if ! echo "$RUN" | jq -e \
+            --arg repo "$GITHUB_REPOSITORY" \
+            --arg sha "$EXPECTED_SHA" \
+            --arg workflow ".github/workflows/desktop_cd.yaml" \
+            --argjson run_id "$RUN_ID" \
+            '
+              .id == $run_id
+              and .status == "completed"
+              and .conclusion == "success"
+              and .run_attempt == 1
+              and .event == "workflow_dispatch"
+              and (.head_sha | ascii_downcase) == $sha
+              and .repository.full_name == $repo
+              and .head_repository.full_name == $repo
+              and (.path | split("@")[0]) == $workflow
+            ' > /dev/null; then
+            echo "::error::Run $RUN_ID is not an unrerun, successful desktop CD run for candidate $EXPECTED_SHA"
+            exit 1
+          fi
+
+          rm -rf "$RUNNER_TEMP/gpui-provenance" "$RUNNER_TEMP/gpui-artifacts"
+          mkdir -p "$RUNNER_TEMP/gpui-provenance" "$RUNNER_TEMP/gpui-artifacts"
+
+          gh run download "$RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "desktop-gpui-provenance-stable-$VERSION-$EXPECTED_SHA" \
+            --dir "$RUNNER_TEMP/gpui-provenance"
+
+          gh run download "$RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern "anarlog-gpui-stable-*" \
+            --dir "$RUNNER_TEMP/gpui-artifacts"
+
+          node scripts/desktop-release-provenance.mjs verify-gpui \
+            --manifest "$RUNNER_TEMP/gpui-provenance/manifest.json" \
+            --artifact-dir "$RUNNER_TEMP/gpui-artifacts" \
+            --version "$VERSION" \
+            --candidate-sha "$EXPECTED_SHA" \
+            --run-id "$RUN_ID" \
+            --tauri-config "apps/desktop/src-tauri/tauri.conf.json" \
+            --include-linux "$INCLUDE_LINUX" \
+            --include-windows "$INCLUDE_WINDOWS" \
+            --plan-output "$RUNNER_TEMP/gpui-upload-plan.json"
+      - id: upload
+        name: Draft and upload verified GPUI assets to CrabNebula
+        env:
+          CHANNEL: ${{ needs.parse.outputs.channel }}
+          CN_API_KEY: ${{ secrets.CN_API_KEY }}
+          CN_APPLICATION: ${{ needs.parse.outputs.cn_application }}
+          CN_CLI: ${{ steps.cn-install.outputs.path }}
+          VERSION: ${{ needs.parse.outputs.version }}
+        run: |
+          RELEASE_FILE="$RUNNER_TEMP/crabnebula-release.json"
+          SHOW_ERR="$RUNNER_TEMP/cn-show.err"
+          PLAN_FILE="$RUNNER_TEMP/gpui-upload-plan.json"
+          UPLOAD_NEEDED="false"
+          PUBLISH_NEEDED="false"
+
+          if "$CN_CLI" release show "$CN_APPLICATION" "$VERSION" --channel "$CHANNEL" > "$RELEASE_FILE" 2> "$SHOW_ERR"; then
+            STATUS=$(jq -r '.status // empty | ascii_downcase' "$RELEASE_FILE")
+            case "$STATUS" in
+              published)
+                PUBLISH_NEEDED="false"
+                ;;
+              draft)
+                PUBLISH_NEEDED="true"
+                UPLOAD_NEEDED="true"
+                ;;
+              *)
+                echo "::error::Unexpected CrabNebula release status: $STATUS"
+                exit 1
+                ;;
+            esac
+          else
+            cat "$SHOW_ERR" >&2
+            if grep -qi "Release not found" "$SHOW_ERR"; then
+              "$CN_CLI" release draft "$CN_APPLICATION" "$VERSION" --channel "$CHANNEL"
+              UPLOAD_NEEDED="true"
+              PUBLISH_NEEDED="true"
+              : > "$RELEASE_FILE"
+            else
+              echo "::error::Failed to inspect CrabNebula release $CN_APPLICATION $VERSION"
+              exit 1
+            fi
+          fi
+
+          if [[ "$UPLOAD_NEEDED" == "true" ]]; then
+            EXISTING_ASSETS='[]'
+            if [[ -s "$RELEASE_FILE" ]]; then
+              EXISTING_ASSETS=$(jq -c '.assets // []' "$RELEASE_FILE")
+            fi
+            UPLOADED_ANY="false"
+
+            upload_count=$(jq '.uploads | length' "$PLAN_FILE")
+            for ((index = 0; index < upload_count; index += 1)); do
+              file=$(jq -er ".uploads[$index].file" "$PLAN_FILE")
+              public_platform=$(jq -r ".uploads[$index].publicPlatform // empty" "$PLAN_FILE")
+              update_platform=$(jq -r ".uploads[$index].updatePlatform // empty" "$PLAN_FILE")
+              signature_file=$(jq -r ".uploads[$index].signatureFile // empty" "$PLAN_FILE")
+              expected_size=$(jq -er ".uploads[$index].size" "$PLAN_FILE")
+              expected_signature=$(jq -r ".uploads[$index].signature // empty" "$PLAN_FILE")
+
+              matching_assets=$(jq -c \
+                --arg public_platform "$public_platform" \
+                --arg update_platform "$update_platform" \
+                '[.[] | select((.publicPlatform // "") == $public_platform and (.updatePlatform // "") == $update_platform)]' \
+                <<< "$EXISTING_ASSETS")
+              match_count=$(jq 'length' <<< "$matching_assets")
+              if [[ "$match_count" -gt 1 ]]; then
+                echo "::error::Existing draft has duplicate assets for ($public_platform, $update_platform)"
+                exit 1
+              elif [[ "$match_count" -eq 1 ]]; then
+                if jq -e \
+                  --argjson expected_size "$expected_size" \
+                  --arg expected_signature "$expected_signature" \
+                  '.[0] | (((.size // 0) | tonumber) == $expected_size and ((.signature // "") | sub("^\\s+"; "") | sub("\\s+$"; "")) == ($expected_signature | sub("^\\s+"; "") | sub("\\s+$"; "")))' \
+                  <<< "$matching_assets" > /dev/null; then
+                  continue
+                fi
+                echo "::error::Existing draft asset for ($public_platform, $update_platform) does not match verified provenance"
+                exit 1
+              fi
+
+              upload_args=(
+                release upload "$CN_APPLICATION" "$VERSION"
+                --channel "$CHANNEL"
+                --file "$file"
+              )
+              if [[ -n "$public_platform" ]]; then
+                upload_args+=(--public-platform "$public_platform")
+              fi
+              if [[ -n "$update_platform" ]]; then
+                upload_args+=(--update-platform "$update_platform")
+              fi
+              if [[ -n "$signature_file" ]]; then
+                upload_args+=(--signature "$signature_file")
+              fi
+
+              "$CN_CLI" "${upload_args[@]}"
+              UPLOADED_ANY="true"
+            done
+
+            if [[ "$UPLOADED_ANY" == "true" || ! -s "$RELEASE_FILE" ]]; then
+              "$CN_CLI" release show "$CN_APPLICATION" "$VERSION" --channel "$CHANNEL" > "$RELEASE_FILE"
+            fi
+          fi
+
+          echo "publish_needed=$PUBLISH_NEEDED" >> "$GITHUB_OUTPUT"
+      - name: Verify CrabNebula release assets and platforms
+        env:
+          INCLUDE_LINUX: ${{ needs.parse.outputs.include_linux }}
+          INCLUDE_WINDOWS: ${{ needs.parse.outputs.include_windows }}
+          VERSION: ${{ needs.parse.outputs.version }}
+        run: |
+          RELEASE_FILE="$RUNNER_TEMP/crabnebula-release.json"
+          PLAN_FILE="$RUNNER_TEMP/gpui-upload-plan.json"
+
+          ACTUAL_VERSION=$(jq -r '.version // empty' "$RELEASE_FILE")
+          if [[ "$ACTUAL_VERSION" != "$VERSION" ]]; then
+            echo "::error::Expected CrabNebula release $VERSION, got $ACTUAL_VERSION"
+            exit 1
+          fi
+
+          node scripts/desktop-release-provenance.mjs verify-platforms \
+            --release "$RELEASE_FILE" \
+            --include-linux "$INCLUDE_LINUX" \
+            --include-windows "$INCLUDE_WINDOWS"
+
+          node scripts/desktop-release-provenance.mjs verify-gpui-release \
+            --release "$RELEASE_FILE" \
+            --plan "$PLAN_FILE" \
+            --version "$VERSION" \
+            --include-linux "$INCLUDE_LINUX" \
+            --include-windows "$INCLUDE_WINDOWS"
+      - name: Create immutable release tag
+        env:
+          EXPECTED_SHA: ${{ needs.parse.outputs.candidate_sha }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.parse.outputs.version }}
+        run: |
+          gh auth setup-git
+          git fetch origin main --no-tags
+          git fetch --tags --force
+
+          TARGET=$(git rev-parse HEAD)
+          MAIN=$(git rev-parse origin/main)
+          TAG="desktop_v$VERSION"
+          EXISTING=$(git rev-parse -q --verify "refs/tags/$TAG^{commit}" || true)
+
+          bash scripts/verify-release-candidate.sh "$EXPECTED_SHA"
+          if [[ "$TARGET" != "$EXPECTED_SHA" ]]; then
+            echo "::error::Candidate moved before publication (candidate=$EXPECTED_SHA, checkout=$TARGET, main=$MAIN)"
+            exit 1
+          fi
+
+          if [[ -n "$EXISTING" ]]; then
+            if [[ "$EXISTING" != "$EXPECTED_SHA" ]]; then
+              echo "::error::Tag $TAG points to $EXISTING instead of candidate $EXPECTED_SHA"
+              exit 1
+            fi
+
+            echo "Tag $TAG already points to candidate $EXPECTED_SHA"
+          else
+            gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+              -f "ref=refs/tags/$TAG" \
+              -f "sha=$EXPECTED_SHA" > /dev/null
+            git fetch --tags --force
+            CREATED=$(git rev-parse -q --verify "refs/tags/$TAG^{commit}" || true)
+            if [[ "$CREATED" != "$EXPECTED_SHA" ]]; then
+              echo "::error::Created tag $TAG resolved to $CREATED instead of candidate $EXPECTED_SHA"
+              exit 1
+            fi
+          fi
+      - name: Verify candidate before publication
+        if: ${{ steps.upload.outputs.publish_needed == 'true' }}
+        env:
+          EXPECTED_SHA: ${{ needs.parse.outputs.candidate_sha }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.parse.outputs.version }}
+        run: |
+          gh auth setup-git
+          git fetch origin main --no-tags
+          git fetch --tags --force
+
+          TARGET=$(git rev-parse HEAD)
+          MAIN=$(git rev-parse origin/main)
+          TAG_TARGET=$(git rev-parse "desktop_v$VERSION^{commit}")
+          bash scripts/verify-release-candidate.sh "$EXPECTED_SHA"
+          if [[ "$TARGET" != "$EXPECTED_SHA" || "$TAG_TARGET" != "$EXPECTED_SHA" ]]; then
+            echo "::error::Candidate moved before publication (candidate=$EXPECTED_SHA, checkout=$TARGET, main=$MAIN, tag=$TAG_TARGET)"
+            exit 1
+          fi
+      - name: Publish CrabNebula release
+        if: ${{ steps.upload.outputs.publish_needed == 'true' }}
+        env:
+          CHANNEL: ${{ needs.parse.outputs.channel }}
+          CN_API_KEY: ${{ secrets.CN_API_KEY }}
+          CN_APPLICATION: ${{ needs.parse.outputs.cn_application }}
+          CN_CLI: ${{ steps.cn-install.outputs.path }}
+          VERSION: ${{ needs.parse.outputs.version }}
+        run: |
+          "$CN_CLI" release publish "$CN_APPLICATION" "$VERSION" --channel "$CHANNEL"
+          PUBLISHED_STATUS=$("$CN_CLI" release show "$CN_APPLICATION" "$VERSION" --channel "$CHANNEL" | jq -r '.status // empty | ascii_downcase')
+          if [[ "$PUBLISHED_STATUS" != "published" ]]; then
+            echo "::error::Expected published status after release publish, got '$PUBLISHED_STATUS'"
+            exit 1
+          fi
+      - env:
+          CANDIDATE_SHA: ${{ needs.parse.outputs.candidate_sha }}
+          CHANNEL: ${{ needs.parse.outputs.channel }}
+          CN_APPLICATION: ${{ needs.parse.outputs.cn_application }}
+          DRY_RUN_ID: ${{ needs.parse.outputs.dry_run_id }}
+          PUBLISH_NEEDED: ${{ steps.upload.outputs.publish_needed }}
+          VERSION: ${{ needs.parse.outputs.version }}
+        run: |
+          {
+            echo "## GPUI Stable Publication"
+            echo "- Application: \`$CN_APPLICATION\` (\`$CHANNEL\`)"
+            echo "- Version: \`$VERSION\`"
+            echo "- Candidate SHA: \`$CANDIDATE_SHA\`"
+            echo "- Source CD run: \`$DRY_RUN_ID\`"
+            echo "- Tag: \`desktop_v$VERSION\`"
+            echo "- Published in this run: \`$PUBLISH_NEEDED\`"
+          } >> "$GITHUB_STEP_SUMMARY"
