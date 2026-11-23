@@ -6,6 +6,11 @@ import type {
 } from "@anlg/plugin-calendar";
 
 import { applyCalendarInventory, loadEnabledCalendars } from "./storage";
+import {
+  calendarSyncIssue,
+  connectionKey,
+  type CalendarSyncIssue,
+} from "./sync-errors";
 
 import { enqueueDatabaseWrite } from "~/db/write-queue";
 
@@ -14,8 +19,6 @@ export interface Ctx {
   connectionId: string;
   from: Date;
   to: Date;
-  calendarIds: Set<string>;
-  calendarTrackingIdToId: Map<string, string>;
   calendars: Array<{ id: string; tracking_id_calendar: string }>;
 }
 
@@ -30,23 +33,11 @@ export async function createCtx(
   range: CalendarSyncRange = getDefaultRange(),
 ): Promise<Ctx> {
   const calendars = await loadEnabledCalendars(provider, connectionId);
-  const calendarIds = new Set<string>();
-  const calendarTrackingIdToId = new Map<string, string>();
-
-  for (const calendar of calendars) {
-    calendarIds.add(calendar.id);
-    if (calendar.tracking_id_calendar) {
-      calendarTrackingIdToId.set(calendar.tracking_id_calendar, calendar.id);
-    }
-  }
-
   return {
     provider,
     connectionId,
     from: range.from,
     to: range.to,
-    calendarIds,
-    calendarTrackingIdToId,
     calendars: calendars.map((calendar) => ({
       id: calendar.id,
       tracking_id_calendar: calendar.tracking_id_calendar,
@@ -68,9 +59,10 @@ export async function syncCalendars(
   providerConnections: ProviderConnectionIds[],
   signal?: AbortSignal,
   shouldStop: () => boolean = () => signal?.aborted === true,
-): Promise<void> {
+) {
+  const failures = new Map<string, CalendarSyncIssue>();
   for (const { provider, connection_ids } of providerConnections) {
-    if (shouldStop()) return;
+    if (shouldStop()) break;
 
     const successfulConnections: Array<{
       connectionId: string;
@@ -78,18 +70,24 @@ export async function syncCalendars(
     }> = [];
 
     for (const connectionId of connection_ids) {
-      if (shouldStop()) return;
+      if (shouldStop()) return failures;
 
-      const result = await calendarCommands.listCalendars(
-        provider,
-        connectionId,
-      );
-      if (shouldStop()) return;
-      if (result.status === "error") continue;
-      successfulConnections.push({ connectionId, calendars: result.data });
+      try {
+        const result = await calendarCommands.listCalendars(
+          provider,
+          connectionId,
+        );
+        if (result.status === "error") throw result.error;
+        successfulConnections.push({ connectionId, calendars: result.data });
+      } catch (error) {
+        failures.set(
+          connectionKey(provider, connectionId),
+          calendarSyncIssue(error),
+        );
+      }
     }
 
-    if (shouldStop()) return;
+    if (shouldStop()) break;
     await enqueueDatabaseWrite("calendar-sync", async () => {
       if (shouldStop()) return;
       await applyCalendarInventory({
@@ -99,6 +97,7 @@ export async function syncCalendars(
       });
     });
   }
+  return failures;
 }
 
 const getDefaultRange = (): CalendarSyncRange => {

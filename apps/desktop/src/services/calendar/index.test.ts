@@ -22,7 +22,6 @@ const writeQueueMocks = vi.hoisted(() => ({
 vi.mock("./ctx", () => ctxMocks);
 
 vi.mock("./fetch", () => ({
-  CalendarFetchError: class CalendarFetchError extends Error {},
   fetchIncomingEvents: fetchMocks.fetchIncomingEvents,
 }));
 
@@ -38,16 +37,16 @@ import {
   syncCalendarEvents,
   syncCalendarEventsForRange,
 } from ".";
+import { setCalendarSyncIssue, useCalendarSyncIssues } from "./sync-errors";
 
 import { createTaskScheduler } from "~/services/task-scheduler";
 
 const ctx = {
   provider: "google" as const,
   connectionId: "conn-1",
+  calendars: [{ id: "cal-1", tracking_id_calendar: "primary" }],
   from: new Date("2026-06-01T00:00:00.000Z"),
   to: new Date("2026-06-08T00:00:00.000Z"),
-  calendarIds: new Set(["cal-1"]),
-  calendarTrackingIdToId: new Map([["primary", "cal-1"]]),
 };
 
 const managers: ReturnType<typeof createTaskScheduler>[] = [];
@@ -61,9 +60,10 @@ describe("syncCalendarEventsForRange", () => {
     ctxMocks.getProviderConnections.mockResolvedValue([
       { provider: "google", connection_ids: ["conn-1"] },
     ]);
-    ctxMocks.syncCalendars.mockResolvedValue(undefined);
+    ctxMocks.syncCalendars.mockResolvedValue(new Map());
     ctxMocks.createCtx.mockResolvedValue(ctx);
     fetchMocks.fetchIncomingEvents.mockResolvedValue({
+      calendars: ctx.calendars,
       events: [],
       participants: new Map(),
     });
@@ -77,6 +77,75 @@ describe("syncCalendarEventsForRange", () => {
     }
     managers.length = 0;
     vi.useRealTimers();
+  });
+
+  test("reconciles only completed calendars and clears the account error after recovery", async () => {
+    const failed = { id: "failed", tracking_id_calendar: "offline" };
+    const calendars = [...ctx.calendars, failed];
+    ctxMocks.createCtx.mockResolvedValue({ ...ctx, calendars });
+    fetchMocks.fetchIncomingEvents.mockResolvedValueOnce({
+      calendars: ctx.calendars,
+      events: [],
+      participants: new Map(),
+      issue: "sync_failed",
+    });
+    await syncCalendarEventsForRange(ctx);
+    expect(
+      storageMocks.syncConnectionEvents.mock.calls[0][0].ctx.calendars,
+    ).toEqual(ctx.calendars);
+    expect(useCalendarSyncIssues.getState()["google:conn-1"]).toBe(
+      "sync_failed",
+    );
+    fetchMocks.fetchIncomingEvents.mockResolvedValueOnce({
+      calendars,
+      events: [],
+      participants: new Map(),
+    });
+    await syncCalendarEventsForRange(ctx);
+    expect(
+      storageMocks.syncConnectionEvents.mock.calls[1][0].ctx.calendars,
+    ).toEqual(calendars);
+    expect(useCalendarSyncIssues.getState()["google:conn-1"]).toBeUndefined();
+  });
+
+  test("continues syncing healthy Google calendars when Outlook discovery fails", async () => {
+    ctxMocks.getProviderConnections.mockResolvedValueOnce([
+      { provider: "outlook", connection_ids: ["outlook-1"] },
+      { provider: "google", connection_ids: ["conn-1"] },
+    ]);
+    ctxMocks.syncCalendars.mockResolvedValueOnce(
+      new Map([["outlook:outlook-1", "outlook_mailbox_unavailable"]]),
+    );
+    ctxMocks.createCtx.mockImplementation(
+      async (provider: string, connectionId: string) =>
+        provider === "outlook"
+          ? { ...ctx, provider, connectionId, calendars: [] }
+          : { ...ctx, provider, connectionId },
+    );
+    const googleEvent = { tracking_id_event: "evt-google-1" };
+    fetchMocks.fetchIncomingEvents.mockImplementation(async (argCtx) => ({
+      calendars: argCtx.calendars,
+      events: argCtx.provider === "google" ? [googleEvent] : [],
+      participants: new Map(),
+    }));
+
+    await syncCalendarEventsForRange({ from: ctx.from, to: ctx.to });
+
+    expect(storageMocks.syncConnectionEvents).toHaveBeenCalledTimes(1);
+    expect(
+      storageMocks.syncConnectionEvents.mock.calls[0][0].ctx.provider,
+    ).toBe("google");
+    expect(
+      storageMocks.syncConnectionEvents.mock.calls[0][0].ctx.connectionId,
+    ).toBe("conn-1");
+    expect(storageMocks.syncConnectionEvents.mock.calls[0][0].incoming).toEqual(
+      [googleEvent],
+    );
+    expect(useCalendarSyncIssues.getState()["outlook:outlook-1"]).toBe(
+      "outlook_mailbox_unavailable",
+    );
+    expect(useCalendarSyncIssues.getState()["google:conn-1"]).toBeUndefined();
+    setCalendarSyncIssue("outlook:outlook-1");
   });
 
   test.each([
@@ -388,7 +457,7 @@ describe("syncCalendarEventsForRange", () => {
     const abortController = new AbortController();
     fetchMocks.fetchIncomingEvents.mockImplementation(async () => {
       abortController.abort();
-      return { events: [], participants: new Map() };
+      return { calendars: ctx.calendars, events: [], participants: new Map() };
     });
 
     await syncCalendarEventsForRange(

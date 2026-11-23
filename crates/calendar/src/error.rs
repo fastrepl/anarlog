@@ -17,6 +17,10 @@ pub enum Error {
     InvalidAuthHeader(#[from] reqwest::header::InvalidHeaderValue),
     #[error("http client error: {0}")]
     HttpClient(#[from] reqwest::Error),
+    #[error("outlook_mailbox_unavailable")]
+    MailboxUnavailable,
+    #[error("reconnect_required")]
+    ReconnectRequired,
     #[error("api error: {0}")]
     Api(String),
     #[error("apple calendar error: {0}")]

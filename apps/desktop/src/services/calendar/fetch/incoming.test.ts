@@ -17,8 +17,6 @@ const ctx: Ctx = {
   connectionId: "conn-1",
   from: new Date("2026-06-01T00:00:00.000Z"),
   to: new Date("2026-06-02T00:00:00.000Z"),
-  calendarIds: new Set(["cal-1"]),
-  calendarTrackingIdToId: new Map([["primary", "cal-1"]]),
   calendars: [{ id: "cal-1", tracking_id_calendar: "primary" }],
 };
 
@@ -27,9 +25,45 @@ describe("fetchIncomingEvents", () => {
     vi.resetAllMocks();
   });
 
+  test("retains completed event pages and empty calendars when a sibling fails", async () => {
+    const calendars = ["healthy", "failed", "empty"].map((id) => ({
+      id,
+      tracking_id_calendar: id,
+    }));
+    calendarCommands.listEvents
+      .mockResolvedValueOnce({
+        status: "ok",
+        data: [
+          {
+            id: "meeting",
+            calendar_id: "healthy",
+            title: "Review",
+            attendees: [],
+            started_at: "2026-06-01T10:00:00Z",
+            ended_at: "2026-06-01T11:00:00Z",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        status: "error",
+        error: "outlook_mailbox_unavailable",
+      })
+      .mockResolvedValueOnce({ status: "ok", data: [] });
+    const result = await fetchIncomingEvents({
+      ...ctx,
+      provider: "outlook",
+      calendars,
+    });
+    expect(result.calendars).toEqual([calendars[0], calendars[2]]);
+    expect(result.events.map((event) => event.tracking_id_event)).toEqual([
+      "meeting",
+    ]);
+    expect(result.issue).toBe("outlook_mailbox_unavailable");
+  });
+
   test("carries exact legacy aliases and cancellation through the provider boundary", async () => {
     calendarCommands.listEvents.mockResolvedValue({
-      status: "success",
+      status: "ok",
       data: [
         {
           id: "canonical",
@@ -57,7 +91,7 @@ describe("fetchIncomingEvents", () => {
 
   test("records an empty participant list so stale auto mappings are removed", async () => {
     calendarCommands.listEvents.mockResolvedValue({
-      status: "success",
+      status: "ok",
       data: [
         {
           id: "event-1",
@@ -83,7 +117,7 @@ describe("fetchIncomingEvents", () => {
   test("passes through the meeting link resolved during provider conversion", async () => {
     const meetingLink = "https://meet.google.com/abc-defg-hij";
     calendarCommands.listEvents.mockResolvedValue({
-      status: "success",
+      status: "ok",
       data: [
         {
           id: "event-1",
@@ -109,7 +143,7 @@ describe("fetchIncomingEvents", () => {
 
   test("stores normalized attendance evidence with one observation time", async () => {
     calendarCommands.listEvents.mockResolvedValue({
-      status: "success",
+      status: "ok",
       data: [
         {
           id: "event-1",
@@ -177,7 +211,7 @@ describe("fetchIncomingEvents", () => {
 
   test("omits self-declined events using normalized provider attendance", async () => {
     calendarCommands.listEvents.mockResolvedValue({
-      status: "success",
+      status: "ok",
       data: [
         {
           id: "event-1",
@@ -212,7 +246,7 @@ describe("fetchIncomingEvents", () => {
 
   test("keeps group-declined events visible for scheduler policy", async () => {
     calendarCommands.listEvents.mockResolvedValue({
-      status: "success",
+      status: "ok",
       data: [
         {
           id: "event-1",

@@ -7,31 +7,20 @@ import {
   type EventAttendanceSnapshotV1,
 } from "../attendance";
 import type { Ctx } from "../ctx";
+import { calendarSyncIssue, type CalendarSyncIssue } from "../sync-errors";
 import type {
   EventParticipant,
   IncomingEvent,
   IncomingParticipants,
 } from "./types";
 
-export class CalendarFetchError extends Error {
-  constructor(
-    public readonly calendarTrackingId: string,
-    public readonly cause: string,
-  ) {
-    super(
-      `Failed to fetch events for calendar ${calendarTrackingId}: ${cause}`,
-    );
-    this.name = "CalendarFetchError";
-  }
-}
-
-export async function fetchIncomingEvents(ctx: Ctx): Promise<{
-  events: IncomingEvent[];
-  participants: IncomingParticipants;
-}> {
-  const trackingIds = Array.from(ctx.calendarTrackingIdToId.keys());
-
-  const results = await Promise.all(
+export async function fetchIncomingEvents(ctx: Ctx) {
+  const trackingIds = [
+    ...new Set(
+      ctx.calendars.map((cal) => cal.tracking_id_calendar).filter(Boolean),
+    ),
+  ];
+  const results = await Promise.allSettled(
     trackingIds.map(async (trackingId) => {
       const result = await calendarCommands.listEvents(
         ctx.provider,
@@ -42,16 +31,24 @@ export async function fetchIncomingEvents(ctx: Ctx): Promise<{
           to: ctx.to.toISOString(),
         },
       );
-
-      if (result.status === "error") {
-        throw new CalendarFetchError(trackingId, result.error);
-      }
-
-      return result.data;
+      if (result.status === "error") throw result.error;
+      return { trackingId, events: result.data };
     }),
   );
 
-  const calendarEvents = results.flat();
+  const fetched = new Set<string>();
+  const calendarEvents: CalendarEvent[] = [];
+  let issue: CalendarSyncIssue | undefined;
+  for (const result of results) {
+    if (result.status === "rejected") {
+      if (!issue || issue === "sync_failed")
+        issue = calendarSyncIssue(result.reason);
+      continue;
+    }
+    fetched.add(result.value.trackingId);
+    for (const event of result.value.events) calendarEvents.push(event);
+  }
+
   const observedAt = new Date();
   const events: IncomingEvent[] = [];
   const participants: IncomingParticipants = new Map();
@@ -72,7 +69,14 @@ export async function fetchIncomingEvents(ctx: Ctx): Promise<{
     }
   }
 
-  return { events, participants };
+  return {
+    calendars: ctx.calendars.filter((cal) =>
+      fetched.has(cal.tracking_id_calendar),
+    ),
+    events,
+    participants,
+    issue,
+  };
 }
 
 // Meeting links are fully resolved on the Rust side during provider

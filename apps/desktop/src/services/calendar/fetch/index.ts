@@ -1,1 +1,1 @@
-export { CalendarFetchError, fetchIncomingEvents } from "./incoming";
+export { fetchIncomingEvents } from "./incoming";

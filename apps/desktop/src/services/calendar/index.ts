@@ -6,8 +6,13 @@ import {
   getProviderConnections,
   syncCalendars,
 } from "./ctx";
-import { CalendarFetchError, fetchIncomingEvents } from "./fetch";
+import { fetchIncomingEvents } from "./fetch";
 import { syncConnectionEvents, tombstoneCalendarConnection } from "./storage";
+import {
+  connectionKey,
+  setCalendarSyncIssue,
+  type CalendarSyncIssue,
+} from "./sync-errors";
 
 import { enqueueDatabaseWrite } from "~/db/write-queue";
 import type { TaskScheduler } from "~/services/task-scheduler";
@@ -94,6 +99,7 @@ export function removeDisconnectedCalendarConnection(
 
   const key = connectionKey(provider, connectionId);
   calendarSyncGeneration += 1;
+  setCalendarSyncIssue(key);
   disconnectedCalendarConnections.add(key);
   return enqueueDatabaseWrite("calendar-sync", () =>
     tombstoneCalendarConnection(provider, connectionId),
@@ -130,26 +136,35 @@ async function run(
     discoveredConnections,
   );
 
-  await syncCalendars(providerConnections, options.signal, shouldStop);
+  const inventoryFailures = await syncCalendars(
+    providerConnections,
+    options.signal,
+    shouldStop,
+  );
   if (shouldStop()) return;
 
   for (const { provider, connection_ids } of providerConnections) {
     for (const connectionId of connection_ids) {
       if (shouldStop()) return;
 
+      const key = connectionKey(provider, connectionId);
+      let issue: CalendarSyncIssue | undefined = inventoryFailures.get(key);
       try {
-        await runForConnection(
+        const eventIssue = await runForConnection(
           provider,
           connectionId,
           range,
           options,
           generation,
         );
+        if (!issue || issue === "sync_failed") issue = eventIssue ?? issue;
       } catch (error) {
+        issue ??= "sync_failed";
         console.error(
           `[calendar-sync] Error syncing ${provider} (${connectionId}): ${error}`,
         );
       }
+      if (!shouldStop()) setCalendarSyncIssue(key, issue);
     }
   }
 }
@@ -165,29 +180,19 @@ async function runForConnection(
   const ctx = await createCtx(provider, connectionId, range);
   if (shouldStop()) return;
 
-  let incoming;
-  let incomingParticipants;
-
-  try {
-    const result = await fetchIncomingEvents(ctx);
-    incoming = result.events;
-    incomingParticipants = result.participants;
-  } catch (error) {
-    if (error instanceof CalendarFetchError) {
-      console.error(
-        `[calendar-sync] Aborting ${provider} sync due to fetch error: ${error.message}`,
-      );
-      return;
-    }
-    throw error;
-  }
-
+  const result = await fetchIncomingEvents(ctx);
   if (shouldStop()) return;
-
-  await enqueueDatabaseWrite("calendar-sync", async () => {
-    if (shouldStop()) return;
-    await syncConnectionEvents({ ctx, incoming, incomingParticipants });
-  });
+  if (result.calendars.length) {
+    await enqueueDatabaseWrite("calendar-sync", async () => {
+      if (shouldStop()) return;
+      await syncConnectionEvents({
+        ctx: { ...ctx, calendars: result.calendars },
+        incoming: result.events,
+        incomingParticipants: result.participants,
+      });
+    });
+  }
+  return result.issue;
 }
 
 function isStopped(signal: AbortSignal | undefined, generation: number) {
@@ -221,13 +226,6 @@ function excludeDisconnectedConnections(
       ? [{ provider, connection_ids: activeConnectionIds }]
       : [];
   });
-}
-
-function connectionKey(
-  provider: CalendarProviderType,
-  connectionId: string,
-): string {
-  return `${provider}:${connectionId}`;
 }
 
 function calendarProviderForIntegration(
