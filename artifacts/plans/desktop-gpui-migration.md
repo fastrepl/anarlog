@@ -2,6 +2,8 @@
 
 Planning date: November 16, 2026 (Asia/Seoul). Status: proposal; implementation and release gates remain open. Parent: [ANLG-320](https://linear.app/fastrepl-inc/issue/ANLG-320).
 
+**Baseline status note (November 23, 2026):** This file preserves the November 16 planning baseline before `apps/desktop-gpui`, `crates/desktop-runtime`, and `.github/workflows/gpui_ci.yaml` landed on `main`. Treat M0 inventory/baseline and CI-extension notes as reconciled against those checked-in packages and workflows while preserving the remaining parity, native qualification, and cutover gates.
+
 Build a standalone GPUI desktop application alongside the existing Tauri application. Reuse the Rust domain services, move application behavior out of React and Tauri adapters where necessary, and replace every desktop product surface with native GPUI views. Keep existing documents, libraries, accounts, recordings, settings, and external contracts compatible. Retain the current application until the replacement passes qualification and a stable rollback window.
 
 The recommended first investment is a two-week reconciliation and feasibility tranche. Establish what existing native work can be reused, prove the hardest editor and accessibility interactions, and measure the current application before committing the full team to the port. For three full-time engineers, use **30–45 calendar weeks to full desktop cutover**, plus at least one stable release cycle before retirement, as an initial planning range. Re-estimate after M0–M2. This is an engineering estimate, not a measured forecast or delivery commitment.
@@ -21,7 +23,7 @@ The recommended first investment is a two-week reconciliation and feasibility tr
 
 This is a continuation of existing work, not a greenfield framework choice. Preserve the milestone IDs M0–M12, work packages W01–W18, and gates G1–G8 from the [existing execution plan](https://linear.app/fastrepl-inc/document/rustgpui-desktop-migration-execution-plan-4ea01a15ee73). Use its [command and surface inventory](https://linear.app/fastrepl-inc/document/rustgpui-migration-command-and-surface-inventory-de15933fe8b2) as the seed for a refreshed implementation ledger. This document is a concise repository planning baseline, not a replacement for the detailed implementation evidence in Linear.
 
-Verified during this planning pass:
+Verified during this November 16 planning pass:
 
 - This checkout contains `apps/desktop`, but no `apps/desktop-gpui` or `crates/desktop-runtime`. It is a shared GitButler workspace with unrelated work; no native candidate was applied or modified.
 - [PR #7356](https://github.com/fastrepl/anarlog/pull/7356) and [PR #7720](https://github.com/fastrepl/anarlog/pull/7720) are closed, unmerged drafts. Their published heads are respectively `3632bf4b293478d5efe757a85badf284748a7baf` and `2fc8da45378061a1412560756539408115446693`. Neither is evidence of a shipped migration.
