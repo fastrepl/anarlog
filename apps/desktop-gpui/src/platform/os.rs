@@ -30,7 +30,6 @@ pub fn open(target: impl AsRef<OsStr>) -> std::io::Result<()> {
 }
 
 /// Shows an `rfd` dialog; headless, it answers as if cancelled without showing anything.
-#[cfg(not(target_os = "linux"))]
 pub fn dialog<T, F: Future<Output = Option<T>>>(
     show: impl FnOnce() -> F,
 ) -> impl Future<Output = Option<T>> {
@@ -43,91 +42,50 @@ pub fn dialog<T, F: Future<Output = Option<T>>>(
     }
 }
 
-/// Linux portals use the Tokio-enabled zbus selected by the detect dependency.
-#[cfg(target_os = "linux")]
-pub fn portal_runtime() -> Result<&'static tokio::runtime::Runtime, &'static std::io::Error> {
-    use std::sync::OnceLock;
-
-    static PORTALS: OnceLock<std::io::Result<tokio::runtime::Runtime>> = OnceLock::new();
-    PORTALS
-        .get_or_init(|| {
-            tokio::runtime::Builder::new_multi_thread()
-                .worker_threads(1)
-                .thread_name("native-portals")
-                .enable_all()
-                .build()
-        })
-        .as_ref()
-}
-
-/// Shows a Linux dialog from either GPUI executor without requiring a Tokio caller.
-#[cfg(target_os = "linux")]
-pub async fn dialog<T, F: Future<Output = Option<T>>>(show: impl FnOnce() -> F) -> Option<T> {
-    if headless() {
-        return None;
-    }
-    let runtime = match portal_runtime() {
-        Ok(runtime) => runtime,
-        Err(error) => {
-            tracing::error!(%error, "could not start native dialog runtime");
-            return None;
-        }
-    };
-    // Enter for construction AND every poll; never hold an EnterGuard across an await
-    // that can move to another thread.
-    let mut shown = std::pin::pin!(async move { show().await });
-    futures::future::poll_fn(|cx| {
-        let _entered = runtime.enter();
-        shown.as_mut().poll(cx)
-    })
-    .await
-}
-
-/// GPUI's Linux reveal task runs on workers without the Tokio context zbus requires.
 /// Like the shipping app, selects the file in the file manager, else opens its folder.
 #[cfg(target_os = "linux")]
 pub fn reveal_path(path: &std::path::Path) {
     if headless() {
         return;
     }
-    let runtime = match portal_runtime() {
-        Ok(runtime) => runtime,
-        Err(error) => {
-            tracing::error!(%error, "could not start native reveal runtime");
-            return;
-        }
-    };
     let path = path.to_path_buf();
-    drop(runtime.spawn(async move {
-        let Err(error) = select_in_file_manager(&path).await else {
-            return;
-        };
-        tracing::debug!(%error, "could not select file through the file manager");
-        let result = async {
-            use std::os::fd::AsFd;
+    if let Err(error) = std::thread::Builder::new()
+        .name("native-reveal".into())
+        .spawn(move || {
+            futures::executor::block_on(async move {
+                let Err(error) = select_in_file_manager(&path).await else {
+                    return;
+                };
+                tracing::debug!(%error, "could not select file through the file manager");
+                let result = async {
+                    use std::os::fd::AsFd;
 
-            let file = std::fs::File::open(&path)?;
-            ashpd::desktop::open_uri::OpenDirectoryRequest::default()
-                .send(&file.as_fd())
-                .await?
-                .response()?;
-            Ok::<_, anyhow::Error>(())
-        }
-        .await;
-        if let Err(error) = result {
-            tracing::warn!(%error, "could not reveal file through desktop portal");
-            let directory = if path.is_dir() {
-                Some(path.as_path())
-            } else {
-                path.parent()
-            };
-            if let Some(directory) = directory
-                && let Err(error) = open(directory)
-            {
-                tracing::error!(%error, "could not open containing folder");
-            }
-        }
-    }));
+                    let file = std::fs::File::open(&path)?;
+                    ashpd::desktop::open_uri::OpenDirectoryRequest::default()
+                        .send(&file.as_fd())
+                        .await?
+                        .response()?;
+                    Ok::<_, anyhow::Error>(())
+                }
+                .await;
+                if let Err(error) = result {
+                    tracing::warn!(%error, "could not reveal file through desktop portal");
+                    let directory = if path.is_dir() {
+                        Some(path.as_path())
+                    } else {
+                        path.parent()
+                    };
+                    if let Some(directory) = directory
+                        && let Err(error) = open(directory)
+                    {
+                        tracing::error!(%error, "could not open containing folder");
+                    }
+                }
+            });
+        })
+    {
+        tracing::error!(%error, "could not start native reveal thread");
+    }
 }
 
 #[cfg(target_os = "linux")]
@@ -263,46 +221,32 @@ mod tests {
         use futures::StreamExt;
 
         let (ready, serving) = std::sync::mpsc::channel();
-        super::portal_runtime().unwrap().spawn(async move {
-            let connection = Connection::session().await.unwrap();
-            let mut calls = MessageStream::from(&connection);
-            connection
-                .request_name("org.freedesktop.FileManager1")
-                .await
-                .unwrap();
-            ready.send(()).unwrap();
-            while let Some(Ok(call)) = calls.next().await {
-                let header = call.header();
-                if header.message_type() != Type::MethodCall
-                    || header
-                        .member()
-                        .is_none_or(|member| member.as_str() != "ShowItems")
-                {
-                    continue;
+        std::thread::spawn(move || {
+            futures::executor::block_on(async move {
+                let connection = Connection::session().await.unwrap();
+                let mut calls = MessageStream::from(&connection);
+                connection
+                    .request_name("org.freedesktop.FileManager1")
+                    .await
+                    .unwrap();
+                ready.send(()).unwrap();
+                while let Some(Ok(call)) = calls.next().await {
+                    let header = call.header();
+                    if header.message_type() != Type::MethodCall
+                        || header
+                            .member()
+                            .is_none_or(|member| member.as_str() != "ShowItems")
+                    {
+                        continue;
+                    }
+                    let (uris, _): (Vec<String>, String) = call.body().deserialize().unwrap();
+                    std::fs::write(&result, uris.join("\n")).unwrap();
+                    connection.reply(&header, &()).await.unwrap();
                 }
-                let (uris, _): (Vec<String>, String) = call.body().deserialize().unwrap();
-                std::fs::write(&result, uris.join("\n")).unwrap();
-                connection.reply(&header, &()).await.unwrap();
-            }
+            });
         });
         serving
             .recv_timeout(std::time::Duration::from_secs(5))
             .expect("fake file manager owns its bus name");
-    }
-
-    #[test]
-    fn dialog_can_use_the_portal_reactor_outside_tokio() {
-        let selected = futures::executor::block_on(super::dialog(|| {
-            // Both constructing a portal request and resuming it can use Tokio.
-            let request = tokio::spawn(async {
-                tokio::time::sleep(std::time::Duration::from_millis(1)).await;
-                "selected-file.txt"
-            });
-            async move {
-                let selected = request.await.expect("portal request completes");
-                Some(tokio::task::spawn_blocking(move || selected).await.unwrap())
-            }
-        }));
-        assert_eq!(selected, Some("selected-file.txt"));
     }
 }
