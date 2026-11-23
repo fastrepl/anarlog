@@ -147,13 +147,22 @@ jobs:
           const summaryLines = summaryIndex === -1
             ? []
             : visibleLines.slice(summaryIndex + 1, summaryEndIndex === -1 ? visibleLines.length : summaryEndIndex);
-          const intentLabel = /^\*\*Intent(?:ion)?:\*\*\s*/i;
-          const intentIndex = summaryLines.findIndex(
-            (line) => !line.isCode && intentLabel.test(line.text),
-          );
-          const intent = intentIndex === -1
-            ? ""
-            : summaryLines[intentIndex].text.replace(intentLabel, "").trim();
+          const intentionLabel = /^\*\*Intention:\*\*\s*/i;
+          const legacyIntentLabel = /^\*\*Intent:\*\*\s*/i;
+          const firstLabelValue = (pattern) => {
+            const match = summaryLines.find(
+              (line) => !line.isCode && pattern.test(line.text),
+            );
+            return match ? match.text.replace(pattern, "").trim() : "";
+          };
+          const intentionValues = [
+            firstLabelValue(intentionLabel),
+            firstLabelValue(legacyIntentLabel),
+          ];
+          const intent =
+            intentionValues.find((value) => value.length >= 20 && value.length <= 400) ??
+            intentionValues.find((value) => value.length > 0) ??
+            "";
 
           if (intent.length < 20) {
             errors.push(

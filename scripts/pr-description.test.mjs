@@ -65,6 +65,42 @@ Ran the PR description validator.`;
   }
 });
 
+test("accepts legacy Intent when Intention placeholder is blank and checks length bounds", () => {
+  const mixedBody = (intention, legacyIntent) => `## Summary
+
+**Context:** Reconnecting could create a second copy of a note.
+
+**Intention:** ${intention}
+
+**Intent:** ${legacyIntent}
+
+**Direction:** Reuse the original note identity when retrying sync.
+
+## Demo
+
+N/A: description format only`;
+
+  const valid = validate("", {
+    PR_BODY: mixedBody(
+      "<!-- Why was that off? -->",
+      "Prevent duplicate notes when the connection recovers.",
+    ),
+  });
+  assert.equal(valid.status, 0, valid.stderr);
+
+  const tooLong = validate("", {
+    PR_BODY: mixedBody("", "a".repeat(401)),
+  });
+  assert.equal(tooLong.status, 1, tooLong.stderr);
+  assert.match(tooLong.stderr, /400 characters max/);
+
+  const bothBlank = validate("", {
+    PR_BODY: mixedBody("<!-- placeholder -->", "<!-- legacy -->"),
+  });
+  assert.equal(bothBlank.status, 1, bothBlank.stderr);
+  assert.match(bothBlank.stderr, /at least 20 characters/);
+});
+
 test("rejects missing, hidden, or reasonless demo evidence", () => {
   for (const demo of [
     "",
