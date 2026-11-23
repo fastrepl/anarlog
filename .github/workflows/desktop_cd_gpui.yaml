@@ -381,6 +381,7 @@ jobs:
               chmod +x /tmp/anarlog.AppImage
               mkdir -p /tmp/home /tmp/runtime
               chmod 700 /tmp/runtime
+              start_seconds=$SECONDS
               set +e
               APPIMAGE_EXTRACT_AND_RUN=1 \
                 HOME=/tmp/home \
@@ -393,8 +394,14 @@ jobs:
 
               app_started=""
               for _ in {1..20}; do
-                if grep -aqF "/usr/bin/$APP_BINARY" /proc/[0-9]*/cmdline 2>/dev/null; then
-                  app_started=1
+                for exe in /proc/[0-9]*/exe; do
+                  target=$(readlink -f "$exe" 2>/dev/null || true)
+                  if [[ "$target" == */usr/bin/"$APP_BINARY" ]]; then
+                    app_started=1
+                    break
+                  fi
+                done
+                if [[ -n "$app_started" ]]; then
                   break
                 fi
                 if ! kill -0 "$smoke_pid" 2>/dev/null; then
@@ -407,13 +414,20 @@ jobs:
               wait "$smoke_pid"
               status=$?
               set -e
+              elapsed=$((SECONDS - start_seconds))
               cat /tmp/anarlog-appimage.log
               if [[ -z "$app_started" ]]; then
                 echo "AppImage did not launch $APP_BINARY within 20 seconds"
                 exit 1
               fi
               case "$status" in
-                124 | 137)
+                124)
+                  ;;
+                137)
+                  if (( elapsed < 20 )); then
+                    echo "Anarlog AppImage was killed after ${elapsed}s before the 20s smoke timeout (status $status)"
+                    exit 1
+                  fi
                   ;;
                 *)
                   echo "Anarlog AppImage exited before the smoke timeout with status $status"
