@@ -268,12 +268,10 @@ Do not re-render the wordmark as text in any font or alter its letterforms.
 
 ## Motion
 
-- **Scale micro-interactions**: `hover:scale-[102%] active:scale-[98%]` — used on all interactive cards and CTA buttons.
-- **Opacity transitions**: `transition-opacity duration-200` — used for fade in/out on dynamic text.
-- **Page-level slide-in**: `animate-in slide-in-from-top duration-300` — used for mobile menu only.
-- **Scroll reveal**: RightPanel CTA fades in after scrolling past the viewport height (motion/react `AnimatePresence`).
-- **Flyout menus**: sidebar flyouts use `opacity + x` transitions (`duration: 0.15, ease: easeInOut`).
-- No bounce, no spring, no decorative keyframes on brand UI.
+- **Default UI transitions**: transitions default to `70ms` via `--default-transition-duration` in `src/styles.css`.
+- **Interactive state and reveal transitions**: use near-instant timing (`duration-75` when an explicit utility duration is needed), with no decorative easing or slow reveals.
+- **Scale micro-interactions**: `hover:scale-[102%] active:scale-[98%]` — used on interactive cards and CTA buttons with default near-instant transition timing.
+- No bounce, no spring, and no decorative UI keyframes; continuous illustration loops (such as marquees, audio bars, and spinners) keep their loop timing.
 
 ### Animation utility classes
 
