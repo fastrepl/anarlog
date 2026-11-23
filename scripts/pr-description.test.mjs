@@ -65,7 +65,7 @@ Ran the PR description validator.`;
   }
 });
 
-test("accepts legacy Intent when Intention placeholder is blank and checks length bounds", () => {
+test("accepts legacy Intent only when Intention is blank, without letting legacy Intent mask invalid Intention", () => {
   const mixedBody = (intention, legacyIntent) => `## Summary
 
 **Context:** Reconnecting could create a second copy of a note.
@@ -88,17 +88,31 @@ N/A: description format only`;
   });
   assert.equal(valid.status, 0, valid.stderr);
 
-  const tooLong = validate("", {
-    PR_BODY: mixedBody("", "a".repeat(401)),
+  const shortIntentionWithValidLegacy = validate("", {
+    PR_BODY: mixedBody(
+      "Too short.",
+      "Prevent duplicate notes when the connection recovers.",
+    ),
   });
-  assert.equal(tooLong.status, 1, tooLong.stderr);
-  assert.match(tooLong.stderr, /400 characters max/);
+  assert.equal(
+    shortIntentionWithValidLegacy.status,
+    1,
+    shortIntentionWithValidLegacy.stderr,
+  );
+  assert.match(shortIntentionWithValidLegacy.stderr, /at least 20 characters/);
 
-  const bothBlank = validate("", {
-    PR_BODY: mixedBody("<!-- placeholder -->", "<!-- legacy -->"),
+  const longIntentionWithValidLegacy = validate("", {
+    PR_BODY: mixedBody(
+      "a".repeat(401),
+      "Prevent duplicate notes when the connection recovers.",
+    ),
   });
-  assert.equal(bothBlank.status, 1, bothBlank.stderr);
-  assert.match(bothBlank.stderr, /at least 20 characters/);
+  assert.equal(
+    longIntentionWithValidLegacy.status,
+    1,
+    longIntentionWithValidLegacy.stderr,
+  );
+  assert.match(longIntentionWithValidLegacy.stderr, /400 characters max/);
 });
 
 test("rejects missing, hidden, or reasonless demo evidence", () => {

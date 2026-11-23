@@ -159,10 +159,7 @@ jobs:
             firstLabelValue(intentionLabel),
             firstLabelValue(legacyIntentLabel),
           ];
-          const intent =
-            intentionValues.find((value) => value.length >= 20 && value.length <= 400) ??
-            intentionValues.find((value) => value.length > 0) ??
-            "";
+          const intent = intentionValues.find((value) => value.length > 0) ?? "";
 
           if (intent.length < 20) {
             errors.push(
