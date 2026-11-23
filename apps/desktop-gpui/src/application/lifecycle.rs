@@ -2680,13 +2680,72 @@ mod tests {
             )
             .unwrap();
 
+            let (save_gate_started_tx, mut save_gate_started_rx) = oneshot::channel::<()>();
+            let (save_gate_release_tx, save_gate_release_rx) = oneshot::channel::<()>();
+            fixture
+                .runtime
+                .submit(move |_| async move {
+                    let _ = save_gate_started_tx.send(());
+                    let _ = save_gate_release_rx.await;
+                    Ok(())
+                })
+                .unwrap();
+            wait_until(cx, |_| {
+                save_gate_started_rx.try_recv().ok().flatten().is_some()
+            });
+
+            assert!(try_edit(
+                fixture.detached_window,
+                &fixture.detached_memo,
+                " quit-draft",
+                cx
+            ));
             cx.update(|cx| {
                 fixture.app_entity.update(cx, |app, cx| {
                     app.request_quit(cx);
-                    assert!(app.closing);
+                    assert!(
+                        app.closing && !app.shutdown_begun() && !app.writers_paused && !app.drained
+                    );
                 });
             });
+
+            cx.update(|cx| {
+                cx.update_window(fixture.main_window, |_, window, cx| {
+                    fixture.app_entity.update(cx, |app, cx| {
+                        app.automation_request(
+                            &crate::meeting::automation::Request::OpenSession {
+                                session: fixture.session_id.clone(),
+                                listen: true,
+                            },
+                            window,
+                            cx,
+                        );
+                        app.open_meeting(
+                            MeetingIntent::Start {
+                                session_id: fixture.session_id.clone(),
+                            },
+                            window,
+                            cx,
+                        );
+                    });
+                })
+                .unwrap();
+            });
+            let mut devices_rx = gated.capture.devices().unwrap();
+            wait_until(cx, |_| devices_rx.try_recv().is_ok());
+            assert_eq!(gated.resolver_calls.load(Ordering::SeqCst), 0);
+            cx.read(|cx| {
+                let app = fixture.app_entity.read(cx);
+                assert!(!app.meeting_live());
+                assert!(app.closing && !app.shutdown_begun());
+            });
+
+            save_gate_release_tx.send(()).unwrap();
             wait_until(cx, |_| flush_started_rx.try_recv().ok().flatten().is_some());
+            cx.read(|cx| {
+                let app = fixture.app_entity.read(cx);
+                assert!(app.closing && app.shutdown_begun());
+            });
 
             cx.update(|cx| {
                 cx.update_window(fixture.main_window, |_, window, cx| {
