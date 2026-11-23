@@ -1397,6 +1397,12 @@ impl ApplicationView {
     }
 
     fn open_meeting(&mut self, intent: MeetingIntent, window: &mut Window, cx: &mut Context<Self>) {
+        if matches!(intent, MeetingIntent::Start { .. })
+            && (self.writers_paused || self.closing || self.drained || self.shutdown_begun())
+        {
+            self.status("Finish pending work before starting capture.", cx);
+            return;
+        }
         let Some(services) = self.services.clone() else {
             self.status("Meeting services are still starting or recovery failed. Retry after resolving the startup error.", cx);
             return;
@@ -1588,7 +1594,7 @@ impl ApplicationView {
                 desktop_runtime::RuntimeState::Closed(_)
             )
         {
-            cx.quit();
+            quit_drained(cx);
             return;
         }
         if self.pins_saving || self.pins_pending.is_some() {

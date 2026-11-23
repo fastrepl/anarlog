@@ -1079,9 +1079,9 @@ impl ApplicationView {
         !(self.closing
             || self.drained
             || self.shutdown_begun()
+            || self.meeting_live()
             || (automatic
                 && (self.product.is_some()
-                    || self.meeting_live()
                     || self.notifications.automatic_updates() != Some(true)))
             || (!automatic
                 && self
