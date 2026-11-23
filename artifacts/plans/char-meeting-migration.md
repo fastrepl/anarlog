@@ -2,6 +2,8 @@
 
 Planning date: November 17, 2026. Implementation authorized after this plan. Tracking: [ANLG-560](https://linear.app/fastrepl-inc/issue/ANLG-560/port-chars-meeting-capture-speaker-labels-notices-and-camera-into).
 
+**Baseline status note (November 23, 2026):** This file preserves the November 17 planning baseline. On current `main`, `tools/meeting-capture`, `tools/camera-watermark`, the browser bridge, and `crates/db-app/src/meeting_notice_ops.rs` (`meeting_notice_claim_key`, currently scoped by account and Anarlog session ID rather than external meeting ID) have already landed, so follow-up work builds on those existing modules.
+
 Replace Anarlog's macOS meeting capture and the affected meeting-app integrations with Char's implementations. Preserve Anarlog's UI, sessions, transcript providers, manual speaker assignments, consent records, recovery, retention, and sync behavior. Add the camera watermark as a native capability. This is a source port, not an Electron application or UI port.
 
 ## Decisions and boundaries
@@ -17,7 +19,7 @@ Replace Anarlog's macOS meeting capture and the affected meeting-app integration
 
 Char source commit: `d4608723d8ac328ab91091803a08c4585a0dc244`.
 
-The selected committed source is exported to `/tmp/anarlog-char-migration-20261117/char-source`; its manifest is `/tmp/anarlog-char-migration-20261117/source-manifest.json`. This is a reference export without Git metadata, not a child checkout. Uncommitted Char work is excluded. The source commit contains these reviewed branch heads:
+The selected committed source was exported to `/tmp/anarlog-char-migration-20261117/char-source`; its manifest is `/tmp/anarlog-char-migration-20261117/source-manifest.json`. That export was a session-local read-only snapshot of `fastrepl/char` commit `d4608723d8ac328ab91091803a08c4585a0dc244` without Git metadata (not a child checkout) and can be reproduced directly from that upstream revision when needed. Uncommitted Char work is excluded. The source commit contains these reviewed branch heads:
 
 - Audio: `b398e4bfa44bd287843485d93ce16fa4bf29a68d`.
 - Speakers: `2a018784f5d2e2f6ef5ca03c70a8e6ed9e679509`.
