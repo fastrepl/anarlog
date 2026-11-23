@@ -230,15 +230,8 @@ impl NoteWindow {
     }
 
     #[cfg(test)]
-    pub(crate) fn is_paused(&self) -> bool {
-        self.paused
-    }
-
-    #[cfg(test)]
-    pub(crate) fn is_editor_read_only(&self, cx: &gpui::App) -> bool {
-        self.editor
-            .as_ref()
-            .is_some_and(|editor| editor.read(cx).is_read_only())
+    pub(crate) fn editor(&self) -> Option<Entity<EditorPane>> {
+        self.editor.clone()
     }
 
     fn close(&mut self, window: &mut Window, cx: &mut Context<Self>) {

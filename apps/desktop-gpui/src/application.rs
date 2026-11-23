@@ -824,6 +824,12 @@ impl ApplicationView {
         if let Some(editor) = &self.editor {
             editor.update(cx, |editor, cx| editor.set_read_only(true, cx));
         }
+        let summaries = self
+            .workspace
+            .read(cx)
+            .note()
+            .clone()
+            .update(cx, |note, cx| note.flush_summaries(true, cx));
         let flush = self.flush_drafts(cx);
         let notes = self
             .note_windows
@@ -833,6 +839,9 @@ impl ApplicationView {
         let cloud = self.native.as_ref().and_then(|n| n.cloud.service.clone());
         let runtime = self.runtime.clone();
         Box::pin(async move {
+            for summary in summaries {
+                summary.await.map_err(|_| ServiceError::Closed)??;
+            }
             flush.await?;
             for note in notes {
                 note.await?;

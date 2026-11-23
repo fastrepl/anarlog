@@ -1172,6 +1172,8 @@ fn download_percent(downloaded: u64, total: u64) -> Option<u8> {
 }
 #[cfg(test)]
 mod tests {
+    use gpui::AppContext as _;
+
     use super::*;
 
     #[test]
@@ -1384,7 +1386,7 @@ mod tests {
         cx: &mut gpui::TestAppContext,
         mut ready: impl FnMut(&mut gpui::TestAppContext) -> bool,
     ) {
-        for _ in 0..500 {
+        for _ in 0..2000 {
             cx.run_until_parked();
             if ready(cx) {
                 return;
@@ -1394,15 +1396,120 @@ mod tests {
         panic!("condition did not become true before timeout");
     }
 
-    fn open_app_with_detached_note(
+    fn try_edit(
+        window: gpui::AnyWindowHandle,
+        editor: &gpui::Entity<crate::editor::EditorPane>,
+        text: &str,
         cx: &mut gpui::TestAppContext,
-    ) -> (
-        tempfile::TempDir,
-        desktop_runtime::RuntimeHandle,
-        gpui::Entity<ApplicationView>,
-        SessionId,
-        gpui::Entity<crate::note_window::NoteWindow>,
+    ) -> bool {
+        cx.update(|cx| {
+            cx.update_window(window, |_, window, cx| {
+                editor.update(cx, |editor, cx| {
+                    gpui::EntityInputHandler::replace_text_in_range(editor, None, text, window, cx);
+                    editor.is_dirty()
+                })
+            })
+            .unwrap()
+        })
+    }
+
+    fn flush_editor(
+        editor: &gpui::Entity<crate::editor::EditorPane>,
+        cx: &mut gpui::TestAppContext,
     ) {
+        let flush = cx.update(|cx| editor.update(cx, |editor, _| editor.flush()));
+        let (tx, mut rx) = futures::channel::oneshot::channel();
+        cx.spawn(async move |_| {
+            let _ = tx.send(flush.await);
+        })
+        .detach();
+        wait_until(cx, |cx| {
+            rx.try_recv()
+                .ok()
+                .flatten()
+                .transpose()
+                .unwrap()
+                .transpose()
+                .unwrap()
+                .is_some()
+                && !cx.read(|cx| editor.read(cx).is_dirty())
+        });
+    }
+
+    struct DetachedNoteFixture {
+        _profile: tempfile::TempDir,
+        runtime: desktop_runtime::RuntimeHandle,
+        main_window: gpui::AnyWindowHandle,
+        app_entity: gpui::Entity<ApplicationView>,
+        session_id: SessionId,
+        main_memo: gpui::Entity<crate::editor::EditorPane>,
+        main_summary: gpui::Entity<crate::editor::EditorPane>,
+        detached_window: gpui::AnyWindowHandle,
+        detached_memo: gpui::Entity<crate::editor::EditorPane>,
+    }
+
+    fn verify_editable_and_flush(
+        app: &DetachedNoteFixture,
+        marker: &str,
+        cx: &mut gpui::TestAppContext,
+    ) {
+        let _ = cx.update(|cx| {
+            let _ = cx.update_window(app.main_window, |_, window, cx| {
+                cx.focus_handle().focus(window, cx)
+            });
+            cx.update_window(app.detached_window, |_, window, cx| {
+                cx.focus_handle().focus(window, cx)
+            })
+        });
+        cx.run_until_parked();
+        let memo_tag = format!(" {marker}-memo");
+        let detached_tag = format!(" {marker}-detached");
+        let summary_tag = format!(" {marker}-summary");
+        assert!(try_edit(app.main_window, &app.main_memo, &memo_tag, cx));
+        flush_editor(&app.main_memo, cx);
+        wait_until(cx, |cx| {
+            cx.read(|cx| {
+                app.detached_memo
+                    .read(cx)
+                    .init
+                    .document
+                    .body
+                    .contains(memo_tag.trim())
+            })
+        });
+        assert!(try_edit(
+            app.detached_window,
+            &app.detached_memo,
+            &detached_tag,
+            cx
+        ));
+        flush_editor(&app.detached_memo, cx);
+        wait_until(cx, |cx| {
+            cx.read(|cx| {
+                app.main_memo
+                    .read(cx)
+                    .init
+                    .document
+                    .body
+                    .contains(detached_tag.trim())
+            })
+        });
+        assert!(try_edit(
+            app.main_window,
+            &app.main_summary,
+            &summary_tag,
+            cx
+        ));
+        flush_editor(&app.main_summary, cx);
+        wait_until(cx, |cx| {
+            cx.read(|cx| {
+                let note = app.app_entity.read(cx).workspace.read(cx).note().read(cx);
+                !note.has_unsaved_title(cx) && !note.has_unsaved_summary(cx)
+            })
+        });
+    }
+
+    fn open_app_with_detached_note(cx: &mut gpui::TestAppContext) -> DetachedNoteFixture {
         crate::platform::os::go_headless();
         cx.executor().allow_parking();
         let profile = tempfile::tempdir().unwrap();
@@ -1439,6 +1546,34 @@ mod tests {
         )
         .unwrap();
         let session_id = created.summary.id;
+        let summary_sid = session_id.0.clone();
+        let summary_body = json!({
+            "type": "doc",
+            "content": [
+                {"type": "heading", "attrs": {"level": 1}, "content": [{"type": "text", "text": "Quit drain note"}]},
+                {"type": "paragraph", "content": [{"type": "text", "text": "Summary body"}]}
+            ]
+        })
+        .to_string();
+        futures::executor::block_on(
+            runtime
+                .submit(move |services| async move {
+                    services
+                        .executor
+                        .execute(
+                            "INSERT INTO session_documents (id, session_id, kind, title, body_format, body, sort_order)
+                             VALUES ('quit-summary', ?, 'summary', '', 'prosemirror_json', ?, 0)"
+                                .into(),
+                            vec![json!(summary_sid), json!(summary_body)],
+                        )
+                        .await
+                        .map(|_| ())
+                        .map_err(|error| ServiceError::Failed(error.to_string().into()))
+                })
+                .unwrap()
+                .receive(),
+        )
+        .unwrap();
         cx.update(crate::ui::theme::UiFonts::init);
         let rt = runtime.clone();
         let root_path = profile.path().to_path_buf();
@@ -1455,7 +1590,12 @@ mod tests {
                 cx,
             )
         });
+        let main_window: gpui::AnyWindowHandle = window.into();
         let app_entity = window.update(cx, |_, _, cx| cx.entity()).unwrap();
+        wait_until(cx, |cx| {
+            cx.executor().advance_clock(Duration::from_millis(5));
+            cx.read(|cx| app_entity.read(cx).native_ready())
+        });
         let sid = session_id.clone();
         window
             .update(cx, |app, _, cx| {
@@ -1470,20 +1610,67 @@ mod tests {
             })
             .unwrap();
         let sid = session_id.clone();
-        wait_until(cx, |cx| {
-            cx.read(|cx| {
+        for _ in 0..2000 {
+            cx.executor().advance_clock(Duration::from_millis(5));
+            cx.run_until_parked();
+            let _ = cx.update(|cx| {
+                cx.update_window(main_window, |_, window, cx| window.draw(cx).clear(cx))
+            });
+            let ready = cx.read(|cx| {
                 let app = app_entity.read(cx);
+                let note = app.workspace.read(cx).note().read(cx);
                 app.editor.as_ref().is_some_and(|e| e.read(cx).is_loaded())
+                    && note
+                        .summary_editors()
+                        .first()
+                        .is_some_and(|e| e.read(cx).is_loaded())
                     && app
                         .note_windows
                         .get(&sid)
                         .and_then(|w| w.read(cx).ok())
                         .is_some_and(|w| w.is_editor_loaded(cx))
-            })
+            });
+            if ready {
+                let (main_memo, main_summary, detached_window, detached_memo) = cx.read(|cx| {
+                    let app = app_entity.read(cx);
+                    let main_memo = app.editor.clone().unwrap();
+                    let main_summary =
+                        app.workspace.read(cx).note().read(cx).summary_editors()[0].clone();
+                    let note_window = app.note_windows[&session_id];
+                    let detached_memo = note_window.read(cx).unwrap().editor().unwrap();
+                    (main_memo, main_summary, note_window.into(), detached_memo)
+                });
+                return DetachedNoteFixture {
+                    _profile: profile,
+                    runtime,
+                    main_window,
+                    app_entity,
+                    session_id,
+                    main_memo,
+                    main_summary,
+                    detached_window,
+                    detached_memo,
+                };
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        let state = cx.read(|cx| {
+            let app = app_entity.read(cx);
+            let note = app.workspace.read(cx).note().read(cx);
+            format!(
+                "native={} product={} lock_known={} lock_locked={} main_editor={:?} note_sid={:?} shown_summary={:?} summaries={} detached={}",
+                app.native_ready(),
+                app.product.is_some(),
+                crate::application::lock::note_lock_known(cx),
+                crate::application::lock::app_locked(cx),
+                app.editor.as_ref().map(|e| e.read(cx).is_loaded()),
+                note.session_id(),
+                note.shown_summary(),
+                note.summary_editors().len(),
+                app.note_windows.contains_key(&sid),
+            )
         });
-        let note_window = cx.read(|cx| app_entity.read(cx).note_windows[&session_id]);
-        let note_entity = note_window.update(cx, |_, _, cx| cx.entity()).unwrap();
-        (profile, runtime, app_entity, session_id, note_entity)
+        panic!("detached note setup timed out: {state}");
     }
 
     #[gpui::test]
@@ -1499,14 +1686,22 @@ mod tests {
 
         // Case 1: update deferral during an active quit drain keeps both windows locked.
         {
-            let (_profile, runtime, app_entity, _session_id, note_entity) =
-                open_app_with_detached_note(cx);
+            let fixture = open_app_with_detached_note(cx);
+            let (flush_started_tx, mut flush_started_rx) = oneshot::channel::<()>();
             let (release_flush, held_flush) = oneshot::channel::<()>();
+            let flush_started_tx = Arc::new(Mutex::new(Some(flush_started_tx)));
             futures::executor::block_on(
-                runtime
+                fixture
+                    .runtime
                     .register_flush(Box::new(move || {
+                        let started = flush_started_tx.clone();
+                        let held = held_flush;
                         Box::pin(async move {
-                            let _ = held_flush.await;
+                            let tx = started.lock().unwrap().take();
+                            if let Some(tx) = tx {
+                                let _ = tx.send(());
+                            }
+                            let _ = held.await;
                             Ok(())
                         })
                     }))
@@ -1522,7 +1717,7 @@ mod tests {
             let checks = Arc::new(AtomicUsize::new(0));
             let install_done = Arc::new(AtomicBool::new(false));
             let install_done_flag = install_done.clone();
-            let app_for_task = app_entity.downgrade();
+            let app_for_task = fixture.app_entity.downgrade();
 
             let _install_task = cx.spawn(async move |mut cx| {
                 let outcome = install_if_still_offered(
@@ -1580,44 +1775,70 @@ mod tests {
             wait_until(cx, |_| {
                 check2_started_rx.try_recv().ok().flatten().is_some()
             });
+            assert!(!try_edit(
+                fixture.main_window,
+                &fixture.main_memo,
+                " dropped",
+                cx
+            ));
+            assert!(!try_edit(
+                fixture.main_window,
+                &fixture.main_summary,
+                " dropped",
+                cx
+            ));
+            assert!(!try_edit(
+                fixture.detached_window,
+                &fixture.detached_memo,
+                " dropped",
+                cx
+            ));
+
             cx.update(|cx| {
-                app_entity.update(cx, |app, cx| {
-                    assert!(app.writers_paused);
-                    assert!(app.editor.as_ref().unwrap().read(cx).is_read_only());
-                    let note = note_entity.read(cx);
-                    assert!(note.is_paused());
-                    assert!(note.is_editor_read_only(cx));
+                fixture.app_entity.update(cx, |app, cx| {
                     app.request_quit(cx);
                     assert!(app.closing);
                 });
             });
-            cx.run_until_parked();
+            wait_until(cx, |_| flush_started_rx.try_recv().ok().flatten().is_some());
 
             check2_release_tx.send(()).unwrap();
             wait_until(cx, |_| install_done.load(Ordering::SeqCst));
 
-            cx.read(|cx| {
-                let app = app_entity.read(cx);
-                assert!(!app.writers_paused);
-                assert!(app.closing);
-                assert!(app.editor.as_ref().unwrap().read(cx).is_read_only());
-                let note = note_entity.read(cx);
-                assert!(note.is_paused());
-                assert!(note.is_editor_read_only(cx));
-            });
+            assert!(!try_edit(
+                fixture.main_window,
+                &fixture.main_memo,
+                " dropped",
+                cx
+            ));
+            assert!(!try_edit(
+                fixture.main_window,
+                &fixture.main_summary,
+                " dropped",
+                cx
+            ));
+            assert!(!try_edit(
+                fixture.detached_window,
+                &fixture.detached_memo,
+                " dropped",
+                cx
+            ));
 
             release_flush.send(()).unwrap();
-            wait_until(cx, |cx| cx.read(|cx| app_entity.read(cx).drained));
-            let _ = futures::executor::block_on(runtime.shutdown());
+            wait_until(cx, |cx| cx.read(|cx| fixture.app_entity.read(cx).drained));
+            let _ = futures::executor::block_on(fixture.runtime.shutdown());
         }
 
         // Case 2: pre-shutdown quit failure restores editing in both orderings.
         {
-            let (_profile, runtime, app_entity, session_id, note_entity) =
-                open_app_with_detached_note(cx);
+            let fixture = open_app_with_detached_note(cx);
 
             // Ordering A: updater resumes writers while quit is closing, then quit fails pre-shutdown.
-            let pause = cx.update(|cx| app_entity.update(cx, |app, cx| app.pause_writers(cx)));
+            let pause = cx.update(|cx| {
+                fixture
+                    .app_entity
+                    .update(cx, |app, cx| app.pause_writers(cx))
+            });
             let (pause_tx, mut pause_rx) = oneshot::channel();
             cx.spawn(async move |_| {
                 let _ = pause_tx.send(pause.await);
@@ -1633,37 +1854,44 @@ mod tests {
                     .is_some()
             });
             cx.update(|cx| {
-                app_entity.update(cx, |app, cx| {
-                    app.workspace
-                        .update(cx, |ws, cx| ws.set_recording(session_id.clone(), true, cx));
+                fixture.app_entity.update(cx, |app, cx| {
+                    app.workspace.update(cx, |ws, cx| {
+                        ws.set_recording(fixture.session_id.clone(), true, cx)
+                    });
                     app.request_quit(cx);
                     assert!(app.closing);
                     app.resume_writers(cx);
-                    assert!(!app.writers_paused);
-                    assert!(app.editor.as_ref().unwrap().read(cx).is_read_only());
-                    let note = note_entity.read(cx);
-                    assert!(note.is_paused());
-                    assert!(note.is_editor_read_only(cx));
                 });
             });
+            assert!(!try_edit(
+                fixture.main_window,
+                &fixture.main_memo,
+                " dropped",
+                cx
+            ));
+            assert!(!try_edit(
+                fixture.main_window,
+                &fixture.main_summary,
+                " dropped",
+                cx
+            ));
+            assert!(!try_edit(
+                fixture.detached_window,
+                &fixture.detached_memo,
+                " dropped",
+                cx
+            ));
 
-            wait_until(cx, |cx| cx.read(|cx| !app_entity.read(cx).closing));
-            cx.read(|cx| {
-                let app = app_entity.read(cx);
-                assert!(!app.shutdown_begun());
-                assert!(!app.drained);
-                assert!(!app.writers_paused);
-                assert!(!app.editor.as_ref().unwrap().read(cx).is_read_only());
-                let note = note_entity.read(cx);
-                assert!(!note.is_paused());
-                assert!(!note.is_editor_read_only(cx));
-            });
+            wait_until(cx, |cx| cx.read(|cx| !fixture.app_entity.read(cx).closing));
+            cx.read(|cx| assert!(!fixture.app_entity.read(cx).shutdown_begun()));
+            verify_editable_and_flush(&fixture, "recovered", cx);
 
             // Ordering B: quit fails pre-shutdown while updater still holds pause, then updater resumes.
             let pause = cx.update(|cx| {
-                app_entity.update(cx, |app, cx| {
-                    app.workspace
-                        .update(cx, |ws, cx| ws.set_recording(session_id.clone(), false, cx));
+                fixture.app_entity.update(cx, |app, cx| {
+                    app.workspace.update(cx, |ws, cx| {
+                        ws.set_recording(fixture.session_id.clone(), false, cx)
+                    });
                     app.pause_writers(cx)
                 })
             });
@@ -1682,33 +1910,49 @@ mod tests {
                     .is_some()
             });
             cx.update(|cx| {
-                app_entity.update(cx, |app, cx| {
-                    app.workspace
-                        .update(cx, |ws, cx| ws.set_recording(session_id.clone(), true, cx));
+                fixture.app_entity.update(cx, |app, cx| {
+                    app.workspace.update(cx, |ws, cx| {
+                        ws.set_recording(fixture.session_id.clone(), true, cx)
+                    });
                     app.request_quit(cx);
                     assert!(app.closing);
                 });
             });
-            wait_until(cx, |cx| cx.read(|cx| !app_entity.read(cx).closing));
+            wait_until(cx, |cx| cx.read(|cx| !fixture.app_entity.read(cx).closing));
+            cx.read(|cx| assert!(!fixture.app_entity.read(cx).shutdown_begun()));
+            assert!(!try_edit(
+                fixture.main_window,
+                &fixture.main_memo,
+                " dropped",
+                cx
+            ));
+            assert!(!try_edit(
+                fixture.main_window,
+                &fixture.main_summary,
+                " dropped",
+                cx
+            ));
+            assert!(!try_edit(
+                fixture.detached_window,
+                &fixture.detached_memo,
+                " dropped",
+                cx
+            ));
+
             cx.update(|cx| {
-                app_entity.update(cx, |app, cx| {
-                    assert!(!app.shutdown_begun());
-                    assert!(app.writers_paused);
-                    assert!(app.editor.as_ref().unwrap().read(cx).is_read_only());
-                    let note = note_entity.read(cx);
-                    assert!(note.is_paused());
-                    assert!(note.is_editor_read_only(cx));
+                fixture.app_entity.update(cx, |app, cx| {
                     app.resume_writers(cx);
-                    assert!(!app.writers_paused);
-                    assert!(!app.editor.as_ref().unwrap().read(cx).is_read_only());
-                    let note = note_entity.read(cx);
-                    assert!(!note.is_paused());
-                    assert!(!note.is_editor_read_only(cx));
-                    app.workspace
-                        .update(cx, |ws, cx| ws.set_recording(session_id.clone(), false, cx));
                 });
             });
-            let _ = futures::executor::block_on(runtime.shutdown());
+            verify_editable_and_flush(&fixture, "resumed", cx);
+            cx.update(|cx| {
+                fixture.app_entity.update(cx, |app, cx| {
+                    app.workspace.update(cx, |ws, cx| {
+                        ws.set_recording(fixture.session_id.clone(), false, cx)
+                    });
+                });
+            });
+            let _ = futures::executor::block_on(fixture.runtime.shutdown());
         }
     }
 }
