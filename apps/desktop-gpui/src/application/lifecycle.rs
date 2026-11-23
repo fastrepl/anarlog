@@ -2391,17 +2391,51 @@ mod tests {
                     .note()
             });
 
-            let (gate_started_tx, mut gate_started_rx) = oneshot::channel::<()>();
-            let (gate_release_tx, gate_release_rx) = oneshot::channel::<()>();
-            fixture
-                .runtime
-                .submit(move |_| async move {
-                    let _ = gate_started_tx.send(());
-                    let _ = gate_release_rx.await;
-                    Ok(())
+            let rev2_injected = Arc::new(AtomicBool::new(false));
+            let rev2_injected_cb = rev2_injected.clone();
+            let runtime_for_conflict = fixture.runtime.clone();
+            let summary_for_sub = fixture.detached_summary.clone();
+            let _rev2_sub = cx.update(|cx| {
+                cx.update_window(fixture.detached_window, |_, window, cx| {
+                    fixture.app_entity.update(cx, |_, cx| {
+                        cx.subscribe_in(
+                            &summary_for_sub,
+                            window,
+                            move |_, editor, event: &EditorEvent, window, cx| {
+                                if matches!(event, EditorEvent::Saved(_))
+                                    && !rev2_injected_cb.swap(true, Ordering::SeqCst)
+                                {
+                                    runtime_for_conflict
+                                        .submit(|services| async move {
+                                            services
+                                                .executor
+                                                .execute(
+                                                    "UPDATE session_documents SET updated_at = '2099-01-01T00:00:00.000Z' WHERE id = 'quit-summary'".into(),
+                                                    vec![],
+                                                )
+                                                .await
+                                                .map(|_| ())
+                                                .map_err(|error| ServiceError::Failed(error.to_string().into()))
+                                        })
+                                        .unwrap();
+                                    let dirty = editor.update(cx, |editor, cx| {
+                                        gpui::EntityInputHandler::replace_text_in_range(
+                                            editor,
+                                            None,
+                                            "Rev2 ",
+                                            window,
+                                            cx,
+                                        );
+                                        editor.is_dirty()
+                                    });
+                                    assert!(dirty);
+                                }
+                            },
+                        )
+                    })
                 })
-                .unwrap();
-            wait_until(cx, |_| gate_started_rx.try_recv().ok().flatten().is_some());
+                .unwrap()
+            });
 
             assert!(try_edit(
                 fixture.detached_window,
@@ -2409,52 +2443,52 @@ mod tests {
                 "Rev1 ",
                 cx
             ));
-            let accepted_before = fixture.runtime.metrics().accepted;
             let flush = cx.update(|cx| {
                 fixture
                     .app_entity
                     .update(cx, |app, cx| app.flush_drafts(cx))
             });
+            assert!(!rev2_injected.load(Ordering::SeqCst));
+
+            let dirty_on_flush_return = Arc::new(AtomicBool::new(false));
+            let dirty_on_flush_return_task = dirty_on_flush_return.clone();
+            let summary_for_flush = fixture.detached_summary.clone();
             let (flush_tx, mut flush_rx) = oneshot::channel();
-            cx.spawn(async move |_| {
-                let _ = flush_tx.send(flush.await);
+            cx.spawn(async move |cx| {
+                let result = flush.await;
+                dirty_on_flush_return_task.store(
+                    cx.update(|cx| summary_for_flush.read(cx).is_dirty()),
+                    Ordering::SeqCst,
+                );
+                let _ = flush_tx.send(result);
             })
             .detach();
-            wait_until(cx, |_| fixture.runtime.metrics().accepted > accepted_before);
 
-            assert!(try_edit(
-                fixture.detached_window,
-                &fixture.detached_summary,
-                "Rev2 ",
-                cx
-            ));
-            fixture
-                .runtime
-                .submit(|services| async move {
-                    services
-                        .executor
-                        .execute(
-                            "UPDATE session_documents SET updated_at = '2099-01-01T00:00:00.000Z' WHERE id = 'quit-summary'".into(),
-                            vec![],
-                        )
-                        .await
-                        .map(|_| ())
-                        .map_err(|error| ServiceError::Failed(error.to_string().into()))
-                })
-                .unwrap();
-
-            gate_release_tx.send(()).unwrap();
             let mut flushed = None;
             wait_until(cx, |_| {
                 flushed = flush_rx.try_recv().ok().flatten();
                 flushed.is_some()
             });
             assert!(matches!(flushed, Some(Ok(()))), "{flushed:?}");
+            assert!(dirty_on_flush_return.load(Ordering::SeqCst));
 
             wait_until(cx, |cx| {
-                !cx.read(|cx| detached_note.read(cx).has_unsaved_title(cx))
+                rev2_injected.load(Ordering::SeqCst)
+                    && !cx.read(|cx| detached_note.read(cx).has_unsaved_title(cx))
             });
-            assert!(cx.read(|cx| fixture.detached_summary.read(cx).is_dirty()));
+            cx.read(|cx| {
+                assert!(
+                    fixture
+                        .detached_summary
+                        .read(cx)
+                        .init
+                        .document
+                        .body
+                        .contains("Rev1 ")
+                );
+                assert!(fixture.detached_summary.read(cx).is_dirty());
+            });
+            drop(_rev2_sub);
 
             let pause = cx.update(|cx| {
                 fixture
