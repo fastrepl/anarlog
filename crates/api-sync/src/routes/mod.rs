@@ -53,6 +53,10 @@ pub fn e2ee_witness_router(state: ReplicaState) -> Router {
     e2ee_witness::router().with_state(state)
 }
 
+pub fn internal_witness_wake_router(state: ReplicaState) -> Router {
+    e2ee_witness::internal_wake_router().with_state(state)
+}
+
 pub fn web_edit_router(state: AppState) -> Router {
     session_shares::web_edit_router()
         .merge(live_docs::ticket_router())

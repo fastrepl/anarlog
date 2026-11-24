@@ -2,6 +2,7 @@
 
 mod blob;
 mod member;
+mod snapshot;
 
 pub use blob::{
     ATTACHMENT_BLOB_CHUNK_SIZE, ATTACHMENT_BLOB_MAX_PLAINTEXT_BYTES,
@@ -11,11 +12,18 @@ pub use blob::{
 pub use member::{
     MemberIdentityKey, WorkspaceKeyGrant, WorkspaceKeyring, seal_workspace_key_for_member,
 };
+pub use snapshot::{
+    SNAPSHOT_FORMAT_VERSION, SNAPSHOT_MAGIC, SnapshotRecord, WorkspaceSnapshotPayload,
+    open_snapshot, seal_snapshot,
+};
+
+use std::io::{Read, Write};
 
 use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use chacha20poly1305::aead::{Aead, Payload};
 use chacha20poly1305::{KeyInit, XChaCha20Poly1305, XNonce};
+use flate2::{Compression, read::DeflateDecoder, write::DeflateEncoder};
 use hkdf::Hkdf;
 use hmac::{Hmac, Mac};
 use serde::{Deserialize, Serialize};
@@ -29,6 +37,9 @@ const WORKSPACE_KEY_SALT: &[u8] = b"anarlog-e2ee-workspace-key-v1";
 const FIELD_ID_DOMAIN: &[u8] = b"anarlog-e2ee-field-id-v1";
 const VALUE_TAG_DOMAIN: &[u8] = b"anarlog-e2ee-value-tag-v1";
 const PAYLOAD_AAD_DOMAIN: &[u8] = b"anarlog-e2ee-payload-v1";
+const PAYLOAD_AAD_V2_DOMAIN: &[u8] = b"anarlog-e2ee-payload-v2";
+const COMPRESS_FIELD_MIN_BYTES: usize = 256;
+const MAX_DECOMPRESSED_FIELD_BYTES: usize = 16 * 1024 * 1024;
 const DEVICE_ENROLLMENT_KEY_PREFIX: &str = "anarlog-device-key-v1:";
 const DEVICE_ENROLLMENT_KDF_SALT: &[u8] = b"anarlog-device-enrollment-kdf-v1";
 const DEVICE_ENROLLMENT_AAD_DOMAIN: &[u8] = b"anarlog-device-enrollment-v1";
@@ -382,6 +393,64 @@ impl WorkspaceKey {
         edited_at_ms: Option<u64>,
         value: Value,
     ) -> Result<SealedField> {
+        self.seal_field_internal(
+            workspace_id,
+            table,
+            row_id,
+            field,
+            writer_id,
+            revision,
+            deleted,
+            edited_at_ms,
+            value,
+            false,
+        )
+    }
+
+    /// Seals a field using deflate compression + v2 AEAD framing when the encoded
+    /// plaintext benefits from compression; small payloads remain v1 so older readers
+    /// can continue reading unbloated fields.
+    #[allow(clippy::too_many_arguments)]
+    pub fn seal_field_v2_at(
+        &self,
+        workspace_id: &str,
+        table: &str,
+        row_id: &str,
+        field: &str,
+        writer_id: &str,
+        revision: u64,
+        deleted: bool,
+        edited_at_ms: Option<u64>,
+        value: Value,
+    ) -> Result<SealedField> {
+        self.seal_field_internal(
+            workspace_id,
+            table,
+            row_id,
+            field,
+            writer_id,
+            revision,
+            deleted,
+            edited_at_ms,
+            value,
+            true,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn seal_field_internal(
+        &self,
+        workspace_id: &str,
+        table: &str,
+        row_id: &str,
+        field: &str,
+        writer_id: &str,
+        revision: u64,
+        deleted: bool,
+        edited_at_ms: Option<u64>,
+        value: Value,
+        allow_compression: bool,
+    ) -> Result<SealedField> {
         if !is_valid_writer_id(writer_id) {
             return Err(Error::InvalidWriterId);
         }
@@ -397,9 +466,24 @@ impl WorkspaceKey {
             value,
         })
         .map_err(|_| Error::InvalidPayload)?;
+        let (version, msg): (u8, Vec<u8>) =
+            if allow_compression && plaintext.len() >= COMPRESS_FIELD_MIN_BYTES {
+                let mut encoder = DeflateEncoder::new(Vec::new(), Compression::fast());
+                encoder
+                    .write_all(&plaintext)
+                    .map_err(|_| Error::InvalidPayload)?;
+                let compressed = encoder.finish().map_err(|_| Error::InvalidPayload)?;
+                if compressed.len() < plaintext.len() {
+                    (2, compressed)
+                } else {
+                    (1, plaintext)
+                }
+            } else {
+                (1, plaintext)
+            };
         let mut nonce = [0_u8; 24];
         getrandom::fill(&mut nonce).map_err(|_| Error::RandomnessUnavailable)?;
-        let aad = payload_aad(workspace_id, &record_id, &self.key_id);
+        let aad = payload_aad_for_version(workspace_id, &record_id, &self.key_id, version);
         let cipher = XChaCha20Poly1305::new_from_slice(self.bytes.as_slice())
             .expect("XChaCha20Poly1305 accepts 32-byte keys");
         let nonce = XNonce::from(nonce);
@@ -407,13 +491,13 @@ impl WorkspaceKey {
             .encrypt(
                 &nonce,
                 Payload {
-                    msg: &plaintext,
+                    msg: &msg,
                     aad: &aad,
                 },
             )
             .map_err(|_| Error::AuthenticationFailed)?;
         let envelope = Envelope {
-            version: 1,
+            version,
             key_id: self.key_id.clone(),
             nonce: URL_SAFE_NO_PAD.encode(nonce),
             ciphertext: URL_SAFE_NO_PAD.encode(ciphertext),
@@ -431,7 +515,7 @@ impl WorkspaceKey {
     ) -> Result<OpenedField> {
         let envelope: Envelope =
             serde_json::from_str(payload).map_err(|_| Error::InvalidPayload)?;
-        if envelope.version != 1 {
+        if envelope.version != 1 && envelope.version != 2 {
             return Err(Error::InvalidPayload);
         }
         if envelope.key_id != self.key_id {
@@ -444,11 +528,11 @@ impl WorkspaceKey {
         let ciphertext = URL_SAFE_NO_PAD
             .decode(envelope.ciphertext)
             .map_err(|_| Error::InvalidPayload)?;
-        let aad = payload_aad(workspace_id, record_id, &self.key_id);
+        let aad = payload_aad_for_version(workspace_id, record_id, &self.key_id, envelope.version);
         let cipher = XChaCha20Poly1305::new_from_slice(self.bytes.as_slice())
             .expect("XChaCha20Poly1305 accepts 32-byte keys");
         let nonce = XNonce::from(nonce);
-        let plaintext = cipher
+        let decrypted = cipher
             .decrypt(
                 &nonce,
                 Payload {
@@ -457,6 +541,11 @@ impl WorkspaceKey {
                 },
             )
             .map_err(|_| Error::AuthenticationFailed)?;
+        let plaintext = if envelope.version == 2 {
+            decompress_bounded(&decrypted, MAX_DECOMPRESSED_FIELD_BYTES)?
+        } else {
+            decrypted
+        };
         let field: OwnedProtectedField =
             serde_json::from_slice(&plaintext).map_err(|_| Error::InvalidPayload)?;
         if !field.writer_id.is_empty() && !is_valid_writer_id(&field.writer_id) {
@@ -480,6 +569,22 @@ impl WorkspaceKey {
     }
 }
 
+pub(crate) fn decompress_bounded(compressed: &[u8], max_bytes: usize) -> Result<Vec<u8>> {
+    let decoder = DeflateDecoder::new(compressed);
+    let mut out = Vec::new();
+    let limit = u64::try_from(max_bytes)
+        .unwrap_or(u64::MAX - 1)
+        .saturating_add(1);
+    decoder
+        .take(limit)
+        .read_to_end(&mut out)
+        .map_err(|_| Error::InvalidPayload)?;
+    if out.len() > max_bytes {
+        return Err(Error::InvalidPayload);
+    }
+    Ok(out)
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct SealedField {
     pub record_id: String,
@@ -501,6 +606,16 @@ pub struct OpenedField {
 
 pub fn payload_hash(payload: &str) -> String {
     URL_SAFE_NO_PAD.encode(Sha256::digest(payload.as_bytes()))
+}
+
+pub fn bytes_sha256(bytes: &[u8]) -> String {
+    let digest = Sha256::digest(bytes);
+    let mut encoded = String::with_capacity(digest.len() * 2);
+    for byte in digest {
+        encoded.push(char::from(b"0123456789abcdef"[(byte >> 4) as usize]));
+        encoded.push(char::from(b"0123456789abcdef"[(byte & 0x0f) as usize]));
+    }
+    encoded
 }
 
 #[derive(Serialize)]
@@ -557,10 +672,20 @@ fn update_context(mac: &mut Hmac<Sha256>, domain: &[u8], table: &str, row_id: &s
     }
 }
 
-fn payload_aad(workspace_id: &str, record_id: &str, key_id: &str) -> Vec<u8> {
+fn payload_aad_for_version(
+    workspace_id: &str,
+    record_id: &str,
+    key_id: &str,
+    version: u8,
+) -> Vec<u8> {
+    let domain = if version == 2 {
+        PAYLOAD_AAD_V2_DOMAIN
+    } else {
+        PAYLOAD_AAD_DOMAIN
+    };
     let mut aad = Vec::new();
     for value in [
-        PAYLOAD_AAD_DOMAIN,
+        domain,
         workspace_id.as_bytes(),
         record_id.as_bytes(),
         key_id.as_bytes(),
@@ -827,5 +952,118 @@ mod tests {
         let encoded = key.expose_code();
         let parsed = DeviceEnrollmentKey::parse(&encoded).unwrap();
         assert_eq!(parsed.public_key(), key.public_key());
+    }
+
+    #[test]
+    fn v2_compressed_fields_round_trip_and_shrink_repetitive_docs() {
+        let key = recovery_key().workspace_key("workspace-a").unwrap();
+        let doc = json!({
+            "type": "doc",
+            "content": vec![json!({
+                "type": "paragraph",
+                "content": [{ "type": "text", "text": "Meeting notes repeated line for deflate ratio check." }]
+            }); 32]
+        });
+        let writer = "00000000000000000000000000000001";
+        let v1 = key
+            .seal_field_at(
+                "workspace-a",
+                "session_documents",
+                "doc-1",
+                "body",
+                writer,
+                3,
+                false,
+                Some(42),
+                doc.clone(),
+            )
+            .unwrap();
+        let v2 = key
+            .seal_field_v2_at(
+                "workspace-a",
+                "session_documents",
+                "doc-1",
+                "body",
+                writer,
+                3,
+                false,
+                Some(42),
+                doc.clone(),
+            )
+            .unwrap();
+        let env: Value = serde_json::from_str(&v2.payload).unwrap();
+        assert_eq!(env["version"], 2);
+        assert!(v2.payload.len() * 3 < v1.payload.len());
+
+        let opened = key
+            .open_field("workspace-a", &v2.record_id, &v2.payload)
+            .unwrap();
+        assert_eq!(opened.value, doc);
+        assert_eq!(opened.revision, 3);
+        assert_eq!(opened.edited_at_ms, Some(42));
+
+        // Version downgrade/substitution in envelope header must fail AEAD authentication.
+        let mut downgraded = env;
+        downgraded["version"] = json!(1);
+        assert!(matches!(
+            key.open_field("workspace-a", &v2.record_id, &downgraded.to_string()),
+            Err(Error::AuthenticationFailed)
+        ));
+
+        // Short strings below compression threshold stay on v1 automatically.
+        let small = key
+            .seal_field_v2_at(
+                "workspace-a",
+                "sessions",
+                "s-1",
+                "title",
+                writer,
+                1,
+                false,
+                None,
+                json!("Hi"),
+            )
+            .unwrap();
+        let small_env: Value = serde_json::from_str(&small.payload).unwrap();
+        assert_eq!(small_env["version"], 1);
+        assert_eq!(
+            key.open_field("workspace-a", &small.record_id, &small.payload)
+                .unwrap()
+                .value,
+            json!("Hi")
+        );
+    }
+
+    #[test]
+    fn rejects_v2_zip_bombs_past_limit() {
+        let key = recovery_key().workspace_key("workspace-a").unwrap();
+        let record_id = key.blind_field_id("sessions", "s-bomb", "title");
+        let giant = vec![b'A'; 64 * 1024];
+        let mut encoder = DeflateEncoder::new(Vec::new(), Compression::best());
+        encoder.write_all(&giant).unwrap();
+        let compressed = encoder.finish().unwrap();
+        let err = decompress_bounded(&compressed, 1024).unwrap_err();
+        assert!(matches!(err, Error::InvalidPayload));
+
+        let nonce = [1_u8; 24];
+        let aad = payload_aad_for_version("workspace-a", &record_id, key.key_id(), 2);
+        let cipher = XChaCha20Poly1305::new_from_slice(key.expose_bytes().as_slice()).unwrap();
+        let ciphertext = cipher
+            .encrypt(
+                &XNonce::from(nonce),
+                Payload {
+                    msg: &compressed,
+                    aad: &aad,
+                },
+            )
+            .unwrap();
+        let payload = serde_json::to_string(&Envelope {
+            version: 2,
+            key_id: key.key_id().to_string(),
+            nonce: URL_SAFE_NO_PAD.encode(nonce),
+            ciphertext: URL_SAFE_NO_PAD.encode(ciphertext),
+        })
+        .unwrap();
+        assert!(key.open_field("workspace-a", &record_id, &payload).is_err());
     }
 }

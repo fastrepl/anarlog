@@ -3738,6 +3738,167 @@
         ]
       }
     },
+    "/sync/e2ee/witness/{workspace_id}/snapshot": {
+      "get": {
+        "tags": [
+          "sync"
+        ],
+        "operationId": "read_latest_e2ee_snapshot",
+        "parameters": [
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "description": "Workspace ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Latest encrypted workspace snapshot descriptor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SnapshotResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Workspace access denied"
+          },
+          "502": {
+            "description": "Snapshot service unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/sync/e2ee/witness/{workspace_id}/snapshot/commit": {
+      "post": {
+        "tags": [
+          "sync"
+        ],
+        "operationId": "commit_e2ee_snapshot",
+        "parameters": [
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "description": "Workspace ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommitSnapshotRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Snapshot metadata committed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommitSnapshotResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid snapshot commit or checksum mismatch"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Workspace access denied"
+          },
+          "502": {
+            "description": "Snapshot service unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/sync/e2ee/witness/{workspace_id}/snapshot/upload": {
+      "post": {
+        "tags": [
+          "sync"
+        ],
+        "operationId": "prepare_e2ee_snapshot_upload",
+        "parameters": [
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "description": "Workspace ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrepareSnapshotUploadRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Signed Storage upload URL for encrypted snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrepareSnapshotUploadResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid snapshot upload metadata"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Workspace access denied"
+          },
+          "502": {
+            "description": "Snapshot service unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
     "/sync/e2ee/witness/{workspace_id}/wait": {
       "get": {
         "tags": [
@@ -6736,6 +6897,67 @@
               "string",
               "null"
             ]
+          }
+        }
+      },
+      "CommitSnapshotRequest": {
+        "type": "object",
+        "required": [
+          "snapshotSequence",
+          "objectKey",
+          "formatVersion",
+          "payloadBytes",
+          "payloadSha256",
+          "recordCount",
+          "keyId"
+        ],
+        "properties": {
+          "formatVersion": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "keyId": {
+            "type": "string"
+          },
+          "objectKey": {
+            "type": "string"
+          },
+          "payloadBytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "payloadSha256": {
+            "type": "string"
+          },
+          "recordCount": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "snapshotSequence": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
+      "CommitSnapshotResponse": {
+        "type": "object",
+        "required": [
+          "committed",
+          "snapshotSequence"
+        ],
+        "properties": {
+          "committed": {
+            "type": "boolean"
+          },
+          "snapshotSequence": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
           }
         }
       },
@@ -11013,6 +11235,59 @@
           "error"
         ]
       },
+      "PrepareSnapshotUploadRequest": {
+        "type": "object",
+        "required": [
+          "snapshotSequence",
+          "payloadBytes",
+          "payloadSha256",
+          "recordCount",
+          "keyId"
+        ],
+        "properties": {
+          "keyId": {
+            "type": "string"
+          },
+          "payloadBytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "payloadSha256": {
+            "type": "string"
+          },
+          "recordCount": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "snapshotSequence": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
+      "PrepareSnapshotUploadResponse": {
+        "type": "object",
+        "required": [
+          "objectKey",
+          "uploadUrl",
+          "token"
+        ],
+        "properties": {
+          "objectKey": {
+            "type": "string"
+          },
+          "token": {
+            "type": "string"
+          },
+          "uploadUrl": {
+            "type": "string"
+          }
+        }
+      },
       "Profile": {
         "type": "object",
         "required": [
@@ -12223,6 +12498,63 @@
         },
         "additionalProperties": false
       },
+      "SnapshotDescriptor": {
+        "type": "object",
+        "required": [
+          "snapshotSequence",
+          "formatVersion",
+          "payloadBytes",
+          "payloadSha256",
+          "recordCount",
+          "keyId",
+          "headSequence",
+          "downloadUrl"
+        ],
+        "properties": {
+          "cloudAuthorityAfter": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "minimum": 0
+          },
+          "downloadUrl": {
+            "type": "string"
+          },
+          "formatVersion": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "headSequence": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "keyId": {
+            "type": "string"
+          },
+          "payloadBytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "payloadSha256": {
+            "type": "string"
+          },
+          "recordCount": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "snapshotSequence": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
       "SnapshotReceipt": {
         "type": "object",
         "required": [
@@ -12240,6 +12572,21 @@
           },
           "session_id": {
             "type": "string"
+          }
+        }
+      },
+      "SnapshotResponse": {
+        "type": "object",
+        "properties": {
+          "snapshot": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SnapshotDescriptor"
+              }
+            ]
           }
         }
       },

@@ -41,6 +41,9 @@ pub enum SyncError {
     #[error("Cloud state changed; pull before retrying")]
     E2eeReplicaBaseChanged,
 
+    #[error("E2EE sync history was compacted; fetch the latest snapshot")]
+    E2eeHistoryCompacted,
+
     #[error("Encrypted sync is busy; retry later")]
     E2eeWitnessBusy,
 
@@ -133,6 +136,11 @@ impl IntoResponse for SyncError {
                 StatusCode::CONFLICT,
                 "e2ee_replica_base_changed",
                 "Cloud state changed; pull before retrying".to_string(),
+            ),
+            Self::E2eeHistoryCompacted => (
+                StatusCode::GONE,
+                "e2ee_history_compacted",
+                "E2EE sync history was compacted; fetch the latest snapshot".to_string(),
             ),
             Self::BadRequest(message) => (StatusCode::BAD_REQUEST, "bad_request", message),
             Self::ProPlanRequired => (
