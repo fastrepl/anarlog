@@ -240,6 +240,10 @@ impl AuthLease {
         Ok(self.token.as_str())
     }
 
+    pub fn expires_at(&self) -> u64 {
+        self.expires_at
+    }
+
     pub fn check(&self) -> Result<()> {
         if self.cancelled.is_cancelled() || now() >= self.expires_at {
             Err(ServiceError::Cancelled)

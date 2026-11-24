@@ -460,3 +460,302 @@ async fn replaying_cloud_history_retires_an_edit_from_a_backup_taken_before_batc
         .unwrap();
     assert_eq!(title(db.pool()).await, "Later cloud edit");
 }
+
+#[tokio::test]
+async fn idle_cloud_authority_calls_do_not_leave_open_transactions() {
+    use sqlx::Connection;
+
+    let db = test_db().await;
+    let keys = keys("workspace-a");
+    let keyring = &keys["workspace-a"];
+
+    configure_e2ee_cloud_authority(db.pool(), "workspace-a", Some(0))
+        .await
+        .unwrap();
+    configure_e2ee_cloud_authority(db.pool(), "workspace-a", Some(0))
+        .await
+        .unwrap();
+    assert!(
+        configure_e2ee_cloud_authority(db.pool(), "workspace-a", Some(1))
+            .await
+            .is_err()
+    );
+    assert!(
+        pending_e2ee_cloud_batch(db.pool(), "workspace-a", false)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    rebase_e2ee_cloud_documents(db.pool(), "workspace-a", keyring)
+        .await
+        .unwrap();
+
+    sqlx::query(
+        "INSERT INTO sessions(id, workspace_id, owner_user_id, title) VALUES('s', 'workspace-a', 'u', 'Initial')",
+    )
+    .execute(db.pool())
+    .await
+    .unwrap();
+    encrypt_e2ee_replica_changes(db.pool(), &keys)
+        .await
+        .unwrap();
+    let batch = pending_e2ee_cloud_batch(db.pool(), "workspace-a", false)
+        .await
+        .unwrap()
+        .unwrap();
+    let cached = pending_e2ee_cloud_batch(db.pool(), "workspace-a", false)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(cached.mutation_id, batch.mutation_id);
+
+    let conn = db.pool().acquire().await.unwrap();
+    assert!(!conn.is_in_transaction());
+    conn.close().await.unwrap();
+}
+
+#[tokio::test]
+async fn multi_row_cloud_batch_packs_small_rows_atomically() {
+    let db = test_db().await;
+    let keys = keys("workspace-a");
+    let keyring = &keys["workspace-a"];
+    configure_e2ee_cloud_authority(db.pool(), "workspace-a", Some(0))
+        .await
+        .unwrap();
+    for id in ["s1", "s2", "s3"] {
+        sqlx::query(
+            "INSERT INTO sessions(id, workspace_id, owner_user_id, title) VALUES(?, 'workspace-a', 'u', ?)",
+        )
+        .bind(id)
+        .bind(format!("Session {id}"))
+        .execute(db.pool())
+        .await
+        .unwrap();
+    }
+    encrypt_e2ee_replica_changes(db.pool(), &keys)
+        .await
+        .unwrap();
+
+    let batch = pending_e2ee_cloud_batch(db.pool(), "workspace-a", false)
+        .await
+        .unwrap()
+        .expect("packed cloud batch");
+    let row_ids: std::collections::HashSet<_> = batch
+        .events
+        .iter()
+        .map(|event| {
+            keyring
+                .open_field("workspace-a", &event.record_id, &event.payload)
+                .unwrap()
+                .row_id
+        })
+        .collect();
+    assert_eq!(row_ids.len(), 3);
+
+    let mut head = 0;
+    accept(db.pool(), keyring, &batch, &mut head).await;
+    assert!(
+        pending_e2ee_cloud_batch(db.pool(), "workspace-a", false)
+            .await
+            .unwrap()
+            .is_none()
+    );
+}
+
+#[tokio::test]
+async fn cloud_batch_never_splits_single_large_row_over_packed_cap() {
+    let db = test_db().await;
+    let keys = keys("workspace-a");
+    let keyring = &keys["workspace-a"];
+    configure_e2ee_cloud_authority(db.pool(), "workspace-a", Some(0))
+        .await
+        .unwrap();
+
+    // 'humans' sorts before 'sessions', and 'transcripts' sorts after 'sessions'.
+    for i in 0..260 {
+        sqlx::query(
+            "INSERT INTO e2ee_cloud_outbox(record_id, workspace_id, table_name, row_id, payload_hash, payload)
+             VALUES (?, 'workspace-a', 'humans', 'h-large', ?, 'payload')",
+        )
+        .bind(format!("h-rec-{i:04}"))
+        .bind(format!("hash-{i:04}"))
+        .execute(db.pool())
+        .await
+        .unwrap();
+    }
+    sqlx::query(
+        "INSERT INTO e2ee_cloud_outbox(record_id, workspace_id, table_name, row_id, payload_hash, payload)
+         VALUES ('s-rec-0', 'workspace-a', 'sessions', 's-small', 'hash-s0', 'payload')",
+    )
+    .execute(db.pool())
+    .await
+    .unwrap();
+    for i in 0..260 {
+        sqlx::query(
+            "INSERT INTO e2ee_cloud_outbox(record_id, workspace_id, table_name, row_id, payload_hash, payload)
+             VALUES (?, 'workspace-a', 'transcripts', 't-large', ?, 'payload')",
+        )
+        .bind(format!("t-rec-{i:04}"))
+        .bind(format!("thash-{i:04}"))
+        .execute(db.pool())
+        .await
+        .unwrap();
+    }
+
+    let b1 = pending_e2ee_cloud_batch(db.pool(), "workspace-a", false)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(b1.events.len(), 260);
+    assert!(b1.events.iter().all(|e| e.record_id.starts_with("h-rec-")));
+    acknowledge_e2ee_cloud_batch(db.pool(), "workspace-a", &b1)
+        .await
+        .unwrap();
+
+    let b2 = pending_e2ee_cloud_batch(db.pool(), "workspace-a", false)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(b2.events.len(), 1);
+    assert_eq!(b2.events[0].record_id, "s-rec-0");
+    acknowledge_e2ee_cloud_batch(db.pool(), "workspace-a", &b2)
+        .await
+        .unwrap();
+
+    let b3 = pending_e2ee_cloud_batch(db.pool(), "workspace-a", false)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(b3.events.len(), 260);
+    assert!(b3.events.iter().all(|e| e.record_id.starts_with("t-rec-")));
+    let _ = keyring;
+}
+
+#[tokio::test]
+async fn rebase_e2ee_cloud_documents_merges_multiple_pending_documents() {
+    let db = test_db().await;
+    let keys = keys("workspace-a");
+    let keyring = &keys["workspace-a"];
+    configure_e2ee_cloud_authority(db.pool(), "workspace-a", Some(0))
+        .await
+        .unwrap();
+    for id in ["d1", "d2"] {
+        sqlx::query(
+            "INSERT INTO sessions(id,workspace_id,owner_user_id) VALUES(?,'workspace-a','u')",
+        )
+        .bind(id)
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query("INSERT INTO session_documents(id,workspace_id,session_id,kind,body_format,body) VALUES(?,'workspace-a',?,'note','prosemirror_json',?)")
+            .bind(id)
+            .bind(id)
+            .bind(document("first", "second"))
+            .execute(db.pool())
+            .await
+            .unwrap();
+    }
+    encrypt_e2ee_replica_changes(db.pool(), &keys)
+        .await
+        .unwrap();
+    let mut head = 0;
+    while let Some(batch) = pending_e2ee_cloud_batch(db.pool(), "workspace-a", false)
+        .await
+        .unwrap()
+    {
+        accept(db.pool(), keyring, &batch, &mut head).await;
+    }
+
+    for id in ["d1", "d2"] {
+        sqlx::query("UPDATE session_documents SET body = ? WHERE id = ?")
+            .bind(document("local", "second"))
+            .bind(id)
+            .execute(db.pool())
+            .await
+            .unwrap();
+    }
+    encrypt_e2ee_replica_changes(db.pool(), &keys)
+        .await
+        .unwrap();
+
+    let mut remote_events = Vec::new();
+    for id in ["d1", "d2"] {
+        let sealed = keyring
+            .active()
+            .seal_field_at(
+                "workspace-a",
+                "session_documents",
+                id,
+                "body",
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                2,
+                false,
+                Some(1),
+                json!(document("first", "cloud")),
+            )
+            .unwrap();
+        head += 1;
+        remote_events.push(E2eeWitnessEvent {
+            sequence: head,
+            workspace_id: "workspace-a".into(),
+            record_id: sealed.record_id,
+            payload_hash: anlg_e2ee::payload_hash(&sealed.payload),
+            payload: sealed.payload,
+        });
+    }
+    merge_e2ee_witness_events_with_keyring(db.pool(), keyring, "workspace-a", &remote_events)
+        .await
+        .unwrap();
+
+    rebase_e2ee_cloud_documents(db.pool(), "workspace-a", keyring)
+        .await
+        .unwrap();
+
+    for id in ["d1", "d2"] {
+        let current: String = sqlx::query_scalar("SELECT body FROM session_documents WHERE id = ?")
+            .bind(id)
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+        assert_eq!(
+            serde_json::from_str::<Value>(&current).unwrap(),
+            serde_json::from_str::<Value>(&document("local", "cloud")).unwrap()
+        );
+    }
+}
+
+#[tokio::test]
+async fn preserve_e2ee_cloud_conflicts_preflight_avoids_write_lock_when_clean() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("preflight.db");
+    let db = anlg_db_core::Db::connect_local_plain(&path).await.unwrap();
+    crate::prepare_schema(&db).await.unwrap();
+    let locker = anlg_db_core::Db::connect_local_plain(&path).await.unwrap();
+    let keys = keys("workspace-a");
+    let keyring = &keys["workspace-a"];
+    let clean_batch = E2eeCloudBatch {
+        mutation_id: "clean-batch".into(),
+        base_sequence: 0,
+        initialize: false,
+        events: vec![E2eeCloudEvent {
+            record_id: "nonexistent-record".into(),
+            payload_hash: "hash".into(),
+            payload: "payload".into(),
+        }],
+    };
+    let mut writer = locker.pool().begin_with("BEGIN IMMEDIATE").await.unwrap();
+    sqlx::query("INSERT INTO sessions(id, workspace_id, owner_user_id, title) VALUES('held','workspace-a','u','Held')")
+        .execute(&mut *writer)
+        .await
+        .unwrap();
+
+    tokio::time::timeout(
+        std::time::Duration::from_millis(200),
+        preserve_e2ee_cloud_conflicts(db.pool(), "workspace-a", keyring, &clean_batch),
+    )
+    .await
+    .expect("clean preflight should not block on BEGIN IMMEDIATE")
+    .unwrap();
+
+    writer.rollback().await.unwrap();
+}

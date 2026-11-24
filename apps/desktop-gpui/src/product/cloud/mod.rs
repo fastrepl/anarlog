@@ -161,7 +161,12 @@ impl CloudServices {
                         return Ok(());
                     };
                     match this.core.auth.lease(&account, force).await {
-                        Ok(lease) => this.core.sync.resume(&this.core, &services, &lease).await,
+                        Ok(lease) => {
+                            this.core
+                                .sync
+                                .resume(&this.core, &services, &lease, force)
+                                .await
+                        }
                         Err(error) => {
                             this.core.sync.stop().await;
                             Err(error)

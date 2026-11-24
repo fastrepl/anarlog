@@ -5,6 +5,7 @@ use anlg_db_core::Db;
 use super::e2ee_sync::{E2eeSyncHook, ReplicaSyncOutcome};
 
 const REPLICA_SYNC_INTERVAL: std::time::Duration = std::time::Duration::from_secs(30);
+const REPLICA_SYNC_HEARTBEAT_INTERVAL: std::time::Duration = std::time::Duration::from_secs(300);
 const REPLICA_SYNC_RETRY: std::time::Duration = std::time::Duration::from_secs(5);
 const REPLICA_SYNC_PACING: std::time::Duration = std::time::Duration::from_millis(50);
 
@@ -13,8 +14,23 @@ pub struct ReplicaSyncTask {
 }
 
 pub fn spawn_replica_sync(db: Arc<Db>, hook: Arc<E2eeSyncHook>) -> ReplicaSyncTask {
+    spawn_replica_sync_with_intervals(
+        db,
+        hook,
+        REPLICA_SYNC_INTERVAL,
+        REPLICA_SYNC_HEARTBEAT_INTERVAL,
+    )
+}
+
+pub(crate) fn spawn_replica_sync_with_intervals(
+    db: Arc<Db>,
+    hook: Arc<E2eeSyncHook>,
+    fallback_interval: std::time::Duration,
+    heartbeat_interval: std::time::Duration,
+) -> ReplicaSyncTask {
     let (shutdown_tx, mut shutdown_rx) = tokio::sync::oneshot::channel::<()>();
     super::spawn_background(async move {
+        let mut legacy_cloudsync_retired = !db.cloudsync_enabled();
         loop {
             let witness_changed = hook.witness_changed.notified();
             tokio::pin!(witness_changed);
@@ -39,11 +55,31 @@ pub fn spawn_replica_sync(db: Arc<Db>, hook: Arc<E2eeSyncHook>) -> ReplicaSyncTa
             let requested = hook.replica_sync_requested.notified();
             tokio::pin!(requested);
             requested.as_mut().enable();
-            tokio::select! {
-                _ = &mut shutdown_rx => return,
-                () = &mut witness_changed => continue,
-                () = &mut requested => {}
-                () = tokio::time::sleep(REPLICA_SYNC_INTERVAL) => {}
+            let mut witness_reset = false;
+            loop {
+                let health_changed = hook.watch_health_changed.notified();
+                tokio::pin!(health_changed);
+                health_changed.as_mut().enable();
+                // /wait delivers prompt remote change notifications; relax periodic polling to a heartbeat once connected.
+                let interval = if hook.witness_watch_healthy() {
+                    heartbeat_interval
+                } else {
+                    fallback_interval
+                };
+                tokio::select! {
+                    biased;
+                    _ = &mut shutdown_rx => return,
+                    () = &mut witness_changed => {
+                        witness_reset = true;
+                        break;
+                    }
+                    () = &mut requested => break,
+                    () = &mut health_changed => continue,
+                    () = tokio::time::sleep(interval) => break,
+                }
+            }
+            if witness_reset {
+                continue;
             }
 
             hook.replica_sync_started();
@@ -62,6 +98,25 @@ pub fn spawn_replica_sync(db: Arc<Db>, hook: Arc<E2eeSyncHook>) -> ReplicaSyncTa
                     }
                 }
                 Ok(ReplicaSyncOutcome::Settled) => {
+                    if !legacy_cloudsync_retired {
+                        match anlg_db_app::retire_legacy_cloudsync_tables(&db).await {
+                            Ok(retired) => {
+                                if retired > 0 {
+                                    tracing::info!(
+                                        retired,
+                                        "retired legacy cloudsync table metadata"
+                                    );
+                                }
+                                legacy_cloudsync_retired = true;
+                            }
+                            Err(error) => {
+                                tracing::debug!(
+                                    %error,
+                                    "deferred legacy cloudsync table retirement"
+                                );
+                            }
+                        }
+                    }
                     hook.replica_sync_succeeded();
                 }
                 Ok(ReplicaSyncOutcome::WaitingForRemote) => {

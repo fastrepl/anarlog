@@ -381,6 +381,7 @@ pub(super) async fn apply_e2ee_replica_changes_inner(
     delete_reconciled_replica_entries(pool, &reconciled, is_cancelled).await?;
 
     let mut column_cache = HashMap::<String, HashSet<String>>::new();
+    let mut opened_cache = HashMap::<(String, String), anlg_e2ee::OpenedField>::new();
     if !selected_ids.is_empty() {
         check_e2ee_apply_cancellation(is_cancelled)?;
         let records = load_encrypted_records_by_id(pool, &selected_ids).await?;
@@ -396,6 +397,7 @@ pub(super) async fn apply_e2ee_replica_changes_inner(
                 continue;
             }
             let field = key.open_field(&record.workspace_id, &record.id, &record.payload)?;
+            opened_cache.insert((record.id.clone(), record.payload.clone()), field.clone());
             check_e2ee_apply_cancellation(is_cancelled)?;
             // A newer client may sync tables or columns this build does not
             // have yet. Park those records instead of failing the round; the
@@ -538,7 +540,10 @@ pub(super) async fn apply_e2ee_replica_changes_inner(
                 unwitnessed_records.push(record);
                 continue;
             }
-            let field = keyring.open_field(&record.workspace_id, &record.id, &record.payload)?;
+            let field = match opened_cache.remove(&(record.id.clone(), record.payload.clone())) {
+                Some(field) => field,
+                None => keyring.open_field(&record.workspace_id, &record.id, &record.payload)?,
+            };
             check_e2ee_apply_cancellation(is_cancelled)?;
             if field.table != table || field.row_id != row_id {
                 return Err(E2eeReplicaError::InvalidField);

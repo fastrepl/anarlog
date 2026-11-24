@@ -140,5 +140,23 @@ pub fn cloudsync_alter_guard_required(table_name: &str) -> bool {
     table_name == "e2ee_records" || crate::E2EE_DOMAIN_TABLES.contains(&table_name)
 }
 
+/// Drops legacy SQLite Cloud triggers and tracking metadata once encrypted
+/// replica sync has settled, preserving E2EE tables and domain data.
+pub async fn retire_legacy_cloudsync_tables(
+    db: &anlg_db_core::Db,
+) -> Result<usize, anlg_cloudsync::Error> {
+    if !db.cloudsync_enabled() {
+        return Ok(0);
+    }
+    let mut retired = 0;
+    for spec in cloudsync_table_registry() {
+        if anlg_db_core::cloudsync_is_enabled_on(db.pool(), &spec.table_name).await? {
+            db.cloudsync_cleanup(&spec.table_name).await?;
+            retired += 1;
+        }
+    }
+    Ok(retired)
+}
+
 #[cfg(test)]
 mod tests;

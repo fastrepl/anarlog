@@ -2369,6 +2369,109 @@ async fn sync_advertises_the_accepted_replica_and_stops_once_an_update_is_requir
     runtime.shutdown().await.unwrap();
 }
 
+#[tokio::test]
+async fn periodic_refresh_reuses_fresh_credentials_without_restarting_sync() {
+    use super::calls::CloudCalls;
+    use wiremock::matchers::query_param;
+
+    let server = MockServer::start().await;
+    let directory = tempfile::tempdir().unwrap();
+    let (runtime, ready) = RuntimeHandle::start(Profile {
+        database: directory.path().join("cloud.sqlite"),
+    })
+    .unwrap();
+    ready.receive().await.unwrap();
+    let store = Arc::new(MemoryStore::default());
+    let cloud = fixture_cloud(&runtime, &server, store.clone()).await;
+    let recovery = anlg_e2ee::RecoveryKey::generate().unwrap();
+    store
+        .write(
+            format!("fixture:{ACCOUNT}:recovery"),
+            recovery.expose_code(),
+        )
+        .await
+        .unwrap();
+
+    Mock::given(method("GET"))
+        .and(path(format!("/sync/e2ee/witness/{ACCOUNT}/accepted")))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "initialized": true,
+            "initializedAt": "2026-10-05T00:00:00Z",
+            "headSequence": 0,
+            "throughSequence": 0,
+            "nextAfterSequence": 0,
+            "cloudAuthorityAfter": 0,
+            "events": [],
+        })))
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path(format!("/sync/e2ee/witness/{ACCOUNT}/wait")))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "initialized": true,
+            "headSequence": 0,
+        })))
+        .mount(&server)
+        .await;
+
+    let expires_at = chrono::DateTime::<chrono::Utc>::from_timestamp((now() + 3600) as i64, 0)
+        .unwrap()
+        .to_rfc3339();
+    let creds = json!({
+        "transport": "replica",
+        "accountUserId": ACCOUNT,
+        "workspaceId": ACCOUNT,
+        "personalWorkspaceId": ACCOUNT,
+        "encryptionKeyId": recovery.key_id(),
+        "encryptionVersion": 2,
+        "expiresAt": expires_at,
+        "workspaces": [{
+            "id": ACCOUNT,
+            "ownerUserId": ACCOUNT,
+            "kind": "personal",
+            "name": "Personal",
+            "membershipId": SHARE,
+            "role": "owner",
+            "membershipCreatedAt": "2026-01-01T00:00:00Z",
+            "membershipUpdatedAt": "2026-01-01T00:00:00Z",
+            "createdAt": "2026-01-01T00:00:00Z",
+            "updatedAt": "2026-01-01T00:00:00Z",
+        }],
+        "workspaceKeyGrants": [],
+    });
+
+    let initial_credentials = Mock::given(method("POST"))
+        .and(path("/sync/replica/credentials"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(creds.clone()))
+        .expect(1)
+        .mount_as_scoped(&server)
+        .await;
+
+    cloud.refresh(false).await.unwrap();
+    assert!(cloud.sync_state().await.unwrap().status.running);
+    // Repeated 60s refresh while auth lease and credentials are still fresh must not restart sync.
+    cloud.refresh(false).await.unwrap();
+    drop(initial_credentials);
+
+    Mock::given(method("POST"))
+        .and(path("/auth/v1/token"))
+        .and(query_param("grant_type", "refresh_token"))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(session(now() + 3600, "renewed-token")),
+        )
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/sync/replica/credentials"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(creds))
+        .expect(1)
+        .mount(&server)
+        .await;
+    cloud.refresh(true).await.unwrap();
+    runtime.shutdown().await.unwrap();
+}
+
 /// Shipping's `cloud_sync_enabled` decides whether sync starts: on unless the user turned it
 /// off, which shipping saves as an `app_settings` row.
 #[tokio::test]

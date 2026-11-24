@@ -41,6 +41,20 @@ pub async fn configure_e2ee_cloud_authority(
         .map(i64::try_from)
         .transpose()
         .map_err(|_| E2eeReplicaError::RollbackDetected)?;
+    let stored: Option<Option<i64>> = sqlx::query_scalar(
+        "SELECT after_sequence FROM e2ee_cloud_authority WHERE workspace_id = ?",
+    )
+    .bind(workspace_id)
+    .fetch_optional(pool)
+    .await?;
+    if let Some(existing) = stored {
+        if existing.is_some() && existing != after {
+            return Err(E2eeReplicaError::RollbackDetected);
+        }
+        if existing == after {
+            return Ok(());
+        }
+    }
     let mut tx = pool.begin_with("BEGIN IMMEDIATE").await?;
     let previous: Option<Option<i64>> = sqlx::query_scalar(
         "SELECT after_sequence FROM e2ee_cloud_authority WHERE workspace_id = ?",
@@ -49,6 +63,7 @@ pub async fn configure_e2ee_cloud_authority(
     .fetch_optional(&mut *tx)
     .await?;
     if previous.flatten().is_some_and(|value| Some(value) != after) {
+        tx.rollback().await?;
         return Err(E2eeReplicaError::RollbackDetected);
     }
     sqlx::query(
@@ -78,7 +93,7 @@ pub(super) async fn enqueue(
     state: &LocalState,
 ) -> E2eeReplicaResult<()> {
     sqlx::query("INSERT INTO e2ee_cloud_outbox
-                SELECT ?, ?, ?, ?, ?, ?, (SELECT payload_hash FROM e2ee_witness_records WHERE workspace_id = ? AND record_id = ?), (SELECT payload FROM e2ee_witness_records_resolved WHERE workspace_id = ? AND record_id = ?) WHERE EXISTS(SELECT 1 FROM e2ee_cloud_authority WHERE workspace_id = ?)
+                SELECT ?, ?, ?, ?, ?, ?, (SELECT payload_hash FROM e2ee_local_state WHERE workspace_id = ? AND record_id = ?), (SELECT payload FROM e2ee_local_state_resolved WHERE workspace_id = ? AND record_id = ?) WHERE EXISTS(SELECT 1 FROM e2ee_cloud_authority WHERE workspace_id = ?)
                 ON CONFLICT(workspace_id, record_id) DO UPDATE SET
                   table_name = excluded.table_name, row_id = excluded.row_id,
                   payload_hash = excluded.payload_hash, payload = excluded.payload")
@@ -87,47 +102,131 @@ pub(super) async fn enqueue(
     Ok(())
 }
 
+fn decode_cloud_batch(
+    mutation_id: String,
+    base_sequence: i64,
+    initialize: bool,
+    events_json: String,
+) -> E2eeReplicaResult<E2eeCloudBatch> {
+    Ok(E2eeCloudBatch {
+        mutation_id,
+        base_sequence: u64::try_from(base_sequence).map_err(|_| E2eeReplicaError::InvalidRow)?,
+        initialize,
+        events: serde_json::from_str(&events_json).map_err(|_| E2eeReplicaError::InvalidRow)?,
+    })
+}
+
+const MAX_CLOUD_BATCH_SINGLE_ROW_EVENTS: usize = 1024;
+const MAX_CLOUD_BATCH_SINGLE_ROW_BYTES: usize = 48 * 1024 * 1024;
+const MAX_CLOUD_BATCH_PACKED_EVENTS: usize = 256;
+const MAX_CLOUD_BATCH_PACKED_BYTES: usize = 8 * 1024 * 1024;
+
+fn batch_event_bytes(record_id: &str, payload_hash: &str, payload: &str) -> usize {
+    payload.len() + record_id.len() + payload_hash.len() + 256
+}
+
 pub async fn pending_e2ee_cloud_batch(
     pool: &SqlitePool,
     workspace_id: &str,
     initialize: bool,
 ) -> E2eeReplicaResult<Option<E2eeCloudBatch>> {
+    let existing: Option<(String, i64, bool, String)> = sqlx::query_as(
+        "SELECT mutation_id, base_sequence, initialize, events_json FROM e2ee_cloud_batches WHERE workspace_id = ?")
+        .bind(workspace_id).fetch_optional(pool).await?;
+    if let Some((mutation_id, base_sequence, initialize, events_json)) = existing {
+        return Ok(Some(decode_cloud_batch(
+            mutation_id,
+            base_sequence,
+            initialize,
+            events_json,
+        )?));
+    }
+    let has_outbox: bool =
+        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM e2ee_cloud_outbox WHERE workspace_id = ?)")
+            .bind(workspace_id)
+            .fetch_one(pool)
+            .await?;
+    if !has_outbox {
+        return Ok(None);
+    }
     let mut tx = pool.begin_with("BEGIN IMMEDIATE").await?;
     let existing: Option<(String, i64, bool, String)> = sqlx::query_as(
         "SELECT mutation_id, base_sequence, initialize, events_json FROM e2ee_cloud_batches WHERE workspace_id = ?")
         .bind(workspace_id).fetch_optional(&mut *tx).await?;
     if let Some((mutation_id, base_sequence, initialize, events_json)) = existing {
-        return Ok(Some(E2eeCloudBatch {
+        tx.rollback().await?;
+        return Ok(Some(decode_cloud_batch(
             mutation_id,
-            base_sequence: u64::try_from(base_sequence)
-                .map_err(|_| E2eeReplicaError::InvalidRow)?,
+            base_sequence,
             initialize,
-            events: serde_json::from_str(&events_json).map_err(|_| E2eeReplicaError::InvalidRow)?,
-        }));
+            events_json,
+        )?));
     }
-    let row: Option<(String, String)> = sqlx::query_as("SELECT table_name, row_id FROM e2ee_cloud_outbox WHERE workspace_id = ? ORDER BY CASE table_name WHEN 'session_documents' THEN 1 WHEN 'transcripts' THEN 2 ELSE 0 END, table_name, row_id LIMIT 1")
-        .bind(workspace_id).fetch_optional(&mut *tx).await?;
-    let Some((table, row)) = row else {
+    let candidate_limit = i64::try_from(MAX_CLOUD_BATCH_SINGLE_ROW_EVENTS + 1)
+        .map_err(|_| E2eeReplicaError::InvalidRow)?;
+    let rows: Vec<(String, String, String, String, String)> = sqlx::query_as(
+        "SELECT table_name, row_id, record_id, payload_hash, payload
+         FROM e2ee_cloud_outbox
+         WHERE workspace_id = ?
+         ORDER BY CASE table_name WHEN 'session_documents' THEN 1 WHEN 'transcripts' THEN 2 ELSE 0 END,
+                  table_name, row_id, record_id
+         LIMIT ?",
+    )
+    .bind(workspace_id)
+    .bind(candidate_limit)
+    .fetch_all(&mut *tx)
+    .await?;
+    if rows.is_empty() {
+        tx.rollback().await?;
         return Ok(None);
-    };
-    let (count, bytes): (i64, i64) = sqlx::query_as(
-        "SELECT COUNT(*), COALESCE(SUM(length(CAST(payload AS BLOB)) + length(record_id) + length(payload_hash) + 256), 0)
-         FROM e2ee_cloud_outbox WHERE workspace_id = ? AND table_name = ? AND row_id = ?")
-        .bind(workspace_id).bind(&table).bind(&row).fetch_one(&mut *tx).await?;
-    if count > 1024 || bytes > 48 * 1024 * 1024 {
+    }
+
+    let mut groups: Vec<Vec<E2eeCloudEvent>> = Vec::new();
+    let mut current_key: Option<(String, String)> = None;
+    for (table, row, record_id, payload_hash, payload) in rows {
+        let key = (table, row);
+        if current_key.as_ref() != Some(&key) {
+            current_key = Some(key);
+            groups.push(Vec::new());
+        }
+        groups
+            .last_mut()
+            .expect("active row group")
+            .push(E2eeCloudEvent {
+                record_id,
+                payload_hash,
+                payload,
+            });
+    }
+
+    let first_group = &groups[0];
+    let first_bytes: usize = first_group
+        .iter()
+        .map(|event| batch_event_bytes(&event.record_id, &event.payload_hash, &event.payload))
+        .sum();
+    if first_group.len() > MAX_CLOUD_BATCH_SINGLE_ROW_EVENTS
+        || first_bytes > MAX_CLOUD_BATCH_SINGLE_ROW_BYTES
+    {
+        tx.rollback().await?;
         return Err(E2eeReplicaError::WitnessUploadTooLarge);
     }
-    let values: Vec<(String, String, String)> = sqlx::query_as(
-        "SELECT record_id, payload_hash, payload FROM e2ee_cloud_outbox WHERE workspace_id = ? AND table_name = ? AND row_id = ? ORDER BY record_id")
-        .bind(workspace_id).bind(&table).bind(&row).fetch_all(&mut *tx).await?;
-    let events: Vec<_> = values
-        .into_iter()
-        .map(|(record_id, payload_hash, payload)| E2eeCloudEvent {
-            record_id,
-            payload_hash,
-            payload,
-        })
-        .collect();
+
+    let mut events = first_group.clone();
+    let mut total_bytes = first_bytes;
+    for group in &groups[1..] {
+        let group_bytes: usize = group
+            .iter()
+            .map(|event| batch_event_bytes(&event.record_id, &event.payload_hash, &event.payload))
+            .sum();
+        // Pack whole rows up to the tighter multi-row cap so we preserve dependency order without inflating CAS batches.
+        if events.len() + group.len() > MAX_CLOUD_BATCH_PACKED_EVENTS
+            || total_bytes + group_bytes > MAX_CLOUD_BATCH_PACKED_BYTES
+        {
+            break;
+        }
+        events.extend(group.iter().cloned());
+        total_bytes += group_bytes;
+    }
     let base_sequence: i64 = sqlx::query_scalar(
         "SELECT COALESCE((SELECT last_sequence FROM e2ee_witness_state WHERE workspace_id = ?), 0)",
     )
@@ -204,6 +303,33 @@ pub async fn preserve_e2ee_cloud_conflicts(
 ) -> E2eeReplicaResult<()> {
     use super::chunks::{chunk_field, join_chunks, parse_chunk_field};
     use super::conflicts::{ConflictCopy, ConflictLoser, record_conflict};
+    let mut has_conflict = false;
+    for event in &batch.events {
+        let matched: bool = sqlx::query_scalar(
+            "SELECT EXISTS(
+                SELECT 1 FROM e2ee_witness_records_resolved AS witness
+                JOIN e2ee_cloud_outbox AS pending
+                  ON pending.workspace_id = witness.workspace_id
+                 AND pending.record_id = witness.record_id
+                WHERE witness.workspace_id = ?
+                  AND witness.record_id = ?
+                  AND witness.payload_hash != ?
+                  AND witness.payload_hash IS NOT pending.base_payload_hash
+            )",
+        )
+        .bind(workspace_id)
+        .bind(&event.record_id)
+        .bind(&event.payload_hash)
+        .fetch_one(pool)
+        .await?;
+        if matched {
+            has_conflict = true;
+            break;
+        }
+    }
+    if !has_conflict {
+        return Ok(());
+    }
     let mut tx = pool.begin_with("BEGIN IMMEDIATE").await?;
     let mut copied_columns = std::collections::HashSet::new();
     for event in &batch.events {
@@ -243,6 +369,7 @@ pub async fn preserve_e2ee_cloud_conflicts(
                 .as_u64()
                 .ok_or(E2eeReplicaError::InvalidRow)?;
             if count > 1024 {
+                tx.rollback().await?;
                 return Err(E2eeReplicaError::WitnessUploadTooLarge);
             }
             let mut chunks = Vec::new();
@@ -306,6 +433,15 @@ pub async fn rebase_e2ee_cloud_documents(
         upsert_local_state,
     };
     use anlg_tiptap::merge::{MergeSide, merge_documents};
+    let has_candidates: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM e2ee_cloud_outbox WHERE workspace_id = ? AND table_name = 'session_documents' AND base_payload IS NOT NULL)",
+    )
+    .bind(workspace_id)
+    .fetch_one(pool)
+    .await?;
+    if !has_candidates {
+        return Ok(());
+    }
     let mut tx = pool.begin_with("BEGIN IMMEDIATE").await?;
     let in_flight: bool = sqlx::query_scalar(
         "SELECT EXISTS(SELECT 1 FROM e2ee_cloud_batches WHERE workspace_id = ?)",
@@ -314,6 +450,7 @@ pub async fn rebase_e2ee_cloud_documents(
     .fetch_one(&mut *tx)
     .await?;
     if in_flight {
+        tx.rollback().await?;
         return Ok(());
     }
     let documents: Vec<(String, String, String, String, String)> = sqlx::query_as(
@@ -321,12 +458,13 @@ pub async fn rebase_e2ee_cloud_documents(
          FROM e2ee_cloud_outbox AS pending JOIN e2ee_witness_records_resolved AS witness
            ON witness.workspace_id = pending.workspace_id AND witness.record_id = pending.record_id
          WHERE pending.workspace_id = ? AND pending.table_name = 'session_documents'
-           AND (pending.table_name, pending.row_id) = (
-             SELECT table_name, row_id FROM e2ee_cloud_outbox WHERE workspace_id = pending.workspace_id
-             ORDER BY CASE table_name WHEN 'session_documents' THEN 1 WHEN 'transcripts' THEN 2 ELSE 0 END, table_name, row_id LIMIT 1)
            AND pending.base_payload IS NOT NULL AND witness.payload_hash IS NOT pending.base_payload_hash
            AND witness.payload_hash != pending.payload_hash")
         .bind(workspace_id).fetch_all(&mut *tx).await?;
+    if documents.is_empty() {
+        tx.rollback().await?;
+        return Ok(());
+    }
     for (record_id, local_payload, base_payload, remote_hash, remote_payload) in documents {
         let local = keyring.open_field(workspace_id, &record_id, &local_payload)?;
         if local.field != "body" {
@@ -442,11 +580,49 @@ pub async fn rebase_e2ee_cloud_documents(
     Ok(())
 }
 
+pub async fn e2ee_cloud_pull_in_progress(
+    pool: &SqlitePool,
+    workspace_id: &str,
+) -> E2eeReplicaResult<bool> {
+    let active: Option<bool> = sqlx::query_scalar(
+        "SELECT pull_in_progress FROM e2ee_cloud_authority WHERE workspace_id = ?",
+    )
+    .bind(workspace_id)
+    .fetch_optional(pool)
+    .await?;
+    Ok(active.unwrap_or(false))
+}
+
+pub async fn has_pending_e2ee_cloud_work(
+    pool: &SqlitePool,
+    workspace_id: &str,
+) -> E2eeReplicaResult<bool> {
+    Ok(sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM e2ee_cloud_outbox WHERE workspace_id = ?)
+             OR EXISTS(SELECT 1 FROM e2ee_cloud_batches WHERE workspace_id = ?)
+             OR EXISTS(SELECT 1 FROM e2ee_witness_pending WHERE workspace_id = ?)",
+    )
+    .bind(workspace_id)
+    .bind(workspace_id)
+    .bind(workspace_id)
+    .fetch_one(pool)
+    .await?)
+}
+
 pub async fn set_e2ee_cloud_pull_in_progress(
     pool: &SqlitePool,
     workspace_id: &str,
     active: bool,
 ) -> E2eeReplicaResult<()> {
+    let current: Option<bool> = sqlx::query_scalar(
+        "SELECT pull_in_progress FROM e2ee_cloud_authority WHERE workspace_id = ?",
+    )
+    .bind(workspace_id)
+    .fetch_optional(pool)
+    .await?;
+    if current.is_none() || current == Some(active) {
+        return Ok(());
+    }
     sqlx::query("UPDATE e2ee_cloud_authority SET pull_in_progress = ? WHERE workspace_id = ?")
         .bind(active)
         .bind(workspace_id)

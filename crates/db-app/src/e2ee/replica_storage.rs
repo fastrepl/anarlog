@@ -25,6 +25,39 @@ pub(super) async fn normalize_replica_payload_hashes(
     }
     let mut workspace_ids = keys.keys().collect::<Vec<_>>();
     workspace_ids.sort_unstable();
+    check_e2ee_cancellation(is_cancelled)?;
+    let mut preflight = QueryBuilder::<Sqlite>::new(
+        "SELECT EXISTS(
+           SELECT 1
+           FROM e2ee_replica_pending AS pending
+           INDEXED BY idx_e2ee_replica_pending_workspace_record
+           INNER JOIN e2ee_records AS replica
+             ON replica.id = pending.record_id
+            AND replica.workspace_id = pending.workspace_id
+           LEFT JOIN e2ee_replica_payload_hashes AS replica_hash
+             ON replica_hash.record_id = replica.id
+           WHERE pending.workspace_id IN (",
+    );
+    {
+        let mut separated = preflight.separated(", ");
+        for workspace_id in &workspace_ids {
+            separated.push_bind(workspace_id);
+        }
+    }
+    preflight.push(
+        ")
+           AND (
+             replica_hash.record_id IS NULL
+             OR replica_hash.workspace_id != replica.workspace_id
+             OR replica_hash.payload_hash = ''
+           )
+           AND replica.payload != ''
+         )",
+    );
+    let needs_normalization: bool = preflight.build_query_scalar().fetch_one(pool).await?;
+    if !needs_normalization {
+        return Ok(());
+    }
     loop {
         check_e2ee_cancellation(is_cancelled)?;
         let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
@@ -599,6 +632,14 @@ pub async fn requeue_parked_e2ee_records(pool: &SqlitePool) -> sqlx::Result<u64>
 }
 
 pub(super) async fn requeue_incomplete_snapshot_records(pool: &SqlitePool) -> sqlx::Result<u64> {
+    let has_incomplete: bool =
+        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM e2ee_parked_records WHERE reason = ?)")
+            .bind(E2eeParkReason::IncompleteSnapshot.as_str())
+            .fetch_one(pool)
+            .await?;
+    if !has_incomplete {
+        return Ok(0);
+    }
     let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
     let requeued = sqlx::query(
         "INSERT INTO e2ee_replica_pending (record_id, workspace_id)
