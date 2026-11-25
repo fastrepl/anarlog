@@ -152,9 +152,16 @@ jobs:
               --format=json --output-file="$webhook_secrets_json"
           fi
 
-          python3 .github/scripts/prepare_api_service_secrets.py \
-            --service "$SERVICE" --api "$ai_secrets_json" \
-            --webhooks "$webhook_secrets_json" --output "$secrets_file"
+          prepare_args=(
+            --service "$SERVICE"
+            --api "$ai_secrets_json"
+            --webhooks "$webhook_secrets_json"
+            --output "$secrets_file"
+          )
+          if [ -n "$DEPLOY_IMAGE" ]; then
+            prepare_args+=(--rollback-image)
+          fi
+          python3 .github/scripts/prepare_api_service_secrets.py "${prepare_args[@]}"
 
           if [ -s "$secrets_file" ]; then
             flyctl secrets import --app "$FLY_APP" --stage < "$secrets_file"
@@ -162,6 +169,7 @@ jobs:
             echo "No Infisical secrets exported; skipping Fly secret import."
           fi
         env:
+          DEPLOY_IMAGE: ${{ inputs.image }}
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
           INFISICAL_PROJECT_ID: ${{ secrets.INFISICAL_PROJECT_ID }}
       - if: inputs.service == 'gateway'

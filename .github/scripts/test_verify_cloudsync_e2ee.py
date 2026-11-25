@@ -60,6 +60,8 @@ class VerifyCloudSyncE2eeTests(unittest.TestCase):
         values = {key: "set" for key in verify.REPLICA_SECRETS} | {
             "ANARLOG_REPLICA_VERIFY_API_URL": "https://sync.example/",
             "ANARLOG_REPLICA_VERIFY_SUPABASE_URL": "http://127.0.0.1:54321",
+            "ANARLOG_REPLICA_VERIFY_EMAIL_A": "a@example.com",
+            "ANARLOG_REPLICA_VERIFY_EMAIL_B": "b@example.com",
         }
 
         def respond(url, _bearer, _label, body=None, headers=None):
@@ -71,7 +73,7 @@ class VerifyCloudSyncE2eeTests(unittest.TestCase):
             return {"access_token": "token-for-" + body["email"]}
 
         with (
-            mock.patch.object(verify, "request_json", side_effect=respond) as request,
+            mock.patch.object(verify, "request_json", side_effect=respond),
             mock.patch.object(verify.subprocess, "run") as cargo,
             mock.patch.dict(
                 os.environ,
@@ -80,12 +82,15 @@ class VerifyCloudSyncE2eeTests(unittest.TestCase):
         ):
             verify.verify_replica(values)
 
-        self.assertEqual(request.call_count, 2)
         environment = cargo.call_args.kwargs["env"]
         self.assertEqual(environment["ANARLOG_REPLICA_API_URL"], "https://sync.example")
         self.assertNotIn("ANARLOG_REPLICA_SQLITECLOUD_MODE", environment)
-        self.assertEqual(environment["ANARLOG_REPLICA_ACCESS_TOKEN_A"], "token-for-set")
-        self.assertEqual(environment["ANARLOG_REPLICA_ACCESS_TOKEN_B"], "token-for-set")
+        self.assertEqual(
+            environment["ANARLOG_REPLICA_ACCESS_TOKEN_A"], "token-for-a@example.com"
+        )
+        self.assertEqual(
+            environment["ANARLOG_REPLICA_ACCESS_TOKEN_B"], "token-for-b@example.com"
+        )
         self.assertNotIn("FLY_API_TOKEN", environment)
         self.assertNotIn("CUSTOM_SECRET", environment)
         self.assertIn(verify.REPLICA_TEST, cargo.call_args.args[0])

@@ -1,3 +1,8 @@
+import json
+import pathlib
+import subprocess
+import sys
+import tempfile
 import unittest
 
 from prepare_api_service_secrets import (
@@ -100,6 +105,50 @@ class ServiceSecretsTests(unittest.TestCase):
                 staged = select(role, self.api + stale, stale, self.webhooks)
                 self.assertFalse(staged.keys() & stale_keys)
         self.assertIn("RESEND_API_KEY", select("sync", self.api))
+
+    def test_rollback_image_stages_retired_mode_without_provider_credentials(self):
+        stale = [
+            {"key": "SQLITECLOUD_PROJECT_URL", "value": "https://sqlite.example"},
+            {"key": "ANARLOG_SQLITECLOUD_MODE", "value": "enabled"},
+        ]
+        for role in ["sync", "core"]:
+            with self.subTest(role=role):
+                normal = select(role, self.api + stale, stale, self.webhooks)
+                self.assertNotIn("ANARLOG_SQLITECLOUD_MODE", normal)
+                rollback = select(
+                    role,
+                    self.api + stale,
+                    stale,
+                    self.webhooks,
+                    rollback_image=True,
+                )
+                self.assertEqual(rollback["ANARLOG_SQLITECLOUD_MODE"], "retired")
+                self.assertNotIn("SQLITECLOUD_PROJECT_URL", rollback)
+        self.assertNotIn(
+            "ANARLOG_SQLITECLOUD_MODE",
+            select("ai", self.api, [], self.webhooks, rollback_image=True),
+        )
+
+        with tempfile.TemporaryDirectory() as directory:
+            api_path = pathlib.Path(directory, "api.json")
+            out_path = pathlib.Path(directory, "out.env")
+            api_path.write_text(json.dumps(self.api))
+            script = pathlib.Path(__file__).with_name("prepare_api_service_secrets.py")
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(script),
+                    "--service",
+                    "core",
+                    "--api",
+                    str(api_path),
+                    "--output",
+                    str(out_path),
+                    "--rollback-image",
+                ],
+                check=True,
+            )
+            self.assertIn("ANARLOG_SQLITECLOUD_MODE=retired\n", out_path.read_text())
 
     def test_unknown_role_fails_closed(self):
         with self.assertRaisesRegex(ValueError, "Unknown"):

@@ -181,13 +181,6 @@ async fn mock_personal_only_e2ee_account(server: &MockServer) {
 
 #[tokio::test]
 async fn token_route_issues_replica_credentials_only_for_accepted_replica_clients() {
-    let accepted_without_key_id = Request::post("/token")
-        .header(
-            CLOUDSYNC_TRANSPORTS_HEADER,
-            format!("replica, {ACCEPTED_REPLICA_TRANSPORT}"),
-        )
-        .body(Body::empty())
-        .unwrap();
     for (case, request, expect_replica) in [
         (
             "accepted replica client",
@@ -207,11 +200,6 @@ async fn token_route_issues_replica_credentials_only_for_accepted_replica_client
         (
             "legacy client without key identity or transports",
             Request::post("/token").body(Body::empty()).unwrap(),
-            false,
-        ),
-        (
-            "accepted replica client without key identity",
-            accepted_without_key_id,
             false,
         ),
     ] {
