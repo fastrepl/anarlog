@@ -192,12 +192,6 @@ export function NotificationSettingsView() {
         {(field) => (
           <SettingSwitchRow
             title={<Trans>Disable all notifications</Trans>}
-            description={
-              <Trans>
-                Hide all notification panels, Dock alerts, and completion
-                sounds.
-              </Trans>
-            }
             checked={field.state.value}
             onChange={(disabled) => {
               field.handleChange(disabled);
@@ -216,7 +210,6 @@ export function NotificationSettingsView() {
               {(field) => (
                 <SettingSwitchRow
                   title={<Trans>Summary complete</Trans>}
-                  description={<Trans>Show when a summary is ready.</Trans>}
                   checked={field.state.value}
                   onChange={field.handleChange}
                   disabled={notificationsDisabled}
@@ -228,9 +221,6 @@ export function NotificationSettingsView() {
               {(field) => (
                 <SettingSwitchRow
                   title={<Trans>Cloud sync complete</Trans>}
-                  description={
-                    <Trans>Show when initial cloud sync finishes.</Trans>
-                  }
                   checked={field.state.value}
                   onChange={field.handleChange}
                   disabled={notificationsDisabled}
@@ -242,9 +232,6 @@ export function NotificationSettingsView() {
               {(field) => (
                 <SettingSwitchRow
                   title={<Trans>Event notifications</Trans>}
-                  description={
-                    <Trans>Prepare for events with a 5-minute reminder.</Trans>
-                  }
                   checked={field.state.value}
                   onChange={field.handleChange}
                   disabled={notificationsDisabled}
@@ -256,12 +243,6 @@ export function NotificationSettingsView() {
               {(field) => (
                 <SettingSwitchRow
                   title={<Trans>Recording status prompts</Trans>}
-                  description={
-                    <Trans>
-                      Ask before stopping when a meeting may have ended. When
-                      alerts are off, Anarlog keeps listening.
-                    </Trans>
-                  }
                   checked={field.state.value}
                   onChange={field.handleChange}
                   disabled={notificationsDisabled}
@@ -274,12 +255,6 @@ export function NotificationSettingsView() {
                 <div className="flex flex-col gap-4">
                   <SettingSwitchRow
                     title={<Trans>Completion sound</Trans>}
-                    description={
-                      <Trans>
-                        Play a sound when transcription, summaries, or cloud
-                        sync finish.
-                      </Trans>
-                    }
                     checked={field.state.value}
                     onChange={field.handleChange}
                     disabled={notificationsDisabled}
@@ -289,12 +264,7 @@ export function NotificationSettingsView() {
                     <div className={cn(["border-muted ml-3 border-l-2 pl-4"])}>
                       <form.Field name="notification_completion_sound_name">
                         {(soundField) => (
-                          <SettingRow
-                            title={<Trans>Sound</Trans>}
-                            description={
-                              <Trans>Choose from five completion sounds.</Trans>
-                            }
-                          >
+                          <SettingRow title={<Trans>Sound</Trans>}>
                             {(labelProps) => (
                               <div className="flex w-full items-center gap-2">
                                 <Select
@@ -360,12 +330,6 @@ export function NotificationSettingsView() {
                 {(field) => (
                   <SettingSwitchRow
                     title={<Trans>Bounce app icon</Trans>}
-                    description={
-                      <Trans>
-                        Get your attention when a summary is ready in the
-                        background.
-                      </Trans>
-                    }
                     checked={field.state.value}
                     onChange={field.handleChange}
                     disabled={notificationsDisabled}
@@ -380,9 +344,6 @@ export function NotificationSettingsView() {
                   <div className="flex flex-col gap-4">
                     <SettingSwitchRow
                       title={<Trans>Microphone detection</Trans>}
-                      description={
-                        <Trans>Detect meetings from microphone activity.</Trans>
-                      }
                       checked={field.state.value}
                       onChange={field.handleChange}
                       disabled={notificationsDisabled}
@@ -397,17 +358,9 @@ export function NotificationSettingsView() {
                         <form.Field name="mic_active_threshold">
                           {(thresholdField) => (
                             <div className="mb-4 flex items-center justify-between gap-4">
-                              <div className="flex-1">
-                                <h4 className="text-sm font-medium">
-                                  <Trans>Detection delay</Trans>
-                                </h4>
-                                <p className="text-muted-foreground text-xs">
-                                  <Trans>
-                                    Wait before treating microphone activity as
-                                    a meeting.
-                                  </Trans>
-                                </p>
-                              </div>
+                              <h4 className="flex-1 text-sm font-medium">
+                                <Trans>Detection delay</Trans>
+                              </h4>
                               <Select
                                 value={String(thresholdField.state.value)}
                                 onValueChange={(v) =>
@@ -430,17 +383,9 @@ export function NotificationSettingsView() {
                           )}
                         </form.Field>
 
-                        <div className="mb-3 flex flex-col gap-1">
-                          <h4 className="text-sm font-medium">
-                            <Trans>Exclude apps from detection</Trans>
-                          </h4>
-                          <p className="text-muted-foreground text-xs">
-                            <Trans>
-                              Prevent selected apps from triggering meeting
-                              detection.
-                            </Trans>
-                          </p>
-                        </div>
+                        <h4 className="mb-3 text-sm font-medium">
+                          <Trans>Exclude apps from detection</Trans>
+                        </h4>
                         <form.Subscribe selector={(state) => state.values}>
                           {(values) => {
                             const ignoredPlatforms = values.ignored_platforms;
@@ -619,11 +564,6 @@ export function NotificationSettingsView() {
                       {(field) => (
                         <SettingSwitchRow
                           title={<Trans>Respect Do-Not-Disturb mode</Trans>}
-                          description={
-                            <Trans>
-                              Pause alerts while Do Not Disturb is on.
-                            </Trans>
-                          }
                           checked={field.state.value}
                           onChange={field.handleChange}
                           disabled={!anyNotificationEnabled}

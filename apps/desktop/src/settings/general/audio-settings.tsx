@@ -38,9 +38,6 @@ export function AudioSettingsView({
     <div className="flex flex-col gap-4">
       <AudioDeviceRow
         title={<Trans>Microphone</Trans>}
-        description={
-          <Trans>Choose the microphone that captures your voice.</Trans>
-        }
         value={microphoneDevice.value}
         devices={microphoneDevice.devices}
         onChange={microphoneDevice.onChange}
@@ -51,13 +48,6 @@ export function AudioSettingsView({
       />
       <SettingSwitchRow
         title={<Trans>Remember speakers</Trans>}
-        description={
-          <Trans>
-            Build voiceprints from meeting audio so speakers you name in a
-            transcript are recognized in later meetings. Voiceprints never leave
-            this device, and unnamed ones are deleted after 45 days.
-          </Trans>
-        }
         checked={rememberSpeakers.value}
         onChange={rememberSpeakers.onChange}
       />
@@ -75,7 +65,7 @@ export function AudioDeviceRow({
   onChange,
 }: {
   title: ReactNode;
-  description: ReactNode;
+  description?: ReactNode;
   value: string;
   devices: string[];
   onChange: (value: string) => void;
@@ -150,12 +140,7 @@ function AudioRetentionRow({
   } as const;
 
   return (
-    <SettingRow
-      title={<Trans>Audio file retention</Trans>}
-      description={
-        <Trans>Choose how long recordings stay on this device.</Trans>
-      }
-    >
+    <SettingRow title={<Trans>Audio file retention</Trans>}>
       {(labelProps) => (
         <Select value={value} onValueChange={onChange}>
           <SelectTrigger {...labelProps} className={SETTING_CONTROL_CLASS}>

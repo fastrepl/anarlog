@@ -34,12 +34,7 @@ export function DefaultMeetingShareAccessSelector() {
   };
 
   return (
-    <SettingRow
-      title={<Trans>Default sharing</Trans>}
-      description={
-        <Trans>Choose who can access notes from new meetings.</Trans>
-      }
-    >
+    <SettingRow title={<Trans>Default sharing</Trans>}>
       {(labelProps) => (
         <Select value={value} onValueChange={handleChange}>
           <SelectTrigger {...labelProps} className={SETTING_CONTROL_CLASS}>

@@ -80,9 +80,6 @@ export function ExportLocationRow() {
           <Trans>Choose folder</Trans>
         </Button>
       </div>
-      <p className="text-muted-foreground px-2 text-xs">
-        <Trans>Save PDF, text, Markdown, and Org exports to this folder.</Trans>
-      </p>
       {directory && (
         <Button
           type="button"

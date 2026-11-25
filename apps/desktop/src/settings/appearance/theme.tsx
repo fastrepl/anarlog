@@ -33,14 +33,9 @@ export function ThemeSelector() {
 
   return (
     <section className="flex flex-col gap-4">
-      <div>
-        <h3 className="text-lg font-semibold">
-          <Trans>Theme</Trans>
-        </h3>
-        <p className="text-muted-foreground mt-1 text-sm">
-          <Trans>Choose how Anarlog looks on this device.</Trans>
-        </p>
-      </div>
+      <h3 className="text-lg font-semibold">
+        <Trans>Theme</Trans>
+      </h3>
       <div
         role="radiogroup"
         aria-label={t`Color theme`}

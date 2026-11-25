@@ -25,7 +25,10 @@ export function SettingRow({
   return (
     <div className="flex w-full min-w-0 items-center justify-between gap-4">
       <div className="min-w-0 flex-1">
-        <h3 id={titleId} className="mb-1 text-sm font-medium">
+        <h3
+          id={titleId}
+          className={cn(["text-sm font-medium", description && "mb-1"])}
+        >
           {title}
         </h3>
         {description && (

@@ -45,10 +45,7 @@ export function WeekStartSelector() {
   };
 
   return (
-    <SettingRow
-      title={<Trans>Week starts on</Trans>}
-      description={<Trans>Choose which day begins your calendar week.</Trans>}
-    >
+    <SettingRow title={<Trans>Week starts on</Trans>}>
       {(labelProps) => (
         <Select value={displayValue} onValueChange={handleChange}>
           <SelectTrigger {...labelProps} className={SETTING_CONTROL_CLASS}>

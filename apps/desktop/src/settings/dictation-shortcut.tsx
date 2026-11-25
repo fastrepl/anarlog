@@ -135,12 +135,6 @@ export function DictationShortcut({ shortcut }: { shortcut: string }) {
           )}
         </Button>
       </div>
-      <p className="text-muted-foreground text-xs">
-        <Trans>
-          Click the shortcut to record a new key combination. Press Escape to
-          cancel.
-        </Trans>
-      </p>
       {save.error && (
         <p role="alert" className="text-destructive text-sm">
           {save.error.message}

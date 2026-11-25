@@ -154,7 +154,7 @@ export function SettingsInsights() {
                       return {
                         key: day.key,
                         color: ACTIVITY_COLORS[Math.min(count, 4)],
-                        tooltip: t`${date}. Conversations: ${count}`,
+                        label: t`${date}. Conversations: ${count}`,
                       };
                     })}
                   />

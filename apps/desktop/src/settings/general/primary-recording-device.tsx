@@ -65,12 +65,7 @@ export function PrimaryRecordingDeviceSelector() {
             <Trans>
               Anarlog Pro coordinates recording across your devices.
             </Trans>
-          ) : (
-            <Trans>
-              Prefer this device when multiple devices record the same meeting.
-              Other devices can record when it is not recording.
-            </Trans>
-          )
+          ) : undefined
         }
       >
         {(labelProps) => (

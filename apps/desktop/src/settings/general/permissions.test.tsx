@@ -72,12 +72,10 @@ describe("Permissions", () => {
     mocks.closePermissionAssistant.mockClear();
   });
 
-  it("explains what Accessibility enables and opens Settings when denied", () => {
+  it("opens Settings when Accessibility is denied without static descriptions", () => {
     const accessibility = renderPermissions("denied");
 
-    expect(
-      screen.getByText(/Read meeting controls and visible chat/),
-    ).toBeTruthy();
+    expect(screen.queryByText(/Read meeting controls/)).toBeNull();
 
     fireEvent.click(
       screen.getByRole("button", { name: "Open accessibility settings" }),

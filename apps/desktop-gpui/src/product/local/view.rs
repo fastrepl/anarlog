@@ -214,7 +214,7 @@ impl LocalSettingsView {
     /// until granted; the button requests access, or opens System Settings once granted.
     fn permissions(&self, panel: &Panel, colors: &Theme, cx: &mut Context<Self>) -> gpui::Div {
         let busy = self.gate.busy();
-        let row = |id: &'static str, description: &'static str, cx: &mut Context<Self>| {
+        let row = |id: &'static str, cx: &mut Context<Self>| {
             let found = panel.rows.iter().find(|row| row.id.as_ref() == id)?;
             let granted = found.detail.as_ref() == super::PERMISSION_ALLOWED
                 || found.detail.as_ref() == super::PERMISSION_NOT_REQUIRED;
@@ -239,34 +239,19 @@ impl LocalSettingsView {
                     .child(
                         div()
                             .flex_1()
+                            .flex()
+                            .items_center()
+                            .gap_2()
+                            .text_color(tint)
+                            .when(!granted, |view| {
+                                view.child(controls::icon("product/AlertCircleIcon.svg", 16., tint))
+                            })
                             .child(
                                 div()
-                                    .mb_1()
-                                    .flex()
-                                    .items_center()
-                                    .gap_2()
-                                    .text_color(tint)
-                                    .when(!granted, |view| {
-                                        view.child(controls::icon(
-                                            "product/AlertCircleIcon.svg",
-                                            16.,
-                                            tint,
-                                        ))
-                                    })
-                                    .child(
-                                        div()
-                                            .text_sm()
-                                            .line_height(px(20.))
-                                            .font_weight(crate::ui::theme::MEDIUM)
-                                            .child(found.title.to_string()),
-                                    ),
-                            )
-                            .child(
-                                div()
-                                    .text_xs()
-                                    .line_height(px(16.))
-                                    .text_color(colors.muted_foreground)
-                                    .child(description),
+                                    .text_sm()
+                                    .line_height(px(20.))
+                                    .font_weight(crate::ui::theme::MEDIUM)
+                                    .child(found.title.to_string()),
                             ),
                     )
                     .child(
@@ -324,13 +309,10 @@ impl LocalSettingsView {
         };
         let audio = group(
             "AUDIO",
-            [
-                row("microphone", "Record your voice in meetings and calls.", cx),
-                row("system_audio", "Record other participants in meetings.", cx),
-            ]
-            .into_iter()
-            .flatten()
-            .collect(),
+            [row("microphone", cx), row("system_audio", cx)]
+                .into_iter()
+                .flatten()
+                .collect(),
         );
         div()
             .flex()
@@ -338,17 +320,8 @@ impl LocalSettingsView {
             .gap_8()
             .child(audio)
             .when(cfg!(target_os = "macos"), |view| {
-                view.children(row(
-                    "accessibility",
-                    "Read meeting controls and visible chat.",
-                    cx,
-                ))
-                .child(group(
-                    "OTHERS",
-                    row("calendar", "Show Apple Calendar events in Anarlog.", cx)
-                        .into_iter()
-                        .collect(),
-                ))
+                view.children(row("accessibility", cx))
+                    .child(group("OTHERS", row("calendar", cx).into_iter().collect()))
             })
     }
 }

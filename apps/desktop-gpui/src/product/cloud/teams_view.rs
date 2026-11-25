@@ -2209,16 +2209,6 @@ impl TeamsView {
                     window,
                     cx,
                 ))
-                .when(member_primary && controls.edit_role, |view| {
-                    view.child(
-                        div()
-                            .mt_1()
-                            .text_xs()
-                            .line_height(px(16.))
-                            .text_color(colors.muted_foreground)
-                            .child("Transfer primary ownership before changing your role."),
-                    )
-                })
                 .when(
                     ownership
                         .as_ref()

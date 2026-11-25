@@ -63,6 +63,10 @@ pub struct LocalServices {
 }
 
 impl ProductServices for LocalServices {
+    fn storage_root(&self) -> Option<PathBuf> {
+        Some(self.storage_root.clone())
+    }
+
     fn load(&self, surface: Surface, request: Request) -> BoxFuture<'static, Result<Panel>> {
         if !owned(surface) {
             return self.cloud.load(surface, request);

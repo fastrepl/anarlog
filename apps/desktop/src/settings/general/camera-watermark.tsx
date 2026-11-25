@@ -124,14 +124,7 @@ export function CameraWatermarkSettings() {
         <SettingSwitchRow
           title={<Trans>Anarlog Camera</Trans>}
           description={
-            available ? (
-              <Trans>
-                Show your camera with a badge saying Anarlog is taking notes in
-                apps where you pick Anarlog Camera.
-              </Trans>
-            ) : (
-              <Trans>Not included in this build.</Trans>
-            )
+            !available ? <Trans>Not included in this build.</Trans> : undefined
           }
           checked={enabled}
           onChange={(value) => savePrefs.mutate({ enabled: value })}
@@ -212,22 +205,13 @@ export function CameraWatermarkSettings() {
         {available && switchApps && (
           <SettingSwitchRow
             title={<Trans>Switch my camera automatically</Trans>}
-            description={
-              <Trans>
-                When Anarlog records a call in {switchApps}, switch its camera
-                to Anarlog Camera.
-              </Trans>
-            }
             checked={enabled && autoSwitch}
             onChange={(value) => savePrefs.mutate({ auto_switch: value })}
             disabled={!enabled}
           />
         )}
         {available && (
-          <SettingRow
-            title={<Trans>Background</Trans>}
-            description={<Trans>What Anarlog Camera shows behind you.</Trans>}
-          >
+          <SettingRow title={<Trans>Background</Trans>}>
             {(labelProps) => (
               <Select
                 value={backgroundValue(background)}

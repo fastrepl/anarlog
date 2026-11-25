@@ -1506,12 +1506,6 @@ function WorkspacePolicyForm({
         <div className="flex flex-col gap-6">
           <SettingSwitchRow
             title={<Trans>Require SSO</Trans>}
-            description={
-              <Trans>
-                Members on a claimed email domain must sign in with SSO instead
-                of Google, GitHub, or email.
-              </Trans>
-            }
             checked={requireSso}
             onChange={setRequireSso}
           />
@@ -1909,11 +1903,6 @@ function MemberRow({
             </SelectContent>
           </Select>
         )}
-        {isPrimaryOwner && canEditRole ? (
-          <p className="text-muted-foreground mt-1 text-xs">
-            <Trans>Transfer primary ownership before changing your role.</Trans>
-          </p>
-        ) : null}
         {ownershipPending ? (
           <span className="text-muted-foreground mt-1 block text-xs">
             <Trans>Pending</Trans>

@@ -82,9 +82,6 @@ describe("MeetingSettingsView", () => {
       screen.getByText("Post recording disclosure in meeting chat"),
     ).toBeTruthy();
     expect(screen.getByText("Capture meeting chat in Memos")).toBeTruthy();
-    expect(
-      screen.getByText(/supported meetings using Accessibility/),
-    ).toBeTruthy();
     expect(screen.getByText("Stop when meeting ends")).toBeTruthy();
   });
 

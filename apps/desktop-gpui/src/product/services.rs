@@ -330,6 +330,9 @@ pub trait ProductServices: Send + Sync {
         request: Request,
         mutation: Mutation,
     ) -> BoxFuture<'static, Result<Outcome>>;
+    fn storage_root(&self) -> Option<std::path::PathBuf> {
+        None
+    }
 }
 
 pub struct UnavailableServices;

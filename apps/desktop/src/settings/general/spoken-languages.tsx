@@ -112,14 +112,9 @@ export function SpokenLanguagesView({
 
   return (
     <div>
-      <h3 className="mb-1 text-sm font-medium">
+      <h3 className="mb-3 text-sm font-medium">
         <Trans>Additional spoken languages</Trans>
       </h3>
-      <p className="text-muted-foreground mb-3 text-xs">
-        <Trans>
-          Used for transcription and automatic summary language detection.
-        </Trans>
-      </p>
       <div className="relative">
         <div
           className={cn([

@@ -24,6 +24,15 @@ fn page(title: &'static str, gap: f32) -> Div {
         .child(controls::page_title(title))
 }
 
+fn tildify_path(path: &str) -> String {
+    std::env::home_dir()
+        .and_then(|home| {
+            path.strip_prefix(home.to_string_lossy().as_ref())
+                .map(|rest| format!("~{rest}"))
+        })
+        .unwrap_or_else(|| path.to_owned())
+}
+
 impl PreferencesView {
     /// `settings/general/index.tsx` (section "app") and `app-settings.tsx`.
     pub(super) fn general(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
@@ -63,7 +72,7 @@ impl PreferencesView {
                     .child(self.switch_row(
                         "autostart",
                         "Start Anarlog at login",
-                        Some("Have Anarlog ready when you sign in."),
+                        None,
                         true,
                         &colors,
                         cx,
@@ -71,7 +80,7 @@ impl PreferencesView {
                     .child(self.switch_row(
                         "automatic_updates",
                         "Automatically install updates",
-                        Some("Stay current with updates installed the next time Anarlog opens."),
+                        None,
                         true,
                         &colors,
                         cx,
@@ -89,7 +98,7 @@ impl PreferencesView {
                         view.child(self.switch_row(
                             "show_app_in_dock",
                             "Show app in Dock",
-                            Some("Show Anarlog in the Dock and app switcher."),
+                            None,
                             true,
                             &colors,
                             cx,
@@ -98,7 +107,7 @@ impl PreferencesView {
                     .child(self.switch_row(
                         "show_tray_icon",
                         "Show tray icon",
-                        macos.then_some("Open Anarlog from the menu bar."),
+                        None,
                         true,
                         &colors,
                         cx,
@@ -119,10 +128,7 @@ impl PreferencesView {
                                     .gap_4()
                                     .child(setting_row(
                                         "Main language",
-                                        Some(
-                                            "Default language for transcription and AI responses."
-                                                .into(),
-                                        ),
+                                        None,
                                         true,
                                         self.dropdown_select(
                                             "ai_language",
@@ -146,9 +152,7 @@ impl PreferencesView {
                                             .child(self.switch_row(
                                                 "summary_use_main_language",
                                                 "Use main language for summaries",
-                                                Some(
-                                                    "When off, summaries follow the detected meeting language.",
-                                                ),
+                                                None,
                                                 true,
                                                 &colors,
                                                 cx,
@@ -158,7 +162,7 @@ impl PreferencesView {
                             )
                             .child(setting_row(
                                 "Timezone",
-                                Some("Show the timeline in your preferred timezone.".into()),
+                                None,
                                 true,
                                 self.dropdown_select(
                                     "timezone",
@@ -183,7 +187,7 @@ impl PreferencesView {
                             ))
                             .child(setting_row(
                                 "Week starts on",
-                                Some("Choose which day begins your calendar week.".into()),
+                                None,
                                 true,
                                 self.dropdown_select(
                                     "week_start",
@@ -214,7 +218,14 @@ impl PreferencesView {
             .child(
                 div()
                     .child(controls::section_title("Storage").mb_4())
-                    .child(self.export_location(&colors, cx)),
+                    .child(
+                        div()
+                            .flex()
+                            .flex_col()
+                            .gap_3()
+                            .children(self.data_location(&colors))
+                            .child(self.export_location(&colors, cx)),
+                    ),
             )
             .into_any_element()
     }
@@ -367,18 +378,11 @@ impl PreferencesView {
         div()
             .child(
                 div()
-                    .mb_1()
+                    .mb_3()
                     .text_sm()
                     .line_height(px(20.))
                     .font_weight(crate::ui::theme::MEDIUM)
                     .child("Additional spoken languages"),
-            )
-            .child(
-                controls::description(
-                    "Used for transcription and automatic summary language detection.",
-                    colors,
-                )
-                .mb_3(),
             )
             .child(div().relative().child(field).children(options))
     }
@@ -438,23 +442,75 @@ impl PreferencesView {
         }
     }
 
+    fn data_location(&self, colors: &Theme) -> Option<Div> {
+        let root = self.storage_root.as_ref()?;
+        let path = root.to_string_lossy().into_owned();
+        let shown = tildify_path(&path);
+        let row_path = root.clone();
+        let button_path = root.clone();
+        let hover = colors.muted.opacity(0.4);
+        Some(
+            div()
+                .flex()
+                .items_center()
+                .gap_3()
+                .child(
+                    div()
+                        .id("open-data-location")
+                        .a11y_button(format!("Data location, {shown}"))
+                        .flex_1()
+                        .min_w_0()
+                        .px_2()
+                        .py_2()
+                        .flex()
+                        .items_center()
+                        .gap_2()
+                        .cursor_pointer()
+                        .hover(move |style| style.bg(hover))
+                        .on_click(move |_, _, cx| cx.open_with_system(&row_path))
+                        .child(controls::icon(
+                            "workspace/Folder01Icon.svg",
+                            16.,
+                            colors.muted_foreground,
+                        ))
+                        .child(
+                            div()
+                                .min_w_0()
+                                .child(
+                                    div()
+                                        .text_sm()
+                                        .font_weight(crate::ui::theme::MEDIUM)
+                                        .child("Data location"),
+                                )
+                                .child(controls::description(shown, colors).truncate()),
+                        ),
+                )
+                .child(
+                    div().w(px(144.)).flex().child(
+                        controls::outline_button(
+                            "open-data-folder",
+                            "Open folder",
+                            true,
+                            colors,
+                            Some(Box::new(move |_, _, cx| cx.open_with_system(&button_path))),
+                        )
+                        .w_full(),
+                    ),
+                ),
+        )
+    }
+
     /// `settings/general/storage/export-location.tsx`.
     fn export_location(&self, colors: &Theme, cx: &mut Context<Self>) -> Div {
         let stored = self.text("export_directory");
-        let home = std::env::home_dir();
         let path = if stored.is_empty() {
-            home.as_ref()
+            std::env::home_dir()
                 .map(|home| home.join("Downloads").to_string_lossy().into_owned())
                 .unwrap_or_default()
         } else {
             stored.clone()
         };
-        let shown = home
-            .and_then(|home| {
-                path.strip_prefix(home.to_string_lossy().as_ref())
-                    .map(|rest| format!("~{rest}"))
-            })
-            .unwrap_or_else(|| path.clone());
+        let shown = tildify_path(&path);
         let writable = self.writable("export_directory");
         let open_path = path.clone();
         let hover = colors.muted.opacity(0.4);
@@ -515,13 +571,6 @@ impl PreferencesView {
                         ),
                     ),
             )
-            .child(
-                controls::description(
-                    "Save PDF, text, Markdown, and Org exports to this folder.",
-                    colors,
-                )
-                .px_2(),
-            )
             .when(!stored.is_empty(), |view| {
                 view.child(
                     div()
@@ -579,15 +628,7 @@ impl PreferencesView {
                     .flex()
                     .flex_col()
                     .gap_4()
-                    .child(
-                        div().child(controls::section_title("Theme")).child(
-                            div()
-                                .mt_1()
-                                .text_sm()
-                                .text_color(colors.muted_foreground)
-                                .child("Choose how Anarlog looks on this device."),
-                        ),
-                    )
+                    .child(controls::section_title("Theme"))
                     .child(
                         div().flex().gap_3().children(
                             [
@@ -671,7 +712,7 @@ impl PreferencesView {
             .child(self.switch_row(
                 "use_24_hour_time",
                 "Use 24-hour time",
-                Some("Show meeting times as 14:00 instead of 2:00 PM."),
+                None,
                 true,
                 &colors,
                 cx,
@@ -684,31 +725,16 @@ impl PreferencesView {
                     .flex()
                     .flex_col()
                     .gap_4()
-                    .child(
-                        div().child(controls::section_title("Notes list")).child(
-                            div()
-                                .mt_1()
-                                .text_sm()
-                                .text_color(colors.muted_foreground)
-                                .child("Choose extra fields to show on each note."),
-                        ),
-                    )
+                    .child(controls::section_title("Notes list"))
                     .child(self.switch_row(
                         "sidebar_show_folder",
                         "Folder",
-                        Some("Show the folder above the title."),
+                        None,
                         true,
                         &colors,
                         cx,
                     ))
-                    .child(self.switch_row(
-                        "sidebar_show_tags",
-                        "Tags",
-                        Some("Show tags under the date and time."),
-                        true,
-                        &colors,
-                        cx,
-                    )),
+                    .child(self.switch_row("sidebar_show_tags", "Tags", None, true, &colors, cx)),
             )
             .into_any_element()
     }
@@ -754,15 +780,7 @@ impl PreferencesView {
             .flex()
             .flex_col()
             .gap_4()
-            .child(
-                div().child(controls::section_title("App icon")).child(
-                    div()
-                        .mt_1()
-                        .text_sm()
-                        .text_color(colors.muted_foreground)
-                        .child("Choose how Anarlog appears in the Dock."),
-                ),
-            )
+            .child(controls::section_title("App icon"))
             .child(
                 div().flex().flex_wrap().gap_3().children(
                     OPTIONS
@@ -903,7 +921,7 @@ impl PreferencesView {
                     .child(self.switch_row(
                         "notification_disabled",
                         "Disable all notifications",
-                        Some("Hide all notification panels, Dock alerts, and completion sounds."),
+                        None,
                         true,
                         &colors,
                         cx,
@@ -911,7 +929,7 @@ impl PreferencesView {
                     .child(self.switch_row(
                         "notification_summary_complete",
                         "Summary complete",
-                        Some("Show when a summary is ready."),
+                        None,
                         enabled,
                         &colors,
                         cx,
@@ -919,7 +937,7 @@ impl PreferencesView {
                     .child(self.switch_row(
                         "notification_cloudsync_complete",
                         "Cloud sync complete",
-                        Some("Show when initial cloud sync finishes."),
+                        None,
                         enabled,
                         &colors,
                         cx,
@@ -927,7 +945,7 @@ impl PreferencesView {
                     .child(self.switch_row(
                         "notification_event",
                         "Event notifications",
-                        Some("Prepare for events with a 5-minute reminder."),
+                        None,
                         enabled,
                         &colors,
                         cx,
@@ -935,9 +953,7 @@ impl PreferencesView {
                     .child(self.switch_row(
                         "notification_recording",
                         "Recording status prompts",
-                        Some(
-                            "Ask before stopping when a meeting may have ended. When alerts are off, Anarlog keeps listening.",
-                        ),
+                        None,
                         enabled,
                         &colors,
                         cx,
@@ -950,74 +966,76 @@ impl PreferencesView {
                             .child(self.switch_row(
                                 "notification_completion_sound",
                                 "Completion sound",
-                                Some(
-                                    "Play a sound when transcription, summaries, or cloud sync finish.",
-                                ),
+                                None,
                                 enabled,
                                 &colors,
                                 cx,
                             ))
                             .when(self.flag("notification_completion_sound"), |view| {
-                                view.child(controls::nested(&colors).child(setting_row(
-                                    "Sound",
-                                    Some("Choose from five completion sounds.".into()),
-                                    true,
-                                    div()
-                                        .w_full()
-                                        .flex()
-                                        .items_center()
-                                        .gap_2()
-                                        .child(div().flex_1().min_w_0().child(
-                                            self.dropdown_select(
-                                                "notification_completion_sound_name",
-                                                vec![
-                                                    SelectOption::new("ready", "Ready"),
-                                                    SelectOption::new("success", "Success"),
-                                                    SelectOption::new("chime", "Chime"),
-                                                    SelectOption::new("sparkle", "Sparkle"),
-                                                    SelectOption::new("bloom", "Bloom"),
-                                                ],
-                                                &sound,
-                                                "Select sound",
-                                                enabled
-                                                    && self.writable(
-                                                        "notification_completion_sound_name",
-                                                    ),
-                                                false,
-                                                controls::CONTROL_WIDTH - 72.,
-                                                |this, value, cx| {
-                                                    preview_sound(&value);
-                                                    this.set(
-                                                        "notification_completion_sound_name",
-                                                        json!(value),
-                                                        cx,
-                                                    )
-                                                },
-                                                window,
-                                                cx,
+                                view.child(
+                                    controls::nested(&colors).child(setting_row(
+                                        "Sound",
+                                        None,
+                                        true,
+                                        div()
+                                            .w_full()
+                                            .flex()
+                                            .items_center()
+                                            .gap_2()
+                                            .child(div().flex_1().min_w_0().child(
+                                                self.dropdown_select(
+                                                    "notification_completion_sound_name",
+                                                    vec![
+                                                        SelectOption::new("ready", "Ready"),
+                                                        SelectOption::new("success", "Success"),
+                                                        SelectOption::new("chime", "Chime"),
+                                                        SelectOption::new("sparkle", "Sparkle"),
+                                                        SelectOption::new("bloom", "Bloom"),
+                                                    ],
+                                                    &sound,
+                                                    "Select sound",
+                                                    enabled
+                                                        && self.writable(
+                                                            "notification_completion_sound_name",
+                                                        ),
+                                                    false,
+                                                    controls::CONTROL_WIDTH - 72.,
+                                                    |this, value, cx| {
+                                                        preview_sound(&value);
+                                                        this.set(
+                                                            "notification_completion_sound_name",
+                                                            json!(value),
+                                                            cx,
+                                                        )
+                                                    },
+                                                    window,
+                                                    cx,
+                                                ),
+                                            ))
+                                            .child(
+                                                controls::outline_button(
+                                                    "preview-sound",
+                                                    "Preview",
+                                                    enabled,
+                                                    &colors,
+                                                    Some(Box::new(move |_, _, _| {
+                                                        preview_sound(&sound)
+                                                    })),
+                                                )
+                                                .h(px(28.))
+                                                .px_2()
+                                                .text_xs(),
                                             ),
-                                        ))
-                                        .child(
-                                            controls::outline_button(
-                                                "preview-sound",
-                                                "Preview",
-                                                enabled,
-                                                &colors,
-                                                Some(Box::new(move |_, _, _| preview_sound(&sound))),
-                                            )
-                                            .h(px(28.))
-                                            .px_2()
-                                            .text_xs(),
-                                        ),
-                                    &colors,
-                                )))
+                                        &colors,
+                                    )),
+                                )
                             }),
                     )
                     .when(bounce, |view| {
                         view.child(self.switch_row(
                             "notification_bounce",
                             "Bounce app icon",
-                            Some("Get your attention when a summary is ready in the background."),
+                            None,
                             enabled,
                             &colors,
                             cx,
@@ -1032,7 +1050,7 @@ impl PreferencesView {
                                 .child(self.switch_row(
                                     "notification_detect",
                                     "Microphone detection",
-                                    Some("Detect meetings from microphone activity."),
+                                    None,
                                     enabled,
                                     &colors,
                                     cx,
@@ -1055,7 +1073,13 @@ impl PreferencesView {
                                         .flex()
                                         .items_center()
                                         .gap_4()
-                                        .child(div().flex_1().min_w_0().border_t_1().border_color(colors.muted))
+                                        .child(
+                                            div()
+                                                .flex_1()
+                                                .min_w_0()
+                                                .border_t_1()
+                                                .border_color(colors.muted),
+                                        )
                                         .child(
                                             div()
                                                 .flex_shrink_0()
@@ -1064,14 +1088,19 @@ impl PreferencesView {
                                                 .text_color(colors.muted_foreground)
                                                 .child("For enabled notifications"),
                                         )
-                                        .child(div().flex_1().min_w_0().border_t_1().border_color(colors.muted)),
+                                        .child(
+                                            div()
+                                                .flex_1()
+                                                .min_w_0()
+                                                .border_t_1()
+                                                .border_color(colors.muted),
+                                        ),
                                 )
                                 .child(self.switch_row(
                                     "respect_dnd",
                                     "Respect Do-Not-Disturb mode",
-                                    Some("Pause alerts while Do Not Disturb is on."),
-                                    enabled
-                                        && (self.flag("notification_event") || detect),
+                                    None,
+                                    enabled && (self.flag("notification_event") || detect),
                                     &colors,
                                     cx,
                                 )),
@@ -1094,7 +1123,6 @@ impl PreferencesView {
             .unwrap_or_default();
         controls::nested(colors)
             .pt_2()
-            // Unlike `SettingRow`, the description sits right under the title here.
             .child(
                 div()
                     .id("detection-delay")
@@ -1106,17 +1134,10 @@ impl PreferencesView {
                     .child(
                         div()
                             .flex_1()
-                            .child(
-                                div()
-                                    .text_sm()
-                                    .line_height(px(20.))
-                                    .font_weight(crate::ui::theme::MEDIUM)
-                                    .child("Detection delay"),
-                            )
-                            .child(controls::description(
-                                "Wait before treating microphone activity as a meeting.",
-                                colors,
-                            )),
+                            .text_sm()
+                            .line_height(px(20.))
+                            .font_weight(crate::ui::theme::MEDIUM)
+                            .child("Detection delay"),
                     )
                     .child(
                         div().w(px(100.)).child(
@@ -1156,19 +1177,9 @@ impl PreferencesView {
                     .gap_3()
                     .child(
                         div()
-                            .flex()
-                            .flex_col()
-                            .gap_1()
-                            .child(
-                                div()
-                                    .text_sm()
-                                    .font_weight(crate::ui::theme::MEDIUM)
-                                    .child("Exclude apps from detection"),
-                            )
-                            .child(controls::description(
-                                "Prevent selected apps from triggering meeting detection.",
-                                colors,
-                            )),
+                            .text_sm()
+                            .font_weight(crate::ui::theme::MEDIUM)
+                            .child("Exclude apps from detection"),
                     )
                     .child(self.excluded_apps(colors, window, cx)),
             )
@@ -1407,7 +1418,7 @@ impl PreferencesView {
                     .gap_4()
                     .child(setting_row(
                         "Default sharing",
-                        Some("Choose who can access notes from new meetings.".into()),
+                        None,
                         true,
                         self.dropdown_select(
                             "default_meeting_share_access",
@@ -1439,7 +1450,7 @@ impl PreferencesView {
                             .child(self.gated_switch_row(
                                 "auto_start_scheduled_meetings",
                                 "Start when meeting begins",
-                                Some("Start listening when a scheduled meeting begins."),
+                                None,
                                 pro,
                                 true,
                                 &colors,
@@ -1448,18 +1459,19 @@ impl PreferencesView {
                             .child(self.gated_switch_row(
                                 "auto_join_scheduled_meetings",
                                 "Join scheduled meetings",
-                                Some("Open the meeting link when a scheduled meeting begins."),
+                                None,
                                 pro,
                                 self.flag("auto_start_scheduled_meetings"),
                                 &colors,
                                 cx,
                             )),
-                    cx))
+                        cx,
+                    ))
                     .when(!windows, |view| {
                         view.child(self.switch_row(
                             "auto_stop_meetings",
                             "Stop when meeting ends",
-                            Some("Stop listening when your call ends."),
+                            None,
                             true,
                             &colors,
                             cx,
@@ -1469,7 +1481,7 @@ impl PreferencesView {
                         view.child(self.switch_row(
                             "consent_auto_send_chat",
                             "Post recording disclosure in meeting chat",
-                            Some("Tell participants when listening starts; this does not confirm consent."),
+                            None,
                             true,
                             &colors,
                             cx,
@@ -1477,7 +1489,7 @@ impl PreferencesView {
                         .child(self.switch_row(
                             "capture_meeting_chat",
                             "Capture meeting chat in Memos",
-                            Some("Save visible chat from supported meetings using Accessibility."),
+                            None,
                             true,
                             &colors,
                             cx,
@@ -1487,7 +1499,7 @@ impl PreferencesView {
                         view.child(self.switch_row(
                             "capture_shared_screens",
                             "Capture shared screens in Memos",
-                            Some("Save slides and screens others share in meetings. Requires Screen Recording."),
+                            None,
                             true,
                             &colors,
                             cx,
@@ -1496,61 +1508,59 @@ impl PreferencesView {
                     .child(self.switch_row(
                         "floating_bar_enabled",
                         "Show floating bar",
-                        Some("Control listening without reopening Anarlog."),
+                        None,
                         true,
                         &colors,
                         cx,
                     )),
             )
             .child(
-                div()
-                    .child(controls::section_title("Audio").mb_4())
-                    .child(
-                        div()
-                            .flex()
-                            .flex_col()
-                            .gap_4()
-                            .child(self.microphone_row(window, cx))
-                            .child(setting_row(
-                                "Audio file retention",
-                                Some("Choose how long recordings stay on this device.".into()),
-                                true,
-                                self.dropdown_select(
-                                    "audio_retention",
-                                    [
-                                        ("none", "Don't save"),
-                                        ("oneDay", "1 day"),
-                                        ("threeDays", "3 days"),
-                                        ("oneWeek", "1 week"),
-                                        ("oneMonth", "1 month"),
-                                        ("forever", "Forever"),
-                                    ]
-                                    .into_iter()
-                                    .map(|(value, label)| SelectOption::new(value, label))
-                                    .collect(),
-                                    &retention,
-                                    "",
-                                    self.writable("audio_retention"),
-                                    false,
-                                    controls::CONTROL_WIDTH,
-                                    |this, value, cx| {
-                                        this.set("save_recordings", json!(value != "none"), cx);
-                                        this.set("audio_retention", json!(value), cx);
-                                    },
-                                    window,
-                                    cx,
-                                ),
-                                &colors,
-                            ))
-                            .child(self.switch_row(
-                                "remember_speakers",
-                                "Remember speakers",
-                                Some("Build voiceprints from meeting audio so speakers you name in a transcript are recognized in later meetings. Voiceprints never leave this device, and unnamed ones are deleted after 45 days."),
-                                true,
-                                &colors,
+                div().child(controls::section_title("Audio").mb_4()).child(
+                    div()
+                        .flex()
+                        .flex_col()
+                        .gap_4()
+                        .child(self.microphone_row(window, cx))
+                        .child(setting_row(
+                            "Audio file retention",
+                            None,
+                            true,
+                            self.dropdown_select(
+                                "audio_retention",
+                                [
+                                    ("none", "Don't save"),
+                                    ("oneDay", "1 day"),
+                                    ("threeDays", "3 days"),
+                                    ("oneWeek", "1 week"),
+                                    ("oneMonth", "1 month"),
+                                    ("forever", "Forever"),
+                                ]
+                                .into_iter()
+                                .map(|(value, label)| SelectOption::new(value, label))
+                                .collect(),
+                                &retention,
+                                "",
+                                self.writable("audio_retention"),
+                                false,
+                                controls::CONTROL_WIDTH,
+                                |this, value, cx| {
+                                    this.set("save_recordings", json!(value != "none"), cx);
+                                    this.set("audio_retention", json!(value), cx);
+                                },
+                                window,
                                 cx,
-                            )),
-                    ),
+                            ),
+                            &colors,
+                        ))
+                        .child(self.switch_row(
+                            "remember_speakers",
+                            "Remember speakers",
+                            None,
+                            true,
+                            &colors,
+                            cx,
+                        )),
+                ),
             )
             .into_any_element()
     }
@@ -1579,7 +1589,7 @@ impl PreferencesView {
             .collect();
         setting_row(
             "Microphone",
-            Some("Choose the microphone that captures your voice.".into()),
+            None,
             true,
             self.dropdown_select(
                 "microphone_device",
@@ -1625,16 +1635,13 @@ impl PreferencesView {
         };
         setting_row(
             "Primary recording device",
-            Some(
-                if !account.signed_in() {
-                    "Sign in to choose a primary recording device."
-                } else if !pro {
-                    "Anarlog Pro coordinates recording across your devices."
-                } else {
-                    "Prefer this device when multiple devices record the same meeting. Other devices can record when it is not recording."
-                }
-                .into(),
-            ),
+            if !account.signed_in() {
+                Some("Sign in to choose a primary recording device.".into())
+            } else if !pro {
+                Some("Anarlog Pro coordinates recording across your devices.".into())
+            } else {
+                None
+            },
             true,
             self.dropdown_select(
                 "primary_recording_device",
@@ -1673,15 +1680,8 @@ impl PreferencesView {
                         let checked = self.flag("lock_app") && available;
                         setting_row(
                             "Lock app",
-                            Some(
-                                if !available {
-                                    "Device authentication is not available on this computer."
-                                } else if cfg!(target_os = "windows") {
-                                    "Require Windows Hello face, PIN, or password when opening Anarlog."
-                                } else {
-                                    "Require Touch ID or your password when opening Anarlog."
-                                }
-                                .into(),
+                            (!available).then_some(
+                                "Device authentication is not available on this computer.".into(),
                             ),
                             false,
                             controls::switch(
@@ -1698,7 +1698,7 @@ impl PreferencesView {
                     .child(self.switch_row(
                         "telemetry_consent",
                         "Share usage data",
-                        Some("Help improve Anarlog with anonymous usage data."),
+                        None,
                         true,
                         &colors,
                         cx,
@@ -1706,7 +1706,7 @@ impl PreferencesView {
                     .child(self.switch_row(
                         "crash_reporting_consent",
                         "Error",
-                        Some("Send sanitized crash and error reports to help improve Anarlog."),
+                        None,
                         true,
                         &colors,
                         cx,
@@ -1719,7 +1719,6 @@ impl PreferencesView {
     pub(super) fn dictation(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         let colors = theme(window);
         let pro = super::account::is_pro(cx);
-        let hands_free = self.flag("dictation_hands_free");
         let keys = super::dictation_shortcut::labels(&self.text("dictation_shortcut"));
         let chip = |label: String| {
             div()
@@ -1738,16 +1737,10 @@ impl PreferencesView {
                     .flex()
                     .flex_col()
                     .gap_6()
-                    .child(
-                        div()
-                            .text_sm()
-                            .text_color(colors.muted_foreground)
-                            .child("Speak into the focused text field in your apps. Your transcript appears when you finish."),
-                    )
                     .child(self.gated_switch_row(
                         "dictation_enabled",
                         "Enable dictation",
-                        Some("Keep Anarlog running to use your shortcut in other apps."),
+                        None,
                         pro,
                         true,
                         &colors,
@@ -1808,10 +1801,6 @@ impl PreferencesView {
                                             }),
                                     ),
                             )
-                            .child(controls::description(
-                                "Click the shortcut to record a new key combination. Press Escape to cancel.",
-                                &colors,
-                            ))
                             .when_some(self.shortcut_error.clone(), |view, error| {
                                 view.child(
                                     div()
@@ -1823,38 +1812,40 @@ impl PreferencesView {
                                 )
                             })
                             .when(cfg!(target_os = "macos"), |view| {
-                                view.child(div().flex().gap_2().children(
-                                    [("Fn", "Fn / Globe"), ("RightCommand", "Right Command")]
-                                        .into_iter()
-                                        .map(|(value, label)| {
-                                            div()
-                                                .id(value)
-                                                .a11y_button(label)
-                                                .h(px(28.))
-                                                .px_2()
-                                                .flex()
-                                                .items_center()
-                                                .border_1()
-                                                .border_color(colors.input)
-                                                .bg(colors.background)
-                                                .shadow_xs()
-                                                .text_xs()
-                                                .font_weight(crate::ui::theme::MEDIUM)
-                                                .cursor_pointer()
-                                                .hover(|style| style.bg(colors.accent))
-                                                .on_click(cx.listener(move |this, _, _, cx| {
-                                                    this.save_shortcut(value.into(), cx)
-                                                }))
-                                                .child(label)
-                                        }),
-                                ))
+                                view.child(
+                                    div().flex().gap_2().children(
+                                        [("Fn", "Fn / Globe"), ("RightCommand", "Right Command")]
+                                            .into_iter()
+                                            .map(|(value, label)| {
+                                                div()
+                                                    .id(value)
+                                                    .a11y_button(label)
+                                                    .h(px(28.))
+                                                    .px_2()
+                                                    .flex()
+                                                    .items_center()
+                                                    .border_1()
+                                                    .border_color(colors.input)
+                                                    .bg(colors.background)
+                                                    .shadow_xs()
+                                                    .text_xs()
+                                                    .font_weight(crate::ui::theme::MEDIUM)
+                                                    .cursor_pointer()
+                                                    .hover(|style| style.bg(colors.accent))
+                                                    .on_click(cx.listener(move |this, _, _, cx| {
+                                                        this.save_shortcut(value.into(), cx)
+                                                    }))
+                                                    .child(label)
+                                            }),
+                                    ),
+                                )
                             }),
                     )
                     .child(self.microphone_row(window, cx))
                     .child(self.gated_switch_row(
                         "dictation_live_preview",
                         "Live transcript preview",
-                        Some("Show words in the floating panel as you speak. Uses a live connection to your selected transcription provider when supported. Text is inserted when you finish."),
+                        None,
                         pro,
                         true,
                         &colors,
@@ -1863,33 +1854,33 @@ impl PreferencesView {
                     .child(self.gated_switch_row(
                         "dictation_hands_free",
                         "Hands-free dictation",
-                        Some(if hands_free {
-                            "Press your shortcut to start, then press it again to finish."
-                        } else {
-                            "Hold your shortcut while speaking, then release it to finish."
-                        }),
+                        None,
                         pro,
                         true,
                         &colors,
                         cx,
                     ))
-                    .child(controls::description(
-                        "Press Escape to cancel. Dictation stops after five minutes and pauses while Anarlog records a meeting.",
-                        &colors,
-                    ))
-                    .child(div().flex().flex_wrap().gap_2().children(
-                        [
-                            ("Permissions", "permissions"),
-                            ("Language & transcription", "transcription"),
-                            ("Dictionary", "dictionary"),
-                        ]
-                        .map(|(label, page)| {
-                            let open = cx.listener(move |_, _: &gpui::ClickEvent, _, cx| {
-                                cx.emit(super::OpenSettingsPage(page))
-                            });
-                            controls::outline_button(label, label, true, &colors, Some(Box::new(open)))
-                        }),
-                    ))
+                    .child(
+                        div().flex().flex_wrap().gap_2().children(
+                            [
+                                ("Permissions", "permissions"),
+                                ("Language & transcription", "transcription"),
+                                ("Dictionary", "dictionary"),
+                            ]
+                            .map(|(label, page)| {
+                                let open = cx.listener(move |_, _: &gpui::ClickEvent, _, cx| {
+                                    cx.emit(super::OpenSettingsPage(page))
+                                });
+                                controls::outline_button(
+                                    label,
+                                    label,
+                                    true,
+                                    &colors,
+                                    Some(Box::new(open)),
+                                )
+                            }),
+                        ),
+                    )
                     .when(self.flag("dictation_enabled"), |view| {
                         view.child(self.dictation_status(&colors, cx))
                     })
@@ -1911,12 +1902,9 @@ impl PreferencesView {
                                     .child(self.dictation_try.clone()),
                             ),
                     )
-                    .child(controls::description(
-                        "Dictation uses your microphone, transcription provider, languages, and dictionary. Temporary audio is deleted after transcription. Your last transcript stays in memory until dictation is disabled or Anarlog closes.",
-                        &colors,
-                    ))
                     .children(self.last_dictation(&colors, cx)),
-            cx))
+                cx,
+            ))
             .into_any_element()
     }
 

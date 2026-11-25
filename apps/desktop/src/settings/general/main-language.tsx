@@ -46,12 +46,7 @@ export function MainLanguageView({
   );
 
   return (
-    <SettingRow
-      title={<Trans>Main language</Trans>}
-      description={
-        <Trans>Default language for transcription and AI responses.</Trans>
-      }
-    >
+    <SettingRow title={<Trans>Main language</Trans>}>
       {(labelProps) => (
         <SearchableSelect
           {...labelProps}

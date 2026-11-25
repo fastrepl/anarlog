@@ -83,9 +83,6 @@ export function SettingsAccount() {
           <SettingsPageTitle title={<Trans>Account</Trans>} />
           <Container
             title={<Trans>Finish sign-in</Trans>}
-            description={
-              <Trans>Finish in your browser, then return to Anarlog.</Trans>
-            }
             action={
               <Button onClick={handleSignIn} variant="outline">
                 <Trans>Reopen sign-in page</Trans>
@@ -163,9 +160,6 @@ export function SettingsAccount() {
 
       <Container
         title={<Trans>Connected accounts</Trans>}
-        description={
-          <Trans>Manage your sign-in methods on the Anarlog website.</Trans>
-        }
         action={
           <Button
             variant="outline"
