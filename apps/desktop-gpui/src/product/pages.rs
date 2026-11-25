@@ -25,12 +25,23 @@ fn page(title: &'static str, gap: f32) -> Div {
 }
 
 fn tildify_path(path: &str) -> String {
-    std::env::home_dir()
-        .and_then(|home| {
-            path.strip_prefix(home.to_string_lossy().as_ref())
-                .map(|rest| format!("~{rest}"))
-        })
-        .unwrap_or_else(|| path.to_owned())
+    tildify_path_in(path, std::env::home_dir().as_deref())
+}
+
+fn tildify_path_in(path: &str, home: Option<&std::path::Path>) -> String {
+    let Some(home) = home else {
+        return path.to_owned();
+    };
+    let home = home.to_string_lossy();
+    let home = home.trim_end_matches(['/', '\\']);
+    if home.is_empty() {
+        return path.to_owned();
+    }
+    match path.strip_prefix(home) {
+        Some("") => "~".to_owned(),
+        Some(rest) if rest.starts_with('/') || rest.starts_with('\\') => format!("~{rest}"),
+        _ => path.to_owned(),
+    }
 }
 
 impl PreferencesView {
@@ -2431,5 +2442,40 @@ mod tests {
             ["Anarlog", "Linear issue", "GPUI"]
         );
         assert!(stored_terms("not json").is_empty());
+    }
+
+    #[test]
+    fn tildify_path_respects_directory_boundaries() {
+        let home = std::path::Path::new("/Users/john");
+        assert_eq!(tildify_path_in("/Users/john", Some(home)), "~");
+        assert_eq!(
+            tildify_path_in(
+                "/Users/john/Library/Application Support/anarlog",
+                Some(home)
+            ),
+            "~/Library/Application Support/anarlog"
+        );
+        assert_eq!(
+            tildify_path_in(
+                "/Users/john/Library/Application Support/anarlog",
+                Some(std::path::Path::new("/Users/john/"))
+            ),
+            "~/Library/Application Support/anarlog"
+        );
+        assert_eq!(
+            tildify_path_in("/Users/john2/foo", Some(home)),
+            "/Users/john2/foo"
+        );
+        assert_eq!(
+            tildify_path_in(
+                r"C:\Users\john\AppData\Roaming\anarlog",
+                Some(std::path::Path::new(r"C:\Users\john\"))
+            ),
+            r"~\AppData\Roaming\anarlog"
+        );
+        assert_eq!(
+            tildify_path_in("/Users/john/anarlog", None),
+            "/Users/john/anarlog"
+        );
     }
 }
