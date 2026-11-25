@@ -29,14 +29,16 @@ test("answers the security-review questions buyers forward to IT", () => {
 test("lists processors without claiming they can read Cloud Sync content", () => {
   const names = subprocessors.map((item) => item.name).join(" ");
 
-  assert.match(names, /SQLite Cloud/);
+  assert.doesNotMatch(names, /SQLite Cloud/);
+  assert.match(names, /Supabase/);
   assert.match(names, /Stripe/);
   assert.match(names, /Deepgram/);
   assert.match(names, /OpenRouter/);
   assert.match(names, /Nango/);
 
-  const sync = subprocessors.find((item) => item.name === "SQLite Cloud");
-  assert.match(sync?.receives ?? "", /encrypted/i);
+  const hosting = subprocessors.find((item) => item.name.includes("Supabase"));
+  assert.match(hosting?.purpose ?? "", /encrypted sync/i);
+  assert.match(hosting?.receives ?? "", /end-to-end encrypted/i);
 });
 
 test("does not claim certifications that are not complete", () => {
