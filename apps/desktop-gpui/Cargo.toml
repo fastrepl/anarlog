@@ -210,6 +210,7 @@ ashpd = { version = "=0.11.1", default-features = false, features = ["async-std"
 x11rb = "=0.13.2"
 gtk = "=0.18.2"
 nix = { version = "=0.30.1", features = ["user"] }
+libloading = "0.8.9"
 anlg-notification-linux = { path = "../../crates/notification-linux", package = "notification-linux" }
 
 [target.'cfg(target_os = "macos")'.dependencies]
