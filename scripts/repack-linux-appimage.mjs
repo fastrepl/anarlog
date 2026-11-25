@@ -38,6 +38,31 @@ function patchGtkHook(source) {
   return source.replace(forcedX11, gdkBackendDefault);
 }
 
+// The .deb's desktop entry starts /usr/bin/<app> by absolute path, so a CLI
+// installed as ~/.local/bin/<app> (earlier on PATH) can't take over the menu
+// launch. Tauri builds the AppImage's entry from the same template, and
+// AppRun runs that Exec line, so the AppImage must name its bundled binary.
+const debExecLine = /^Exec=\/usr\/bin\/([^/\s]+)(.*)$/m;
+
+export function patchDesktopEntry(source) {
+  return source.replace(debExecLine, "Exec=$1$2");
+}
+
+async function findDesktopEntries(appDirectory) {
+  const directory = path.join(appDirectory, "usr", "share", "applications");
+  let entries;
+  try {
+    entries = await readdir(directory, { withFileTypes: true });
+  } catch (error) {
+    if (error?.code === "ENOENT") return [];
+    throw error;
+  }
+  return entries
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".desktop"))
+    .map((entry) => path.join(directory, entry.name))
+    .sort();
+}
+
 async function findSingleBundleEntry(bundleDirectory, suffix, isExpectedType) {
   const entries = await readdir(bundleDirectory, { withFileTypes: true });
   const matches = entries.filter(
@@ -134,12 +159,29 @@ export async function repackLinuxAppImage({
   const originalGtkHook = await readFile(gtkHook, "utf8");
   const patchedGtkHook = patchGtkHook(originalGtkHook);
   const updatedGtkHook = originalGtkHook !== patchedGtkHook;
+  const desktopEntries = [];
+  for (const entry of await findDesktopEntries(appDirectory)) {
+    const original = await readFile(entry, "utf8");
+    const patched = patchDesktopEntry(original);
+    if (patched !== original) desktopEntries.push({ entry, patched });
+  }
+  const updatedDesktopEntries = desktopEntries.map(({ entry }) => entry);
 
-  if (hostLibraries.length === 0 && !updatedGtkHook) {
+  if (
+    hostLibraries.length === 0 &&
+    !updatedGtkHook &&
+    updatedDesktopEntries.length === 0
+  ) {
     console.log(
       `AppImage already uses host Wayland and PipeWire libraries and GTK backends: ${appImage}`,
     );
-    return { appDirectory, appImage, removedLibraries: [], updatedGtkHook };
+    return {
+      appDirectory,
+      appImage,
+      removedLibraries: [],
+      updatedGtkHook,
+      updatedDesktopEntries,
+    };
   }
 
   if (!arch) {
@@ -154,6 +196,9 @@ export async function repackLinuxAppImage({
 
   if (updatedGtkHook) {
     await writeFile(gtkHook, patchedGtkHook);
+  }
+  for (const { entry, patched } of desktopEntries) {
+    await writeFile(entry, patched);
   }
   await Promise.all(hostLibraries.map((library) => rm(library)));
 
@@ -202,6 +247,7 @@ export async function repackLinuxAppImage({
     appImage,
     removedLibraries: hostLibraries,
     updatedGtkHook,
+    updatedDesktopEntries,
   };
 }
 

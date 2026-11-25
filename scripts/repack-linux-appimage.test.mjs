@@ -14,7 +14,10 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { repackLinuxAppImage } from "./repack-linux-appimage.mjs";
+import {
+  patchDesktopEntry,
+  repackLinuxAppImage,
+} from "./repack-linux-appimage.mjs";
 
 async function createFixture(
   t,
@@ -22,6 +25,7 @@ async function createFixture(
     withWaylandLibraries = true,
     withAudioLibraries = false,
     patchedGtkHook = false,
+    desktopExec,
   } = {},
 ) {
   const directory = await mkdtemp(
@@ -81,12 +85,33 @@ async function createFixture(
       await writeFile(path.join(libraryDirectory, name), name);
     }
   }
+  const desktopEntry = path.join(
+    appDirectory,
+    "usr",
+    "share",
+    "applications",
+    "Anarlog.desktop",
+  );
+  if (desktopExec !== undefined) {
+    await mkdir(path.dirname(desktopEntry), { recursive: true });
+    await writeFile(
+      desktopEntry,
+      [
+        "[Desktop Entry]",
+        `Exec=${desktopExec}`,
+        "StartupWMClass=anarlog",
+        "Name=Anarlog",
+        "MimeType=x-scheme-handler/anarlog;x-scheme-handler/hyprnote",
+        "",
+      ].join("\n"),
+    );
+  }
   await writeFile(appImage, "original-appimage");
   await writeFile(`${appImage}.sig`, "stale-signature");
   await writeFile(plugin, "plugin");
   await chmod(plugin, 0o755);
 
-  return { directory, appDirectory, appImage, plugin, gtkHook };
+  return { directory, appDirectory, appImage, plugin, gtkHook, desktopEntry };
 }
 
 test("removes Wayland libraries, repacks, and regenerates the signature", async (t) => {
@@ -209,6 +234,7 @@ test("keeps an already-clean AppImage and its signature unchanged", async (t) =>
   const fixture = await createFixture(t, {
     withWaylandLibraries: false,
     patchedGtkHook: true,
+    desktopExec: "anarlog",
   });
 
   const result = await repackLinuxAppImage({
@@ -221,6 +247,7 @@ test("keeps an already-clean AppImage and its signature unchanged", async (t) =>
 
   assert.deepEqual(result.removedLibraries, []);
   assert.equal(result.updatedGtkHook, false);
+  assert.deepEqual(result.updatedDesktopEntries, []);
   assert.equal(await readFile(fixture.appImage, "utf8"), "original-appimage");
   assert.equal(
     await readFile(`${fixture.appImage}.sig`, "utf8"),
@@ -270,6 +297,56 @@ test("repacks a hook-only fix and preserves explicit GTK backend preferences", a
       { env, encoding: "utf8" },
     );
     assert.equal(backend, `${expected}:unchanged`);
+  }
+});
+
+test("points the AppImage desktop entry back at its bundled binary", async (t) => {
+  const fixture = await createFixture(t, {
+    withWaylandLibraries: false,
+    patchedGtkHook: true,
+    desktopExec: "/usr/bin/anarlog",
+  });
+  const commands = [];
+
+  const result = await repackLinuxAppImage({
+    arch: "x86_64",
+    bundleDirectory: fixture.directory,
+    pluginPath: fixture.plugin,
+    run: async (command) => {
+      commands.push(command);
+      await writeFile(
+        command === fixture.plugin
+          ? fixture.appImage
+          : `${fixture.appImage}.sig`,
+        "regenerated",
+      );
+    },
+  });
+
+  assert.deepEqual(result.removedLibraries, []);
+  assert.equal(result.updatedGtkHook, false);
+  assert.deepEqual(result.updatedDesktopEntries, [fixture.desktopEntry]);
+  assert.deepEqual(commands, [fixture.plugin, "pnpm"]);
+  const entry = await readFile(fixture.desktopEntry, "utf8");
+  assert.match(entry, /^Exec=anarlog$/m);
+  assert.match(entry, /^StartupWMClass=anarlog$/m);
+  assert.match(
+    entry,
+    /^MimeType=x-scheme-handler\/anarlog;x-scheme-handler\/hyprnote$/m,
+  );
+});
+
+test("patchDesktopEntry only rewrites the absolute /usr/bin Exec line", () => {
+  assert.equal(
+    patchDesktopEntry("[Desktop Entry]\nExec=/usr/bin/anarlog-nightly %U\n"),
+    "[Desktop Entry]\nExec=anarlog-nightly %U\n",
+  );
+  for (const unchanged of [
+    "[Desktop Entry]\nExec=anarlog\n",
+    "[Desktop Entry]\nExec=/opt/anarlog/bin/anarlog\n",
+    "[Desktop Entry]\nTryExec=/usr/bin/anarlog\n",
+  ]) {
+    assert.equal(patchDesktopEntry(unchanged), unchanged);
   }
 });
 
