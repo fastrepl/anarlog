@@ -8,6 +8,50 @@ const COMMAND =
   /async \w+\([^)]*\)\s*:\s*Promise<([\s\S]+?)>\s*\{\s*(?:try\s*\{\s*)?return\s*(?:\{\s*status:\s*"ok",\s*data:\s*)?await TAURI_INVOKE\(\s*"([^"]+)"/g;
 const ALIAS_HEAD = /^export type (\w+)(?:<[^>]*>)?\s*=\s*/gm;
 
+function stripComments(source) {
+  let out = "";
+  let quote = null;
+  for (let index = 0; index < source.length; index++) {
+    const char = source[index];
+    if (quote) {
+      out += char;
+      if (char === "\\") {
+        if (index + 1 < source.length) out += source[++index];
+      } else if (char === quote) {
+        quote = null;
+      }
+      continue;
+    }
+    if (char === '"' || char === "'" || char === "`") {
+      quote = char;
+      out += char;
+      continue;
+    }
+    if (char === "/" && source[index + 1] === "/") {
+      index += 2;
+      while (index < source.length && source[index] !== "\n") index++;
+      if (index < source.length) out += "\n";
+      continue;
+    }
+    if (char === "/" && source[index + 1] === "*") {
+      index += 2;
+      let newlines = "";
+      while (
+        index < source.length &&
+        !(source[index] === "*" && source[index + 1] === "/")
+      ) {
+        if (source[index] === "\n") newlines += "\n";
+        index++;
+      }
+      index++;
+      out += newlines || " ";
+      continue;
+    }
+    out += char;
+  }
+  return out;
+}
+
 function parseAliases(source) {
   const aliases = new Map();
   for (const match of source.matchAll(ALIAS_HEAD)) {
@@ -135,8 +179,9 @@ export function commandDefaults(repository) {
     } catch {
       continue;
     }
-    const aliases = parseAliases(source);
-    for (const [, type, command] of source.matchAll(COMMAND)) {
+    const stripped = stripComments(source);
+    const aliases = parseAliases(stripped);
+    for (const [, type, command] of stripped.matchAll(COMMAND)) {
       defaults[command] = value(type.replace(/\s+/g, " "), aliases);
     }
   }
