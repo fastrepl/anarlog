@@ -1,3 +1,8 @@
+import json
+import pathlib
+import subprocess
+import sys
+import tempfile
 import unittest
 
 from prepare_api_service_secrets import (
@@ -5,7 +10,6 @@ from prepare_api_service_secrets import (
     BILLING,
     CORE,
     SHARED,
-    SQLITECLOUD,
     SYNC,
     select,
 )
@@ -14,8 +18,7 @@ from prepare_api_service_secrets import (
 class ServiceSecretsTests(unittest.TestCase):
     def setUp(self):
         self.api = [
-            {"key": key, "value": "test-value"}
-            for key in (SHARED | AI | CORE | SYNC) - {"ANARLOG_SQLITECLOUD_MODE"}
+            {"key": key, "value": "test-value"} for key in (SHARED | AI | CORE | SYNC)
         ]
         self.webhooks = [
             {"key": key, "value": "webhook-value"}
@@ -84,46 +87,68 @@ class ServiceSecretsTests(unittest.TestCase):
             self.assertNotIn("SLACK_ALERT_ANARLOG_WEBHOOK_URL", result)
             self.assertNotIn("SLACK_ALERT_CHAR_WEBHOOK_URL", result)
 
-    def test_sqlitecloud_mode_decides_which_provider_secrets_are_staged(self):
-        def with_mode(mode):
-            return self.api + [{"key": "ANARLOG_SQLITECLOUD_MODE", "value": mode}]
-
-        supabase_only = [s for s in self.api if s["key"] not in SQLITECLOUD]
-        for role in ["sync", "core", "gateway"]:
+    def test_stale_sqlitecloud_secrets_are_ignored(self):
+        stale_keys = {
+            "ANARLOG_CLOUDSYNC_DATABASE_ID",
+            "ANARLOG_CLOUDSYNC_E2EE_DATABASE_ID",
+            "ANARLOG_CLOUDSYNC_PROTOCOL_MODE",
+            "ANARLOG_CLOUDSYNC_TOKEN_TTL_SECONDS",
+            "ANARLOG_CLOUDSYNC_DESKTOP_TRANSPORT",
+            "ANARLOG_SQLITECLOUD_MODE",
+            "SQLITECLOUD_CLOUDSYNC_MANAGEMENT_API_KEY",
+            "SQLITECLOUD_PROJECT_URL",
+            "SQLITECLOUD_TOKEN_ISSUER_API_KEY",
+        }
+        stale = [{"key": key, "value": "stale"} for key in stale_keys]
+        for role in ["ai", "sync", "core", "billing", "all", "gateway"]:
             with self.subTest(role=role):
-                self.assertNotIn("ANARLOG_SQLITECLOUD_MODE", select(role, self.api, []))
-                self.assertTrue(SQLITECLOUD <= select(role, self.api, []).keys())
-                with self.assertRaisesRegex(ValueError, "SQLITECLOUD_PROJECT_URL"):
-                    select(role, supabase_only, [])
+                staged = select(role, self.api + stale, stale, self.webhooks)
+                self.assertFalse(staged.keys() & stale_keys)
+        self.assertIn("RESEND_API_KEY", select("sync", self.api))
 
-                draining = select(role, with_mode("draining"), [])
-                self.assertEqual(draining["ANARLOG_SQLITECLOUD_MODE"], "draining")
-                self.assertTrue(SQLITECLOUD <= draining.keys())
-                with self.assertRaisesRegex(ValueError, "SQLITECLOUD_PROJECT_URL"):
-                    select(
-                        role,
-                        supabase_only
-                        + [{"key": "ANARLOG_SQLITECLOUD_MODE", "value": "draining"}],
-                        [],
-                    )
-
-                for secrets in [with_mode("retired"), with_mode(" retired ")]:
-                    retired = select(role, secrets, [])
-                    self.assertFalse(retired.keys() & SQLITECLOUD)
-                    self.assertEqual(
-                        retired["ANARLOG_SQLITECLOUD_MODE"].strip(), "retired"
-                    )
-                    self.assertIn("RESEND_API_KEY", retired)
-                retired = select(
+    def test_rollback_image_stages_retired_mode_without_provider_credentials(self):
+        stale = [
+            {"key": "SQLITECLOUD_PROJECT_URL", "value": "https://sqlite.example"},
+            {"key": "ANARLOG_SQLITECLOUD_MODE", "value": "enabled"},
+        ]
+        for role in ["sync", "core"]:
+            with self.subTest(role=role):
+                normal = select(role, self.api + stale, stale, self.webhooks)
+                self.assertNotIn("ANARLOG_SQLITECLOUD_MODE", normal)
+                rollback = select(
                     role,
-                    supabase_only
-                    + [{"key": "ANARLOG_SQLITECLOUD_MODE", "value": "retired"}],
-                    [],
+                    self.api + stale,
+                    stale,
+                    self.webhooks,
+                    rollback_image=True,
                 )
-                self.assertFalse(retired.keys() & SQLITECLOUD)
+                self.assertEqual(rollback["ANARLOG_SQLITECLOUD_MODE"], "retired")
+                self.assertNotIn("SQLITECLOUD_PROJECT_URL", rollback)
+        self.assertNotIn(
+            "ANARLOG_SQLITECLOUD_MODE",
+            select("ai", self.api, [], self.webhooks, rollback_image=True),
+        )
 
-                with self.assertRaisesRegex(ValueError, "ANARLOG_SQLITECLOUD_MODE"):
-                    select(role, with_mode("disabled"), [])
+        with tempfile.TemporaryDirectory() as directory:
+            api_path = pathlib.Path(directory, "api.json")
+            out_path = pathlib.Path(directory, "out.env")
+            api_path.write_text(json.dumps(self.api))
+            script = pathlib.Path(__file__).with_name("prepare_api_service_secrets.py")
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(script),
+                    "--service",
+                    "core",
+                    "--api",
+                    str(api_path),
+                    "--output",
+                    str(out_path),
+                    "--rollback-image",
+                ],
+                check=True,
+            )
+            self.assertIn("ANARLOG_SQLITECLOUD_MODE=retired\n", out_path.read_text())
 
     def test_unknown_role_fails_closed(self):
         with self.assertRaisesRegex(ValueError, "Unknown"):

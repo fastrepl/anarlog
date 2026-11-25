@@ -4,8 +4,6 @@ on:
     branches:
       - main
     paths:
-      - .github/scripts/audit_cloudsync_replica.py
-      - .github/scripts/test_audit_cloudsync_replica.py
       - .github/scripts/prepare_api_service_secrets.py
       - .github/scripts/test_prepare_api_service_secrets.py
       - .github/scripts/verify_api_continuity.py
@@ -35,8 +33,6 @@ on:
       - crates/transcribe-proxy/**
   pull_request:
     paths:
-      - .github/scripts/audit_cloudsync_replica.py
-      - .github/scripts/test_audit_cloudsync_replica.py
       - .github/scripts/prepare_api_service_secrets.py
       - .github/scripts/test_prepare_api_service_secrets.py
       - .github/scripts/verify_api_continuity.py
@@ -100,7 +96,6 @@ jobs:
       - run: python3 .github/scripts/test_verify_api_continuity.py
       - run: python3 .github/scripts/test_deploy_api_drain.py
       - run: python3 .github/scripts/test_prepare_api_service_secrets.py
-      - run: python3 .github/scripts/test_audit_cloudsync_replica.py
       - run: |
           cargo test -p api gen_openapi_json
           git diff --exit-code -- apps/api/openapi.gen.json

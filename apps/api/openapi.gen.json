@@ -4007,7 +4007,7 @@
           {
             "name": "x-anarlog-cloudsync-transports",
             "in": "header",
-            "description": "Comma-separated transports the client accepts; `accepted_replica` is required once SQLite Cloud is retired",
+            "description": "Comma-separated transports the client accepts; `accepted_replica` is required",
             "required": false,
             "schema": {
               "type": [
@@ -4041,7 +4041,7 @@
             "description": "Account already uses a different recovery key"
           },
           "426": {
-            "description": "SQLite Cloud is retired and the client predates the accepted replica"
+            "description": "Client predates the accepted replica"
           },
           "502": {
             "description": "Replica credential service unavailable"
@@ -4454,7 +4454,7 @@
           {
             "name": "x-anarlog-cloudsync-transports",
             "in": "header",
-            "description": "Comma-separated transports the client accepts; `replica` allows witness-only credentials and `accepted_replica` is required once SQLite Cloud stops issuing tokens",
+            "description": "Comma-separated transports the client accepts; `accepted_replica` is required",
             "required": false,
             "schema": {
               "type": [
@@ -4466,14 +4466,17 @@
         ],
         "responses": {
           "200": {
-            "description": "Short-lived CloudSync credentials",
+            "description": "Encrypted replica credentials",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CloudsyncCredentialResponse"
+                  "$ref": "#/components/schemas/ReplicaCredentials"
                 }
               }
             }
+          },
+          "400": {
+            "description": "Invalid E2EE key identity"
           },
           "401": {
             "description": "Authentication required"
@@ -4481,11 +4484,14 @@
           "403": {
             "description": "Anarlog Pro subscription required"
           },
+          "409": {
+            "description": "Account already uses a different recovery key"
+          },
           "426": {
             "description": "Client update required"
           },
           "502": {
-            "description": "Credential issuer unavailable"
+            "description": "Credential service unavailable"
           }
         },
         "security": [
@@ -6634,74 +6640,6 @@
               "string",
               "null"
             ]
-          }
-        }
-      },
-      "CloudsyncCredentialResponse": {
-        "oneOf": [
-          {
-            "$ref": "#/components/schemas/LegacyCloudsyncCredentials"
-          },
-          {
-            "$ref": "#/components/schemas/CloudsyncCredentials"
-          },
-          {
-            "$ref": "#/components/schemas/ReplicaCredentials"
-          }
-        ]
-      },
-      "CloudsyncCredentials": {
-        "type": "object",
-        "required": [
-          "encryptionVersion",
-          "encryptionKeyId",
-          "databaseId",
-          "token",
-          "expiresAt",
-          "workspaceId",
-          "accountUserId",
-          "personalWorkspaceId",
-          "workspaces",
-          "workspaceKeyGrants"
-        ],
-        "properties": {
-          "accountUserId": {
-            "type": "string"
-          },
-          "databaseId": {
-            "type": "string"
-          },
-          "encryptionKeyId": {
-            "type": "string"
-          },
-          "encryptionVersion": {
-            "type": "integer",
-            "format": "int32",
-            "minimum": 0
-          },
-          "expiresAt": {
-            "type": "string"
-          },
-          "personalWorkspaceId": {
-            "type": "string"
-          },
-          "token": {
-            "type": "string"
-          },
-          "workspaceId": {
-            "type": "string"
-          },
-          "workspaceKeyGrants": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/WorkspaceE2eeKeyGrant"
-            }
-          },
-          "workspaces": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/CloudsyncWorkspace"
-            }
           }
         }
       },
@@ -9453,29 +9391,6 @@
           "user",
           "unknown"
         ]
-      },
-      "LegacyCloudsyncCredentials": {
-        "type": "object",
-        "required": [
-          "databaseId",
-          "token",
-          "expiresAt",
-          "workspaceId"
-        ],
-        "properties": {
-          "databaseId": {
-            "type": "string"
-          },
-          "expiresAt": {
-            "type": "string"
-          },
-          "token": {
-            "type": "string"
-          },
-          "workspaceId": {
-            "type": "string"
-          }
-        }
       },
       "LegacySessionShareSnapshotRequest": {
         "type": "object",

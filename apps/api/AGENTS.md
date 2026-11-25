@@ -47,42 +47,25 @@ email configuration. Optional integration groups are validated only in their
 owning roles. `ANARLOG_ATTACHMENT_BACKUP_GC_ENABLED` is accepted only by `core`
 and `all`. Assign cleanup to one deployment during migration.
 
-## SQLite Cloud lifecycle
+## Encrypted replica sync
 
-Sync routes need only Supabase. `ANARLOG_SQLITECLOUD_MODE` decides what the
-provider may still do; it lives in `/anarlog/cloudsync` so deploy verification
-and secret selection read the same value.
+Sync routes need only Supabase. `/sync/token` and `/sync/replica/credentials`
+issue encrypted replica credentials only to `accepted_replica` clients and
+return `426 cloudsync_upgrade_required` otherwise. Account deletion relies on
+Supabase cascades when deleting the auth user.
 
-| Value | `/sync/token` | Provider secrets and account cleanup |
-| --- | --- | --- |
-| `enabled` | Provider tokens, or replica credentials by default/override | Required; cleanup purges the provider |
-| `draining` | Replica credentials for `accepted_replica` clients, 426 `cloudsync_upgrade_required` otherwise | Required; cleanup still purges the provider; deploy verification is read-only |
-| `retired` | Same as `draining` | Not staged and never read; cleanup relies on Supabase cascades |
-
-Unset means `enabled` when any provider variable is present and `retired`
-otherwise, which keeps a self-hosted API without SQLite Cloud replica-only.
-The cleanup owner does not accept that inference: without provider variables
-it requires an explicit `retired`. The mode wins over
-`ANARLOG_CLOUDSYNC_DESKTOP_TRANSPORT` and `sync_transport_overrides`, which
-only choose a transport while the provider is `enabled`. `/health/sync`
-reports the resolved mode. Deploys never unset secrets, so a retired machine
-can still hold provider values; only the explicit mode keeps them unread.
-
-Deploy verification also checks the encrypted replica when the eight
-`ANARLOG_REPLICA_VERIFY_*` values in `/anarlog/cloudsync` name two dedicated Pro
-accounts: two fresh devices converge through the serving API and the second
-account is refused the first one's workspace. It is optional while the provider
-exists and required once `retired`, when nothing else verifies sync. It runs
-against the serving API before every deploy and again after a `sync` deploy,
-against the candidate and the mode it now runs. Point
-`ANARLOG_REPLICA_VERIFY_API_URL` at the sync service so `/health/sync` reports
-the mode that service runs. Keep account A's recovery key unchanged: the
-account is bound to its first key and each run appends one note to its history.
-The accounts sign in with their passwords under the service role key, because
-production sign-in requires a captcha that Supabase Auth waives only for
-service credentials. Use addresses outside any domain with workspace auto-join,
-or have the accounts leave that workspace: a new account on such a domain takes
-a team seat and inherits the team's plan.
+Deploy verification checks the encrypted replica using the eight
+`ANARLOG_REPLICA_VERIFY_*` values in `/anarlog/cloudsync` naming two dedicated
+Pro accounts: two fresh devices converge through the serving API and the second
+account is refused the first one's workspace. It runs against the serving API
+before every deploy and again after a `sync` deploy against the candidate.
+Keep account A's recovery key unchanged: the account is bound to its first key
+and each run appends one note to its history. The accounts sign in with their
+passwords under the service role key, because production sign-in requires a
+captcha that Supabase Auth waives only for service credentials. Use addresses
+outside any domain with workspace auto-join, or have the accounts leave that
+workspace: a new account on such a domain takes a team seat and inherits the
+team's plan.
 
 Role selection does not change Fly routing or provision applications. Keep
 existing URLs working while clients and webhook providers migrate.

@@ -150,15 +150,8 @@ fn test_sync_rate_limit(burst: u32) -> rate_limit::RateLimitState {
 }
 
 fn test_sync_state(server: &MockServer) -> anlg_api_sync::AppState {
-    let config = anlg_api_sync::SyncConfig::new(server.uri(), "anon-key", "service-role-key")
-        .unwrap()
-        .with_sqlitecloud(
-            anlg_api_sync::SqliteCloudMode::Enabled,
-            "https://test.sqlite.cloud",
-            "issuer-key",
-            "database-id",
-        )
-        .unwrap();
+    let config =
+        anlg_api_sync::SyncConfig::new(server.uri(), "anon-key", "service-role-key").unwrap();
     anlg_api_sync::AppState::new(config)
 }
 
@@ -214,12 +207,7 @@ fn api_env(with_hosted_integrations: bool) -> &'static crate::env::RuntimeConfig
 }
 
 fn api_env_with_subsystems() -> &'static crate::env::RuntimeConfig {
-    let env = deserialize_api_env([
-        ("SQLITECLOUD_PROJECT_URL", "https://test.sqlite.cloud"),
-        ("SQLITECLOUD_TOKEN_ISSUER_API_KEY", "issuer-key"),
-        ("ANARLOG_CLOUDSYNC_E2EE_DATABASE_ID", "database-id"),
-        ("DEEPGRAM_API_KEY", "deepgram-key"),
-    ]);
+    let env = deserialize_api_env([("DEEPGRAM_API_KEY", "deepgram-key")]);
     let config = crate::env::RuntimeConfig::resolve(env)
         .unwrap_or_else(|error| panic!("environment should validate: {error}"));
     Box::leak(Box::new(config))
@@ -271,7 +259,7 @@ fn subsystem_health_app(
             integrations_configured: false,
             billing_configured: false,
             billing_webhooks: false,
-            sqlitecloud_mode: sync_configured.then_some(anlg_api_sync::SqliteCloudMode::Retired),
+            sync_configured,
             transcription_configured,
             llm_configured,
             session_gate,
@@ -320,10 +308,7 @@ async fn boots_with_minimal_self_hosted_configuration() {
     }
     let (sync_status, sync_body) = request_json(&app, "/health/sync").await;
     assert_eq!(sync_status, StatusCode::OK);
-    assert_eq!(
-        sync_body,
-        json!({"status": "ok", "configured": true, "sqlitecloud_mode": "retired"})
-    );
+    assert_eq!(sync_body, json!({"status": "ok", "configured": true}));
     for (method, path) in [
         (Method::POST, "/research/search"),
         (Method::POST, "/pyannote/v1/diarize"),
@@ -346,10 +331,7 @@ async fn subsystem_health_routes_are_mounted_unauthenticated_and_secret_free() {
 
     let (sync_status, sync_body) = request_json(&app, "/health/sync").await;
     assert_eq!(sync_status, StatusCode::OK);
-    assert_eq!(
-        sync_body,
-        json!({"status": "ok", "configured": true, "sqlitecloud_mode": "enabled"})
-    );
+    assert_eq!(sync_body, json!({"status": "ok", "configured": true}));
 
     let (transcription_status, transcription_body) =
         request_json(&app, "/health/transcription").await;
@@ -365,10 +347,10 @@ async fn subsystem_health_routes_are_mounted_unauthenticated_and_secret_free() {
 
     let bodies = format!("{sync_body}{transcription_body}{llm_body}");
     for secret in [
-        "issuer-key",
-        "database-id",
         "deepgram-key",
         "openrouter-key",
+        "anon-key",
+        "service-role-key",
     ] {
         assert!(!bodies.contains(secret), "health response leaked {secret}");
     }
@@ -377,17 +359,17 @@ async fn subsystem_health_routes_are_mounted_unauthenticated_and_secret_free() {
 #[tokio::test]
 async fn subsystem_health_handlers_report_unavailable_states() {
     let app = subsystem_health_app(
-        true,
+        false,
         false,
         false,
         anlg_transcribe_proxy::SessionGate::new(),
     );
 
     let (sync_status, sync_body) = request_json(&app, "/health/sync").await;
-    assert_eq!(sync_status, StatusCode::OK);
+    assert_eq!(sync_status, StatusCode::SERVICE_UNAVAILABLE);
     assert_eq!(
         sync_body,
-        json!({"status": "ok", "configured": true, "sqlitecloud_mode": "retired"})
+        json!({"status": "not_configured", "configured": false})
     );
 
     let (transcription_status, transcription_body) =
@@ -829,7 +811,7 @@ async fn readiness_requires_the_expected_role_configuration_and_accepting_state(
             integrations_configured: true,
             billing_configured: true,
             billing_webhooks: false,
-            sqlitecloud_mode: Some(anlg_api_sync::SqliteCloudMode::Enabled),
+            sync_configured: true,
             transcription_configured: true,
             llm_configured: true,
             session_gate: gate.clone(),
@@ -856,7 +838,7 @@ async fn readiness_requires_the_expected_role_configuration_and_accepting_state(
         let mut incomplete = state;
         match service {
             Service::Ai | Service::All => incomplete.transcription_configured = false,
-            Service::Sync => incomplete.sqlitecloud_mode = None,
+            Service::Sync => incomplete.sync_configured = false,
             Service::Core => incomplete.integrations_configured = false,
             Service::Billing => incomplete.billing_configured = false,
         }
