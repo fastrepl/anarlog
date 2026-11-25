@@ -34,6 +34,7 @@ const SELF_BUNDLE_IDS: &[&str] = &[
 
 const SELF_APP_NAMES: &[&str] = &[
     "anarlog",
+    "anarlog dev",
     "anarlog staging",
     "anarlog nightly",
     "hyprnote",
@@ -152,6 +153,12 @@ mod tests {
                 true,
             ),
             ("ALSA plug-in [anarlog]", "ALSA plug-in [anarlog]", true),
+            (
+                "PipeWire ALSA [anarlog-dev]",
+                "PipeWire ALSA [anarlog-dev]",
+                true,
+            ),
+            ("pid:45", "Anarlog Dev", true),
             ("PipeWire ALSA [teams]", "PipeWire ALSA [teams]", false),
             (
                 "PipeWire ALSA [anarlog]x",
