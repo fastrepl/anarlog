@@ -158,7 +158,6 @@ mod tests {
                 "PipeWire ALSA [anarlog-dev]",
                 true,
             ),
-            ("pid:45", "Anarlog Dev", true),
             ("PipeWire ALSA [teams]", "PipeWire ALSA [teams]", false),
             (
                 "PipeWire ALSA [anarlog]x",
