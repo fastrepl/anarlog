@@ -1,4 +1,4 @@
-export const TRUST_CENTER_UPDATED_ON = "2026-08-29";
+export const TRUST_CENTER_UPDATED_ON = "2026-11-25";
 
 export const securityReviewAnswers = [
   {
@@ -67,14 +67,9 @@ export const architectureLayers = [
 export const subprocessors = [
   {
     name: "Fly.io, Netlify, Supabase, Render, Amazon Web Services, Cloudflare",
-    purpose: "Hosting, authentication, storage, and downloads",
+    purpose: "Hosting, authentication, encrypted sync storage, and downloads",
     receives:
-      "Account data, operational metadata, and any server-side records created by an enabled cloud feature",
-  },
-  {
-    name: "SQLite Cloud",
-    purpose: "Cloud Sync storage",
-    receives: "End-to-end encrypted sync records plus operational metadata",
+      "Account data, operational metadata, end-to-end encrypted Cloud Sync records, and any server-side records created by an enabled cloud feature",
   },
   {
     name: "Nango",
