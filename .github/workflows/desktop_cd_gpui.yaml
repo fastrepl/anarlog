@@ -375,6 +375,9 @@ jobs:
                 libharfbuzz0b \
                 libpipewire-0.3-0 \
                 libwayland-client0 \
+                libwayland-cursor0 \
+                libwayland-egl1 \
+                libwayland-server0 \
                 libx11-xcb1 \
                 xvfb
               if dpkg-query -s libxkbcommon-x11-0 2>/dev/null | grep -Fq "Status: install ok installed"; then
