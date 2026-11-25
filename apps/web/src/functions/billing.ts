@@ -47,7 +47,6 @@ import {
   selectSyncDeviceAddonItem,
 } from "@/lib/sync-device-addon";
 import {
-  getSyncDeviceAddonPrice,
   switchPlanWithAddon,
   updateDeviceAddonQuantity,
 } from "@/lib/sync-device-billing";
@@ -941,7 +940,6 @@ export const createPlanSwitchSession = createServerFn({ method: "POST" })
         stripe,
         subscription: activeSubscription,
         targetPriceId,
-        period: data.targetPeriod,
         confirmed: data.confirmed,
         returnUrl,
       });
@@ -1092,20 +1090,9 @@ export const getSyncDeviceAddon = createServerFn({ method: "GET" }).handler(
     }
 
     const period = getSubscriptionBillingPeriod(subscription);
-    if (!period) {
-      return emptySyncDeviceAddon;
-    }
-
-    const addonPrice = await getSyncDeviceAddonPrice(stripe, period).catch(
-      (error) => {
-        captureOperationalError(error, {
-          operation: "sync_device_addon_price_lookup",
-          level: "warning",
-        });
-        return null;
-      },
-    );
-    if (!addonPrice) {
+    const addonItem = selectSyncDeviceAddonItem(subscription.items.data);
+    const quantity = getSyncDeviceAddonQuantity(subscription.items.data);
+    if (!addonItem || quantity <= 0) {
       return emptySyncDeviceAddon;
     }
 
@@ -1113,9 +1100,9 @@ export const getSyncDeviceAddon = createServerFn({ method: "GET" }).handler(
       ...emptySyncDeviceAddon,
       available: true,
       period,
-      quantity: getSyncDeviceAddonQuantity(subscription.items.data),
-      unitAmount: addonPrice.unit_amount,
-      currency: addonPrice.currency,
+      quantity,
+      unitAmount: addonItem.price.unit_amount ?? null,
+      currency: addonItem.price.currency ?? null,
     };
   },
 );
@@ -1160,6 +1147,9 @@ export const updateSyncDeviceAddon = createServerFn({ method: "POST" })
     }
 
     const currentQuantity = getSyncDeviceAddonQuantity(subscription.items.data);
+    if (data.quantity > currentQuantity) {
+      throw new Error("Unlimited synced devices are included with Pro");
+    }
     if (currentQuantity === data.quantity) {
       return { quantity: currentQuantity };
     }
@@ -1167,7 +1157,6 @@ export const updateSyncDeviceAddon = createServerFn({ method: "POST" })
     await updateDeviceAddonQuantity({
       stripe,
       subscription,
-      period,
       quantity: data.quantity,
     });
 

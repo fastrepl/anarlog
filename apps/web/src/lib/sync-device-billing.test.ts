@@ -62,11 +62,10 @@ function fixture(withAddon = true, paymentError?: Error) {
   return { stripe, subscription, calls };
 }
 
-test("plan switch only previews until the user confirms", async () => {
+test("plan switch only previews until the user confirms and drops legacy add-ons", async () => {
   const f = fixture();
   const result = await switchPlanWithAddon({
     ...f,
-    period: "yearly",
     targetPriceId: "price_yearly",
     confirmed: false,
     returnUrl: "/app/account",
@@ -77,15 +76,15 @@ test("plan switch only previews until the user confirms", async () => {
   });
   assert.deepEqual(
     f.calls.map((c) => c.method),
-    ["prices.list", "invoices.createPreview"],
+    ["invoices.createPreview"],
   );
-  assert.deepEqual(f.calls[1].args, [
+  assert.deepEqual(f.calls[0].args, [
     {
       subscription: "sub_pro",
       subscription_details: {
         items: [
           { id: "si_base", price: "price_yearly", quantity: 1 },
-          { id: "si_addon", price: "price_addon_target", quantity: 3 },
+          { id: "si_addon", deleted: true },
         ],
         proration_behavior: "always_invoice",
       },
@@ -93,45 +92,32 @@ test("plan switch only previews until the user confirms", async () => {
   ]);
 });
 
-for (const period of ["monthly", "yearly"] as const) {
-  test(`confirmed ${period} switch updates both items in one payment-safe request`, async () => {
-    const f = fixture();
-    const result = await switchPlanWithAddon({
-      ...f,
-      period,
-      targetPriceId: "price_target",
-      confirmed: true,
-      returnUrl: "/app/account",
-    });
-    assert.equal(result.url, "/app/account");
-    assert.deepEqual(f.calls, [
-      {
-        method: "prices.list",
-        args: [
-          {
-            lookup_keys: [SYNC_DEVICE_ADDON_LOOKUP_KEYS[period]],
-            active: true,
-            limit: 1,
-          },
-        ],
-      },
-      {
-        method: "subscriptions.update",
-        args: [
-          "sub_pro",
-          {
-            items: [
-              { id: "si_base", price: "price_target", quantity: 1 },
-              { id: "si_addon", price: "price_addon_target", quantity: 3 },
-            ],
-            proration_behavior: "always_invoice",
-            payment_behavior: "error_if_incomplete",
-          },
-        ],
-      },
-    ]);
+test("confirmed switch drops legacy add-ons in one payment-safe request", async () => {
+  const f = fixture();
+  const result = await switchPlanWithAddon({
+    ...f,
+    targetPriceId: "price_target",
+    confirmed: true,
+    returnUrl: "/app/account",
   });
-}
+  assert.equal(result.url, "/app/account");
+  assert.deepEqual(f.calls, [
+    {
+      method: "subscriptions.update",
+      args: [
+        "sub_pro",
+        {
+          items: [
+            { id: "si_base", price: "price_target", quantity: 1 },
+            { id: "si_addon", deleted: true },
+          ],
+          proration_behavior: "always_invoice",
+          payment_behavior: "error_if_incomplete",
+        },
+      ],
+    },
+  ]);
+});
 
 test("a rejected plan payment is not returned as success", async () => {
   const error = new Error("authentication_required");
@@ -139,7 +125,6 @@ test("a rejected plan payment is not returned as success", async () => {
   await assert.rejects(
     switchPlanWithAddon({
       ...f,
-      period: "yearly",
       targetPriceId: "price_target",
       confirmed: true,
       returnUrl: "/app/account",
@@ -149,32 +134,20 @@ test("a rejected plan payment is not returned as success", async () => {
 });
 
 for (const withAddon of [false, true]) {
-  test(`adding slots ${withAddon ? "updates" : "creates"} with payment protection`, async () => {
+  test(`adding slots ${withAddon ? "updates" : "creates"} is blocked without calling Stripe`, async () => {
     const f = fixture(withAddon);
-    await updateDeviceAddonQuantity({ ...f, period: "monthly", quantity: 4 });
-    const call = f.calls.at(-1)!;
-    assert.equal(call.method, withAddon ? "items.update" : "items.create");
-    const params = call.args[
-      withAddon ? 1 : 0
-    ] as Stripe.SubscriptionItemUpdateParams;
-    assert.equal(params.quantity, 4);
-    assert.equal(params.payment_behavior, "error_if_incomplete");
-    assert.equal(params.proration_behavior, "always_invoice");
-  });
-  test(`failed ${withAddon ? "update" : "creation"} propagates the payment failure`, async () => {
-    const error = new Error("card_declined");
-    const f = fixture(withAddon, error);
     await assert.rejects(
-      updateDeviceAddonQuantity({ ...f, period: "monthly", quantity: 4 }),
-      error,
+      updateDeviceAddonQuantity({ ...f, quantity: 4 }),
+      /Unlimited synced devices are included with Pro/,
     );
+    assert.deepEqual(f.calls, []);
   });
 }
 
 test("removing some or all slots retains next-invoice credits", async () => {
   for (const quantity of [2, 0]) {
     const f = fixture();
-    await updateDeviceAddonQuantity({ ...f, period: "monthly", quantity });
+    await updateDeviceAddonQuantity({ ...f, quantity });
     const call = f.calls[0];
     assert.equal(call.method, quantity ? "items.update" : "items.del");
     assert.equal(
@@ -186,6 +159,6 @@ test("removing some or all slots retains next-invoice credits", async () => {
 
 test("unchanged quantity does not call Stripe", async () => {
   const f = fixture();
-  await updateDeviceAddonQuantity({ ...f, period: "monthly", quantity: 3 });
+  await updateDeviceAddonQuantity({ ...f, quantity: 3 });
   assert.deepEqual(f.calls, []);
 });

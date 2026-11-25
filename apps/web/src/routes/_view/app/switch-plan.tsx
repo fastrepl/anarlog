@@ -80,7 +80,7 @@ function Component() {
           </h1>
           <p className="text-neutral-600">
             {confirmation
-              ? `Your Pro plan and extra device slots will switch together. Estimated invoice amount: ${amount}. Any payment due will be charged to your saved payment method when you confirm.`
+              ? `Your Pro plan will switch and your legacy extra device add-on will be removed. Estimated invoice amount: ${amount}. Any payment due will be charged to your saved payment method when you confirm.`
               : "Your subscription was not modified. Open billing to manage your plan, payment method, and invoices."}
           </p>
         </div>

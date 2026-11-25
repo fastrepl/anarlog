@@ -1,5 +1,5 @@
 begin;
-select plan(13);
+select plan(8);
 
 select tests.create_supabase_user('addon_pro', 'addon-pro@example.com');
 
@@ -21,32 +21,12 @@ insert into stripe.subscription_items (id, subscription, price, quantity)
 values ('si_addon_pro_base', 'sub_addon_pro', 'price_pro_monthly', 1)
 on conflict (id) do nothing;
 
-select is(public.get_sync_device_limit(tests.get_supabase_uid('addon_pro')), 5,
-  'A Pro subscription without add-ons keeps five included slots');
-
 insert into stripe.subscription_items (id, subscription, price, quantity)
 values ('si_addon_pro_devices', 'sub_addon_pro', 'price_addon_monthly', 2);
 
-select is(public.get_sync_device_limit(tests.get_supabase_uid('addon_pro')), 7,
-  'Each add-on unit adds one sync device slot');
+select is(public.get_sync_device_limit(tests.get_supabase_uid('addon_pro')), 255,
+  'Legacy add-on items keep the compatibility ceiling');
 
-update stripe.subscription_items set quantity = 4 where id = 'si_addon_pro_devices';
-select is(public.get_sync_device_limit(tests.get_supabase_uid('addon_pro')), 9,
-  'Add-on quantity changes update the allowance');
-
-update stripe.subscription_items set deleted = true where id = 'si_addon_pro_devices';
-select is(public.get_sync_device_limit(tests.get_supabase_uid('addon_pro')), 5,
-  'Removed add-on items no longer grant slots');
-
-update stripe.subscription_items set deleted = false, price = 'price_addon_yearly' where id = 'si_addon_pro_devices';
-select is(public.get_sync_device_limit(tests.get_supabase_uid('addon_pro')), 9,
-  'Yearly add-on prices count the same way');
-
-update stripe.subscriptions set status = 'canceled' where id = 'sub_addon_pro';
-select is(public.get_sync_device_limit(tests.get_supabase_uid('addon_pro')), 5,
-  'Add-ons on a canceled subscription do not grant slots');
-
-update stripe.subscriptions set status = 'active' where id = 'sub_addon_pro';
 select tests.authenticate_as_service_role();
 select public.claim_personal_workspace_e2ee_key(tests.get_supabase_uid('addon_pro'), 'abcdefghijklmnopqrstuv');
 do $$begin
@@ -62,24 +42,24 @@ select results_eq(
     rpad('A', 43, 'A')
   ),
   $$values (true, 'pending'::text, 9::bigint)$$,
-  'Encrypted enrollment above five devices honors purchased slots'
+  'Encrypted enrollment succeeds beyond five devices'
 );
 select is((select allowed from public.claim_sync_device(tests.get_supabase_uid('addon_pro'), 'addon-device-9')), true,
-  'Purchased slots can be claimed');
-select is((select allowed from public.claim_sync_device(tests.get_supabase_uid('addon_pro'), 'addon-device-10')), false,
-  'Claims stop at the purchased allowance');
+  'Additional devices can be claimed');
+select is((select allowed from public.claim_sync_device(tests.get_supabase_uid('addon_pro'), 'addon-device-10')), true,
+  'Claims continue without an add-on ceiling');
 
 reset role;
 update stripe.subscription_items set deleted = true where id = 'si_addon_pro_devices';
 select tests.authenticate_as_service_role();
 select is((select allowed from public.claim_sync_device(tests.get_supabase_uid('addon_pro'), 'addon-device-9')), true,
-  'Removing purchased slots preserves existing device connections');
-select is((select allowed from public.claim_sync_device(tests.get_supabase_uid('addon_pro'), 'addon-device-10')), false,
-  'Removing purchased slots blocks new claims above five included devices');
-select is((select allowed from public.register_e2ee_device_enrollment(tests.get_supabase_uid('addon_pro'), 'addon-device-10', 'Phone', rpad('B', 43, 'B'), 'addon-device-1')), false,
-  'An over-limit account must free enough slots before replacement');
-select is((select count(*) from public.sync_devices where user_id = tests.get_supabase_uid('addon_pro')), 9::bigint,
-  'A rejected replacement leaves existing connections intact');
+  'Removing legacy add-on items preserves existing device connections');
+select is((select allowed from public.claim_sync_device(tests.get_supabase_uid('addon_pro'), 'addon-device-11')), true,
+  'Removing legacy add-on items still allows new device claims');
+select is((select allowed from public.register_e2ee_device_enrollment(tests.get_supabase_uid('addon_pro'), 'addon-device-12', 'Phone', rpad('B', 43, 'B'), 'addon-device-1')), true,
+  'Explicit replacement deletes the replaced device and enrolls the new one');
+select is((select count(*) from public.sync_devices where user_id = tests.get_supabase_uid('addon_pro')), 10::bigint,
+  'Replacement leaves the remaining connected devices intact');
 
 select * from finish();
 rollback;

@@ -1,7 +1,7 @@
 import type { MessageDescriptor } from "@lingui/core";
 import { msg } from "@lingui/core/macro";
 import { Trans, useLingui } from "@lingui/react/macro";
-import { useQueries, useQuery } from "@tanstack/react-query";
+import { useQueries } from "@tanstack/react-query";
 import { type ReactNode, useCallback, useRef, useState } from "react";
 
 import { commands as analyticsCommands } from "@anlg/plugin-analytics";
@@ -22,7 +22,6 @@ import { cn } from "@anlg/utils";
 
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing-context";
-import { requestSyncDevices } from "~/auth/sync-devices";
 import { SettingsPageTitle } from "~/settings/page-title";
 import { getWorkspaceAccess, requireTeamContext } from "~/settings/team/client";
 import { useMyWorkspacesWithMirror } from "~/settings/team/mirror";
@@ -501,16 +500,6 @@ function PlanLimitsSection({
   }>;
 }) {
   const { t, i18n } = useLingui();
-  const auth = useAuth();
-  const session = auth.session;
-
-  // eslint-disable-next-line @tanstack/query/exhaustive-deps -- Cache by account; rotating access tokens must not become cache keys.
-  const devicesQuery = useQuery({
-    queryKey: ["sync-devices", session?.user.id],
-    queryFn: ({ signal }) => requestSyncDevices(session!.access_token, signal),
-    enabled: Boolean(session && billing.isPro),
-    staleTime: 60_000,
-  });
 
   const rows: ReactNode[] = [];
 
@@ -533,23 +522,6 @@ function PlanLimitsSection({
         }
         metric={remaining === 1 ? t`1 day left` : t`${remaining} days left`}
         fraction={null}
-      />,
-    );
-  }
-
-  const devices = devicesQuery.data;
-  if (devices) {
-    const used = new Set([
-      ...devices.devices.map((device) => device.deviceFingerprint),
-      ...devices.pendingDevices.map((device) => device.deviceFingerprint),
-    ]).size;
-    rows.push(
-      <UsageLimitRow
-        key="devices"
-        label={t`Synced devices`}
-        sublabel={used >= devices.maxDevices ? t`At your device limit` : null}
-        metric={t`${used} of ${devices.maxDevices} used`}
-        fraction={used / devices.maxDevices}
       />,
     );
   }

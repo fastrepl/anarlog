@@ -99,7 +99,7 @@ export const MARKETING_PLAN_TIERS: MarketingPlanData[] = [
       { label: "Cloud LLM", included: true },
       { label: "Better Speaker Identification", included: true },
       {
-        label: "Cloud sync (3 personal devices or 5 per workspace member)",
+        label: "Cloud sync (unlimited devices)",
         included: true,
       },
       { label: "End-to-end encryption (E2EE)", included: true },

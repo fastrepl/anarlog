@@ -148,11 +148,6 @@ msgstr "{trialDaysRemaining} day left"
 msgid "{trialDaysRemaining} days left"
 msgstr "{trialDaysRemaining} days left"
 
-#. placeholder {0}: devices.maxDevices
-#: src/settings/general/billing.tsx
-msgid "{used} of {0} used"
-msgstr "{used} of {0} used"
-
 #: src/settings/stats/badge-collection.tsx
 msgid "{value} / {target} active weeks"
 msgstr "{value} / {target} active weeks"
@@ -809,10 +804,6 @@ msgstr "Ask each meeting"
 msgid "Assignees:"
 msgstr "Assignees:"
 
-#: src/settings/general/billing.tsx
-msgid "At your device limit"
-msgstr "At your device limit"
-
 #: src/templates/auto-format-examples-dialog.tsx
 msgid "Attach Markdown or text"
 msgstr "Attach Markdown or text"
@@ -1213,8 +1204,8 @@ msgid "Choose a device"
 msgstr "Choose a device"
 
 #: src/settings/sync/index.tsx
-msgid "Choose a device below to replace, or add more device slots to your plan. This device will continue automatically."
-msgstr "Choose a device below to replace, or add more device slots to your plan. This device will continue automatically."
+msgid "Choose a device below to replace. This device will continue automatically."
+msgstr "Choose a device below to replace. This device will continue automatically."
 
 #: src/session/components/outer-header/overflow/export-modal.tsx
 msgid "Choose a file format and what to include."
@@ -2021,10 +2012,6 @@ msgstr "Couldn't load your profile. Reopen this page to try again."
 #: src/settings/general/account.tsx
 msgid "Couldn't open connected accounts. Try again."
 msgstr "Couldn't open connected accounts. Try again."
-
-#: src/settings/sync/index.tsx
-msgid "Couldn't open device add-ons. Try again."
-msgstr "Couldn't open device add-ons. Try again."
 
 #: src/auth/context.tsx
 #: src/settings/referrals.tsx
@@ -2879,10 +2866,6 @@ msgstr "Generating title..."
 #: src/session/components/note-input/transcript/screens/empty.tsx
 msgid "Generating transcript..."
 msgstr "Generating transcript..."
-
-#: src/settings/sync/index.tsx
-msgid "Get more slots"
-msgstr "Get more slots"
 
 #: src/settings/referrals.tsx
 msgid "Get one free month when a friend signs up through your link and starts their free trial. Invite up to 3 friends. Each friend gets 30 days of Pro free."
@@ -6306,10 +6289,6 @@ msgstr "Sync your changes before signing out."
 #: src/settings/sync/index.tsx
 msgid "Synced"
 msgstr "Synced"
-
-#: src/settings/general/billing.tsx
-msgid "Synced devices"
-msgstr "Synced devices"
 
 #: src/settings/sync/index.tsx
 msgid "Syncing..."

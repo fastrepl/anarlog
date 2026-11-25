@@ -22,23 +22,7 @@ const deviceRowSchema = z.object({
 const devicesQueryKey = ["account-sync-devices"];
 const deviceAddonQueryKey = ["account-sync-device-addon"];
 
-function formatAddonPrice(
-  unitAmount: number | null,
-  currency: string | null,
-  period: "monthly" | "yearly" | null,
-) {
-  if (unitAmount == null || !currency || !period) {
-    return null;
-  }
-  const amount = new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: currency.toUpperCase(),
-    minimumFractionDigits: unitAmount % 100 === 0 ? 0 : 2,
-  }).format(unitAmount / 100);
-  return `${amount}/${period === "yearly" ? "yr" : "mo"} per extra device`;
-}
-
-function DeviceAddonControls({ usedDevices }: { usedDevices: number }) {
+function DeviceAddonControls() {
   const queryClient = useQueryClient();
   const addonQuery = useQuery({
     queryKey: deviceAddonQueryKey,
@@ -54,53 +38,34 @@ function DeviceAddonControls({ usedDevices }: { usedDevices: number }) {
   });
 
   const addon = addonQuery.data;
-  if (!addon?.available) {
+  if (!addon?.available || addon.quantity <= 0) {
     return null;
   }
-
-  const totalDevices = addon.includedDevices + addon.quantity;
-  const priceText = formatAddonPrice(
-    addon.unitAmount,
-    addon.currency,
-    addon.period,
-  );
-  const canRemove = addon.quantity > 0 && usedDevices <= totalDevices - 1;
 
   return (
     <div className="border-border-subtle flex flex-col gap-4 border-b p-6 sm:flex-row sm:items-center sm:justify-between sm:px-8">
       <div>
         <p className="text-color text-base font-medium">
-          {usedDevices} of {totalDevices} device slots used
+          Extra device add-on no longer needed
         </p>
         <p className="text-color-muted mt-1 text-sm leading-6">
-          Pro includes {addon.includedDevices} devices
-          {addon.quantity > 0
-            ? ` plus ${addon.quantity} extra ${addon.quantity === 1 ? "slot" : "slots"}`
-            : ""}
-          .{priceText ? ` ${priceText}.` : ""}
+          All Pro plans now include unlimited synced devices. Remove your legacy
+          extra device add-on so you aren't billed for it.
         </p>
         {updateAddon.isError && (
           <p className="mt-1 text-sm text-red-600">
-            {updateAddon.error?.message || "Couldn't update device slots"}
+            {updateAddon.error?.message || "Couldn't remove add-on"}
           </p>
         )}
       </div>
       <div className="flex items-center gap-2">
         <button
           type="button"
-          onClick={() => updateAddon.mutate(addon.quantity - 1)}
-          disabled={!canRemove || updateAddon.isPending}
+          onClick={() => updateAddon.mutate(0)}
+          disabled={updateAddon.isPending}
           className={accountPillSecondaryClassName}
         >
-          Remove slot
-        </button>
-        <button
-          type="button"
-          onClick={() => updateAddon.mutate(addon.quantity + 1)}
-          disabled={addon.quantity >= addon.maxAddons || updateAddon.isPending}
-          className={accountPillSecondaryClassName}
-        >
-          {updateAddon.isPending ? "Updating..." : "Add slot"}
+          {updateAddon.isPending ? "Removing..." : "Remove add-on"}
         </button>
       </div>
     </div>
@@ -148,7 +113,7 @@ export function DevicesSection() {
 
   return (
     <div className={accountCardClassName}>
-      <DeviceAddonControls usedDevices={devices.length} />
+      <DeviceAddonControls />
       {devicesQuery.isPending ? (
         <p className="text-color-muted p-6 text-sm leading-6 sm:p-8">
           Checking your devices...

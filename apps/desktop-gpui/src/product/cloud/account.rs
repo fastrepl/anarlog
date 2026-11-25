@@ -202,9 +202,9 @@ impl Core {
     }
 }
 
-/// Devices and pending enrollments both hold a slot, counted once per fingerprint.
+/// Synced devices for the current account.
 fn devices(value: &Value, fingerprint: &str) -> Option<Devices> {
-    let max = value["maxDevices"].as_u64()? as u32;
+    let max = value["maxDevices"].as_u64().unwrap_or(0) as u32;
     let recorder = value["devices"]
         .as_array()
         .into_iter()
@@ -224,7 +224,7 @@ fn devices(value: &Value, fingerprint: &str) -> Option<Devices> {
         .filter_map(|device| device["deviceFingerprint"].as_str())
         .collect::<HashSet<_>>()
         .len() as u32;
-    (max > 0).then_some(Devices {
+    Some(Devices {
         used,
         max,
         recorder,

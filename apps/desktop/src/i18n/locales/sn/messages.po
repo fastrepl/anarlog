@@ -148,11 +148,6 @@ msgstr ""
 msgid "{trialDaysRemaining} days left"
 msgstr ""
 
-#. placeholder {0}: devices.maxDevices
-#: src/settings/general/billing.tsx
-msgid "{used} of {0} used"
-msgstr ""
-
 #: src/settings/stats/badge-collection.tsx
 msgid "{value} / {target} active weeks"
 msgstr ""
@@ -809,10 +804,6 @@ msgstr ""
 msgid "Assignees:"
 msgstr ""
 
-#: src/settings/general/billing.tsx
-msgid "At your device limit"
-msgstr ""
-
 #: src/templates/auto-format-examples-dialog.tsx
 msgid "Attach Markdown or text"
 msgstr ""
@@ -1213,7 +1204,7 @@ msgid "Choose a device"
 msgstr ""
 
 #: src/settings/sync/index.tsx
-msgid "Choose a device below to replace, or add more device slots to your plan. This device will continue automatically."
+msgid "Choose a device below to replace. This device will continue automatically."
 msgstr ""
 
 #: src/session/components/outer-header/overflow/export-modal.tsx
@@ -2020,10 +2011,6 @@ msgstr ""
 
 #: src/settings/general/account.tsx
 msgid "Couldn't open connected accounts. Try again."
-msgstr ""
-
-#: src/settings/sync/index.tsx
-msgid "Couldn't open device add-ons. Try again."
 msgstr ""
 
 #: src/auth/context.tsx
@@ -2878,10 +2865,6 @@ msgstr ""
 
 #: src/session/components/note-input/transcript/screens/empty.tsx
 msgid "Generating transcript..."
-msgstr ""
-
-#: src/settings/sync/index.tsx
-msgid "Get more slots"
 msgstr ""
 
 #: src/settings/referrals.tsx
@@ -6305,10 +6288,6 @@ msgstr ""
 #: src/session/components/version-history-dialog.tsx
 #: src/settings/sync/index.tsx
 msgid "Synced"
-msgstr ""
-
-#: src/settings/general/billing.tsx
-msgid "Synced devices"
 msgstr ""
 
 #: src/settings/sync/index.tsx
