@@ -51,9 +51,10 @@ fn witness_events(key: &WorkspaceKey, count: usize) -> Vec<E2eeWitnessEvent> {
 async fn cancelled_witness_merge_releases_local_writes_without_advancing_the_cursor() {
     let db = test_db().await;
     let key = workspace_key();
-    let events = witness_events(&key, 4);
+    let events = witness_events(&key, WITNESS_MERGE_TX_BATCH + 2);
     let checks = AtomicUsize::new(0);
-    let cancel_after_first_commit = events.len() * 2 + 3;
+    // 2 checks per event during decryption + 2 checks to open chunk + WITNESS_MERGE_TX_BATCH record checks.
+    let cancel_after_first_commit = events.len() * 2 + 2 + WITNESS_MERGE_TX_BATCH;
 
     let error = tokio::time::timeout(
         std::time::Duration::from_secs(1),
@@ -71,7 +72,7 @@ async fn cancelled_witness_merge_releases_local_writes_without_advancing_the_cur
             .fetch_one(db.pool())
             .await
             .unwrap(),
-        1
+        i64::try_from(WITNESS_MERGE_TX_BATCH).unwrap()
     );
     assert_eq!(
         e2ee_witness_cursor(db.pool(), "workspace-a").await.unwrap(),
@@ -89,6 +90,29 @@ async fn cancelled_witness_merge_releases_local_writes_without_advancing_the_cur
     .expect("cancelled witness merge kept the database busy")
     .unwrap();
 
+    // Verify mid-batch cancellation rolls back an uncommitted chunk atomically.
+    let mid_checks = AtomicUsize::new(0);
+    let mid_events = witness_events(&key, 5);
+    let cancel_mid_chunk = mid_events.len() * 2 + 3;
+    let mid_db = test_db().await;
+    let mid_error = merge_e2ee_witness_events_cancellable(
+        mid_db.pool(),
+        &key,
+        "workspace-a",
+        &mid_events,
+        || mid_checks.fetch_add(1, Ordering::SeqCst) >= cancel_mid_chunk,
+    )
+    .await
+    .unwrap_err();
+    assert!(matches!(mid_error, E2eeReplicaError::Cancelled));
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM e2ee_witness_records")
+            .fetch_one(mid_db.pool())
+            .await
+            .unwrap(),
+        0
+    );
+
     merge_e2ee_witness_events(db.pool(), &key, "workspace-a", &events)
         .await
         .unwrap();
@@ -102,11 +126,11 @@ async fn cancelled_witness_merge_releases_local_writes_without_advancing_the_cur
 }
 
 #[tokio::test]
-async fn cancelled_witness_repair_finishes_one_record_and_releases_local_writes() {
+async fn cancelled_witness_repair_finishes_one_batch_and_releases_local_writes() {
     let db = test_db().await;
     let key = workspace_key();
     let workspace_keys = HashMap::from([("workspace-a".to_string(), key.clone().into())]);
-    let events = witness_events(&key, 4);
+    let events = witness_events(&key, WITNESS_REPAIR_TX_BATCH + 2);
     merge_e2ee_witness_events(db.pool(), &key, "workspace-a", &events)
         .await
         .unwrap();
@@ -123,11 +147,13 @@ async fn cancelled_witness_repair_finishes_one_record_and_releases_local_writes(
         .map(|record| (record, 1))
         .collect::<Vec<_>>();
     let checks = AtomicUsize::new(0);
+    // 1 initial check + 1 validation check per record in chunk + tx begin check + 3 checks per record inside chunk.
+    let cancel_after_first_batch = 1 + WITNESS_REPAIR_TX_BATCH + 1 + WITNESS_REPAIR_TX_BATCH * 3;
 
     let error = tokio::time::timeout(
         std::time::Duration::from_secs(1),
         persist_e2ee_witness_repairs(db.pool(), &workspace_keys, &records, &|| {
-            checks.fetch_add(1, Ordering::SeqCst) >= 5
+            checks.fetch_add(1, Ordering::SeqCst) >= cancel_after_first_batch
         }),
     )
     .await
@@ -140,7 +166,7 @@ async fn cancelled_witness_repair_finishes_one_record_and_releases_local_writes(
             .fetch_one(db.pool())
             .await
             .unwrap(),
-        1
+        i64::try_from(WITNESS_REPAIR_TX_BATCH).unwrap()
     );
     tokio::time::timeout(
         std::time::Duration::from_millis(250),
@@ -154,9 +180,15 @@ async fn cancelled_witness_repair_finishes_one_record_and_releases_local_writes(
     .expect("cancelled witness repair kept the database busy")
     .unwrap();
 
-    repair_e2ee_replica_from_witness_bounded(db.pool(), &workspace_keys, true, 4, usize::MAX)
-        .await
-        .unwrap();
+    repair_e2ee_replica_from_witness_bounded(
+        db.pool(),
+        &workspace_keys,
+        true,
+        i64::try_from(events.len()).unwrap(),
+        usize::MAX,
+    )
+    .await
+    .unwrap();
     assert_eq!(
         sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM e2ee_records")
             .fetch_one(db.pool())

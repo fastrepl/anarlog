@@ -5,8 +5,7 @@ use std::{
 
 use anlg_db_app::{CloudsyncWorkspaceProjection, CloudsyncWorkspaceProjectionEntry};
 use anlg_db_sync::{
-    E2eeSyncHook, E2eeWitnessCancellation, E2eeWitnessClient, E2eeWitnessConfig, ReplicaSyncTask,
-    WitnessWatchTask,
+    E2eeSyncHook, E2eeWitnessClient, E2eeWitnessConfig, ReplicaSyncTask, WitnessWatchTask,
 };
 use anlg_e2ee::{
     DeviceEnrollmentKey, DeviceEnrollmentPackage, RecoveryKey, WorkspaceKey, WorkspaceKeyGrant,
@@ -40,11 +39,18 @@ const APPROVAL: &str = "Approval requested. Approve this device on an enrolled d
 const LOG_LIMIT: usize = 200;
 const ENABLED: &str = "cloud_sync_enabled";
 
+struct ActiveSession {
+    account: String,
+    access_token: zeroize::Zeroizing<String>,
+    refresh_at: u64,
+}
+
 #[derive(Default)]
 pub(super) struct Sync {
     pub hook: Arc<E2eeSyncHook>,
     task: Mutex<Option<ReplicaSyncTask>>,
     watch: Mutex<Option<WitnessWatchTask>>,
+    active: Mutex<Option<ActiveSession>>,
     /// Why sync last failed to start on this device, for the Sync page.
     block: std::sync::Mutex<Option<SyncBlock>>,
     log: std::sync::Mutex<VecDeque<String>>,
@@ -55,6 +61,7 @@ impl Sync {
         self.hook.clear();
         self.task.lock().await.take();
         self.watch.lock().await.take();
+        self.active.lock().await.take();
     }
 
     fn set_block(&self, block: Option<SyncBlock>) {
@@ -131,20 +138,53 @@ impl Sync {
     }
 
     /// The periodic refresh, like shipping's credential exchange: sync starts when the device
-    /// setting allows it, and a missing recovery key only marks setup as needed.
-    pub async fn resume(&self, core: &Core, services: &Services, lease: &AuthLease) -> Result<()> {
+    /// setting allows it, skips redundant restarts while the active token and credentials stay
+    /// fresh, and marks a missing recovery key as setup needed.
+    pub async fn resume(
+        &self,
+        core: &Core,
+        services: &Services,
+        lease: &AuthLease,
+        force: bool,
+    ) -> Result<()> {
         if self.update_required() {
             return Ok(());
         }
         self.carry_legacy_switch(&core.auth, account(lease)?, services)
             .await?;
         if !self.enabled(services).await? {
+            self.stop().await;
+            return Ok(());
+        }
+        if !force && self.session_fresh(lease).await? {
             return Ok(());
         }
         match self.start(core, services, lease).await {
             Err(error) if block_for(&error) == SyncBlock::SetupRequired => Ok(()),
             result => result,
         }
+    }
+
+    async fn session_fresh(&self, lease: &AuthLease) -> Result<bool> {
+        if !self.hook.replica_transport_configured()
+            || self.task.lock().await.is_none()
+            || self
+                .block
+                .lock()
+                .unwrap_or_else(|error| error.into_inner())
+                .is_some()
+        {
+            return Ok(false);
+        }
+        let owner = account(lease)?;
+        let token = lease.access_token()?;
+        let now = now_secs();
+        let active = self.active.lock().await;
+        Ok(active.as_ref().is_some_and(|session| {
+            session.account == owner
+                && session.access_token.as_str() == token
+                && now < session.refresh_at
+        }))
     }
 
     pub async fn recovery(&self, auth: &Auth, account: &str) -> Result<RecoveryKey> {
@@ -297,63 +337,46 @@ impl Sync {
         self.hook
             .set_workspaces(owner, &recovery, shared)
             .map_err(|_| failure("Invalid workspace key"))?;
-        let cancellation = E2eeWitnessCancellation::default();
-        let operation = async {
-            let keys = self.hook.snapshot();
-            let mut witnesses = HashMap::new();
-            for workspace in keys.keys() {
-                let endpoint = core
-                    .auth
-                    .transport
-                    .config
-                    .api
-                    .join(&format!("/sync/e2ee/witness/{workspace}"))
-                    .map_err(|_| failure("Invalid witness endpoint"))?;
-                let witness = E2eeWitnessClient::new(
-                    E2eeWitnessConfig {
-                        endpoint: endpoint.to_string(),
-                        access_token: lease.access_token()?.to_owned(),
-                    },
-                    workspace,
-                )
-                .map_err(|_| failure("Could not configure encrypted sync"))?;
-                witnesses.insert(workspace.clone(), witness);
-            }
-            self.hook
-                .prepare_local_snapshot(services.db.pool(), &cancellation)
-                .await
-                .map_err(|_| failure("Could not prepare encrypted local snapshot"))?;
-            for (workspace, keyring) in &keys {
-                witnesses[workspace]
-                    .initialize_keyring_cancellable(services.db.pool(), keyring, &cancellation)
-                    .await
-                    .map_err(|_| {
-                        failure("Could not reconcile encrypted workspace; local changes retained")
-                    })?;
-            }
-            lease.check()?;
-            self.hook.set_replica_witnesses(witnesses);
-            *self.task.lock().await = Some(anlg_db_sync::spawn_replica_sync(
-                services.db.clone(),
-                self.hook.clone(),
-            ));
-            *self.watch.lock().await = Some(anlg_db_sync::spawn_witness_watch(
-                services.db.clone(),
-                self.hook.clone(),
-            ));
-            self.hook.request_replica_sync();
-            Ok(())
-        };
-        tokio::pin!(operation);
-        tokio::select! {
-            result = &mut operation => result,
-            _ = lease.cancelled.cancelled() => {
-                cancellation.cancel();
-                let _ = operation.await;
-                self.stop().await;
-                Err(desktop_runtime::ServiceError::Cancelled)
-            }
+        let keys = self.hook.snapshot();
+        let mut witnesses = HashMap::new();
+        for workspace in keys.keys() {
+            let endpoint = core
+                .auth
+                .transport
+                .config
+                .api
+                .join(&format!("/sync/e2ee/witness/{workspace}"))
+                .map_err(|_| failure("Invalid witness endpoint"))?;
+            let witness = E2eeWitnessClient::new(
+                E2eeWitnessConfig {
+                    endpoint: endpoint.to_string(),
+                    access_token: lease.access_token()?.to_owned(),
+                },
+                workspace,
+            )
+            .map_err(|_| failure("Could not configure encrypted sync"))?;
+            witnesses.insert(workspace.clone(), witness);
         }
+        lease.check()?;
+        self.hook.set_replica_witnesses(witnesses);
+        *self.task.lock().await = Some(anlg_db_sync::spawn_replica_sync(
+            services.db.clone(),
+            self.hook.clone(),
+        ));
+        *self.watch.lock().await = Some(anlg_db_sync::spawn_witness_watch(
+            services.db.clone(),
+            self.hook.clone(),
+        ));
+        let effective_expiry = credential_expiry(&credentials)
+            .unwrap_or(lease.expires_at())
+            .min(lease.expires_at());
+        *self.active.lock().await = Some(ActiveSession {
+            account: owner.to_owned(),
+            access_token: zeroize::Zeroizing::new(lease.access_token()?.to_owned()),
+            refresh_at: refresh_deadline(now_secs(), effective_expiry),
+        });
+        self.hook.request_replica_sync();
+        Ok(())
     }
 
     pub(super) async fn provision_keys(
@@ -909,6 +932,22 @@ async fn seal(core: &Core, lease: &AuthLease, key: &RecoveryKey, device: &Value)
     )
     .await?;
     Ok(())
+}
+
+fn now_secs() -> u64 {
+    u64::try_from(chrono::Utc::now().timestamp()).unwrap_or(0)
+}
+
+fn credential_expiry(value: &Value) -> Option<u64> {
+    let raw = value["expiresAt"].as_str()?;
+    let parsed = chrono::DateTime::parse_from_rfc3339(raw).ok()?;
+    u64::try_from(parsed.timestamp()).ok().filter(|ts| *ts > 0)
+}
+
+fn refresh_deadline(now: u64, expires_at: u64) -> u64 {
+    let remaining = expires_at.saturating_sub(now);
+    let lead = (remaining / 5).clamp(1, 120);
+    expires_at.saturating_sub(lead)
 }
 
 fn device(fingerprint: &str) -> Result<&str> {

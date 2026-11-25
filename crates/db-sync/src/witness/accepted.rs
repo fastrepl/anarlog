@@ -66,20 +66,26 @@ impl E2eeWitnessClient {
         keyring: &anlg_e2ee::WorkspaceKeyring,
         initialize: bool,
         cancellation: &E2eeWitnessCancellation,
-    ) -> io::Result<()> {
+    ) -> io::Result<usize> {
         let mut conflicts = 0;
+        let mut published_batches = 0_usize;
         loop {
             cancellation.check()?;
-            anlg_db_app::rebase_e2ee_cloud_documents(pool, &self.workspace_id, keyring)
-                .await
-                .map_err(replica_error)?;
+            anlg_db_app::rebase_e2ee_cloud_documents_cancellable(
+                pool,
+                &self.workspace_id,
+                keyring,
+                || cancellation.is_cancelled(),
+            )
+            .await
+            .map_err(replica_error)?;
             cancellation.check()?;
             let Some(batch) =
                 anlg_db_app::pending_e2ee_cloud_batch(pool, &self.workspace_id, initialize)
                     .await
                     .map_err(replica_error)?
             else {
-                return Ok(());
+                return Ok(published_batches);
             };
             cancellation.check()?;
             anlg_db_app::preserve_e2ee_cloud_conflicts(pool, &self.workspace_id, keyring, &batch)
@@ -171,6 +177,7 @@ impl E2eeWitnessClient {
             )
             .await
             .map_err(replica_error)?;
+            let receipt_count = receipt.receipts.len();
             let events = receipt
                 .receipts
                 .into_iter()
@@ -202,8 +209,24 @@ impl E2eeWitnessClient {
             anlg_db_app::acknowledge_e2ee_cloud_batch(pool, &self.workspace_id, &batch)
                 .await
                 .map_err(replica_error)?;
-            self.refresh_keyring_cancellable(pool, keyring, cancellation)
-                .await?;
+            published_batches += 1;
+            let cursor = anlg_db_app::e2ee_witness_cursor(pool, &self.workspace_id)
+                .await
+                .map_err(replica_error)?;
+            let contiguous_from_base =
+                receipt.head_sequence == batch.base_sequence.saturating_add(receipt_count as u64);
+            if cursor == batch.base_sequence && contiguous_from_base {
+                anlg_db_app::advance_e2ee_witness_cursor(
+                    pool,
+                    &self.workspace_id,
+                    receipt.head_sequence,
+                )
+                .await
+                .map_err(replica_error)?;
+            } else if cursor < receipt.head_sequence {
+                self.refresh_keyring_cancellable(pool, keyring, cancellation)
+                    .await?;
+            }
         }
     }
 }

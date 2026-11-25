@@ -102,3 +102,65 @@ async fn seed_legacy_workspace_projection_rows(pool: &SqlitePool, last_row_index
     .await
     .unwrap();
 }
+
+#[tokio::test]
+async fn retire_legacy_cloudsync_tables_drops_cloudsync_metadata_and_preserves_data() {
+    let dir = tempfile::tempdir().unwrap();
+    let db_path = dir.path().join("retire.db");
+    {
+        let db = anlg_db_core::Db::open(anlg_db_core::DbOpenOptions {
+            storage: anlg_db_core::DbStorage::Local(&db_path),
+            cloudsync_enabled: true,
+            journal_mode_wal: true,
+            foreign_keys: true,
+            max_connections: Some(1),
+        })
+        .await
+        .unwrap();
+        crate::prepare_schema(&db).await.unwrap();
+        db.cloudsync_init("sessions", None, None).await.unwrap();
+        db.cloudsync_init("e2ee_records", None, None).await.unwrap();
+        assert!(
+            anlg_db_core::cloudsync_is_enabled_on(db.pool(), "e2ee_records")
+                .await
+                .unwrap()
+        );
+        sqlx::query(
+            "INSERT INTO sessions(id, workspace_id, owner_user_id, title) VALUES('s1', 'ws-1', 'u-1', 'Kept Note')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query(
+            "INSERT INTO e2ee_records(id, workspace_id, payload) VALUES('r1', 'ws-1', '{\"version\":1}')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        let retired = retire_legacy_cloudsync_tables(&db).await.unwrap();
+        assert!(retired >= 1);
+        assert!(
+            !anlg_db_core::cloudsync_is_enabled_on(db.pool(), "e2ee_records")
+                .await
+                .unwrap()
+        );
+        assert_eq!(retire_legacy_cloudsync_tables(&db).await.unwrap(), 0);
+        db.pool().close().await;
+    }
+
+    let plain = anlg_db_core::Db::connect_local_plain(&db_path)
+        .await
+        .unwrap();
+    crate::prepare_schema(&plain).await.unwrap();
+    let title: String = sqlx::query_scalar("SELECT title FROM sessions WHERE id = 's1'")
+        .fetch_one(plain.pool())
+        .await
+        .unwrap();
+    assert_eq!(title, "Kept Note");
+    let payload: String = sqlx::query_scalar("SELECT payload FROM e2ee_records WHERE id = 'r1'")
+        .fetch_one(plain.pool())
+        .await
+        .unwrap();
+    assert_eq!(payload, "{\"version\":1}");
+}

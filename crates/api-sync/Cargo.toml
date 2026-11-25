@@ -18,13 +18,13 @@ futures-util = { workspace = true }
 hmac = { workspace = true }
 reqwest = { workspace = true, features = ["json", "query", "stream"] }
 sha2 = { workspace = true }
-tokio = { workspace = true, features = ["sync", "time"] }
+tokio = { workspace = true, features = ["sync", "time", "net"] }
 tracing = { workspace = true }
 
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
-uuid = { workspace = true }
+uuid = { workspace = true, features = ["v4"] }
 yrs = { workspace = true }
 
 [dev-dependencies]

@@ -538,7 +538,7 @@ impl SupabaseStorage {
         Ok(objects)
     }
 
-    async fn delete_files(&self, bucket: &str, object_paths: &[String]) -> Result<(), Error> {
+    pub async fn delete_files(&self, bucket: &str, object_paths: &[String]) -> Result<(), Error> {
         Self::validate_bucket(bucket)?;
         if object_paths.is_empty() || object_paths.len() > STORAGE_DELETE_LIMIT {
             return Err(Error::InvalidPath);

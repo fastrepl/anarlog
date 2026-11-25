@@ -381,6 +381,8 @@ pub(super) async fn apply_e2ee_replica_changes_inner(
     delete_reconciled_replica_entries(pool, &reconciled, is_cancelled).await?;
 
     let mut column_cache = HashMap::<String, HashSet<String>>::new();
+    let mut opened_cache = HashMap::<(String, String), anlg_e2ee::OpenedField>::new();
+    let mut opened_cache_bytes = 0_usize;
     if !selected_ids.is_empty() {
         check_e2ee_apply_cancellation(is_cancelled)?;
         let records = load_encrypted_records_by_id(pool, &selected_ids).await?;
@@ -428,6 +430,11 @@ pub(super) async fn apply_e2ee_replica_changes_inner(
                     field_name: field.field,
                 });
                 continue;
+            }
+            let field_bytes = estimate_opened_field_bytes(&field);
+            if opened_cache_bytes.saturating_add(field_bytes) <= max_bytes {
+                opened_cache_bytes = opened_cache_bytes.saturating_add(field_bytes);
+                opened_cache.insert((record.id.clone(), record.payload.clone()), field.clone());
             }
             let group = (record.workspace_id, field.table, field.row_id);
             group_pending
@@ -538,7 +545,10 @@ pub(super) async fn apply_e2ee_replica_changes_inner(
                 unwitnessed_records.push(record);
                 continue;
             }
-            let field = keyring.open_field(&record.workspace_id, &record.id, &record.payload)?;
+            let field = match opened_cache.remove(&(record.id.clone(), record.payload.clone())) {
+                Some(field) => field,
+                None => keyring.open_field(&record.workspace_id, &record.id, &record.payload)?,
+            };
             check_e2ee_apply_cancellation(is_cancelled)?;
             if field.table != table || field.row_id != row_id {
                 return Err(E2eeReplicaError::InvalidField);
@@ -1760,4 +1770,32 @@ async fn park_oversized_row(
         })
         .collect::<Vec<_>>();
     park_replica_records(pool, &records, is_cancelled).await
+}
+
+fn estimate_json_value_bytes(value: &Value) -> usize {
+    match value {
+        Value::Null | Value::Bool(_) => 8,
+        Value::Number(num) => num.to_string().len() + 8,
+        Value::String(text) => text.len() + 24,
+        Value::Array(items) => items.iter().fold(24_usize, |acc, item| {
+            acc.saturating_add(estimate_json_value_bytes(item))
+        }),
+        Value::Object(map) => map.iter().fold(32_usize, |acc, (k, v)| {
+            acc.saturating_add(k.len())
+                .saturating_add(estimate_json_value_bytes(v))
+                .saturating_add(16)
+        }),
+    }
+}
+
+fn estimate_opened_field_bytes(field: &anlg_e2ee::OpenedField) -> usize {
+    field
+        .key_id
+        .len()
+        .saturating_add(field.table.len())
+        .saturating_add(field.row_id.len())
+        .saturating_add(field.field.len())
+        .saturating_add(field.writer_id.len())
+        .saturating_add(estimate_json_value_bytes(&field.value))
+        .saturating_add(128)
 }

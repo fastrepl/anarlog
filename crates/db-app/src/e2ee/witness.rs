@@ -12,7 +12,9 @@ use super::{
     reconcile_e2ee_witness_pending, yield_once,
 };
 
-const E2EE_WITNESS_REPAIR_SCAN_PAGE_LIMIT: i64 = 128;
+const E2EE_WITNESS_REPAIR_SCAN_PAGE_LIMIT: i64 = 512;
+const WITNESS_MERGE_TX_BATCH: usize = 64;
+const WITNESS_REPAIR_TX_BATCH: usize = 64;
 pub(super) const PENDING_E2EE_WITNESS_UPLOADS_SQL: &str = "
   SELECT
     pending.record_id,
@@ -55,14 +57,14 @@ pub struct E2eeWitnessEvent {
 }
 
 #[derive(Clone, sqlx::FromRow)]
-struct WitnessRecord {
-    workspace_id: String,
-    record_id: String,
-    revision: i64,
-    writer_id: String,
-    payload_hash: String,
-    payload: String,
-    sequence: i64,
+pub(super) struct WitnessRecord {
+    pub(super) workspace_id: String,
+    pub(super) record_id: String,
+    pub(super) revision: i64,
+    pub(super) writer_id: String,
+    pub(super) payload_hash: String,
+    pub(super) payload: String,
+    pub(super) sequence: i64,
 }
 
 #[derive(sqlx::FromRow)]
@@ -176,6 +178,7 @@ async fn pending_e2ee_witness_uploads_inner(
             usize::try_from(upload_bytes).map_err(|_| E2eeReplicaError::InvalidRow)?;
         if selected_bytes.saturating_add(upload_bytes) > max_bytes {
             if selected_ids.is_empty() {
+                transaction.rollback().await?;
                 return Err(E2eeReplicaError::WitnessUploadTooLarge);
             }
             break;
@@ -212,6 +215,7 @@ async fn pending_e2ee_witness_uploads_inner(
             .map(|state| state.record_id.as_str())
             .eq(lookup_ids.iter().map(String::as_str))
     {
+        transaction.rollback().await?;
         return Err(E2eeReplicaError::InvalidRow);
     }
     let mut states_by_id = states
@@ -373,6 +377,29 @@ pub async fn merge_e2ee_witness_events_with_keyring_cancellable(
     merge_e2ee_witness_events_inner(pool, keyring, workspace_id, events, &is_cancelled).await
 }
 
+fn witness_record_beats(
+    candidate: &WitnessRecord,
+    current: &WitnessRecord,
+    cloud_authority_after: Option<i64>,
+) -> bool {
+    let post_authority = cloud_authority_after
+        .is_some_and(|after| candidate.sequence > after || current.sequence > after);
+    if post_authority {
+        return candidate.sequence > current.sequence;
+    }
+    (
+        candidate.revision,
+        &candidate.writer_id,
+        &candidate.payload_hash,
+        candidate.sequence,
+    ) > (
+        current.revision,
+        &current.writer_id,
+        &current.payload_hash,
+        current.sequence,
+    )
+}
+
 async fn merge_e2ee_witness_events_inner(
     pool: &SqlitePool,
     keyring: &WorkspaceKeyring,
@@ -413,17 +440,77 @@ async fn merge_e2ee_witness_events_inner(
         previous_sequence = event.sequence;
         yield_once().await;
     }
+    if records.is_empty() {
+        return Ok(());
+    }
+
+    let mut deduped: HashMap<String, usize> = HashMap::with_capacity(records.len());
+    let mut grouped: Vec<Vec<WitnessRecord>> = Vec::with_capacity(records.len());
     for record in records {
+        if let Some(&slot) = deduped.get(&record.record_id) {
+            grouped[slot].push(record);
+        } else {
+            deduped.insert(record.record_id.clone(), grouped.len());
+            grouped.push(vec![record]);
+        }
+    }
+
+    for chunk in grouped.chunks(WITNESS_MERGE_TX_BATCH) {
         check_e2ee_cancellation(is_cancelled)?;
         let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
         if let Err(error) = check_e2ee_cancellation(is_cancelled) {
             transaction.rollback().await?;
             return Err(error);
         }
-        upsert_witness_record(&mut transaction, &record).await?;
-        if let Err(error) = check_e2ee_cancellation(is_cancelled) {
-            transaction.rollback().await?;
-            return Err(error);
+        let has_outbox: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM e2ee_cloud_outbox WHERE workspace_id = ?)",
+        )
+        .bind(workspace_id)
+        .fetch_one(&mut *transaction)
+        .await?;
+        let has_local_or_pending: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM e2ee_local_state WHERE workspace_id = ?)
+                 OR EXISTS(SELECT 1 FROM e2ee_witness_pending WHERE workspace_id = ?)",
+        )
+        .bind(workspace_id)
+        .bind(workspace_id)
+        .fetch_one(&mut *transaction)
+        .await?;
+        let cloud_authority_after: Option<i64> = sqlx::query_scalar::<_, Option<i64>>(
+            "SELECT after_sequence FROM e2ee_cloud_authority WHERE workspace_id = ?",
+        )
+        .bind(workspace_id)
+        .fetch_optional(&mut *transaction)
+        .await?
+        .flatten();
+
+        for candidates in chunk {
+            let mut winner = &candidates[0];
+            for candidate in &candidates[1..] {
+                if witness_record_beats(candidate, winner, cloud_authority_after) {
+                    winner = candidate;
+                }
+            }
+            let outbox_hashes: Vec<String> = if has_outbox {
+                candidates
+                    .iter()
+                    .filter(|candidate| candidate.sequence > 0)
+                    .map(|candidate| candidate.payload_hash.clone())
+                    .collect()
+            } else {
+                Vec::new()
+            };
+            upsert_witness_record_in_batch(
+                &mut transaction,
+                winner,
+                &outbox_hashes,
+                has_local_or_pending,
+            )
+            .await?;
+            if let Err(error) = check_e2ee_cancellation(is_cancelled) {
+                transaction.rollback().await?;
+                return Err(error);
+            }
         }
         transaction.commit().await?;
         check_e2ee_cancellation(is_cancelled)?;
@@ -829,101 +916,54 @@ async fn persist_e2ee_witness_repairs(
     is_cancelled: &(impl Fn() -> bool + Sync),
 ) -> E2eeReplicaResult<u64> {
     let mut repaired_records = 0_u64;
-    for (record, pending_generation) in records {
+    for chunk in records.chunks(WITNESS_REPAIR_TX_BATCH) {
         check_e2ee_cancellation(is_cancelled)?;
-        let key = keys
-            .get(&record.workspace_id)
-            .ok_or(E2eeReplicaError::InvalidRow)?;
-        validate_witness_payload_with_keyring(
-            key,
-            &record.workspace_id,
-            &record.record_id,
-            &record.payload_hash,
-            &record.payload,
-            record.revision,
-            &record.writer_id,
-        )?;
-        check_e2ee_cancellation(is_cancelled)?;
+        for (record, _) in chunk {
+            let key = keys
+                .get(&record.workspace_id)
+                .ok_or(E2eeReplicaError::InvalidRow)?;
+            validate_witness_payload_with_keyring(
+                key,
+                &record.workspace_id,
+                &record.record_id,
+                &record.payload_hash,
+                &record.payload,
+                record.revision,
+                &record.writer_id,
+            )?;
+            check_e2ee_cancellation(is_cancelled)?;
+        }
         let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
         if let Err(error) = check_e2ee_cancellation(is_cancelled) {
             transaction.rollback().await?;
             return Err(error);
         }
-        let current_witness: Option<(i64, String, String, String, i64)> = sqlx::query_as(
-            "SELECT
-               witness.revision,
-               witness.writer_id,
-               witness.payload_hash,
-               CASE
-                 WHEN replica.workspace_id = witness.workspace_id
-                   AND replica_hash.payload_hash = witness.payload_hash
-                   THEN replica.payload
-                 ELSE archive.payload
-               END AS payload,
-               witness.sequence
-             FROM e2ee_witness_records AS witness
-             LEFT JOIN e2ee_records AS replica
-               ON replica.id = witness.record_id
-             LEFT JOIN e2ee_replica_payload_hashes AS replica_hash
-               ON replica_hash.record_id = replica.id
-              AND replica_hash.workspace_id = replica.workspace_id
-             LEFT JOIN e2ee_ciphertext_archive AS archive
-               ON archive.workspace_id = witness.workspace_id
-              AND archive.record_id = witness.record_id
-              AND archive.payload_hash = witness.payload_hash
-             WHERE witness.workspace_id = ? AND witness.record_id = ?",
-        )
-        .bind(&record.workspace_id)
-        .bind(&record.record_id)
-        .fetch_optional(&mut *transaction)
-        .await?;
-        if let Err(error) = check_e2ee_cancellation(is_cancelled) {
-            transaction.rollback().await?;
-            return Err(error);
-        }
-        let current_matches = current_witness.is_some_and(
-            |(revision, writer_id, payload_hash, payload, sequence)| {
-                revision == record.revision
-                    && writer_id == record.writer_id
-                    && payload_hash == record.payload_hash
-                    && payload == record.payload
-                    && sequence == record.sequence
-            },
-        );
-        if !current_matches {
-            delete_reconciled_witness_repairs_in_transaction(
-                &mut transaction,
-                &[(record.record_id.clone(), *pending_generation)],
+        for (record, pending_generation) in chunk {
+            let current_witness: Option<(i64, String, String, String, i64)> = sqlx::query_as(
+                "SELECT
+                   witness.revision,
+                   witness.writer_id,
+                   witness.payload_hash,
+                   CASE
+                     WHEN replica.workspace_id = witness.workspace_id
+                       AND replica_hash.payload_hash = witness.payload_hash
+                       THEN replica.payload
+                     ELSE archive.payload
+                   END AS payload,
+                   witness.sequence
+                 FROM e2ee_witness_records AS witness
+                 LEFT JOIN e2ee_records AS replica
+                   ON replica.id = witness.record_id
+                 LEFT JOIN e2ee_replica_payload_hashes AS replica_hash
+                   ON replica_hash.record_id = replica.id
+                  AND replica_hash.workspace_id = replica.workspace_id
+                 LEFT JOIN e2ee_ciphertext_archive AS archive
+                   ON archive.workspace_id = witness.workspace_id
+                  AND archive.record_id = witness.record_id
+                  AND archive.payload_hash = witness.payload_hash
+                 WHERE witness.workspace_id = ? AND witness.record_id = ?",
             )
-            .await?;
-            transaction.commit().await?;
-            check_e2ee_cancellation(is_cancelled)?;
-            continue;
-        }
-        let result = sqlx::query(
-            "INSERT INTO e2ee_records (id, workspace_id, payload)
-             VALUES (?, ?, ?)
-             ON CONFLICT(id) DO UPDATE SET
-               payload = excluded.payload,
-               updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-             WHERE e2ee_records.workspace_id = excluded.workspace_id
-               AND e2ee_records.payload != excluded.payload",
-        )
-        .bind(&record.record_id)
-        .bind(&record.workspace_id)
-        .bind(&record.payload)
-        .execute(&mut *transaction)
-        .await?;
-        if let Err(error) = check_e2ee_cancellation(is_cancelled) {
-            transaction.rollback().await?;
-            return Err(error);
-        }
-        if result.rows_affected() != 1 {
-            let current: Option<(String, String)> = sqlx::query_as(
-                "SELECT workspace_id, payload
-                 FROM e2ee_records
-                 WHERE id = ?",
-            )
+            .bind(&record.workspace_id)
             .bind(&record.record_id)
             .fetch_optional(&mut *transaction)
             .await?;
@@ -931,27 +971,86 @@ async fn persist_e2ee_witness_repairs(
                 transaction.rollback().await?;
                 return Err(error);
             }
-            if !current.is_some_and(|(workspace_id, payload)| {
-                workspace_id == record.workspace_id && payload == record.payload
-            }) {
-                return Err(E2eeReplicaError::RollbackDetected);
+            let current_matches = current_witness.is_some_and(
+                |(revision, writer_id, payload_hash, payload, sequence)| {
+                    revision == record.revision
+                        && writer_id == record.writer_id
+                        && payload_hash == record.payload_hash
+                        && payload == record.payload
+                        && sequence == record.sequence
+                },
+            );
+            if !current_matches {
+                delete_reconciled_witness_repairs_in_transaction(
+                    &mut transaction,
+                    &[(record.record_id.clone(), *pending_generation)],
+                )
+                .await?;
+                if let Err(error) = check_e2ee_cancellation(is_cancelled) {
+                    transaction.rollback().await?;
+                    return Err(error);
+                }
+                continue;
             }
-        } else {
-            repaired_records += 1;
-        }
-        upsert_replica_payload_hash(
-            &mut transaction,
-            &record.workspace_id,
-            &record.record_id,
-            &record.payload_hash,
-            &record.payload,
-        )
-        .await?;
-        sqlx::query("DELETE FROM e2ee_witness_repair_pending WHERE record_id = ?")
+            let result = sqlx::query(
+                "INSERT INTO e2ee_records (id, workspace_id, payload)
+                 VALUES (?, ?, ?)
+                 ON CONFLICT(id) DO UPDATE SET
+                   payload = excluded.payload,
+                   updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+                 WHERE e2ee_records.workspace_id = excluded.workspace_id
+                   AND e2ee_records.payload != excluded.payload",
+            )
             .bind(&record.record_id)
+            .bind(&record.workspace_id)
+            .bind(&record.payload)
             .execute(&mut *transaction)
             .await?;
-        prune_ciphertext_archive(&mut transaction, &record.workspace_id, &record.record_id).await?;
+            if let Err(error) = check_e2ee_cancellation(is_cancelled) {
+                transaction.rollback().await?;
+                return Err(error);
+            }
+            if result.rows_affected() != 1 {
+                let current: Option<(String, String)> = sqlx::query_as(
+                    "SELECT workspace_id, payload
+                     FROM e2ee_records
+                     WHERE id = ?",
+                )
+                .bind(&record.record_id)
+                .fetch_optional(&mut *transaction)
+                .await?;
+                if let Err(error) = check_e2ee_cancellation(is_cancelled) {
+                    transaction.rollback().await?;
+                    return Err(error);
+                }
+                if !current.is_some_and(|(workspace_id, payload)| {
+                    workspace_id == record.workspace_id && payload == record.payload
+                }) {
+                    transaction.rollback().await?;
+                    return Err(E2eeReplicaError::RollbackDetected);
+                }
+            } else {
+                repaired_records += 1;
+            }
+            upsert_replica_payload_hash(
+                &mut transaction,
+                &record.workspace_id,
+                &record.record_id,
+                &record.payload_hash,
+                &record.payload,
+            )
+            .await?;
+            sqlx::query("DELETE FROM e2ee_witness_repair_pending WHERE record_id = ?")
+                .bind(&record.record_id)
+                .execute(&mut *transaction)
+                .await?;
+            prune_ciphertext_archive(&mut transaction, &record.workspace_id, &record.record_id)
+                .await?;
+            if let Err(error) = check_e2ee_cancellation(is_cancelled) {
+                transaction.rollback().await?;
+                return Err(error);
+            }
+        }
         transaction.commit().await?;
         check_e2ee_cancellation(is_cancelled)?;
     }
@@ -997,6 +1096,20 @@ async fn delete_reconciled_witness_repairs_in_transaction(
 async fn upsert_witness_record(
     transaction: &mut Transaction<'_, Sqlite>,
     record: &WitnessRecord,
+) -> E2eeReplicaResult<()> {
+    let outbox_hashes = if record.sequence > 0 {
+        vec![record.payload_hash.clone()]
+    } else {
+        Vec::new()
+    };
+    upsert_witness_record_in_batch(transaction, record, &outbox_hashes, true).await
+}
+
+pub(super) async fn upsert_witness_record_in_batch(
+    transaction: &mut Transaction<'_, Sqlite>,
+    record: &WitnessRecord,
+    outbox_hashes: &[String],
+    reconcile_pending: bool,
 ) -> E2eeReplicaResult<()> {
     retain_ciphertext(
         transaction,
@@ -1050,14 +1163,16 @@ async fn upsert_witness_record(
     .bind(record.sequence)
     .execute(&mut **transaction)
     .await?;
-    if record.sequence > 0 {
+    for payload_hash in outbox_hashes {
         // A feed event is also proof of acceptance. This covers restoring a
         // backup taken after encryption but before the upload ID was frozen.
         sqlx::query("DELETE FROM e2ee_cloud_outbox WHERE workspace_id = ? AND record_id = ? AND payload_hash = ?")
-            .bind(&record.workspace_id).bind(&record.record_id).bind(&record.payload_hash)
+            .bind(&record.workspace_id).bind(&record.record_id).bind(payload_hash)
             .execute(&mut **transaction).await?;
     }
-    reconcile_e2ee_witness_pending(transaction, &record.record_id).await?;
+    if reconcile_pending {
+        reconcile_e2ee_witness_pending(transaction, &record.record_id).await?;
+    }
     prune_ciphertext_archive(transaction, &record.workspace_id, &record.record_id).await?;
     Ok(())
 }
@@ -1094,7 +1209,7 @@ fn validate_witness_payload_with_keyring(
     validate_opened_witness_field(&field, payload_hash, payload, revision, writer_id)
 }
 
-fn validate_opened_witness_field(
+pub(super) fn validate_opened_witness_field(
     field: &OpenedField,
     payload_hash: &str,
     payload: &str,

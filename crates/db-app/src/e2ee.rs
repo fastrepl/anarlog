@@ -1,8 +1,9 @@
 mod authority;
 pub use authority::{
     E2eeCloudBatch, E2eeCloudEvent, acknowledge_e2ee_cloud_batch, configure_e2ee_cloud_authority,
-    e2ee_cloud_accepted_head, e2ee_cloud_authority_enabled, pending_e2ee_cloud_batch,
-    preserve_e2ee_cloud_conflicts, rebase_e2ee_cloud_documents, reject_e2ee_cloud_batch,
+    e2ee_cloud_accepted_head, e2ee_cloud_authority_enabled, e2ee_cloud_pull_in_progress,
+    has_pending_e2ee_cloud_work, pending_e2ee_cloud_batch, preserve_e2ee_cloud_conflicts,
+    rebase_e2ee_cloud_documents, rebase_e2ee_cloud_documents_cancellable, reject_e2ee_cloud_batch,
     set_e2ee_cloud_pull_in_progress,
 };
 #[cfg(test)]
@@ -61,10 +62,10 @@ pub const E2EE_DIRTY_ROW_WRITE_COMPATIBILITY_PREDICATE: &str = "(
 
 const ROW_MANIFEST_FIELD: &str = "$row";
 const E2EE_ENCRYPT_ROW_LIMIT: i64 = 64;
-const E2EE_APPLY_ROW_LIMIT: usize = 16;
+const E2EE_APPLY_ROW_LIMIT: usize = 64;
 const E2EE_APPLY_BYTE_LIMIT: usize = 16 * 1024 * 1024;
-const E2EE_APPLY_PREFLIGHT_RECORD_LIMIT: i64 = 64;
-const E2EE_WITNESS_REPAIR_RECORD_LIMIT: i64 = 64;
+const E2EE_APPLY_PREFLIGHT_RECORD_LIMIT: i64 = 512;
+const E2EE_WITNESS_REPAIR_RECORD_LIMIT: i64 = 512;
 const E2EE_WITNESS_REPAIR_BYTE_LIMIT: usize = 16 * 1024 * 1024;
 const ACTIVE_CAPTURE_MARKER_PREDICATE: &str = "
   length(capture.id) > length('capture_lifecycle_pending:')
@@ -216,6 +217,7 @@ mod merge;
 mod replica_apply;
 mod replica_encrypt;
 mod replica_storage;
+mod snapshot;
 
 pub use conflicts::{
     E2eeFieldConflict, list_e2ee_field_conflicts, resolve_e2ee_field_conflict,
@@ -251,6 +253,10 @@ use replica_storage::reconcile_e2ee_witness_pending;
 pub use replica_storage::{
     E2eeParkReason, E2eeParkedRecordSummary, parked_e2ee_record_summary,
     requeue_parked_e2ee_records,
+};
+pub use snapshot::{
+    export_e2ee_workspace_snapshot, import_e2ee_workspace_snapshot,
+    import_e2ee_workspace_snapshot_cancellable,
 };
 
 #[cfg(test)]

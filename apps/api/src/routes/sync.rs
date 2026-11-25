@@ -169,8 +169,21 @@ pub(crate) fn router(env: &RuntimeConfig) -> Router {
     );
 
     tracing::info!("sync_configured");
+    let mut sync_state = anlg_api_sync::AppState::new(sync_config);
+    if let Ok(app_name) = std::env::var("FLY_APP_NAME") {
+        let app_name = app_name.trim().to_string();
+        if !app_name.is_empty() {
+            let self_ip = std::env::var("FLY_PRIVATE_IP")
+                .ok()
+                .map(|ip| ip.trim().to_string())
+                .filter(|ip| !ip.is_empty());
+            sync_state = sync_state.with_fly_wake_discovery(app_name, self_ip, env.port);
+        }
+    }
+    let internal_wake_routes =
+        anlg_api_sync::internal_witness_wake_router(sync_state.replica_state());
     let sync_routes = build_sync_routes(
-        anlg_api_sync::AppState::new(sync_config),
+        sync_state,
         cloudsync_rate_limit,
         device_rate_limit,
         session_share_rate_limit,
@@ -214,6 +227,7 @@ pub(crate) fn router(env: &RuntimeConfig) -> Router {
 
     Router::new()
         .nest("/sync", sync_routes)
+        .merge(internal_wake_routes)
         .merge(shared_notes_routes)
         .merge(authenticated_shared_notes_routes)
         .merge(cloud_api_management_routes)

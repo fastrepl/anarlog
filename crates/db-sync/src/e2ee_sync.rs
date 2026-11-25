@@ -102,6 +102,10 @@ pub struct E2eeSyncHook {
     active_sync_cancellation: std::sync::Mutex<Option<(u64, E2eeWitnessCancellation)>>,
     pub received_apply_cancellation_checks: std::sync::atomic::AtomicU64,
     pub full_resync_control_waits: std::sync::atomic::AtomicU64,
+    config_generation: std::sync::atomic::AtomicU64,
+    witness_watch_healthy: std::sync::atomic::AtomicBool,
+    pub watch_health_changed: tokio::sync::Notify,
+    last_snapshot_sequence: std::sync::Mutex<HashMap<String, u64>>,
 }
 
 struct ActiveE2eeSync<'a> {
@@ -133,6 +137,8 @@ impl E2eeSyncHook {
             workspace_id.to_string(),
             anlg_e2ee::WorkspaceKeyring::new(key),
         )]);
+        self.config_generation
+            .fetch_add(1, std::sync::atomic::Ordering::AcqRel);
         self.request_reconciliation();
         Ok(())
     }
@@ -148,6 +154,8 @@ impl E2eeSyncHook {
             anlg_e2ee::WorkspaceKeyring::new(recovery_key.workspace_key(personal_workspace_id)?),
         );
         self.config.write().unwrap().keys = shared_keyrings;
+        self.config_generation
+            .fetch_add(1, std::sync::atomic::Ordering::AcqRel);
         self.request_reconciliation();
         Ok(())
     }
@@ -167,7 +175,11 @@ impl E2eeSyncHook {
 
     pub fn clear(&self) {
         self.cancel_active_sync();
+        self.set_witness_watch_healthy(false);
+        self.last_snapshot_sequence.lock().unwrap().clear();
         *self.config.write().unwrap() = E2eeRuntimeConfig::default();
+        self.config_generation
+            .fetch_add(1, std::sync::atomic::Ordering::AcqRel);
         self.witness_changed.notify_waiters();
         self.replica_sync_requested.notify_waiters();
         *self.replica_status.lock().unwrap() = ReplicaSyncStatus::default();
@@ -222,13 +234,60 @@ impl E2eeSyncHook {
         transport: E2eeTransport,
     ) {
         self.cancel_active_sync();
+        self.set_witness_watch_healthy(false);
         {
             let mut config = self.config.write().unwrap();
             config.witnesses = witnesses;
             config.transport = transport;
         }
+        self.config_generation
+            .fetch_add(1, std::sync::atomic::Ordering::AcqRel);
         self.witness_changed.notify_waiters();
         self.request_reconciliation();
+    }
+
+    pub(crate) fn config_generation(&self) -> u64 {
+        self.config_generation
+            .load(std::sync::atomic::Ordering::Acquire)
+    }
+
+    pub(crate) async fn has_local_replica_work(&self, pool: &sqlx::SqlitePool) -> bool {
+        let config = self.config_snapshot();
+        if config.transport != E2eeTransport::Replica || config.keys.is_empty() {
+            return false;
+        }
+        if self.reconciliation_requested() {
+            return true;
+        }
+        if anlg_db_app::has_pending_e2ee_dirty_rows_deferring_active_captures(pool, &config.keys)
+            .await
+            .unwrap_or(false)
+        {
+            return true;
+        }
+        for workspace_id in config.keys.keys() {
+            if anlg_db_app::has_pending_e2ee_cloud_work(pool, workspace_id)
+                .await
+                .unwrap_or(false)
+            {
+                return true;
+            }
+        }
+        false
+    }
+
+    pub fn set_witness_watch_healthy(&self, healthy: bool) {
+        let prev = self
+            .witness_watch_healthy
+            .swap(healthy, std::sync::atomic::Ordering::AcqRel);
+        if prev != healthy {
+            self.watch_health_changed.notify_waiters();
+        }
+    }
+
+    pub fn witness_watch_healthy(&self) -> bool {
+        self.witness_watch_healthy
+            .load(std::sync::atomic::Ordering::Acquire)
     }
 
     pub fn replica_transport_configured(&self) -> bool {
@@ -505,17 +564,26 @@ impl E2eeSyncHook {
             })?;
             cancellation.check()?;
             for workspace_id in &workspace_ids {
-                witnesses[workspace_id]
-                    .publish_and_refresh_keyring_notifying_cancellable(
-                        pool,
-                        &keys[workspace_id],
-                        || {
-                            self.request_reconciliation();
-                        },
-                        &cancellation,
-                    )
-                    .await?;
-                cancellation.check()?;
+                if anlg_db_app::has_pending_e2ee_cloud_work(pool, workspace_id)
+                    .await
+                    .map_err(|error| {
+                        std::io::Error::other(format!(
+                            "failed to inspect pending E2EE cloud work: {error}"
+                        ))
+                    })?
+                {
+                    witnesses[workspace_id]
+                        .publish_accepted_or_refresh_keyring_notifying_cancellable(
+                            pool,
+                            &keys[workspace_id],
+                            || {
+                                self.request_reconciliation();
+                            },
+                            &cancellation,
+                        )
+                        .await?;
+                    cancellation.check()?;
+                }
             }
             let reconciliation_epoch = self.request_reconciliation();
             let stats = anlg_db_app::apply_received_e2ee_replica_changes_with_witness_cancellable(
@@ -544,13 +612,54 @@ impl E2eeSyncHook {
                         ))
                     })?;
             cancellation.check()?;
-            Ok(if stats.incomplete_chunk_columns > 0 {
-                ReplicaSyncOutcome::WaitingForRemote
-            } else if local_work_remaining {
-                ReplicaSyncOutcome::MoreWork
-            } else {
-                ReplicaSyncOutcome::Settled
-            })
+            if stats.incomplete_chunk_columns > 0 {
+                return Ok(ReplicaSyncOutcome::WaitingForRemote);
+            }
+            if local_work_remaining {
+                return Ok(ReplicaSyncOutcome::MoreWork);
+            }
+            for workspace_id in &workspace_ids {
+                if anlg_db_app::e2ee_cloud_authority_enabled(pool, workspace_id)
+                    .await
+                    .unwrap_or(false)
+                {
+                    let last = self
+                        .last_snapshot_sequence
+                        .lock()
+                        .unwrap()
+                        .get(workspace_id)
+                        .copied();
+                    match witnesses[workspace_id]
+                        .maybe_publish_snapshot_cancellable(
+                            pool,
+                            &keys[workspace_id],
+                            crate::witness::SNAPSHOT_PUBLISH_MIN_DELTA,
+                            last,
+                            &cancellation,
+                        )
+                        .await
+                    {
+                        Ok(Some(seq)) => {
+                            self.last_snapshot_sequence
+                                .lock()
+                                .unwrap()
+                                .insert(workspace_id.clone(), seq);
+                        }
+                        Ok(None) => {}
+                        Err(error) => {
+                            cancellation.check()?;
+                            tracing::debug!(
+                                workspace_id,
+                                %error,
+                                "opportunistic E2EE snapshot publication deferred"
+                            );
+                        }
+                    }
+                }
+                cancellation.check()?;
+            }
+            cancellation.check()?;
+            Ok(ReplicaSyncOutcome::Settled)
         };
         tokio::pin!(operation);
         tokio::select! {
@@ -661,7 +770,7 @@ impl anlg_db_core::CloudsyncSyncHook for E2eeSyncHook {
                 );
                 for workspace_id in &workspace_ids {
                     witnesses[workspace_id]
-                        .publish_and_refresh_keyring_notifying_cancellable(
+                        .publish_accepted_or_refresh_keyring_notifying_cancellable(
                             pool,
                             &keys[workspace_id],
                             || {
