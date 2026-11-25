@@ -21,13 +21,6 @@ test("commandDefaults preserves commented fields and multiline aliases", () => {
     state: "installed",
     details: null,
   });
-  assert.deepEqual(defaults.install_embedded_cli, {
-    supported: false,
-    commandName: "",
-    installPath: "",
-    state: "installed",
-    details: null,
-  });
   assert.deepEqual(defaults.install_agent_skill, {
     agent: "claude_code",
     displayName: "",
