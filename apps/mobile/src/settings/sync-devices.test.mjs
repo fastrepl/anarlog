@@ -22,6 +22,20 @@ test("shows the server-provided 5-device allowance and counts reservations once"
   assert.equal(result.devices[0].deviceName, "Mac");
 });
 
+test("preserves all active devices when more than 100 are connected", () => {
+  const devices = Array.from({ length: 105 }, (_, index) => ({
+    deviceFingerprint: `device-${index + 1}`,
+    deviceName: `Device ${index + 1}`,
+  }));
+  const result = parseSyncDeviceResponse({
+    maxDevices: 255,
+    devices,
+    pendingDevices: [],
+  });
+  assert.equal(result.devices.length, 105);
+  assert.equal(result.usedDevices, 105);
+});
+
 test("rejects invalid device allowances instead of displaying a guessed limit", () => {
   for (const maxDevices of [undefined, 0, -1, 3.5, "5"]) {
     assert.throws(

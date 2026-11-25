@@ -82,7 +82,7 @@ pub fn status_view(
             SyncBlock::DeviceLimit => view(
                 StatusKind::Error,
                 "Device limit reached",
-                "Choose a device below to replace. This device will continue automatically.",
+                "Disconnect another device below. This device will continue automatically.",
             ),
             SyncBlock::UpdateRequired => view(
                 StatusKind::Error,

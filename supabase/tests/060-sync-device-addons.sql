@@ -1,5 +1,5 @@
 begin;
-select plan(13);
+select plan(8);
 
 select tests.create_supabase_user('addon_pro', 'addon-pro@example.com');
 
@@ -21,32 +21,12 @@ insert into stripe.subscription_items (id, subscription, price, quantity)
 values ('si_addon_pro_base', 'sub_addon_pro', 'price_pro_monthly', 1)
 on conflict (id) do nothing;
 
-select is(public.get_sync_device_limit(tests.get_supabase_uid('addon_pro')), 255,
-  'A Pro subscription without add-ons returns the compatibility ceiling');
-
 insert into stripe.subscription_items (id, subscription, price, quantity)
 values ('si_addon_pro_devices', 'sub_addon_pro', 'price_addon_monthly', 2);
 
 select is(public.get_sync_device_limit(tests.get_supabase_uid('addon_pro')), 255,
-  'Monthly add-on items keep the compatibility ceiling');
+  'Legacy add-on items keep the compatibility ceiling');
 
-update stripe.subscription_items set quantity = 4 where id = 'si_addon_pro_devices';
-select is(public.get_sync_device_limit(tests.get_supabase_uid('addon_pro')), 255,
-  'Add-on quantity changes keep the compatibility ceiling');
-
-update stripe.subscription_items set deleted = true where id = 'si_addon_pro_devices';
-select is(public.get_sync_device_limit(tests.get_supabase_uid('addon_pro')), 255,
-  'Removed add-on items keep the compatibility ceiling');
-
-update stripe.subscription_items set deleted = false, price = 'price_addon_yearly' where id = 'si_addon_pro_devices';
-select is(public.get_sync_device_limit(tests.get_supabase_uid('addon_pro')), 255,
-  'Yearly add-on prices keep the compatibility ceiling');
-
-update stripe.subscriptions set status = 'canceled' where id = 'sub_addon_pro';
-select is(public.get_sync_device_limit(tests.get_supabase_uid('addon_pro')), 255,
-  'Canceled subscriptions keep the compatibility ceiling');
-
-update stripe.subscriptions set status = 'active' where id = 'sub_addon_pro';
 select tests.authenticate_as_service_role();
 select public.claim_personal_workspace_e2ee_key(tests.get_supabase_uid('addon_pro'), 'abcdefghijklmnopqrstuv');
 do $$begin

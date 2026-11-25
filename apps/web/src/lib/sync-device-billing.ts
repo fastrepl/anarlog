@@ -1,41 +1,21 @@
 import type Stripe from "stripe";
 
-import type { BillingPeriod } from "./subscription-selection.ts";
 import {
   getSyncDeviceAddonQuantity,
   selectBasePlanItem,
   selectSyncDeviceAddonItem,
-  SYNC_DEVICE_ADDON_LOOKUP_KEYS,
 } from "./sync-device-addon.ts";
-
-export async function getSyncDeviceAddonPrice(
-  stripe: Stripe,
-  period: BillingPeriod,
-) {
-  const lookupKey = SYNC_DEVICE_ADDON_LOOKUP_KEYS[period];
-  const prices = await stripe.prices.list({
-    lookup_keys: [lookupKey],
-    active: true,
-    limit: 1,
-  });
-  const price = prices.data[0];
-  if (!price)
-    throw new Error(`Missing Stripe price for lookup key: ${lookupKey}`);
-  return price;
-}
 
 export async function switchPlanWithAddon({
   stripe,
   subscription,
   targetPriceId,
-  period,
   confirmed,
   returnUrl,
 }: {
   stripe: Stripe;
   subscription: Stripe.Subscription;
   targetPriceId: string;
-  period: BillingPeriod;
   confirmed: boolean;
   returnUrl: string;
 }) {
@@ -43,10 +23,9 @@ export async function switchPlanWithAddon({
   const addon = selectSyncDeviceAddonItem(subscription.items.data);
   if (!base || !addon || base.id === addon.id)
     throw new Error("Subscription items are unavailable");
-  const price = await getSyncDeviceAddonPrice(stripe, period);
   const items = [
     { id: base.id, price: targetPriceId, quantity: base.quantity },
-    { id: addon.id, price: price.id, quantity: addon.quantity },
+    { id: addon.id, deleted: true },
   ];
 
   if (!confirmed) {
@@ -76,35 +55,26 @@ export async function switchPlanWithAddon({
 export async function updateDeviceAddonQuantity({
   stripe,
   subscription,
-  period,
   quantity,
 }: {
   stripe: Stripe;
   subscription: Stripe.Subscription;
-  period: BillingPeriod;
   quantity: number;
 }) {
   const addon = selectSyncDeviceAddonItem(subscription.items.data);
   const currentQuantity = getSyncDeviceAddonQuantity(subscription.items.data);
-  if (currentQuantity === quantity) return;
-  const proration_behavior =
-    quantity > currentQuantity ? "always_invoice" : "create_prorations";
+  if (quantity > currentQuantity) {
+    throw new Error("Unlimited synced devices are included with Pro");
+  }
+  if (currentQuantity === quantity || !addon) return;
   if (quantity === 0) {
-    if (addon)
-      await stripe.subscriptionItems.del(addon.id, { proration_behavior });
-  } else if (addon) {
-    await stripe.subscriptionItems.update(addon.id, {
-      quantity,
-      proration_behavior,
-      payment_behavior: "error_if_incomplete",
+    await stripe.subscriptionItems.del(addon.id, {
+      proration_behavior: "create_prorations",
     });
   } else {
-    const price = await getSyncDeviceAddonPrice(stripe, period);
-    await stripe.subscriptionItems.create({
-      subscription: subscription.id,
-      price: price.id,
+    await stripe.subscriptionItems.update(addon.id, {
       quantity,
-      proration_behavior,
+      proration_behavior: "create_prorations",
       payment_behavior: "error_if_incomplete",
     });
   }

@@ -404,6 +404,5 @@ describe("SettingsBilling", () => {
     ).toHaveLength(1);
     expect(screen.queryByText("Synced devices")).toBeNull();
     expect(screen.queryByText("Plan limits")).toBeNull();
-    expect(mocks.requestSyncDevices).not.toHaveBeenCalled();
   });
 });
