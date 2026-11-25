@@ -161,6 +161,16 @@ pub async fn mirror_local_storage<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
+pub fn get_database_dir(state: tauri::State<'_, crate::DatabaseDir>) -> Result<String, String> {
+    state
+        .0
+        .to_str()
+        .map(str::to_owned)
+        .ok_or_else(|| "Database directory path is not valid UTF-8".to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
 pub fn is_crash_reporting_enabled() -> Result<bool, String> {
     Ok(crate::CRASH_REPORTING_ENABLED.load(std::sync::atomic::Ordering::SeqCst))
 }

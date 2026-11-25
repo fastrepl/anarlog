@@ -60,7 +60,8 @@ fn main() -> anyhow::Result<()> {
             let database = profile.join("library.sqlite");
             let storage = Storage {
                 channel: None,
-                root: profile,
+                root: profile.clone(),
+                database_dir: profile,
                 pointer: Some(pointer),
             };
             (storage, database)

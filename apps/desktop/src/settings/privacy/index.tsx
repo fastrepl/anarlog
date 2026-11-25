@@ -1,5 +1,4 @@
 import { useLingui } from "@lingui/react/macro";
-import { platform } from "@tauri-apps/plugin-os";
 
 import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
@@ -47,9 +46,7 @@ export function SettingsPrivacy() {
   const authAvailable = available === true;
   const lockAppDescription = !authAvailable
     ? t`Device authentication is not available on this computer.`
-    : platform() === "windows"
-      ? t`Require Windows Hello face, PIN, or password when opening Anarlog.`
-      : t`Require Touch ID or your password when opening Anarlog.`;
+    : undefined;
 
   return (
     <div className="flex flex-col gap-8">
@@ -76,15 +73,13 @@ export function SettingsPrivacy() {
         />
         <SettingSwitchRow
           title={i18n._(privacyMessages.posthogTitle)}
-          description={i18n._(privacyMessages.posthogDescription)}
           checked={posthogEnabled}
           onChange={(telemetryConsent) => {
             setSettingValues({ telemetry_consent: telemetryConsent });
           }}
         />
         <SettingSwitchRow
-          title={t`Error`}
-          description={t`Send sanitized crash and error reports to help improve Anarlog.`}
+          title={t`Share error reports`}
           checked={sentryEnabled}
           onChange={(crashReportingConsent) => {
             setSettingValues({

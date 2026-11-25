@@ -30,7 +30,7 @@ function PermissionRow({
   runtimeCapability = false,
 }: {
   title: string;
-  description: string;
+  description?: string;
   status: PermissionStatus | undefined;
   isPending: boolean;
   error?: string | null;
@@ -67,14 +67,17 @@ function PermissionRow({
       <div className="flex-1">
         <div
           className={cn([
-            "mb-1 flex items-center gap-2",
+            "flex items-center gap-2",
+            (description || error) && "mb-1",
             !isAuthorized && "text-red-500",
           ])}
         >
           {!isAuthorized && <WarningCircle className="size-4" />}
           <h3 className="text-sm font-medium">{title}</h3>
         </div>
-        <p className="text-muted-foreground text-xs">{description}</p>
+        {description && (
+          <p className="text-muted-foreground text-xs">{description}</p>
+        )}
         {error && (
           <p role="alert" className="mt-1 text-xs text-red-500">
             {error}
@@ -160,7 +163,6 @@ function AudioPermissions({
       <PermissionRow
         permission="microphone"
         title={t`Microphone`}
-        description={t`Record your voice in meetings and calls.`}
         status={mic.status}
         isPending={mic.isPending}
         error={mic.error}
@@ -171,7 +173,6 @@ function AudioPermissions({
       <PermissionRow
         permission="system_audio"
         title={t`System audio`}
-        description={t`Record other participants in meetings.`}
         status={systemAudio.status}
         isPending={systemAudio.isPending}
         error={systemAudio.error}
@@ -209,7 +210,7 @@ function MacOSPermissions() {
         description={
           accessibilityGuidance
             ? t`Opens System Settings and guides you to add Anarlog to the ${accessibilityGuidance.paneTitle ?? "Privacy"} list.`
-            : t`Read meeting controls and visible chat.`
+            : undefined
         }
         status={accessibility.status}
         isPending={accessibility.isPending}
@@ -222,7 +223,6 @@ function MacOSPermissions() {
         <PermissionRow
           permission="calendar"
           title={t`Calendar`}
-          description={t`Show Apple Calendar events in Anarlog.`}
           status={calendar.status}
           isPending={calendar.isPending}
           onRequest={calendar.request}

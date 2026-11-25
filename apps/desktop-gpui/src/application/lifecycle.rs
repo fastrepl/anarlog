@@ -1591,6 +1591,7 @@ mod tests {
                 crate::launch::Storage {
                     channel: None,
                     root: root_path.clone(),
+                    database_dir: root_path.clone(),
                     pointer: Some(root_path.join("storage.json")),
                 },
                 window,

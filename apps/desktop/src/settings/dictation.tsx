@@ -1,7 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
-import { platform } from "@tauri-apps/plugin-os";
 import { useShallow } from "zustand/react/shallow";
 
 import { commands as transcription } from "@anlg/plugin-transcription";
@@ -63,76 +62,29 @@ export function SettingsDictation() {
       <SettingsPageTitle title={<Trans>Dictation</Trans>} />
       <PlanGate plan="pro" allowed={isPro}>
         <div className="flex flex-col gap-6">
-          <p className="text-muted-foreground text-sm">
-            <Trans>
-              Speak into the focused text field in your apps. Your transcript
-              appears when you finish.
-            </Trans>
-          </p>
           <SettingSwitchRow
             title={<Trans>Enable dictation</Trans>}
-            description={
-              <Trans>
-                Keep Anarlog running to use your shortcut in other apps.
-              </Trans>
-            }
             checked={enabled}
             onChange={setEnabled}
           />
           <DictationShortcut shortcut={shortcut} />
           <AudioDeviceRow
             title={<Trans>Microphone</Trans>}
-            description={
-              <Trans>Choose the microphone that captures your voice.</Trans>
-            }
             value={microphone}
             devices={microphones.data ?? []}
             onChange={setMicrophone}
           />
           <SettingSwitchRow
             title={<Trans>Live transcript preview</Trans>}
-            description={
-              <Trans>
-                Show words in the floating panel as you speak. Uses a live
-                connection to your selected transcription provider when
-                supported. Text is inserted when you finish.
-              </Trans>
-            }
             checked={livePreview}
             onChange={setLivePreview}
           />
           <SettingSwitchRow
             title={<Trans>Hands-free dictation</Trans>}
-            description={
-              handsFree ? (
-                <Trans>
-                  Press your shortcut to start, then press it again to finish.
-                </Trans>
-              ) : (
-                <Trans>
-                  Hold your shortcut while speaking, then release it to finish.
-                </Trans>
-              )
-            }
             checked={handsFree}
             onChange={setHandsFree}
           />
           <DictationEngineSettings />
-          <p className="text-muted-foreground text-xs">
-            {platform() === "linux" ? (
-              <Trans>
-                On Wayland, approve the shortcuts in your desktop's prompt. Use
-                Control + Alt + Escape to cancel. On X11, press Escape to
-                cancel. The target app must expose an editable accessibility
-                field.
-              </Trans>
-            ) : (
-              <Trans>
-                Press Escape to cancel. Dictation stops after five minutes and
-                pauses while Anarlog records a meeting.
-              </Trans>
-            )}
-          </p>
           <div className="flex flex-wrap gap-2">
             <Button
               variant="outline"
@@ -207,14 +159,6 @@ export function SettingsDictation() {
               placeholder={t`Click here, then use your dictation shortcut.`}
             />
           </label>
-          <p className="text-muted-foreground text-xs">
-            <Trans>
-              Dictation uses your microphone, transcription provider, languages,
-              and dictionary. Temporary audio is deleted after transcription.
-              Your last transcript stays in memory until dictation is disabled
-              or Anarlog closes.
-            </Trans>
-          </p>
           {status.lastTranscript && (
             <div className="flex flex-col gap-3">
               <h3 className="text-sm font-medium">

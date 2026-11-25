@@ -76,7 +76,9 @@ describe("SettingsPrivacy", () => {
     const posthog = screen.getByRole("switch", {
       name: "Share usage data",
     });
-    const errorReporting = screen.getByRole("switch", { name: "Error" });
+    const errorReporting = screen.getByRole("switch", {
+      name: "Share error reports",
+    });
 
     expect(posthog.getAttribute("data-state")).toBe("checked");
     expect(errorReporting.getAttribute("data-state")).toBe("unchecked");

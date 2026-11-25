@@ -275,12 +275,6 @@ function SettingsSectionContent({
                     {(field) => (
                       <SettingSwitchRow
                         title={<Trans>Use main language for summaries</Trans>}
-                        description={
-                          <Trans>
-                            When off, summaries follow the detected meeting
-                            language.
-                          </Trans>
-                        }
                         checked={field.state.value}
                         onChange={field.handleChange}
                       />

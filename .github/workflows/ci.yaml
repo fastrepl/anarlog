@@ -41,3 +41,4 @@ jobs:
           scripts/update-apt-repository.test.mjs
           scripts/verify-apt-repository.test.mjs
           scripts/update-aur-pkgbuild.test.mjs
+          apps/desktop-gpui/parity/defaults.test.mjs

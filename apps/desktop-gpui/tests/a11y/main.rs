@@ -110,6 +110,7 @@ impl Harness {
                             desktop_gpui::launch::Storage {
                                 channel: None,
                                 root: profile.clone(),
+                                database_dir: profile.clone(),
                                 pointer: Some(profile.with_extension("storage.json")),
                             },
                             window,

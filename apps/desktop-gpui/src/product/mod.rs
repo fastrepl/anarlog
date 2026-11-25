@@ -308,7 +308,10 @@ impl ProductPane {
                 }
             }
             if self.preferences.is_none() {
-                let view = cx.new(|cx| PreferencesView::new(self.context.runtime.clone(), cx));
+                let storage_locations = self.services.storage_locations();
+                let view = cx.new(|cx| {
+                    PreferencesView::new(self.context.runtime.clone(), storage_locations, cx)
+                });
                 self.settings_subscription = Some(cx.subscribe(
                     &view,
                     |_, _, error: &desktop_runtime::ServiceError, cx| {

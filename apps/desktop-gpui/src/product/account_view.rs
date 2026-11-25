@@ -273,7 +273,7 @@ fn small_outline(
 /// `Container` from `account.tsx`: title and description with the action on the right.
 fn container(
     title: &'static str,
-    description: impl IntoElement,
+    description: Option<AnyElement>,
     action: Option<AnyElement>,
 ) -> Div {
     div()
@@ -290,7 +290,7 @@ fn container(
                 .flex_col()
                 .gap_2()
                 .child(heading(title))
-                .child(description),
+                .when_some(description, |view, description| view.child(description)),
         )
         .when_some(action, |view, action| {
             view.child(div().flex_shrink_0().child(action))
@@ -554,7 +554,7 @@ impl ProductPane {
                             .flex_col()
                             .child(container(
                                 "Finish sign-in",
-                                text_sm(colors, true).child("Finish in your browser, then return to Anarlog."),
+                                None,
                                 Some(
                                     controls::outline_button(
                                         "reopen-sign-in",
@@ -644,7 +644,7 @@ impl ProductPane {
         page("Account")
             .child(container(
                 "Your Account",
-                match user.email.clone() {
+                Some(match user.email.clone() {
                     Some(email) => div()
                         .id("account-email")
                         .a11y_button(format!("{email}, Edit"))
@@ -667,7 +667,7 @@ impl ProductPane {
                         ))
                         .into_any_element(),
                     None => text_sm(colors, true).child("Signed in").into_any_element(),
-                },
+                }),
                 Some(
                     destructive_button(
                         "account-sign-out",
@@ -688,7 +688,7 @@ impl ProductPane {
             ))
             .child(container(
                 "Connected accounts",
-                text_sm(colors, true).child("Manage your sign-in methods on the Anarlog website."),
+                None,
                 Some(
                     controls::outline_button(
                         "account-connected",

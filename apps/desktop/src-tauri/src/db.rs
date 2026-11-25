@@ -7,7 +7,7 @@ const DEFAULT_CLOUDSYNC_INTERVAL_MS: u64 = 30_000;
 const DB_OPEN_LOCK_RETRIES: u32 = 12;
 const DB_OPEN_LOCK_RETRY_DELAY: std::time::Duration = std::time::Duration::from_secs(5);
 
-pub async fn open_desktop_db(identifier: &str) -> Result<Arc<Db>, String> {
+pub async fn open_desktop_db(identifier: &str) -> Result<(Arc<Db>, std::path::PathBuf), String> {
     let dir = desktop_db_dir(identifier)
         .ok_or_else(|| "application data directory is unavailable".to_string())?;
     std::fs::create_dir_all(&dir)
@@ -44,7 +44,7 @@ pub async fn open_desktop_db(identifier: &str) -> Result<Arc<Db>, String> {
         }
     };
 
-    Ok(Arc::new(db))
+    Ok((Arc::new(db), dir))
 }
 
 pub fn is_transient_lock_error(error: &impl std::fmt::Display) -> bool {

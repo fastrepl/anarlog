@@ -6,7 +6,100 @@ import path from "node:path";
 
 const COMMAND =
   /async \w+\([^)]*\)\s*:\s*Promise<([\s\S]+?)>\s*\{\s*(?:try\s*\{\s*)?return\s*(?:\{\s*status:\s*"ok",\s*data:\s*)?await TAURI_INVOKE\(\s*"([^"]+)"/g;
-const ALIAS = /^export type (\w+)(?:<[^>]*>)? = (.+)$/gm;
+const ALIAS_HEAD = /^export type (\w+)(?:<[^>]*>)?\s*=\s*/gm;
+
+function stripComments(source) {
+  let out = "";
+  let quote = null;
+  for (let index = 0; index < source.length; index++) {
+    const char = source[index];
+    if (quote) {
+      out += char;
+      if (char === "\\") {
+        if (index + 1 < source.length) out += source[++index];
+      } else if (char === quote) {
+        quote = null;
+      }
+      continue;
+    }
+    if (char === '"' || char === "'" || char === "`") {
+      quote = char;
+      out += char;
+      continue;
+    }
+    if (char === "/" && source[index + 1] === "/") {
+      index += 2;
+      while (index < source.length && source[index] !== "\n") index++;
+      if (index < source.length) out += "\n";
+      continue;
+    }
+    if (char === "/" && source[index + 1] === "*") {
+      index += 2;
+      let newlines = "";
+      while (
+        index < source.length &&
+        !(source[index] === "*" && source[index + 1] === "/")
+      ) {
+        if (source[index] === "\n") newlines += "\n";
+        index++;
+      }
+      index++;
+      out += newlines || " ";
+      continue;
+    }
+    out += char;
+  }
+  return out;
+}
+
+function parseAliases(source) {
+  const aliases = new Map();
+  for (const match of source.matchAll(ALIAS_HEAD)) {
+    const start = match.index + match[0].length;
+    let depth = 0;
+    let inString = false;
+    let end = source.length;
+    for (let index = start; index < source.length; index++) {
+      const char = source[index];
+      if (inString) {
+        if (char === "\\") index++;
+        else if (char === '"') inString = false;
+        continue;
+      }
+      if (char === '"') {
+        inString = true;
+      } else if ("<{([".includes(char)) {
+        depth++;
+      } else if (
+        "})]".includes(char) ||
+        (char === ">" && source[index - 1] !== "=")
+      ) {
+        depth = Math.max(0, depth - 1);
+      } else if (depth === 0) {
+        if (char === ";") {
+          end = index;
+          break;
+        }
+        if (char === "\n") {
+          const body = source.slice(start, index).trim();
+          const rest = source.slice(index + 1).trimStart();
+          if (
+            body &&
+            !body.endsWith("|") &&
+            !body.endsWith("&") &&
+            !rest.startsWith("|") &&
+            !rest.startsWith("&")
+          ) {
+            end = index;
+            break;
+          }
+        }
+      }
+    }
+    aliases.set(match[1], source.slice(start, end).replace(/\s+/g, " ").trim());
+  }
+  return aliases;
+}
 
 // Splits `a, b` or `a | b` at the top level, ignoring separators inside <>, {}, () and [].
 function split(type, separator) {
@@ -38,7 +131,9 @@ function fields(body) {
 function value(type, aliases, depth = 0) {
   type = type.trim();
   if (depth > 6) return null;
-  const union = split(type, "|");
+  const union = split(type, "|").filter(Boolean);
+  if (union.length === 1 && union[0] !== type)
+    return value(union[0], aliases, depth + 1);
   if (union.length > 1) {
     if (union.includes("null")) return null;
     const literal = union.find((part) => /^".*"$/.test(part));
@@ -84,10 +179,9 @@ export function commandDefaults(repository) {
     } catch {
       continue;
     }
-    const aliases = new Map(
-      [...source.matchAll(ALIAS)].map((match) => [match[1], match[2]]),
-    );
-    for (const [, type, command] of source.matchAll(COMMAND)) {
+    const stripped = stripComments(source);
+    const aliases = parseAliases(stripped);
+    for (const [, type, command] of stripped.matchAll(COMMAND)) {
       defaults[command] = value(type.replace(/\s+/g, " "), aliases);
     }
   }

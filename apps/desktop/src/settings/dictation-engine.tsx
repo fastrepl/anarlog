@@ -28,80 +28,38 @@ export function DictationEngineSettings() {
     <div className="flex flex-col gap-6">
       <SettingSwitchRow
         title={<Trans>Clean up dictation</Trans>}
-        description={
-          <Trans>
-            Fixes punctuation and filler words with your selected AI model. If
-            it takes longer than a few seconds, your words are inserted as
-            spoken.
-          </Trans>
-        }
         checked={cleanup}
         onChange={setCleanup}
       />
       <SettingSwitchRow
         title={<Trans>Edit selected text by voice</Trans>}
-        description={
-          <Trans>
-            With text selected in another app, say how to change it. The
-            selection is sent to your selected AI model and is left unchanged if
-            editing fails.
-          </Trans>
-        }
         checked={voiceEdit}
         onChange={setVoiceEdit}
       />
       <SettingSwitchRow
         title={<Trans>Use what's on screen</Trans>}
-        description={
-          <Trans>
-            Lets transcription and cleanup see a short snippet of the focused
-            app to spell names right. Password fields, private windows and
-            excluded apps are never read, and nothing is stored.
-          </Trans>
-        }
         checked={context}
         onChange={setContext}
       />
       {context && <ContextExclusions />}
       <SettingSwitchRow
         title={<Trans>Learn from your corrections</Trans>}
-        description={
-          <Trans>
-            Reads the field once after you dictate and suggests dictionary words
-            you corrected. Suggestions wait for your review in Dictionary.
-          </Trans>
-        }
         checked={learning}
         onChange={setLearning}
       />
       {platform() !== "linux" && (
         <SettingSwitchRow
           title={<Trans>Lower other audio while dictating</Trans>}
-          description={
-            <Trans>
-              Turns down your speakers while you speak, then restores the level
-              it changed.
-            </Trans>
-          }
           checked={ducking}
           onChange={setDucking}
         />
       )}
       <SettingSwitchRow
         title={<Trans>Keep unsent dictations</Trans>}
-        description={
-          <Trans>
-            If a dictation can't be transcribed or inserted, keep it on this
-            device for 24 hours so you can retry, copy or discard it.
-          </Trans>
-        }
         checked={recovery}
         onChange={setRecovery}
       />
       <DictationRecoveryList />
-      <p className="text-muted-foreground text-xs">
-        <Trans>Local transcription never falls back to a cloud provider.</Trans>
-      </p>
     </div>
   );
 }

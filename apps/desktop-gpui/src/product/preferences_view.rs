@@ -46,6 +46,7 @@ impl SelectOption {
 /// serialized so each compare-and-swap uses the revision the previous write produced.
 pub struct PreferencesView {
     pub(super) runtime: RuntimeHandle,
+    pub(super) storage_locations: Option<super::services::StorageLocations>,
     pub section: &'static str,
     snapshot: Option<Arc<Snapshot>>,
     desired: BTreeMap<String, Value>,
@@ -76,7 +77,11 @@ impl EventEmitter<super::PlanRequired> for PreferencesView {}
 impl EventEmitter<super::OpenSettingsPage> for PreferencesView {}
 
 impl PreferencesView {
-    pub fn new(runtime: RuntimeHandle, cx: &mut Context<Self>) -> Self {
+    pub fn new(
+        runtime: RuntimeHandle,
+        storage_locations: Option<super::services::StorageLocations>,
+        cx: &mut Context<Self>,
+    ) -> Self {
         let menu_search = cx.new(|cx| TextInput::new("Search...", cx).inline());
         let subscription = cx.subscribe(&menu_search, |_, _, _: &InputEvent, cx| cx.notify());
         let dictionary_input = cx
@@ -120,6 +125,7 @@ impl PreferencesView {
         .detach();
         let mut this = Self {
             runtime,
+            storage_locations,
             section: "app",
             snapshot: None,
             desired: BTreeMap::new(),
@@ -685,7 +691,7 @@ mod tests {
         })
         .unwrap();
         futures::executor::block_on(ready.receive()).unwrap();
-        let view = cx.new(|cx| PreferencesView::new(runtime.clone(), cx));
+        let view = cx.new(|cx| PreferencesView::new(runtime.clone(), None, cx));
         settle(cx, |cx| view.read_with(cx, |view, _| view.loaded()));
 
         view.update(cx, |view, cx| {
@@ -721,7 +727,7 @@ mod tests {
         .unwrap();
         futures::executor::block_on(ready.receive()).unwrap();
         let status = cx.update(crate::dictation::DictationStatus::install);
-        let view = cx.new(|cx| PreferencesView::new(runtime.clone(), cx));
+        let view = cx.new(|cx| PreferencesView::new(runtime.clone(), None, cx));
         view.update(cx, |view, cx| view.set_recording_shortcut(true, cx));
         assert!(status.read_with(cx, |status, _| status.capturing_shortcut));
         // Dropped entities are released when the app next flushes its effects.
@@ -753,7 +759,7 @@ mod tests {
         })
         .unwrap();
         futures::executor::block_on(ready.receive()).unwrap();
-        let view = cx.new(|cx| PreferencesView::new(runtime.clone(), cx));
+        let view = cx.new(|cx| PreferencesView::new(runtime.clone(), None, cx));
         settle(cx, |cx| view.read_with(cx, |view, _| view.loaded()));
 
         for (approved, expected) in [(false, false), (true, true)] {

@@ -12,24 +12,17 @@ export function SidebarItemFieldsSettings() {
 
   return (
     <section className="flex flex-col gap-4">
-      <div>
-        <h3 className="text-lg font-semibold">
-          <Trans>Notes list</Trans>
-        </h3>
-        <p className="text-muted-foreground mt-1 text-sm">
-          <Trans>Choose extra fields to show on each note.</Trans>
-        </p>
-      </div>
+      <h3 className="text-lg font-semibold">
+        <Trans>Notes list</Trans>
+      </h3>
       <div className="flex flex-col gap-4">
         <SettingSwitchRow
           title={<Trans>Folder</Trans>}
-          description={<Trans>Show the folder above the title.</Trans>}
           checked={showFolder}
           onChange={setShowFolder}
         />
         <SettingSwitchRow
           title={<Trans>Tags</Trans>}
-          description={<Trans>Show tags under the date and time.</Trans>}
           checked={showTags}
           onChange={setShowTags}
         />

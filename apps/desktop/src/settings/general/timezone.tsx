@@ -53,10 +53,7 @@ export function TimezoneSelector() {
   };
 
   return (
-    <SettingRow
-      title={<Trans>Timezone</Trans>}
-      description={<Trans>Show the timeline in your preferred timezone.</Trans>}
-    >
+    <SettingRow title={<Trans>Timezone</Trans>}>
       {(labelProps) => (
         <SearchableSelect
           {...labelProps}

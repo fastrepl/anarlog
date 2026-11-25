@@ -12,7 +12,6 @@ import { useTabs } from "~/store/zustand/tabs";
 export const privacyMessages = {
   title: msg`Privacy`,
   posthogTitle: msg`Share usage data`,
-  posthogDescription: msg`Help improve Anarlog with anonymous usage data.`,
 };
 
 interface SettingItem {
@@ -53,20 +52,11 @@ export function AppSettingsView({
             <>
               <SettingSwitchRow
                 title={<Trans>Start Anarlog at login</Trans>}
-                description={
-                  <Trans>Have Anarlog ready when you sign in.</Trans>
-                }
                 checked={autostart.value}
                 onChange={autostart.onChange}
               />
               <SettingSwitchRow
                 title={<Trans>Automatically install updates</Trans>}
-                description={
-                  <Trans>
-                    Stay current with updates installed the next time Anarlog
-                    opens.
-                  </Trans>
-                }
                 checked={automaticUpdates.value}
                 onChange={automaticUpdates.onChange}
               />
@@ -90,20 +80,12 @@ export function AppSettingsView({
           {isMacos && (
             <SettingSwitchRow
               title={<Trans>Show app in Dock</Trans>}
-              description={
-                <Trans>Show Anarlog in the Dock and app switcher.</Trans>
-              }
               checked={showAppInDock.value}
               onChange={showAppInDock.onChange}
             />
           )}
           <SettingSwitchRow
             title={<Trans>Show tray icon</Trans>}
-            description={
-              isMacos ? (
-                <Trans>Open Anarlog from the menu bar.</Trans>
-              ) : undefined
-            }
             checked={showTrayIcon.value}
             onChange={showTrayIcon.onChange}
           />

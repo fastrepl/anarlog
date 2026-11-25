@@ -88,7 +88,7 @@ pub fn setting_row(
                 .min_w_0()
                 .child(
                     div()
-                        .mb_1()
+                        .when(detail.is_some(), |view| view.mb_1())
                         .text_sm()
                         .line_height(px(20.))
                         .font_weight(crate::ui::theme::MEDIUM)

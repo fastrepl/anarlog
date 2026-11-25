@@ -85,15 +85,12 @@ describe("merged insights page", () => {
     const day = screen.getByRole("listitem", {
       name: "August 1, 2026. Conversations: 1",
     });
+    fireEvent.pointerEnter(day);
+    fireEvent.mouseEnter(day);
+    fireEvent.mouseMove(day);
     fireEvent.click(day);
-    expect(
-      await screen.findByText("August 1, 2026. Conversations: 1"),
-    ).toBeTruthy();
-    expect(
-      screen
-        .getByText("August 1, 2026. Conversations: 1")
-        .getAttribute("data-slot"),
-    ).toBe("smooth-corners");
+    expect(screen.queryByRole("tooltip")).toBeNull();
+    expect(screen.queryByText("August 1, 2026. Conversations: 1")).toBeNull();
   });
 
   it("reports query errors without showing misleading totals", () => {

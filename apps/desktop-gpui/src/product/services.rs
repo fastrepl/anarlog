@@ -321,6 +321,18 @@ pub enum Outcome {
     IdentityChanged(Scope),
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct StorageLocations {
+    pub data_dir: std::path::PathBuf,
+    pub database_dir: std::path::PathBuf,
+}
+
+impl StorageLocations {
+    pub fn separate_database_dir(&self) -> Option<&std::path::PathBuf> {
+        (self.database_dir != self.data_dir).then_some(&self.database_dir)
+    }
+}
+
 /// The host supplies transport-free domain services; no credential belongs in a Panel.
 pub trait ProductServices: Send + Sync {
     fn load(&self, surface: Surface, request: Request) -> BoxFuture<'static, Result<Panel>>;
@@ -330,6 +342,9 @@ pub trait ProductServices: Send + Sync {
         request: Request,
         mutation: Mutation,
     ) -> BoxFuture<'static, Result<Outcome>>;
+    fn storage_locations(&self) -> Option<StorageLocations> {
+        None
+    }
 }
 
 pub struct UnavailableServices;
@@ -507,5 +522,22 @@ mod tests {
             },
         ));
         assert!(matches!(result, Err(ServiceError::Unsupported(_))));
+    }
+
+    #[test]
+    fn storage_locations_reports_database_dir_only_when_separate() {
+        let data_dir = std::path::PathBuf::from("/data/anarlog");
+        let same = StorageLocations {
+            data_dir: data_dir.clone(),
+            database_dir: data_dir.clone(),
+        };
+        assert_eq!(same.separate_database_dir(), None);
+
+        let legacy = std::path::PathBuf::from("/data/com.hyprnote.stable");
+        let fallback = StorageLocations {
+            data_dir,
+            database_dir: legacy.clone(),
+        };
+        assert_eq!(fallback.separate_database_dir(), Some(&legacy));
     }
 }
