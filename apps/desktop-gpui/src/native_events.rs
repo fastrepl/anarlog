@@ -531,6 +531,7 @@ impl NativeEvents {
             }
             incoming.extend(tray.poll().into_iter().map(NativeEvent::Action));
         }
+        crate::platform::tray::pump_native_events();
         for _ in 0..64 {
             let Some(event) = self.next() else {
                 break;

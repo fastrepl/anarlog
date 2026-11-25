@@ -340,20 +340,33 @@ where
     LINUX_APPINDICATOR_LIBRARIES.iter().any(|name| probe(name))
 }
 
-#[cfg(target_os = "linux")]
-fn linux_tray_backend_available() -> bool {
-    has_linux_tray_backend(|name| unsafe { libloading::Library::new(name) }.is_ok())
-}
-
 impl NativeTray {
     /// Construct and poll on the GPUI main thread. Linux also requires `pump_native_events`.
     pub fn new() -> Result<Self> {
         #[cfg(target_os = "linux")]
-        if !linux_tray_backend_available() {
+        {
+            Self::new_with_linux_probe(|name| unsafe { libloading::Library::new(name) }.is_ok())
+        }
+        #[cfg(not(target_os = "linux"))]
+        {
+            Self::build_native()
+        }
+    }
+
+    #[cfg(any(target_os = "linux", test))]
+    fn new_with_linux_probe<F>(probe: F) -> Result<Self>
+    where
+        F: FnMut(&'static str) -> bool,
+    {
+        if !has_linux_tray_backend(probe) {
             return Err(ServiceError::Unsupported(
                 "system tray requires libayatana-appindicator3 or libappindicator3".into(),
             ));
         }
+        Self::build_native()
+    }
+
+    fn build_native() -> Result<Self> {
         #[cfg(target_os = "linux")]
         gtk::init().map_err(failure)?;
         let icon = tray_icon::TrayIconBuilder::new()
@@ -388,7 +401,6 @@ impl NativeTray {
         if self.visible.get() != visible && self.icon.set_visible(visible).is_ok() {
             self.visible.set(visible);
         }
-        pump_native_events();
         let Some(model) = &self.model else {
             return Vec::new();
         };
@@ -432,11 +444,13 @@ impl TrayAdapter for NativeTray {
 
 pub fn pump_native_events() {
     #[cfg(target_os = "linux")]
-    for _ in 0..64 {
-        if !gtk::events_pending() {
-            break;
+    if gtk::is_initialized_main_thread() {
+        for _ in 0..64 {
+            if !gtk::events_pending() {
+                break;
+            }
+            gtk::main_iteration_do(false);
         }
-        gtk::main_iteration_do(false);
     }
 }
 
@@ -531,10 +545,13 @@ mod tests {
     #[test]
     fn linux_tray_backend_probe_checks_all_appindicator_candidates() {
         let mut probed = Vec::new();
-        assert!(!has_linux_tray_backend(|name| {
-            probed.push(name);
-            false
-        }));
+        assert!(matches!(
+            NativeTray::new_with_linux_probe(|name| {
+                probed.push(name);
+                false
+            }),
+            Err(ServiceError::Unsupported(_))
+        ));
         assert_eq!(probed, LINUX_APPINDICATOR_LIBRARIES);
         assert!(has_linux_tray_backend(|name| {
             name == "libappindicator3.so.1"
