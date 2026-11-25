@@ -3218,6 +3218,7 @@ dependencies = [
  "image",
  "keyring",
  "language",
+ "libloading 0.8.9",
  "listener-core",
  "listener2-core",
  "local-llm-core",

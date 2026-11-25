@@ -321,9 +321,39 @@ pub struct NativeTray {
     visible: Cell<bool>,
 }
 
+// libappindicator-sys panics at first use when it cannot dlopen any
+// appindicator library, so probe the same candidates before tray-icon
+// reaches it.
+#[cfg(any(target_os = "linux", test))]
+const LINUX_APPINDICATOR_LIBRARIES: &[&str] = &[
+    "libayatana-appindicator3.so.1",
+    "libappindicator3.so.1",
+    "libayatana-appindicator3.so",
+    "libappindicator3.so",
+];
+
+#[cfg(any(target_os = "linux", test))]
+fn has_linux_tray_backend<F>(mut probe: F) -> bool
+where
+    F: FnMut(&'static str) -> bool,
+{
+    LINUX_APPINDICATOR_LIBRARIES.iter().any(|name| probe(name))
+}
+
+#[cfg(target_os = "linux")]
+fn linux_tray_backend_available() -> bool {
+    has_linux_tray_backend(|name| unsafe { libloading::Library::new(name) }.is_ok())
+}
+
 impl NativeTray {
     /// Construct and poll on the GPUI main thread. Linux also requires `pump_native_events`.
     pub fn new() -> Result<Self> {
+        #[cfg(target_os = "linux")]
+        if !linux_tray_backend_available() {
+            return Err(ServiceError::Unsupported(
+                "system tray requires libayatana-appindicator3 or libappindicator3".into(),
+            ));
+        }
         #[cfg(target_os = "linux")]
         gtk::init().map_err(failure)?;
         let icon = tray_icon::TrayIconBuilder::new()
@@ -496,5 +526,18 @@ mod tests {
         );
         assert_eq!(action_for(&hidden, "anlg_tray_agenda_event-1"), None);
         assert_eq!(hidden.title, None);
+    }
+
+    #[test]
+    fn linux_tray_backend_probe_checks_all_appindicator_candidates() {
+        let mut probed = Vec::new();
+        assert!(!has_linux_tray_backend(|name| {
+            probed.push(name);
+            false
+        }));
+        assert_eq!(probed, LINUX_APPINDICATOR_LIBRARIES);
+        assert!(has_linux_tray_backend(|name| {
+            name == "libappindicator3.so.1"
+        }));
     }
 }
