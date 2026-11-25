@@ -457,12 +457,13 @@ async fn merge_e2ee_witness_events_inner(
     .bind(workspace_id)
     .fetch_one(pool)
     .await?;
-    let cloud_authority_after: Option<i64> = sqlx::query_scalar(
+    let cloud_authority_after: Option<i64> = sqlx::query_scalar::<_, Option<i64>>(
         "SELECT after_sequence FROM e2ee_cloud_authority WHERE workspace_id = ?",
     )
     .bind(workspace_id)
     .fetch_optional(pool)
-    .await?;
+    .await?
+    .flatten();
 
     let mut deduped: HashMap<String, usize> = HashMap::with_capacity(records.len());
     let mut grouped: Vec<(WitnessRecord, Vec<String>)> = Vec::with_capacity(records.len());

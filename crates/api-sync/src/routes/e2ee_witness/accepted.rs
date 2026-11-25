@@ -60,7 +60,10 @@ pub(super) fn router() -> Router<ReplicaState> {
 
 #[utoipa::path(get, path = "/e2ee/witness/{workspace_id}/accepted", tag = "sync", operation_id = "read_accepted_e2ee_replica",
     params(("workspace_id" = String, Path), ("afterSequence" = Option<u64>, Query), ("throughSequence" = Option<u64>, Query)),
-    responses((status = 200, description = "Accepted cloud state and legacy cutover boundary", body = AcceptedPage)))]
+    responses(
+        (status = 200, description = "Accepted cloud state and legacy cutover boundary", body = AcceptedPage),
+        (status = 410, description = "E2EE witness history compacted; bootstrap from snapshot")
+    ))]
 pub(super) async fn read(
     Extension(auth): Extension<AuthContext>,
     State(state): State<ReplicaState>,

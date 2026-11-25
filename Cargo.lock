@@ -530,6 +530,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.11.0",
+ "socket2 0.6.3",
  "tokio",
  "tokio-tungstenite 0.29.0",
  "tokio-util",

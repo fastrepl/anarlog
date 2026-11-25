@@ -1,5 +1,5 @@
 begin;
-select plan(22);
+select plan(25);
 
 select tests.create_supabase_user('eff_owner', 'eff-owner@example.com');
 select tests.create_supabase_user('eff_member', 'eff-member@example.com');
@@ -73,7 +73,7 @@ select ok(
     from storage.buckets as bucket
     where bucket.id = 'e2ee-snapshots'
       and bucket."public" = false
-      and bucket.file_size_limit = 545259520::bigint
+      and bucket.file_size_limit = 268435456::bigint
       and bucket.allowed_mime_types = array['application/octet-stream'::text]
   ),
   'Snapshot bucket is private with strict size and MIME limits'
@@ -83,6 +83,9 @@ select ok(
   not has_table_privilege('authenticated', 'public.e2ee_workspace_snapshots', 'SELECT')
     and not has_table_privilege('authenticated', 'public.e2ee_workspace_snapshots', 'INSERT')
     and not has_table_privilege('authenticated', 'public.e2ee_workspace_snapshots', 'DELETE')
+    and not has_table_privilege('authenticated', 'public.e2ee_snapshot_deletions', 'SELECT')
+    and not has_table_privilege('authenticated', 'public.e2ee_snapshot_deletions', 'INSERT')
+    and not has_table_privilege('authenticated', 'public.e2ee_snapshot_deletions', 'DELETE')
     and not has_function_privilege('authenticated', 'public.read_e2ee_witness_head(uuid,uuid)', 'EXECUTE')
     and not has_function_privilege('authenticated', 'public.read_latest_e2ee_snapshot(uuid,uuid)', 'EXECUTE')
     and not has_function_privilege(
@@ -90,6 +93,7 @@ select ok(
       'public.commit_e2ee_snapshot(uuid,uuid,bigint,text,smallint,bigint,text,integer,text)',
       'EXECUTE'
     )
+    and not has_function_privilege('authenticated', 'public.finish_e2ee_snapshot_deletions(uuid,text[])', 'EXECUTE')
     and not has_function_privilege('authenticated', 'public.prune_e2ee_compacted_events(uuid,bigint,integer)', 'EXECUTE')
     and not has_function_privilege('authenticated', 'public.prune_e2ee_replica_receipts(interval,integer)', 'EXECUTE'),
   'Authenticated clients have no direct access to snapshot tables or efficiency RPCs'
@@ -103,10 +107,28 @@ select ok(
       'public.commit_e2ee_snapshot(uuid,uuid,bigint,text,smallint,bigint,text,integer,text)',
       'EXECUTE'
     )
+    and has_function_privilege('service_role', 'public.finish_e2ee_snapshot_deletions(uuid,text[])', 'EXECUTE')
     and has_function_privilege('service_role', 'public.prune_e2ee_compacted_events(uuid,bigint,integer)', 'EXECUTE')
     and has_function_privilege('service_role', 'public.prune_e2ee_replica_receipts(interval,integer)', 'EXECUTE')
     and not has_table_privilege('service_role', 'public.e2ee_freshness_events', 'DELETE'),
   'Service role gets efficiency RPCs while append-only table remains delete-restricted'
+);
+
+select ok(
+  (
+    select count(*) = 4
+      and bool_and(p.provolatile = 's')
+    from pg_proc as p
+    join pg_namespace as n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and p.proname in (
+        'read_e2ee_witness_head',
+        'read_e2ee_freshness_page_unchecked',
+        'read_e2ee_replica_page',
+        'read_latest_e2ee_snapshot'
+      )
+  ),
+  'All E2EE witness, replica, and snapshot read RPCs are STABLE for snapshot consistency'
 );
 
 select tests.authenticate_as('eff_owner');
@@ -280,6 +302,25 @@ select throws_ok(
   'Snapshot commit rejects sequence beyond witness head'
 );
 
+select throws_ok(
+  $$
+    select * from public.commit_e2ee_snapshot(
+      tests.get_supabase_uid('eff_owner'),
+      tests.get_supabase_uid('eff_owner'),
+      (select seq from eff_seq where idx = 1),
+      tests.get_supabase_uid('eff_owner')::text || '/' || (select seq from eff_seq where idx = 2)::text || '-10000000-0000-4000-8000-000000000001.ans1',
+      1::smallint,
+      100::bigint,
+      repeat('a', 64),
+      1,
+      'PPPPPPPPPPPPPPPPPPPPPP'
+    )
+  $$,
+  '22023',
+  'Invalid E2EE snapshot commit request',
+  'Snapshot commit rejects object_key whose sequence prefix does not match snapshot_sequence'
+);
+
 select ok(
   (select committed and cardinality(retired_object_keys) = 0
    from public.commit_e2ee_snapshot(
@@ -323,10 +364,25 @@ select results_eq(
   $$
     values (
       false,
-      array[tests.get_supabase_uid('eff_owner')::text || '/' || (select seq from eff_seq where idx = 2)::text || '-20000000-0000-4000-8000-000000000099.ans1']
+      array[
+        tests.get_supabase_uid('eff_owner')::text || '/' || (select seq from eff_seq where idx = 1)::text || '-10000000-0000-4000-8000-000000000001.ans1',
+        tests.get_supabase_uid('eff_owner')::text || '/' || (select seq from eff_seq where idx = 2)::text || '-20000000-0000-4000-8000-000000000099.ans1'
+      ]
     )
   $$,
-  'Older snapshot sequence commit is a monotonic no-op and flags the orphan upload for deletion'
+  'Older snapshot sequence commit is a monotonic no-op and keeps unacknowledged retired deletions queued'
+);
+
+select is(
+  public.finish_e2ee_snapshot_deletions(
+    tests.get_supabase_uid('eff_owner'),
+    array[
+      tests.get_supabase_uid('eff_owner')::text || '/' || (select seq from eff_seq where idx = 1)::text || '-10000000-0000-4000-8000-000000000001.ans1',
+      tests.get_supabase_uid('eff_owner')::text || '/' || (select seq from eff_seq where idx = 2)::text || '-20000000-0000-4000-8000-000000000099.ans1'
+    ]::text[]
+  ),
+  2,
+  'finish_e2ee_snapshot_deletions clears acknowledged retired and orphan object keys'
 );
 
 select results_eq(
@@ -494,28 +550,34 @@ select throws_ok(
   'Shared workspace snapshot commit rejects stale or foreign key_id'
 );
 
+-- Split commit and read across separate statements because STABLE read RPCs
+-- intentionally read a single statement snapshot.
+insert into eff_state (name, invite_token)
+select
+  'shared_commit',
+  case when committed then 'committed' else 'not-committed' end
+from public.commit_e2ee_snapshot(
+  tests.get_supabase_uid('eff_member'),
+  (select workspace_id from eff_state where name = 'shared'),
+  (select seq from eff_seq where idx = 7),
+  (select workspace_id::text from eff_state where name = 'shared') || '/' || (select seq from eff_seq where idx = 7)::text || '-10000000-0000-4000-8000-000000000001.ans1',
+  1::smallint, 100::bigint, repeat('f', 64), 1, 'AAAAAAAAAAAAAAAAAAAAAA'
+);
+
 select results_eq(
   $$
-    with committed as (
-      select committed
-      from public.commit_e2ee_snapshot(
-        tests.get_supabase_uid('eff_member'),
-        (select workspace_id from eff_state where name = 'shared'),
-        (select seq from eff_seq where idx = 7),
-        (select workspace_id::text from eff_state where name = 'shared') || '/' || (select seq from eff_seq where idx = 7)::text || '-10000000-0000-4000-8000-000000000001.ans1',
-        1::smallint, 100::bigint, repeat('f', 64), 1, 'AAAAAAAAAAAAAAAAAAAAAA'
-      )
-    )
-    select committed.committed, snap.snapshot_sequence, head.head_sequence
-    from committed,
-      lateral public.read_latest_e2ee_snapshot(
-        tests.get_supabase_uid('eff_member'),
-        (select workspace_id from eff_state where name = 'shared')
-      ) as snap,
-      lateral public.read_e2ee_witness_head(
-        tests.get_supabase_uid('eff_member'),
-        (select workspace_id from eff_state where name = 'shared')
-      ) as head
+    select
+      (select invite_token = 'committed' from eff_state where name = 'shared_commit'),
+      snap.snapshot_sequence,
+      head.head_sequence
+    from public.read_latest_e2ee_snapshot(
+      tests.get_supabase_uid('eff_member'),
+      (select workspace_id from eff_state where name = 'shared')
+    ) as snap,
+    lateral public.read_e2ee_witness_head(
+      tests.get_supabase_uid('eff_member'),
+      (select workspace_id from eff_state where name = 'shared')
+    ) as head
   $$,
   $$values (true, (select seq from eff_seq where idx = 7), (select seq from eff_seq where idx = 7))$$,
   'Shared workspace member can commit, read snapshot descriptor, and read witness head'

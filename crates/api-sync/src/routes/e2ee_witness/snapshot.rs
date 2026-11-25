@@ -2,7 +2,7 @@ use super::*;
 
 const SNAPSHOT_BUCKET: &str = "e2ee-snapshots";
 const SNAPSHOT_DOWNLOAD_URL_TTL_SECONDS: u64 = 300;
-const MAX_SNAPSHOT_BYTES: u64 = 545_259_520;
+const MAX_SNAPSHOT_BYTES: u64 = 268_435_456;
 
 #[derive(Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
@@ -294,7 +294,11 @@ pub(super) async fn commit(
         request.record_count,
         &request.key_id,
     )?;
-    if !is_valid_snapshot_object_key(&workspace_id, &request.object_key) {
+    if !is_valid_snapshot_object_key(
+        &workspace_id,
+        request.snapshot_sequence,
+        &request.object_key,
+    ) {
         return Err(SyncError::BadRequest(
             "Invalid E2EE snapshot object key".to_string(),
         ));
@@ -352,10 +356,32 @@ pub(super) async fn commit(
         return Err(SyncError::E2eeWitnessServiceUnavailable);
     };
     if !row.retired_object_keys.is_empty() {
-        let _ = state
+        match state
             .storage
             .delete_files(SNAPSHOT_BUCKET, &row.retired_object_keys)
-            .await;
+            .await
+        {
+            Ok(()) => {
+                if let Err(error) =
+                    acknowledge_snapshot_deletions(&state, &workspace_id, &row.retired_object_keys)
+                        .await
+                {
+                    tracing::warn!(
+                        %error,
+                        workspace_id,
+                        "Failed to clear retired E2EE snapshot deletion queue"
+                    );
+                }
+            }
+            Err(error) => {
+                tracing::warn!(
+                    %error,
+                    workspace_id,
+                    count = row.retired_object_keys.len(),
+                    "Failed to delete retired E2EE snapshot objects; leaving queued for retry"
+                );
+            }
+        }
     }
 
     Ok((
@@ -365,6 +391,34 @@ pub(super) async fn commit(
             snapshot_sequence: request.snapshot_sequence,
         }),
     ))
+}
+
+async fn acknowledge_snapshot_deletions(
+    state: &ReplicaState,
+    workspace_id: &str,
+    object_keys: &[String],
+) -> Result<()> {
+    let response = state
+        .client
+        .post(format!(
+            "{}/rest/v1/rpc/finish_e2ee_snapshot_deletions",
+            state.config.supabase_url
+        ))
+        .header("apikey", &state.config.supabase_service_role_key)
+        .bearer_auth(&state.config.supabase_service_role_key)
+        .timeout(WITNESS_TIMEOUT)
+        .json(&serde_json::json!({
+            "p_workspace_id": workspace_id,
+            "p_object_keys": object_keys,
+        }))
+        .send()
+        .await
+        .map_err(|error| witness_transport_error(error, "snapshot deletion ack"))?;
+    let (status, bytes) = read_bounded_response(response, "snapshot deletion ack").await?;
+    if !status.is_success() {
+        return Err(map_postgrest_error(status, &bytes));
+    }
+    Ok(())
 }
 
 fn validate_snapshot_metadata(
@@ -403,17 +457,17 @@ fn is_key_id(value: &str) -> bool {
             .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
 }
 
-fn is_valid_snapshot_object_key(workspace_id: &str, object_key: &str) -> bool {
-    let Some(rest) = object_key.strip_prefix(&format!("{workspace_id}/")) else {
+fn is_valid_snapshot_object_key(
+    workspace_id: &str,
+    snapshot_sequence: u64,
+    object_key: &str,
+) -> bool {
+    let Some(rest) = object_key.strip_prefix(&format!("{workspace_id}/{snapshot_sequence}-"))
+    else {
         return false;
     };
-    let Some(stem) = rest.strip_suffix(".ans1") else {
+    let Some(uuid_str) = rest.strip_suffix(".ans1") else {
         return false;
     };
-    let Some((seq, uuid_str)) = stem.split_once('-') else {
-        return false;
-    };
-    !seq.is_empty()
-        && seq.bytes().all(|byte| byte.is_ascii_digit())
-        && Uuid::parse_str(uuid_str).is_ok_and(|parsed| parsed.to_string() == uuid_str)
+    Uuid::parse_str(uuid_str).is_ok_and(|parsed| parsed.to_string() == uuid_str)
 }

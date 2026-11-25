@@ -10,7 +10,8 @@ use crate::{Error, Result, WorkspaceKey, WorkspaceKeyring, decompress_bounded};
 pub const SNAPSHOT_MAGIC: &[u8; 8] = b"ANLGSNP1";
 pub const SNAPSHOT_FORMAT_VERSION: u16 = 1;
 const SNAPSHOT_AAD_DOMAIN: &[u8] = b"anarlog-e2ee-snapshot-v1";
-const MAX_DECOMPRESSED_SNAPSHOT_BYTES: usize = 256 * 1024 * 1024;
+pub const MAX_DECOMPRESSED_SNAPSHOT_BYTES: usize = 256 * 1024 * 1024;
+pub const MAX_SEALED_SNAPSHOT_BYTES: usize = 256 * 1024 * 1024;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SnapshotRecord {
@@ -53,6 +54,20 @@ fn snapshot_aad(
 }
 
 pub fn seal_snapshot(key: &WorkspaceKey, payload: &WorkspaceSnapshotPayload) -> Result<Vec<u8>> {
+    seal_snapshot_with_limits(
+        key,
+        payload,
+        MAX_DECOMPRESSED_SNAPSHOT_BYTES,
+        MAX_SEALED_SNAPSHOT_BYTES,
+    )
+}
+
+fn seal_snapshot_with_limits(
+    key: &WorkspaceKey,
+    payload: &WorkspaceSnapshotPayload,
+    max_decompressed_bytes: usize,
+    max_sealed_bytes: usize,
+) -> Result<Vec<u8>> {
     if payload.snapshot_sequence == 0 {
         return Err(Error::InvalidPayload);
     }
@@ -60,6 +75,9 @@ pub fn seal_snapshot(key: &WorkspaceKey, payload: &WorkspaceSnapshotPayload) -> 
     let key_id_len = u8::try_from(key_id_bytes.len()).map_err(|_| Error::InvalidPayload)?;
 
     let plaintext = serde_json::to_vec(payload).map_err(|_| Error::InvalidPayload)?;
+    if plaintext.len() > max_decompressed_bytes {
+        return Err(Error::InvalidPayload);
+    }
     let mut encoder = DeflateEncoder::new(Vec::new(), Compression::fast());
     encoder
         .write_all(&plaintext)
@@ -93,6 +111,9 @@ pub fn seal_snapshot(key: &WorkspaceKey, payload: &WorkspaceSnapshotPayload) -> 
     framed.extend_from_slice(key_id_bytes);
     framed.extend_from_slice(&nonce_bytes);
     framed.extend_from_slice(&ciphertext);
+    if framed.len() > max_sealed_bytes {
+        return Err(Error::InvalidPayload);
+    }
     Ok(framed)
 }
 
@@ -102,7 +123,10 @@ pub fn open_snapshot(
     expected_sequence: u64,
     bytes: &[u8],
 ) -> Result<WorkspaceSnapshotPayload> {
-    if bytes.len() < SNAPSHOT_MAGIC.len() + 3 + 24 || &bytes[..8] != SNAPSHOT_MAGIC {
+    if bytes.len() > MAX_SEALED_SNAPSHOT_BYTES
+        || bytes.len() < SNAPSHOT_MAGIC.len() + 3 + 24
+        || &bytes[..8] != SNAPSHOT_MAGIC
+    {
         return Err(Error::InvalidPayload);
     }
     let format_version = u16::from_be_bytes([bytes[8], bytes[9]]);
@@ -206,6 +230,46 @@ mod tests {
         assert!(matches!(
             open_snapshot(&keyring, "workspace-a", 42, &tampered),
             Err(Error::AuthenticationFailed)
+        ));
+    }
+
+    #[test]
+    fn seal_snapshot_rejects_oversized_plaintext_or_ciphertext() {
+        let key = RecoveryKey([7; 32]).workspace_key("workspace-a").unwrap();
+        let sealed_field = key
+            .seal_field_v2_at(
+                "workspace-a",
+                "sessions",
+                "s1",
+                "title",
+                "00000000000000000000000000000001",
+                1,
+                false,
+                Some(10),
+                json!("Title"),
+            )
+            .unwrap();
+        let snapshot = WorkspaceSnapshotPayload {
+            workspace_id: "workspace-a".to_string(),
+            snapshot_sequence: 1,
+            cloud_authority_after: Some(0),
+            records: vec![SnapshotRecord {
+                record_id: sealed_field.record_id,
+                revision: 1,
+                writer_id: "00000000000000000000000000000001".to_string(),
+                payload_hash: payload_hash(&sealed_field.payload),
+                payload: sealed_field.payload,
+                sequence: 1,
+            }],
+        };
+
+        assert!(matches!(
+            seal_snapshot_with_limits(&key, &snapshot, 64, MAX_SEALED_SNAPSHOT_BYTES),
+            Err(Error::InvalidPayload)
+        ));
+        assert!(matches!(
+            seal_snapshot_with_limits(&key, &snapshot, MAX_DECOMPRESSED_SNAPSHOT_BYTES, 64),
+            Err(Error::InvalidPayload)
         ));
     }
 }

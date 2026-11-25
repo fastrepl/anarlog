@@ -349,6 +349,38 @@ fn build_analytics_client(env: &Env) -> Arc<anlg_analytics::AnalyticsClient> {
     Arc::new(builder.build())
 }
 
+async fn bind_dual_stack_listener(
+    port: u16,
+) -> std::io::Result<(tokio::net::TcpListener, SocketAddr)> {
+    let v6_addr = SocketAddr::from((std::net::Ipv6Addr::UNSPECIFIED, port));
+    let v6_attempt = (|| -> std::io::Result<tokio::net::TcpListener> {
+        let socket = socket2::Socket::new(
+            socket2::Domain::IPV6,
+            socket2::Type::STREAM,
+            Some(socket2::Protocol::TCP),
+        )?;
+        socket.set_only_v6(false)?;
+        socket.set_reuse_address(true)?;
+        socket.set_nonblocking(true)?;
+        socket.bind(&v6_addr.into())?;
+        socket.listen(1024)?;
+        tokio::net::TcpListener::from_std(socket.into())
+    })();
+    match v6_attempt {
+        Ok(listener) => {
+            let bound = listener.local_addr().unwrap_or(v6_addr);
+            Ok((listener, bound))
+        }
+        Err(error) => {
+            tracing::warn!(%error, port, "dual-stack IPv6 bind failed; falling back to IPv4");
+            let v4_addr = SocketAddr::from(([0, 0, 0, 0], port));
+            let listener = tokio::net::TcpListener::bind(v4_addr).await?;
+            let bound = listener.local_addr().unwrap_or(v4_addr);
+            Ok((listener, bound))
+        }
+    }
+}
+
 fn main() -> std::io::Result<()> {
     rustls::crypto::aws_lc_rs::default_provider()
         .install_default()
@@ -398,8 +430,7 @@ fn main() -> std::io::Result<()> {
         .enable_all()
         .build()?
         .block_on(async {
-            let addr = SocketAddr::from(([0, 0, 0, 0], env.port));
-            let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
+            let (listener, addr) = bind_dual_stack_listener(env.port).await.unwrap();
             let session_gate = anlg_transcribe_proxy::SessionGate::new();
             let app = app_with_session_gate(env, session_gate.clone()).await;
             let cancellation = CancellationToken::new();

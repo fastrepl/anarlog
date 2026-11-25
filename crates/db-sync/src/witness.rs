@@ -294,19 +294,32 @@ impl E2eeWitnessClient {
                 .head_sequence
                 .saturating_sub(status.next_after_sequence)
                 >= snapshot::SNAPSHOT_BOOTSTRAP_MIN_GAP
-            && let Some(snapshot_seq) = self
-                .try_bootstrap_from_snapshot_cancellable(pool, keyring, cancellation)
-                .await?
         {
-            received_events = received_events.saturating_add(1);
-            on_merged_page().await?;
-            cancellation.check()?;
-            cursor = snapshot_seq;
-            status = self
-                .read_page_cancellable(cursor, None, cancellation)
-                .await?;
-            self.validate_page(&status, cursor, None)?;
-            self.configure_authority(pool, &status).await?;
+            match self
+                .try_bootstrap_from_snapshot_cancellable(pool, keyring, cancellation)
+                .await
+            {
+                Ok(Some(snapshot_seq)) => {
+                    received_events = received_events.saturating_add(1);
+                    on_merged_page().await?;
+                    cancellation.check()?;
+                    cursor = snapshot_seq;
+                    status = self
+                        .read_page_cancellable(cursor, None, cancellation)
+                        .await?;
+                    self.validate_page(&status, cursor, None)?;
+                    self.configure_authority(pool, &status).await?;
+                }
+                Ok(None) => {}
+                Err(error) if !cancellation.is_cancelled() => {
+                    tracing::warn!(
+                        workspace_id = self.workspace_id,
+                        %error,
+                        "optional E2EE snapshot bootstrap failed; falling back to history replay"
+                    );
+                }
+                Err(error) => return Err(error),
+            }
         }
         let published = if status.accepted && status.initialized {
             received_events = received_events.saturating_add(
@@ -607,7 +620,7 @@ impl E2eeWitnessClient {
         &self,
         pool: &sqlx::SqlitePool,
         keyring: &anlg_e2ee::WorkspaceKeyring,
-        on_events: F,
+        mut on_events: F,
         mut on_merged_page: G,
         cancellation: &E2eeWitnessCancellation,
     ) -> io::Result<usize>
@@ -631,6 +644,7 @@ impl E2eeWitnessClient {
                         "E2EE freshness history was compacted without an available snapshot",
                     ));
                 };
+                on_events();
                 on_merged_page().await?;
                 cancellation.check()?;
                 cursor = snapshot_seq;
@@ -750,7 +764,7 @@ impl E2eeWitnessClient {
                 if after < through {
                     tokio::select! {
                         biased;
-                        _ = prefetch_abort_rx => Ok(None),
+                        Ok(()) = prefetch_abort_rx => Ok(None),
                         result = self.read_page_cancellable(after, Some(through), cancellation) => {
                             result.map(Some)
                         }

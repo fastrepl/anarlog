@@ -3,7 +3,8 @@ pub use authority::{
     E2eeCloudBatch, E2eeCloudEvent, acknowledge_e2ee_cloud_batch, configure_e2ee_cloud_authority,
     e2ee_cloud_accepted_head, e2ee_cloud_authority_enabled, e2ee_cloud_pull_in_progress,
     has_pending_e2ee_cloud_work, pending_e2ee_cloud_batch, preserve_e2ee_cloud_conflicts,
-    rebase_e2ee_cloud_documents, reject_e2ee_cloud_batch, set_e2ee_cloud_pull_in_progress,
+    rebase_e2ee_cloud_documents, rebase_e2ee_cloud_documents_cancellable, reject_e2ee_cloud_batch,
+    set_e2ee_cloud_pull_in_progress,
 };
 #[cfg(test)]
 use std::collections::HashMap;

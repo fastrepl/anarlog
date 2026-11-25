@@ -2324,10 +2324,10 @@ async fn bootstrap_from_snapshot_and_410_recovery_preserves_unsent_local_edits()
         .unwrap()
         .unwrap();
     let mut seq = 0_u64;
-    let mut events_all = Vec::new();
+    let mut initial_events = Vec::new();
     for event in &batch1.events {
         seq += 1;
-        events_all.push(anlg_db_app::E2eeWitnessEvent {
+        initial_events.push(anlg_db_app::E2eeWitnessEvent {
             sequence: seq,
             record_id: event.record_id.clone(),
             workspace_id: "user-a".to_string(),
@@ -2339,11 +2339,50 @@ async fn bootstrap_from_snapshot_and_410_recovery_preserves_unsent_local_edits()
         seed_db.pool(),
         &keyring,
         "user-a",
-        &events_all,
+        &initial_events,
     )
     .await
     .unwrap();
     anlg_db_app::acknowledge_e2ee_cloud_batch(seed_db.pool(), "user-a", &batch1)
+        .await
+        .unwrap();
+    anlg_db_app::advance_e2ee_witness_cursor(seed_db.pool(), "user-a", seq)
+        .await
+        .unwrap();
+    let initial_seq = seq;
+
+    // Update s1 title on cloud before creating the compacted snapshot so it competes with dormant_db.
+    sqlx::query("UPDATE sessions SET title = 'Remote Snapshot Title' WHERE id = 's1'")
+        .execute(seed_db.pool())
+        .await
+        .unwrap();
+    anlg_db_app::encrypt_e2ee_replica_changes(seed_db.pool(), &keys_map)
+        .await
+        .unwrap();
+    let batch1b = anlg_db_app::pending_e2ee_cloud_batch(seed_db.pool(), "user-a", false)
+        .await
+        .unwrap()
+        .unwrap();
+    let mut update_events = Vec::new();
+    for event in &batch1b.events {
+        seq += 1;
+        update_events.push(anlg_db_app::E2eeWitnessEvent {
+            sequence: seq,
+            record_id: event.record_id.clone(),
+            workspace_id: "user-a".to_string(),
+            payload_hash: event.payload_hash.clone(),
+            payload: event.payload.clone(),
+        });
+    }
+    anlg_db_app::merge_e2ee_witness_events_with_keyring(
+        seed_db.pool(),
+        &keyring,
+        "user-a",
+        &update_events,
+    )
+    .await
+    .unwrap();
+    anlg_db_app::acknowledge_e2ee_cloud_batch(seed_db.pool(), "user-a", &batch1b)
         .await
         .unwrap();
     anlg_db_app::advance_e2ee_witness_cursor(seed_db.pool(), "user-a", seq)
@@ -2537,7 +2576,7 @@ async fn bootstrap_from_snapshot_and_410_recovery_preserves_unsent_local_edits()
         .fetch_one(fresh_db.pool())
         .await
         .unwrap();
-    assert_eq!(s1_title, "Initial Title");
+    assert_eq!(s1_title, "Remote Snapshot Title");
     assert_eq!(s2_title, "Tail Session");
 
     // Dormant device had synced older event 1 (title 'Initial Title'), fell behind before compaction,
@@ -2548,7 +2587,26 @@ async fn bootstrap_from_snapshot_and_410_recovery_preserves_unsent_local_edits()
     anlg_db_app::configure_e2ee_cloud_authority(dormant_db.pool(), "user-a", Some(0))
         .await
         .unwrap();
-    anlg_db_app::advance_e2ee_witness_cursor(dormant_db.pool(), "user-a", 1)
+    anlg_db_app::merge_e2ee_witness_events_with_keyring(
+        dormant_db.pool(),
+        &keyring,
+        "user-a",
+        &initial_events,
+    )
+    .await
+    .unwrap();
+    anlg_db_app::advance_e2ee_witness_cursor(dormant_db.pool(), "user-a", initial_seq)
+        .await
+        .unwrap();
+    anlg_db_app::apply_received_e2ee_replica_changes_with_witness(
+        dormant_db.pool(),
+        &keys_map,
+        true,
+    )
+    .await
+    .unwrap();
+    sqlx::query("UPDATE sessions SET title = 'Dormant Offline Title' WHERE id = 's1'")
+        .execute(dormant_db.pool())
         .await
         .unwrap();
     sqlx::query("INSERT INTO sessions(id, workspace_id, owner_user_id, title) VALUES('s-offline', 'user-a', 'user-a', 'Offline Note')")
@@ -2578,12 +2636,32 @@ async fn bootstrap_from_snapshot_and_410_recovery_preserves_unsent_local_edits()
         .unwrap();
     assert_eq!(outcome, crate::ReplicaSyncOutcome::Settled);
     assert!(!responder.uploaded_batches.lock().unwrap().is_empty());
+    let dormant_s1: String = sqlx::query_scalar("SELECT title FROM sessions WHERE id = 's1'")
+        .fetch_one(dormant_db.pool())
+        .await
+        .unwrap();
+    assert_eq!(dormant_s1, "Dormant Offline Title");
+    let dormant_s2: String = sqlx::query_scalar("SELECT title FROM sessions WHERE id = 's2'")
+        .fetch_one(dormant_db.pool())
+        .await
+        .unwrap();
+    assert_eq!(dormant_s2, "Tail Session");
     let dormant_offline: String =
         sqlx::query_scalar("SELECT title FROM sessions WHERE id = 's-offline'")
             .fetch_one(dormant_db.pool())
             .await
             .unwrap();
     assert_eq!(dormant_offline, "Offline Note");
+    let conflicts =
+        anlg_db_app::list_e2ee_field_conflicts(dormant_db.pool(), "sessions", "s1", false)
+            .await
+            .unwrap();
+    assert!(
+        conflicts
+            .iter()
+            .any(|conflict| conflict.field_name == "title"
+                && conflict.value_json.contains("Remote Snapshot Title"))
+    );
 }
 
 #[tokio::test]
@@ -3044,7 +3122,14 @@ async fn start_wait_http_peer(
                         if !init || head > after {
                             break (init, head);
                         }
-                        notified.await;
+                        if tokio::time::timeout(std::time::Duration::from_millis(50), notified)
+                            .await
+                            .is_err()
+                        {
+                            // Match the server's bounded idle hold so healthy /wait watchers can
+                            // report health cleanly even when no further writes arrive immediately.
+                            break (init, head);
+                        }
                     };
                     let body =
                         json!({ "initialized": initialized, "headSequence": head }).to_string();
@@ -3597,4 +3682,434 @@ async fn e2e_shared_workspace_snapshot_bootstrap_and_dormant_410_recovery() {
             .await
             .unwrap();
     assert_eq!(final_fresh_count, 5);
+}
+
+#[tokio::test]
+async fn multi_page_history_replay_survives_fast_merge_before_delayed_prefetch() {
+    let server = MockServer::start().await;
+    let recovery_key = anlg_e2ee::RecoveryKey::parse(
+        "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
+    )
+    .unwrap();
+    let workspace_key = recovery_key.workspace_key("user-a").unwrap();
+    let keyring = anlg_e2ee::WorkspaceKeyring::new(workspace_key.clone());
+
+    let m1 = workspace_key
+        .seal_field_at(
+            "user-a",
+            "sessions",
+            "s1",
+            "$row",
+            "00000000000000000000000000000001",
+            1,
+            false,
+            Some(10),
+            json!(true),
+        )
+        .unwrap();
+    let e1 = workspace_key
+        .seal_field_at(
+            "user-a",
+            "sessions",
+            "s1",
+            "title",
+            "00000000000000000000000000000001",
+            1,
+            false,
+            Some(10),
+            json!("Page One Title"),
+        )
+        .unwrap();
+    let m2 = workspace_key
+        .seal_field_at(
+            "user-a",
+            "sessions",
+            "s2",
+            "$row",
+            "00000000000000000000000000000001",
+            1,
+            false,
+            Some(11),
+            json!(true),
+        )
+        .unwrap();
+    let e2 = workspace_key
+        .seal_field_at(
+            "user-a",
+            "sessions",
+            "s2",
+            "title",
+            "00000000000000000000000000000001",
+            1,
+            false,
+            Some(11),
+            json!("Page Two Title"),
+        )
+        .unwrap();
+
+    Mock::given(method("GET"))
+        .and(path("/sync/e2ee/witness/user-a/accepted"))
+        .and(wiremock::matchers::query_param("afterSequence", "0"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "initialized": true,
+            "initializedAt": "2026-10-05T00:00:00Z",
+            "headSequence": 4,
+            "throughSequence": 4,
+            "nextAfterSequence": 2,
+            "cloudAuthorityAfter": 0,
+            "events": [
+                {
+                    "sequence": 1,
+                    "recordId": m1.record_id,
+                    "payloadHash": anlg_e2ee::payload_hash(&m1.payload),
+                    "payload": m1.payload,
+                },
+                {
+                    "sequence": 2,
+                    "recordId": e1.record_id,
+                    "payloadHash": anlg_e2ee::payload_hash(&e1.payload),
+                    "payload": e1.payload,
+                }
+            ]
+        })))
+        .mount(&server)
+        .await;
+
+    Mock::given(method("GET"))
+        .and(path("/sync/e2ee/witness/user-a/accepted"))
+        .and(wiremock::matchers::query_param("afterSequence", "2"))
+        .and(wiremock::matchers::query_param("throughSequence", "4"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_delay(std::time::Duration::from_millis(150))
+                .set_body_json(json!({
+                    "initialized": true,
+                    "initializedAt": "2026-10-05T00:00:00Z",
+                    "headSequence": 4,
+                    "throughSequence": 4,
+                    "nextAfterSequence": 4,
+                    "cloudAuthorityAfter": 0,
+                    "events": [
+                        {
+                            "sequence": 3,
+                            "recordId": m2.record_id,
+                            "payloadHash": anlg_e2ee::payload_hash(&m2.payload),
+                            "payload": m2.payload,
+                        },
+                        {
+                            "sequence": 4,
+                            "recordId": e2.record_id,
+                            "payloadHash": anlg_e2ee::payload_hash(&e2.payload),
+                            "payload": e2.payload,
+                        }
+                    ]
+                })),
+        )
+        .mount(&server)
+        .await;
+
+    let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
+    anlg_db_app::prepare_schema(&db).await.unwrap();
+    let client = E2eeWitnessClient::new(
+        E2eeWitnessConfig {
+            endpoint: format!("{}/sync/e2ee/witness/user-a", server.uri()),
+            access_token: "token".to_string(),
+        },
+        "user-a",
+    )
+    .unwrap();
+    let cancel = E2eeWitnessCancellation::default();
+    let merged = client
+        .refresh_keyring_notifying_cancellable(db.pool(), &keyring, || {}, &cancel)
+        .await
+        .unwrap();
+    assert_eq!(merged, 4);
+
+    let keys = HashMap::from([("user-a".to_string(), keyring)]);
+    anlg_db_app::apply_received_e2ee_replica_changes_with_witness(db.pool(), &keys, true)
+        .await
+        .unwrap();
+    let s1: String = sqlx::query_scalar("SELECT title FROM sessions WHERE id = 's1'")
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+    let s2: String = sqlx::query_scalar("SELECT title FROM sessions WHERE id = 's2'")
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+    assert_eq!(s1, "Page One Title");
+    assert_eq!(s2, "Page Two Title");
+}
+
+#[tokio::test]
+async fn initial_sync_falls_back_to_history_when_optional_snapshot_fails() {
+    let server = MockServer::start().await;
+    let recovery_key = anlg_e2ee::RecoveryKey::parse(
+        "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
+    )
+    .unwrap();
+    let workspace_key = recovery_key.workspace_key("user-a").unwrap();
+
+    let m1 = workspace_key
+        .seal_field_at(
+            "user-a",
+            "sessions",
+            "s1",
+            "$row",
+            "00000000000000000000000000000001",
+            1,
+            false,
+            Some(10),
+            json!(true),
+        )
+        .unwrap();
+    let e1 = workspace_key
+        .seal_field_at(
+            "user-a",
+            "sessions",
+            "s1",
+            "title",
+            "00000000000000000000000000000001",
+            1,
+            false,
+            Some(10),
+            json!("Fallback One"),
+        )
+        .unwrap();
+    let m2 = workspace_key
+        .seal_field_at(
+            "user-a",
+            "sessions",
+            "s2",
+            "$row",
+            "00000000000000000000000000000001",
+            1,
+            false,
+            Some(11),
+            json!(true),
+        )
+        .unwrap();
+    let e2 = workspace_key
+        .seal_field_at(
+            "user-a",
+            "sessions",
+            "s2",
+            "title",
+            "00000000000000000000000000000001",
+            1,
+            false,
+            Some(11),
+            json!("Fallback Tail"),
+        )
+        .unwrap();
+
+    Mock::given(method("GET"))
+        .and(path("/sync/e2ee/witness/user-a/accepted"))
+        .and(wiremock::matchers::query_param("afterSequence", "0"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "initialized": true,
+            "initializedAt": "2026-10-05T00:00:00Z",
+            "headSequence": 2000,
+            "throughSequence": 2000,
+            "nextAfterSequence": 2,
+            "cloudAuthorityAfter": 0,
+            "events": [
+                {
+                    "sequence": 1,
+                    "recordId": m1.record_id,
+                    "payloadHash": anlg_e2ee::payload_hash(&m1.payload),
+                    "payload": m1.payload,
+                },
+                {
+                    "sequence": 2,
+                    "recordId": e1.record_id,
+                    "payloadHash": anlg_e2ee::payload_hash(&e1.payload),
+                    "payload": e1.payload,
+                }
+            ]
+        })))
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/sync/e2ee/witness/user-a/snapshot"))
+        .respond_with(ResponseTemplate::new(503))
+        .expect(1..=2)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/sync/e2ee/witness/user-a/accepted"))
+        .and(wiremock::matchers::query_param("afterSequence", "2"))
+        .and(wiremock::matchers::query_param("throughSequence", "2000"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "initialized": true,
+            "initializedAt": "2026-10-05T00:00:00Z",
+            "headSequence": 2000,
+            "throughSequence": 2000,
+            "nextAfterSequence": 2000,
+            "cloudAuthorityAfter": 0,
+            "events": [
+                {
+                    "sequence": 1999,
+                    "recordId": m2.record_id,
+                    "payloadHash": anlg_e2ee::payload_hash(&m2.payload),
+                    "payload": m2.payload,
+                },
+                {
+                    "sequence": 2000,
+                    "recordId": e2.record_id,
+                    "payloadHash": anlg_e2ee::payload_hash(&e2.payload),
+                    "payload": e2.payload,
+                }
+            ]
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
+    anlg_db_app::prepare_schema(&db).await.unwrap();
+    let hook = Arc::new(crate::E2eeSyncHook::default());
+    hook.set_personal_workspace("user-a", &recovery_key)
+        .unwrap();
+    hook.set_replica_witness(
+        E2eeWitnessClient::new(
+            E2eeWitnessConfig {
+                endpoint: format!("{}/sync/e2ee/witness/user-a", server.uri()),
+                access_token: "token".to_string(),
+            },
+            "user-a",
+        )
+        .unwrap(),
+    );
+    let outcome = hook.sync_replica_transport(db.pool()).await.unwrap();
+    assert_eq!(outcome, crate::ReplicaSyncOutcome::Settled);
+    server.verify().await;
+    let s1: String = sqlx::query_scalar("SELECT title FROM sessions WHERE id = 's1'")
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+    let s2: String = sqlx::query_scalar("SELECT title FROM sessions WHERE id = 's2'")
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+    assert_eq!(s1, "Fallback One");
+    assert_eq!(s2, "Fallback Tail");
+}
+
+#[tokio::test]
+async fn replica_sync_with_healthy_wait_uploads_local_edit_before_heartbeat() {
+    let server = MockServer::start().await;
+    let get_calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let post_calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let get_calls_ref = Arc::clone(&get_calls);
+    Mock::given(method("GET"))
+        .and(path("/sync/e2ee/witness/user-a/accepted"))
+        .respond_with(move |_req: &Request| {
+            get_calls_ref.fetch_add(1, std::sync::atomic::Ordering::AcqRel);
+            ResponseTemplate::new(200).set_body_json(json!({
+                "initialized": false,
+                "initializedAt": null,
+                "headSequence": 0,
+                "throughSequence": 0,
+                "nextAfterSequence": 0,
+                "cloudAuthorityAfter": null,
+                "events": []
+            }))
+        })
+        .mount(&server)
+        .await;
+    let post_calls_ref = Arc::clone(&post_calls);
+    Mock::given(method("POST"))
+        .and(path("/sync/e2ee/witness/user-a/accepted"))
+        .respond_with(move |req: &Request| {
+            post_calls_ref.fetch_add(1, std::sync::atomic::Ordering::AcqRel);
+            let body: serde_json::Value = serde_json::from_slice(&req.body).unwrap();
+            let events = body["events"].as_array().unwrap();
+            let receipts: Vec<_> = events
+                .iter()
+                .enumerate()
+                .map(|(i, event)| {
+                    json!({
+                        "sequence": i as u64 + 1,
+                        "recordId": event["recordId"],
+                        "payloadHash": event["payloadHash"],
+                    })
+                })
+                .collect();
+            ResponseTemplate::new(200).set_body_json(json!({
+                "initializedAt": "2026-10-05T00:00:00Z",
+                "headSequence": receipts.len() as u64,
+                "cloudAuthorityAfter": 0,
+                "mutationId": body["mutationId"],
+                "receipts": receipts,
+            }))
+        })
+        .mount(&server)
+        .await;
+
+    let recovery_key = anlg_e2ee::RecoveryKey::parse(
+        "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
+    )
+    .unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let db = Arc::new(
+        anlg_db_core::Db::connect_local_plain(&dir.path().join("local.db"))
+            .await
+            .unwrap(),
+    );
+    anlg_db_app::prepare_schema(&db).await.unwrap();
+    let hook = Arc::new(crate::E2eeSyncHook::default());
+    hook.set_personal_workspace("user-a", &recovery_key)
+        .unwrap();
+    hook.set_replica_witness(
+        E2eeWitnessClient::new(
+            E2eeWitnessConfig {
+                endpoint: format!("{}/sync/e2ee/witness/user-a", server.uri()),
+                access_token: "token".to_string(),
+            },
+            "user-a",
+        )
+        .unwrap(),
+    );
+    hook.set_witness_watch_healthy(true);
+
+    let _task = crate::replica_sync::spawn_replica_sync_with_intervals(
+        Arc::clone(&db),
+        Arc::clone(&hook),
+        std::time::Duration::from_secs(30),
+        std::time::Duration::from_secs(300),
+    );
+
+    // Wait for initial sync request triggered by `set_replica_witness`.
+    let initial_deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(3);
+    while get_calls.load(std::sync::atomic::Ordering::Acquire) == 0 {
+        assert!(tokio::time::Instant::now() < initial_deadline);
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+    }
+    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    let settled_gets = get_calls.load(std::sync::atomic::Ordering::Acquire);
+    assert_eq!(post_calls.load(std::sync::atomic::Ordering::Acquire), 0);
+
+    // Confirm idle heartbeat emits zero network calls over 400ms.
+    tokio::time::sleep(std::time::Duration::from_millis(400)).await;
+    assert_eq!(
+        get_calls.load(std::sync::atomic::Ordering::Acquire),
+        settled_gets
+    );
+
+    // Insert a local edit WITHOUT calling `request_replica_sync()`. Local-work check must
+    // trigger an upload well before the 300s heartbeat.
+    sqlx::query("INSERT INTO sessions(id, workspace_id, owner_user_id, title) VALUES('s-fast', 'user-a', 'user-a', 'Fast Upload')")
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+    let upload_deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(6);
+    while post_calls.load(std::sync::atomic::Ordering::Acquire) == 0 {
+        assert!(
+            tokio::time::Instant::now() < upload_deadline,
+            "local edit should upload well before 300s heartbeat"
+        );
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
 }

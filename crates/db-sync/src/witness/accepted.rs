@@ -71,9 +71,14 @@ impl E2eeWitnessClient {
         let mut published_batches = 0_usize;
         loop {
             cancellation.check()?;
-            anlg_db_app::rebase_e2ee_cloud_documents(pool, &self.workspace_id, keyring)
-                .await
-                .map_err(replica_error)?;
+            anlg_db_app::rebase_e2ee_cloud_documents_cancellable(
+                pool,
+                &self.workspace_id,
+                keyring,
+                || cancellation.is_cancelled(),
+            )
+            .await
+            .map_err(replica_error)?;
             cancellation.check()?;
             let Some(batch) =
                 anlg_db_app::pending_e2ee_cloud_batch(pool, &self.workspace_id, initialize)

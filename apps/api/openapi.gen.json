@@ -3561,6 +3561,9 @@
           "403": {
             "description": "Witness workspace access denied"
           },
+          "410": {
+            "description": "E2EE witness history compacted; bootstrap from snapshot"
+          },
           "502": {
             "description": "Witness service unavailable"
           }
@@ -3680,6 +3683,9 @@
                 }
               }
             }
+          },
+          "410": {
+            "description": "E2EE witness history compacted; bootstrap from snapshot"
           }
         },
         "security": [

@@ -4887,6 +4887,10 @@ export type ReadE2EeWitnessErrors = {
      */
     403: unknown;
     /**
+     * E2EE witness history compacted; bootstrap from snapshot
+     */
+    410: unknown;
+    /**
      * Witness service unavailable
      */
     502: unknown;
@@ -4959,6 +4963,13 @@ export type ReadAcceptedE2EeReplicaData = {
         throughSequence?: number;
     };
     url: '/sync/e2ee/witness/{workspace_id}/accepted';
+};
+
+export type ReadAcceptedE2EeReplicaErrors = {
+    /**
+     * E2EE witness history compacted; bootstrap from snapshot
+     */
+    410: unknown;
 };
 
 export type ReadAcceptedE2EeReplicaResponses = {

@@ -13,8 +13,8 @@ pub use member::{
     MemberIdentityKey, WorkspaceKeyGrant, WorkspaceKeyring, seal_workspace_key_for_member,
 };
 pub use snapshot::{
-    SNAPSHOT_FORMAT_VERSION, SNAPSHOT_MAGIC, SnapshotRecord, WorkspaceSnapshotPayload,
-    open_snapshot, seal_snapshot,
+    MAX_DECOMPRESSED_SNAPSHOT_BYTES, MAX_SEALED_SNAPSHOT_BYTES, SNAPSHOT_FORMAT_VERSION,
+    SNAPSHOT_MAGIC, SnapshotRecord, WorkspaceSnapshotPayload, open_snapshot, seal_snapshot,
 };
 
 use std::io::{Read, Write};
@@ -466,21 +466,23 @@ impl WorkspaceKey {
             value,
         })
         .map_err(|_| Error::InvalidPayload)?;
-        let (version, msg): (u8, Vec<u8>) =
-            if allow_compression && plaintext.len() >= COMPRESS_FIELD_MIN_BYTES {
-                let mut encoder = DeflateEncoder::new(Vec::new(), Compression::fast());
-                encoder
-                    .write_all(&plaintext)
-                    .map_err(|_| Error::InvalidPayload)?;
-                let compressed = encoder.finish().map_err(|_| Error::InvalidPayload)?;
-                if compressed.len() < plaintext.len() {
-                    (2, compressed)
-                } else {
-                    (1, plaintext)
-                }
+        let (version, msg): (u8, Vec<u8>) = if allow_compression
+            && plaintext.len() >= COMPRESS_FIELD_MIN_BYTES
+            && plaintext.len() <= MAX_DECOMPRESSED_FIELD_BYTES
+        {
+            let mut encoder = DeflateEncoder::new(Vec::new(), Compression::fast());
+            encoder
+                .write_all(&plaintext)
+                .map_err(|_| Error::InvalidPayload)?;
+            let compressed = encoder.finish().map_err(|_| Error::InvalidPayload)?;
+            if compressed.len() < plaintext.len() {
+                (2, compressed)
             } else {
                 (1, plaintext)
-            };
+            }
+        } else {
+            (1, plaintext)
+        };
         let mut nonce = [0_u8; 24];
         getrandom::fill(&mut nonce).map_err(|_| Error::RandomnessUnavailable)?;
         let aad = payload_aad_for_version(workspace_id, &record_id, &self.key_id, version);
@@ -1065,5 +1067,31 @@ mod tests {
         })
         .unwrap();
         assert!(key.open_field("workspace-a", &record_id, &payload).is_err());
+    }
+
+    #[test]
+    fn oversized_repetitive_field_stays_on_v1_and_round_trips() {
+        let key = recovery_key().workspace_key("workspace-a").unwrap();
+        let writer = "00000000000000000000000000000001";
+        let oversized = "A".repeat(MAX_DECOMPRESSED_FIELD_BYTES + 1024);
+        let sealed = key
+            .seal_field_v2_at(
+                "workspace-a",
+                "sessions",
+                "s-big",
+                "raw_memo_html",
+                writer,
+                1,
+                false,
+                None,
+                json!(oversized),
+            )
+            .unwrap();
+        let env: Value = serde_json::from_str(&sealed.payload).unwrap();
+        assert_eq!(env["version"], 1);
+        let opened = key
+            .open_field("workspace-a", &sealed.record_id, &sealed.payload)
+            .unwrap();
+        assert_eq!(opened.value.as_str().unwrap().len(), oversized.len());
     }
 }

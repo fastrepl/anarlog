@@ -102,6 +102,7 @@ pub struct E2eeSyncHook {
     active_sync_cancellation: std::sync::Mutex<Option<(u64, E2eeWitnessCancellation)>>,
     pub received_apply_cancellation_checks: std::sync::atomic::AtomicU64,
     pub full_resync_control_waits: std::sync::atomic::AtomicU64,
+    config_generation: std::sync::atomic::AtomicU64,
     witness_watch_healthy: std::sync::atomic::AtomicBool,
     pub watch_health_changed: tokio::sync::Notify,
     last_snapshot_sequence: std::sync::Mutex<HashMap<String, u64>>,
@@ -136,6 +137,8 @@ impl E2eeSyncHook {
             workspace_id.to_string(),
             anlg_e2ee::WorkspaceKeyring::new(key),
         )]);
+        self.config_generation
+            .fetch_add(1, std::sync::atomic::Ordering::AcqRel);
         self.request_reconciliation();
         Ok(())
     }
@@ -151,6 +154,8 @@ impl E2eeSyncHook {
             anlg_e2ee::WorkspaceKeyring::new(recovery_key.workspace_key(personal_workspace_id)?),
         );
         self.config.write().unwrap().keys = shared_keyrings;
+        self.config_generation
+            .fetch_add(1, std::sync::atomic::Ordering::AcqRel);
         self.request_reconciliation();
         Ok(())
     }
@@ -173,6 +178,8 @@ impl E2eeSyncHook {
         self.set_witness_watch_healthy(false);
         self.last_snapshot_sequence.lock().unwrap().clear();
         *self.config.write().unwrap() = E2eeRuntimeConfig::default();
+        self.config_generation
+            .fetch_add(1, std::sync::atomic::Ordering::AcqRel);
         self.witness_changed.notify_waiters();
         self.replica_sync_requested.notify_waiters();
         *self.replica_status.lock().unwrap() = ReplicaSyncStatus::default();
@@ -233,8 +240,40 @@ impl E2eeSyncHook {
             config.witnesses = witnesses;
             config.transport = transport;
         }
+        self.config_generation
+            .fetch_add(1, std::sync::atomic::Ordering::AcqRel);
         self.witness_changed.notify_waiters();
         self.request_reconciliation();
+    }
+
+    pub(crate) fn config_generation(&self) -> u64 {
+        self.config_generation
+            .load(std::sync::atomic::Ordering::Acquire)
+    }
+
+    pub(crate) async fn has_local_replica_work(&self, pool: &sqlx::SqlitePool) -> bool {
+        let config = self.config_snapshot();
+        if config.transport != E2eeTransport::Replica || config.keys.is_empty() {
+            return false;
+        }
+        if self.reconciliation_requested() {
+            return true;
+        }
+        if anlg_db_app::has_pending_e2ee_dirty_rows_deferring_active_captures(pool, &config.keys)
+            .await
+            .unwrap_or(false)
+        {
+            return true;
+        }
+        for workspace_id in config.keys.keys() {
+            if anlg_db_app::has_pending_e2ee_cloud_work(pool, workspace_id)
+                .await
+                .unwrap_or(false)
+            {
+                return true;
+            }
+        }
+        false
     }
 
     pub fn set_witness_watch_healthy(&self, healthy: bool) {
@@ -608,6 +647,7 @@ impl E2eeSyncHook {
                         }
                         Ok(None) => {}
                         Err(error) => {
+                            cancellation.check()?;
                             tracing::debug!(
                                 workspace_id,
                                 %error,
@@ -616,7 +656,9 @@ impl E2eeSyncHook {
                         }
                     }
                 }
+                cancellation.check()?;
             }
+            cancellation.check()?;
             Ok(ReplicaSyncOutcome::Settled)
         };
         tokio::pin!(operation);

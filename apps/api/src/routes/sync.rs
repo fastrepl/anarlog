@@ -177,11 +177,7 @@ pub(crate) fn router(env: &RuntimeConfig) -> Router {
                 .ok()
                 .map(|ip| ip.trim().to_string())
                 .filter(|ip| !ip.is_empty());
-            let port = std::env::var("PORT")
-                .ok()
-                .and_then(|port| port.trim().parse::<u16>().ok())
-                .unwrap_or(8080);
-            sync_state = sync_state.with_fly_wake_discovery(app_name, self_ip, port);
+            sync_state = sync_state.with_fly_wake_discovery(app_name, self_ip, env.port);
         }
     }
     let internal_wake_routes =

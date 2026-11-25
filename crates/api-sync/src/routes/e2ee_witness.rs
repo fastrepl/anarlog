@@ -263,6 +263,7 @@ async fn receive_internal_witness_wake(
         (status = 400, description = "Invalid witness cursor"),
         (status = 401, description = "Authentication required"),
         (status = 403, description = "Witness workspace access denied"),
+        (status = 410, description = "E2EE witness history compacted; bootstrap from snapshot"),
         (status = 502, description = "Witness service unavailable")
     )
 )]
@@ -1693,6 +1694,16 @@ mod tests {
             .expect(1)
             .mount(&commit_server)
             .await;
+        Mock::given(method("POST"))
+            .and(path("/rest/v1/rpc/finish_e2ee_snapshot_deletions"))
+            .and(body_partial_json(json!({
+                "p_workspace_id": OWNER,
+                "p_object_keys": [format!("{OWNER}/1-00000000-0000-4000-8000-000000000001.ans1")]
+            })))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!(1)))
+            .expect(1)
+            .mount(&commit_server)
+            .await;
 
         let committed = test_router(&commit_server)
             .oneshot(request(
@@ -1734,5 +1745,73 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(bad.status(), StatusCode::BAD_REQUEST);
+
+        // Object key sequence mismatch is rejected with 400 before Storage verification.
+        let bad_seq_key = test_router(&commit_server)
+            .oneshot(request(
+                Method::POST,
+                &format!("/e2ee/witness/{OWNER}/snapshot/commit"),
+                Some(json!({
+                    "snapshotSequence": 10,
+                    "objectKey": format!("{OWNER}/9-11111111-1111-4111-8111-111111111111.ans1"),
+                    "formatVersion": 1,
+                    "payloadBytes": real_bytes.len(),
+                    "payloadSha256": real_sha,
+                    "recordCount": 5,
+                    "keyId": key_id
+                })),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(bad_seq_key.status(), StatusCode::BAD_REQUEST);
+
+        // Storage delete failure leaves retired deletions queued (does not call finish RPC).
+        let retry_server = MockServer::start().await;
+        let retry_key = format!("{OWNER}/11-11111111-1111-4111-8111-111111111111.ans1");
+        Mock::given(method("GET"))
+            .and(path(format!(
+                "/storage/v1/object/authenticated/e2ee-snapshots/{retry_key}"
+            )))
+            .respond_with(ResponseTemplate::new(200).set_body_bytes(real_bytes.clone()))
+            .mount(&retry_server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/rest/v1/rpc/commit_e2ee_snapshot"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
+                "committed": true,
+                "retired_object_keys": [format!("{OWNER}/2-00000000-0000-4000-8000-000000000002.ans1")]
+            }])))
+            .mount(&retry_server)
+            .await;
+        Mock::given(method("DELETE"))
+            .and(path("/storage/v1/object/e2ee-snapshots"))
+            .respond_with(ResponseTemplate::new(500).set_body_string("storage error"))
+            .expect(1)
+            .mount(&retry_server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/rest/v1/rpc/finish_e2ee_snapshot_deletions"))
+            .respond_with(ResponseTemplate::new(200))
+            .expect(0)
+            .mount(&retry_server)
+            .await;
+        let retry_resp = test_router(&retry_server)
+            .oneshot(request(
+                Method::POST,
+                &format!("/e2ee/witness/{OWNER}/snapshot/commit"),
+                Some(json!({
+                    "snapshotSequence": 11,
+                    "objectKey": retry_key,
+                    "formatVersion": 1,
+                    "payloadBytes": real_bytes.len(),
+                    "payloadSha256": real_sha,
+                    "recordCount": 5,
+                    "keyId": key_id
+                })),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(retry_resp.status(), StatusCode::OK);
+        retry_server.verify().await;
     }
 }

@@ -7,9 +7,6 @@ ALTER TABLE public.workspaces
 ALTER TABLE public.e2ee_replica_receipts
   ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now();
 
-CREATE INDEX IF NOT EXISTS e2ee_replica_receipts_created_at_idx
-  ON public.e2ee_replica_receipts (created_at);
-
 CREATE OR REPLACE FUNCTION public.prune_e2ee_replica_receipts(
   p_older_than interval DEFAULT interval '7 days',
   p_batch integer DEFAULT 5000
@@ -92,13 +89,10 @@ RETURNS TABLE (
   head_sequence bigint
 )
 LANGUAGE plpgsql
+STABLE
 SECURITY INVOKER
 SET search_path = ''
 AS $$
-DECLARE
-  v_initialized_at timestamptz;
-  v_compacted_through bigint;
-  v_head_sequence bigint;
 BEGIN
   IF p_actor_user_id IS NULL OR p_workspace_id IS NULL THEN
     RAISE EXCEPTION 'E2EE witness head request is invalid' USING ERRCODE = '22023';
@@ -108,22 +102,19 @@ BEGIN
     RAISE EXCEPTION 'E2EE freshness read is not permitted' USING ERRCODE = '42501';
   END IF;
 
-  SELECT workspace.e2ee_freshness_initialized_at, workspace.e2ee_compacted_through
-  INTO v_initialized_at, v_compacted_through
+  RETURN QUERY
+  SELECT
+    workspace.e2ee_freshness_initialized_at,
+    GREATEST(
+      COALESCE(workspace.e2ee_compacted_through, 0::bigint),
+      COALESCE((
+        SELECT MAX(event.sequence)
+        FROM public.e2ee_freshness_events AS event
+        WHERE event.workspace_id = p_workspace_id
+      ), 0::bigint)
+    )::bigint
   FROM public.workspaces AS workspace
   WHERE workspace.id = p_workspace_id;
-
-  SELECT GREATEST(
-    COALESCE(v_compacted_through, 0::bigint),
-    COALESCE((
-      SELECT MAX(event.sequence)
-      FROM public.e2ee_freshness_events AS event
-      WHERE event.workspace_id = p_workspace_id
-    ), 0::bigint)
-  )::bigint
-  INTO v_head_sequence;
-
-  RETURN QUERY SELECT v_initialized_at, v_head_sequence;
 END;
 $$;
 
@@ -150,6 +141,7 @@ RETURNS TABLE (
   payload text
 )
 LANGUAGE plpgsql
+STABLE
 SECURITY INVOKER
 SET search_path = ''
 AS $$
@@ -175,8 +167,18 @@ BEGIN
     RAISE EXCEPTION 'E2EE freshness read is not permitted' USING ERRCODE = '42501';
   END IF;
 
-  SELECT workspace.e2ee_freshness_initialized_at, workspace.e2ee_compacted_through
-  INTO v_initialized_at, v_compacted_through
+  SELECT
+    workspace.e2ee_freshness_initialized_at,
+    workspace.e2ee_compacted_through,
+    GREATEST(
+      COALESCE(workspace.e2ee_compacted_through, 0::bigint),
+      COALESCE((
+        SELECT MAX(event.sequence)
+        FROM public.e2ee_freshness_events AS event
+        WHERE event.workspace_id = p_workspace_id
+      ), 0::bigint)
+    )::bigint
+  INTO v_initialized_at, v_compacted_through, v_head_sequence
   FROM public.workspaces AS workspace
   WHERE workspace.id = p_workspace_id;
 
@@ -188,16 +190,6 @@ BEGIN
       MESSAGE = '{"code":"A0003","message":"E2EE witness history compacted","details":null,"hint":null}',
       DETAIL = '{"status":410,"headers":{}}';
   END IF;
-
-  SELECT GREATEST(
-    COALESCE(v_compacted_through, 0::bigint),
-    COALESCE((
-      SELECT MAX(event.sequence)
-      FROM public.e2ee_freshness_events AS event
-      WHERE event.workspace_id = p_workspace_id
-    ), 0::bigint)
-  )::bigint
-  INTO v_head_sequence;
 
   v_through_sequence := COALESCE(p_through_sequence, v_head_sequence);
   IF v_through_sequence < p_after_sequence OR v_through_sequence > v_head_sequence THEN
@@ -346,6 +338,21 @@ $$;
 REVOKE ALL ON FUNCTION public.accept_e2ee_replica_batch(uuid, uuid, uuid, bigint, boolean, jsonb) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.accept_e2ee_replica_batch(uuid, uuid, uuid, bigint, boolean, jsonb) TO service_role;
 
+CREATE OR REPLACE FUNCTION public.read_e2ee_replica_page(
+  p_actor_user_id uuid, p_workspace_id uuid, p_after_sequence bigint,
+  p_through_sequence bigint, p_limit integer, p_max_bytes integer
+) RETURNS TABLE (initialized_at timestamptz, head_sequence bigint, through_sequence bigint,
+                 event_sequence bigint, record_id text, payload_hash text, payload text,
+                 cloud_authority_after bigint)
+LANGUAGE sql STABLE SECURITY INVOKER SET search_path = '' AS $$
+  SELECT page.*, workspace.e2ee_cloud_authority_after
+  FROM public.read_e2ee_freshness_page_unchecked(p_actor_user_id, p_workspace_id, p_after_sequence,
+                                        p_through_sequence, p_limit, p_max_bytes) AS page
+  JOIN public.workspaces AS workspace ON workspace.id = p_workspace_id;
+$$;
+REVOKE ALL ON FUNCTION public.read_e2ee_replica_page(uuid, uuid, bigint, bigint, integer, integer) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.read_e2ee_replica_page(uuid, uuid, bigint, bigint, integer, integer) TO service_role;
+
 INSERT INTO storage.buckets (
   id,
   name,
@@ -357,7 +364,7 @@ VALUES (
   'e2ee-snapshots',
   'e2ee-snapshots',
   false,
-  545259520,
+  268435456,
   ARRAY['application/octet-stream']::text[]
 )
 ON CONFLICT (id) DO UPDATE SET
@@ -408,7 +415,7 @@ CREATE TABLE public.e2ee_workspace_snapshots (
   snapshot_sequence bigint NOT NULL CHECK (snapshot_sequence > 0),
   object_key text NOT NULL,
   format_version smallint NOT NULL DEFAULT 1 CHECK (format_version = 1),
-  payload_bytes bigint NOT NULL CHECK (payload_bytes BETWEEN 1 AND 545259520),
+  payload_bytes bigint NOT NULL CHECK (payload_bytes BETWEEN 1 AND 268435456),
   payload_sha256 text NOT NULL CHECK (payload_sha256 ~ '^[0-9a-f]{64}$'),
   record_count integer NOT NULL CHECK (record_count >= 0),
   key_id text NOT NULL CHECK (key_id ~ '^[A-Za-z0-9_-]{22}$'),
@@ -419,7 +426,9 @@ CREATE TABLE public.e2ee_workspace_snapshots (
     object_key ~ (
       '^'
       || workspace_id::text
-      || '/[0-9]+-[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.ans1$'
+      || '/'
+      || snapshot_sequence::text
+      || '-[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.ans1$'
     )
   )
 );
@@ -427,6 +436,17 @@ CREATE TABLE public.e2ee_workspace_snapshots (
 ALTER TABLE public.e2ee_workspace_snapshots ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.e2ee_workspace_snapshots FROM PUBLIC, anon, authenticated;
 GRANT SELECT, INSERT, DELETE ON public.e2ee_workspace_snapshots TO service_role;
+
+CREATE TABLE public.e2ee_snapshot_deletions (
+  object_key text PRIMARY KEY,
+  workspace_id uuid NOT NULL REFERENCES public.workspaces(id) ON DELETE CASCADE,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX e2ee_snapshot_deletions_workspace_idx
+  ON public.e2ee_snapshot_deletions (workspace_id, created_at);
+ALTER TABLE public.e2ee_snapshot_deletions ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.e2ee_snapshot_deletions FROM PUBLIC, anon, authenticated;
+GRANT SELECT, INSERT, DELETE ON public.e2ee_snapshot_deletions TO service_role;
 
 CREATE OR REPLACE FUNCTION public.read_latest_e2ee_snapshot(
   p_actor_user_id uuid,
@@ -444,13 +464,10 @@ RETURNS TABLE (
   cloud_authority_after bigint
 )
 LANGUAGE plpgsql
+STABLE
 SECURITY INVOKER
 SET search_path = ''
 AS $$
-DECLARE
-  v_compacted_through bigint;
-  v_cloud_authority_after bigint;
-  v_head_sequence bigint;
 BEGIN
   IF p_actor_user_id IS NULL OR p_workspace_id IS NULL THEN
     RAISE EXCEPTION 'E2EE snapshot read request is invalid' USING ERRCODE = '22023';
@@ -459,21 +476,6 @@ BEGIN
   IF private.active_e2ee_freshness_key_id(p_actor_user_id, p_workspace_id) IS NULL THEN
     RAISE EXCEPTION 'E2EE snapshot access is not permitted' USING ERRCODE = '42501';
   END IF;
-
-  SELECT workspace.e2ee_compacted_through, workspace.e2ee_cloud_authority_after
-  INTO v_compacted_through, v_cloud_authority_after
-  FROM public.workspaces AS workspace
-  WHERE workspace.id = p_workspace_id;
-
-  SELECT GREATEST(
-    COALESCE(v_compacted_through, 0::bigint),
-    COALESCE((
-      SELECT MAX(event.sequence)
-      FROM public.e2ee_freshness_events AS event
-      WHERE event.workspace_id = p_workspace_id
-    ), 0::bigint)
-  )::bigint
-  INTO v_head_sequence;
 
   RETURN QUERY
   SELECT
@@ -484,9 +486,18 @@ BEGIN
     snap.payload_sha256,
     snap.record_count,
     snap.key_id,
-    v_head_sequence,
-    v_cloud_authority_after
+    GREATEST(
+      COALESCE(workspace.e2ee_compacted_through, 0::bigint),
+      COALESCE((
+        SELECT MAX(event.sequence)
+        FROM public.e2ee_freshness_events AS event
+        WHERE event.workspace_id = p_workspace_id
+      ), 0::bigint)
+    )::bigint,
+    workspace.e2ee_cloud_authority_after
   FROM public.e2ee_workspace_snapshots AS snap
+  JOIN public.workspaces AS workspace
+    ON workspace.id = snap.workspace_id
   WHERE snap.workspace_id = p_workspace_id
   ORDER BY snap.snapshot_sequence DESC
   LIMIT 1;
@@ -530,12 +541,14 @@ BEGIN
      OR COALESCE(p_object_key, '') !~ (
        '^'
        || p_workspace_id::text
-       || '/[0-9]+-[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.ans1$'
+       || '/'
+       || p_snapshot_sequence::text
+       || '-[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.ans1$'
      )
      OR p_format_version IS NULL
      OR p_format_version <> 1
      OR p_payload_bytes IS NULL
-     OR p_payload_bytes NOT BETWEEN 1 AND 545259520
+     OR p_payload_bytes NOT BETWEEN 1 AND 268435456
      OR COALESCE(p_payload_sha256, '') !~ '^[0-9a-f]{64}$'
      OR p_record_count IS NULL
      OR p_record_count < 0
@@ -577,16 +590,31 @@ BEGIN
     WHERE existing.workspace_id = p_workspace_id
       AND existing.snapshot_sequence >= p_snapshot_sequence
   ) THEN
-    IF EXISTS (
+    IF NOT EXISTS (
       SELECT 1
       FROM public.e2ee_workspace_snapshots AS existing
       WHERE existing.workspace_id = p_workspace_id
         AND existing.object_key = p_object_key
     ) THEN
-      RETURN QUERY SELECT false, ARRAY[]::text[];
-    ELSE
-      RETURN QUERY SELECT false, ARRAY[p_object_key];
+      INSERT INTO public.e2ee_snapshot_deletions (object_key, workspace_id)
+      VALUES (p_object_key, p_workspace_id)
+      ON CONFLICT (object_key) DO NOTHING;
     END IF;
+
+    SELECT COALESCE(
+      array_agg(pending.object_key ORDER BY pending.created_at, pending.object_key),
+      ARRAY[]::text[]
+    )
+    INTO v_retired
+    FROM (
+      SELECT del.object_key, del.created_at
+      FROM public.e2ee_snapshot_deletions AS del
+      WHERE del.workspace_id = p_workspace_id
+      ORDER BY del.created_at, del.object_key
+      LIMIT 64
+    ) AS pending;
+
+    RETURN QUERY SELECT false, v_retired;
     RETURN;
   END IF;
 
@@ -627,9 +655,23 @@ BEGIN
       AND snap.snapshot_sequence = ranked.snapshot_sequence
     RETURNING snap.object_key
   )
-  SELECT COALESCE(array_agg(deleted.object_key), ARRAY[]::text[])
+  INSERT INTO public.e2ee_snapshot_deletions (object_key, workspace_id)
+  SELECT deleted.object_key, p_workspace_id
+  FROM deleted
+  ON CONFLICT (object_key) DO NOTHING;
+
+  SELECT COALESCE(
+    array_agg(pending.object_key ORDER BY pending.created_at, pending.object_key),
+    ARRAY[]::text[]
+  )
   INTO v_retired
-  FROM deleted;
+  FROM (
+    SELECT del.object_key, del.created_at
+    FROM public.e2ee_snapshot_deletions AS del
+    WHERE del.workspace_id = p_workspace_id
+    ORDER BY del.created_at, del.object_key
+    LIMIT 64
+  ) AS pending;
 
   RETURN QUERY SELECT true, v_retired;
 END;
@@ -641,6 +683,43 @@ REVOKE ALL ON FUNCTION public.commit_e2ee_snapshot(
 GRANT EXECUTE ON FUNCTION public.commit_e2ee_snapshot(
   uuid, uuid, bigint, text, smallint, bigint, text, integer, text
 ) TO service_role;
+
+CREATE OR REPLACE FUNCTION public.finish_e2ee_snapshot_deletions(
+  p_workspace_id uuid,
+  p_object_keys text[]
+)
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = ''
+AS $$
+DECLARE
+  v_deleted integer := 0;
+BEGIN
+  IF p_workspace_id IS NULL
+     OR p_object_keys IS NULL
+     OR cardinality(p_object_keys) > 1000
+  THEN
+    RAISE EXCEPTION 'Invalid E2EE snapshot deletion ack' USING ERRCODE = '22023';
+  END IF;
+
+  IF cardinality(p_object_keys) = 0 THEN
+    RETURN 0;
+  END IF;
+
+  DELETE FROM public.e2ee_snapshot_deletions AS del
+  WHERE del.workspace_id = p_workspace_id
+    AND del.object_key = ANY(p_object_keys);
+
+  GET DIAGNOSTICS v_deleted = ROW_COUNT;
+  RETURN v_deleted;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.finish_e2ee_snapshot_deletions(uuid, text[])
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.finish_e2ee_snapshot_deletions(uuid, text[])
+  TO service_role;
 
 CREATE OR REPLACE FUNCTION public.prune_e2ee_compacted_events(
   p_workspace_id uuid,

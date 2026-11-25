@@ -2,7 +2,7 @@ use super::*;
 
 pub(super) const SNAPSHOT_BOOTSTRAP_MIN_GAP: u64 = 1024;
 pub(crate) const SNAPSHOT_PUBLISH_MIN_DELTA: u64 = 2000;
-const MAX_SNAPSHOT_DOWNLOAD_BYTES: usize = 256 * 1024 * 1024;
+const MAX_SNAPSHOT_DOWNLOAD_BYTES: usize = anlg_e2ee::MAX_SEALED_SNAPSHOT_BYTES;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -224,8 +224,28 @@ impl E2eeWitnessClient {
             return Ok(None);
         };
         let active_key = keyring.active();
-        let sealed = anlg_e2ee::seal_snapshot(active_key, &payload)
-            .map_err(|_| invalid_data("Could not encrypt E2EE snapshot"))?;
+        let sealed = match anlg_e2ee::seal_snapshot(active_key, &payload) {
+            Ok(bytes) if bytes.len() <= MAX_SNAPSHOT_DOWNLOAD_BYTES => bytes,
+            Ok(bytes) => {
+                tracing::warn!(
+                    workspace_id = self.workspace_id,
+                    snapshot_sequence = payload.snapshot_sequence,
+                    sealed_bytes = bytes.len(),
+                    max_bytes = MAX_SNAPSHOT_DOWNLOAD_BYTES,
+                    "skipping E2EE snapshot publication because sealed payload exceeds download limit"
+                );
+                return Ok(None);
+            }
+            Err(anlg_e2ee::Error::InvalidPayload) => {
+                tracing::warn!(
+                    workspace_id = self.workspace_id,
+                    snapshot_sequence = payload.snapshot_sequence,
+                    "skipping E2EE snapshot publication because plaintext exceeds snapshot limit"
+                );
+                return Ok(None);
+            }
+            Err(_) => return Err(invalid_data("Could not encrypt E2EE snapshot")),
+        };
         let payload_bytes =
             u64::try_from(sealed.len()).map_err(|_| invalid_data("Snapshot size overflow"))?;
         let payload_sha256 = anlg_e2ee::bytes_sha256(&sealed);

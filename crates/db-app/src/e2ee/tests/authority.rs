@@ -759,3 +759,344 @@ async fn preserve_e2ee_cloud_conflicts_preflight_avoids_write_lock_when_clean() 
 
     writer.rollback().await.unwrap();
 }
+
+#[tokio::test]
+async fn null_cloud_authority_boundary_keeps_revision_tie_break_on_page_merge() {
+    let db = test_db().await;
+    let keys = keys("workspace-a");
+    let keyring = &keys["workspace-a"];
+    configure_e2ee_cloud_authority(db.pool(), "workspace-a", None)
+        .await
+        .unwrap();
+
+    let manifest = keyring
+        .active()
+        .seal_field_at(
+            "workspace-a",
+            "sessions",
+            "s",
+            ROW_MANIFEST_FIELD,
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            1,
+            false,
+            Some(10),
+            json!(true),
+        )
+        .unwrap();
+    let high_rev = keyring
+        .active()
+        .seal_field_at(
+            "workspace-a",
+            "sessions",
+            "s",
+            "title",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            8,
+            false,
+            Some(10),
+            json!("Higher Revision"),
+        )
+        .unwrap();
+    let low_rev_later_seq = keyring
+        .active()
+        .seal_field_at(
+            "workspace-a",
+            "sessions",
+            "s",
+            "title",
+            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            7,
+            false,
+            Some(9),
+            json!("Lower Revision"),
+        )
+        .unwrap();
+
+    merge_e2ee_witness_events_with_keyring(
+        db.pool(),
+        keyring,
+        "workspace-a",
+        &[
+            E2eeWitnessEvent {
+                sequence: 9,
+                workspace_id: "workspace-a".into(),
+                record_id: manifest.record_id,
+                payload_hash: anlg_e2ee::payload_hash(&manifest.payload),
+                payload: manifest.payload,
+            },
+            E2eeWitnessEvent {
+                sequence: 10,
+                workspace_id: "workspace-a".into(),
+                record_id: high_rev.record_id.clone(),
+                payload_hash: anlg_e2ee::payload_hash(&high_rev.payload),
+                payload: high_rev.payload,
+            },
+            E2eeWitnessEvent {
+                sequence: 11,
+                workspace_id: "workspace-a".into(),
+                record_id: low_rev_later_seq.record_id,
+                payload_hash: anlg_e2ee::payload_hash(&low_rev_later_seq.payload),
+                payload: low_rev_later_seq.payload,
+            },
+        ],
+    )
+    .await
+    .unwrap();
+
+    apply_received_e2ee_replica_changes_with_witness(db.pool(), &keys, true)
+        .await
+        .unwrap();
+    assert_eq!(title(db.pool()).await, "Higher Revision");
+}
+
+#[tokio::test]
+async fn export_snapshot_defers_when_witness_records_exceed_cursor() {
+    let db = test_db().await;
+    let keys = keys("workspace-a");
+    let keyring = &keys["workspace-a"];
+    let e1 = keyring
+        .active()
+        .seal_field_at(
+            "workspace-a",
+            "sessions",
+            "s1",
+            "title",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            1,
+            false,
+            Some(1),
+            json!("First"),
+        )
+        .unwrap();
+    merge_e2ee_witness_events_with_keyring(
+        db.pool(),
+        keyring,
+        "workspace-a",
+        &[E2eeWitnessEvent {
+            sequence: 5,
+            workspace_id: "workspace-a".into(),
+            record_id: e1.record_id,
+            payload_hash: anlg_e2ee::payload_hash(&e1.payload),
+            payload: e1.payload,
+        }],
+    )
+    .await
+    .unwrap();
+    advance_e2ee_witness_cursor(db.pool(), "workspace-a", 4)
+        .await
+        .unwrap();
+    assert!(
+        export_e2ee_workspace_snapshot(db.pool(), "workspace-a")
+            .await
+            .unwrap()
+            .is_none()
+    );
+}
+
+#[tokio::test]
+async fn import_snapshot_does_not_downgrade_newer_retained_witness_or_drop_repair() {
+    let db = test_db().await;
+    let keys = keys("workspace-a");
+    let keyring = &keys["workspace-a"];
+    configure_e2ee_cloud_authority(db.pool(), "workspace-a", Some(0))
+        .await
+        .unwrap();
+    let older = keyring
+        .active()
+        .seal_field_at(
+            "workspace-a",
+            "sessions",
+            "s1",
+            "title",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            1,
+            false,
+            Some(1),
+            json!("Older Snapshot Title"),
+        )
+        .unwrap();
+    let newer = keyring
+        .active()
+        .seal_field_at(
+            "workspace-a",
+            "sessions",
+            "s1",
+            "title",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            2,
+            false,
+            Some(2),
+            json!("Newer Witness Title"),
+        )
+        .unwrap();
+    let newer_hash = anlg_e2ee::payload_hash(&newer.payload);
+    // Simulate a prior cancelled merge that left sequence 100 in witness tables while cursor < 90.
+    merge_e2ee_witness_events_with_keyring(
+        db.pool(),
+        keyring,
+        "workspace-a",
+        &[E2eeWitnessEvent {
+            sequence: 100,
+            workspace_id: "workspace-a".into(),
+            record_id: newer.record_id.clone(),
+            payload_hash: newer_hash.clone(),
+            payload: newer.payload.clone(),
+        }],
+    )
+    .await
+    .unwrap();
+    sqlx::query(
+        "INSERT OR REPLACE INTO e2ee_witness_repair_pending(record_id, workspace_id) VALUES (?, 'workspace-a')",
+    )
+    .bind(&newer.record_id)
+    .execute(db.pool())
+    .await
+    .unwrap();
+    advance_e2ee_witness_cursor(db.pool(), "workspace-a", 10)
+        .await
+        .unwrap();
+
+    let snapshot = anlg_e2ee::WorkspaceSnapshotPayload {
+        workspace_id: "workspace-a".to_string(),
+        snapshot_sequence: 90,
+        cloud_authority_after: Some(0),
+        records: vec![anlg_e2ee::SnapshotRecord {
+            record_id: older.record_id.clone(),
+            revision: 1,
+            writer_id: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_string(),
+            payload_hash: anlg_e2ee::payload_hash(&older.payload),
+            payload: older.payload.clone(),
+            sequence: 80,
+        }],
+    };
+    import_e2ee_workspace_snapshot(db.pool(), keyring, &snapshot)
+        .await
+        .unwrap();
+
+    let retained_witness_hash: String = sqlx::query_scalar(
+        "SELECT payload_hash FROM e2ee_witness_records WHERE workspace_id = 'workspace-a' AND record_id = ?",
+    )
+    .bind(&older.record_id)
+    .fetch_one(db.pool())
+    .await
+    .unwrap();
+    assert_eq!(retained_witness_hash, newer_hash);
+    let replica_before_repair: Option<String> =
+        sqlx::query_scalar("SELECT payload FROM e2ee_records WHERE id = ?")
+            .bind(&older.record_id)
+            .fetch_optional(db.pool())
+            .await
+            .unwrap();
+    assert_eq!(replica_before_repair, None);
+    let repair_still_pending: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM e2ee_witness_repair_pending WHERE record_id = ?)",
+    )
+    .bind(&older.record_id)
+    .fetch_one(db.pool())
+    .await
+    .unwrap();
+    assert!(repair_still_pending);
+
+    apply_received_e2ee_replica_changes_with_witness(db.pool(), &keys, true)
+        .await
+        .unwrap();
+    let stored_payload: String =
+        sqlx::query_scalar("SELECT payload FROM e2ee_records WHERE id = ?")
+            .bind(&older.record_id)
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+    assert_eq!(stored_payload, newer.payload);
+}
+
+#[tokio::test]
+async fn rebase_e2ee_cloud_documents_handles_multiple_tx_batches() {
+    let db = test_db().await;
+    let keys = keys("workspace-a");
+    let keyring = &keys["workspace-a"];
+    configure_e2ee_cloud_authority(db.pool(), "workspace-a", Some(0))
+        .await
+        .unwrap();
+    let ids: Vec<String> = (0..10).map(|i| format!("doc-{i:02}")).collect();
+    for id in &ids {
+        sqlx::query(
+            "INSERT INTO sessions(id,workspace_id,owner_user_id) VALUES(?,'workspace-a','u')",
+        )
+        .bind(id)
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query("INSERT INTO session_documents(id,workspace_id,session_id,kind,body_format,body) VALUES(?,'workspace-a',?,'note','prosemirror_json',?)")
+            .bind(id)
+            .bind(id)
+            .bind(document("first", "second"))
+            .execute(db.pool())
+            .await
+            .unwrap();
+    }
+    encrypt_e2ee_replica_changes(db.pool(), &keys)
+        .await
+        .unwrap();
+    let mut head = 0;
+    while let Some(batch) = pending_e2ee_cloud_batch(db.pool(), "workspace-a", false)
+        .await
+        .unwrap()
+    {
+        accept(db.pool(), keyring, &batch, &mut head).await;
+    }
+    for id in &ids {
+        sqlx::query("UPDATE session_documents SET body = ? WHERE id = ?")
+            .bind(document("local", "second"))
+            .bind(id)
+            .execute(db.pool())
+            .await
+            .unwrap();
+    }
+    encrypt_e2ee_replica_changes(db.pool(), &keys)
+        .await
+        .unwrap();
+
+    let mut remote_events = Vec::new();
+    for id in &ids {
+        let sealed = keyring
+            .active()
+            .seal_field_at(
+                "workspace-a",
+                "session_documents",
+                id,
+                "body",
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                2,
+                false,
+                Some(1),
+                json!(document("first", "cloud")),
+            )
+            .unwrap();
+        head += 1;
+        remote_events.push(E2eeWitnessEvent {
+            sequence: head,
+            workspace_id: "workspace-a".into(),
+            record_id: sealed.record_id,
+            payload_hash: anlg_e2ee::payload_hash(&sealed.payload),
+            payload: sealed.payload,
+        });
+    }
+    merge_e2ee_witness_events_with_keyring(db.pool(), keyring, "workspace-a", &remote_events)
+        .await
+        .unwrap();
+
+    rebase_e2ee_cloud_documents(db.pool(), "workspace-a", keyring)
+        .await
+        .unwrap();
+    for id in &ids {
+        let current: String = sqlx::query_scalar("SELECT body FROM session_documents WHERE id = ?")
+            .bind(id)
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+        assert_eq!(
+            serde_json::from_str::<Value>(&current).unwrap(),
+            serde_json::from_str::<Value>(&document("local", "cloud")).unwrap()
+        );
+    }
+}

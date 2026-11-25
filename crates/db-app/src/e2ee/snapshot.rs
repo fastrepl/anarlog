@@ -17,15 +17,24 @@ pub async fn export_e2ee_workspace_snapshot(
     pool: &SqlitePool,
     workspace_id: &str,
 ) -> E2eeReplicaResult<Option<WorkspaceSnapshotPayload>> {
-    let cursor = e2ee_witness_cursor(pool, workspace_id).await?;
-    if cursor == 0 {
-        return Ok(None);
-    }
+    let mut tx = pool.begin().await?;
+    let cursor_row: Option<i64> =
+        sqlx::query_scalar("SELECT last_sequence FROM e2ee_witness_state WHERE workspace_id = ?")
+            .bind(workspace_id)
+            .fetch_optional(&mut *tx)
+            .await?;
+    let cursor = match cursor_row {
+        Some(value) if value > 0 => {
+            u64::try_from(value).map_err(|_| E2eeReplicaError::RollbackDetected)?
+        }
+        Some(0) | None => return Ok(None),
+        Some(_) => return Err(E2eeReplicaError::RollbackDetected),
+    };
     let cloud_authority_after: Option<Option<i64>> = sqlx::query_scalar(
         "SELECT after_sequence FROM e2ee_cloud_authority WHERE workspace_id = ?",
     )
     .bind(workspace_id)
-    .fetch_optional(pool)
+    .fetch_optional(&mut *tx)
     .await?;
     let cloud_authority_after = cloud_authority_after
         .flatten()
@@ -40,23 +49,34 @@ pub async fn export_e2ee_workspace_snapshot(
          ORDER BY sequence, record_id",
     )
     .bind(workspace_id)
-    .fetch_all(pool)
+    .fetch_all(&mut *tx)
     .await?;
+    drop(tx);
 
-    let records = rows
-        .into_iter()
-        .filter(|(_, _, _, _, payload, _)| !payload.is_empty())
-        .map(
-            |(record_id, revision, writer_id, payload_hash, payload, sequence)| SnapshotRecord {
-                record_id,
-                revision,
-                writer_id,
-                payload_hash,
-                payload,
-                sequence,
-            },
-        )
-        .collect();
+    let mut records = Vec::with_capacity(rows.len());
+    for (record_id, revision, writer_id, payload_hash, payload, sequence) in rows {
+        if payload.is_empty() {
+            continue;
+        }
+        let Ok(seq) = u64::try_from(sequence) else {
+            return Err(E2eeReplicaError::InvalidRow);
+        };
+        if seq == 0 {
+            return Err(E2eeReplicaError::InvalidRow);
+        }
+        // Defer snapshot export if a concurrent merge committed records ahead of cursor.
+        if seq > cursor {
+            return Ok(None);
+        }
+        records.push(SnapshotRecord {
+            record_id,
+            revision,
+            writer_id,
+            payload_hash,
+            payload,
+            sequence,
+        });
+    }
 
     Ok(Some(WorkspaceSnapshotPayload {
         workspace_id: workspace_id.to_string(),
@@ -143,20 +163,6 @@ pub async fn import_e2ee_workspace_snapshot_cancellable(
         .await?;
     }
 
-    let has_outbox: bool =
-        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM e2ee_cloud_outbox WHERE workspace_id = ?)")
-            .bind(&snapshot.workspace_id)
-            .fetch_one(pool)
-            .await?;
-    let has_local_or_pending: bool = sqlx::query_scalar(
-        "SELECT EXISTS(SELECT 1 FROM e2ee_local_state WHERE workspace_id = ?)
-             OR EXISTS(SELECT 1 FROM e2ee_witness_pending WHERE workspace_id = ?)",
-    )
-    .bind(&snapshot.workspace_id)
-    .bind(&snapshot.workspace_id)
-    .fetch_one(pool)
-    .await?;
-
     for chunk in validated.chunks(SNAPSHOT_IMPORT_TX_BATCH) {
         check_e2ee_cancellation(&is_cancelled)?;
         let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
@@ -164,6 +170,20 @@ pub async fn import_e2ee_workspace_snapshot_cancellable(
             transaction.rollback().await?;
             return Err(error);
         }
+        let has_outbox: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM e2ee_cloud_outbox WHERE workspace_id = ?)",
+        )
+        .bind(&snapshot.workspace_id)
+        .fetch_one(&mut *transaction)
+        .await?;
+        let has_local_or_pending: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM e2ee_local_state WHERE workspace_id = ?)
+                 OR EXISTS(SELECT 1 FROM e2ee_witness_pending WHERE workspace_id = ?)",
+        )
+        .bind(&snapshot.workspace_id)
+        .bind(&snapshot.workspace_id)
+        .fetch_one(&mut *transaction)
+        .await?;
         for record in chunk {
             let in_outbox: bool = if has_outbox {
                 sqlx::query_scalar(
@@ -178,7 +198,27 @@ pub async fn import_e2ee_workspace_snapshot_cancellable(
                 false
             };
 
-            if !in_outbox {
+            let outbox_hashes = if has_outbox {
+                vec![record.payload_hash.clone()]
+            } else {
+                Vec::new()
+            };
+            upsert_witness_record_in_batch(
+                &mut transaction,
+                record,
+                &outbox_hashes,
+                has_local_or_pending,
+            )
+            .await?;
+
+            let retained_hash: Option<String> = sqlx::query_scalar(
+                "SELECT payload_hash FROM e2ee_witness_records WHERE workspace_id = ? AND record_id = ?",
+            )
+            .bind(&record.workspace_id)
+            .bind(&record.record_id)
+            .fetch_optional(&mut *transaction)
+            .await?;
+            if !in_outbox && retained_hash.as_deref() == Some(record.payload_hash.as_str()) {
                 let result = sqlx::query(
                     "INSERT INTO e2ee_records (id, workspace_id, payload)
                      VALUES (?, ?, ?)
@@ -215,23 +255,7 @@ pub async fn import_e2ee_workspace_snapshot_cancellable(
                     &record.payload,
                 )
                 .await?;
-            }
-
-            let outbox_hashes = if has_outbox {
-                vec![record.payload_hash.clone()]
-            } else {
-                Vec::new()
-            };
-            upsert_witness_record_in_batch(
-                &mut transaction,
-                record,
-                &outbox_hashes,
-                has_local_or_pending,
-            )
-            .await?;
-
-            if !in_outbox {
-                // `e2ee_records` already matches the imported witness record; leave `e2ee_replica_pending`
+                // `e2ee_records` matches the retained witness winner; leave `e2ee_replica_pending`
                 // intact so hydration materializes domain rows on the next apply pass.
                 sqlx::query("DELETE FROM e2ee_witness_repair_pending WHERE record_id = ?")
                     .bind(&record.record_id)

@@ -121,8 +121,57 @@ const MAX_CLOUD_BATCH_SINGLE_ROW_BYTES: usize = 48 * 1024 * 1024;
 const MAX_CLOUD_BATCH_PACKED_EVENTS: usize = 256;
 const MAX_CLOUD_BATCH_PACKED_BYTES: usize = 8 * 1024 * 1024;
 
-fn batch_event_bytes(record_id: &str, payload_hash: &str, payload: &str) -> usize {
-    payload.len() + record_id.len() + payload_hash.len() + 256
+fn batch_event_bytes_len(
+    record_id_len: usize,
+    payload_hash_len: usize,
+    payload_len: usize,
+) -> Option<usize> {
+    record_id_len
+        .checked_add(payload_hash_len)
+        .and_then(|sum| sum.checked_add(payload_len))
+        .and_then(|sum| sum.checked_add(256))
+}
+
+struct OutboxRowMetadata {
+    record_id: String,
+    bytes: usize,
+}
+
+async fn load_selected_outbox_events(
+    tx: &mut Transaction<'_, Sqlite>,
+    workspace_id: &str,
+    selected_ids: &[String],
+) -> E2eeReplicaResult<Vec<E2eeCloudEvent>> {
+    let mut by_id = std::collections::HashMap::with_capacity(selected_ids.len());
+    for chunk in selected_ids.chunks(500) {
+        let mut builder = sqlx::QueryBuilder::new(
+            "SELECT record_id, payload_hash, payload FROM e2ee_cloud_outbox WHERE workspace_id = ",
+        );
+        builder.push_bind(workspace_id);
+        builder.push(" AND record_id IN (");
+        let mut separated = builder.separated(", ");
+        for record_id in chunk {
+            separated.push_bind(record_id);
+        }
+        separated.push_unseparated(")");
+        let fetched: Vec<(String, String, String)> =
+            builder.build_query_as().fetch_all(&mut **tx).await?;
+        for (record_id, payload_hash, payload) in fetched {
+            by_id.insert(record_id, (payload_hash, payload));
+        }
+    }
+    let mut events = Vec::with_capacity(selected_ids.len());
+    for record_id in selected_ids {
+        let Some((payload_hash, payload)) = by_id.remove(record_id) else {
+            return Err(E2eeReplicaError::InvalidRow);
+        };
+        events.push(E2eeCloudEvent {
+            record_id: record_id.clone(),
+            payload_hash,
+            payload,
+        });
+    }
+    Ok(events)
 }
 
 pub async fn pending_e2ee_cloud_batch(
@@ -164,8 +213,11 @@ pub async fn pending_e2ee_cloud_batch(
     }
     let candidate_limit = i64::try_from(MAX_CLOUD_BATCH_SINGLE_ROW_EVENTS + 1)
         .map_err(|_| E2eeReplicaError::InvalidRow)?;
-    let rows: Vec<(String, String, String, String, String)> = sqlx::query_as(
-        "SELECT table_name, row_id, record_id, payload_hash, payload
+    let rows: Vec<(String, String, String, i64, i64, i64)> = sqlx::query_as(
+        "SELECT table_name, row_id, record_id,
+                LENGTH(CAST(record_id AS BLOB)),
+                LENGTH(CAST(payload_hash AS BLOB)),
+                LENGTH(CAST(payload AS BLOB))
          FROM e2ee_cloud_outbox
          WHERE workspace_id = ?
          ORDER BY CASE table_name WHEN 'session_documents' THEN 1 WHEN 'transcripts' THEN 2 ELSE 0 END,
@@ -181,9 +233,18 @@ pub async fn pending_e2ee_cloud_batch(
         return Ok(None);
     }
 
-    let mut groups: Vec<Vec<E2eeCloudEvent>> = Vec::new();
+    let mut groups: Vec<Vec<OutboxRowMetadata>> = Vec::new();
     let mut current_key: Option<(String, String)> = None;
-    for (table, row, record_id, payload_hash, payload) in rows {
+    for (table, row, record_id, record_id_len, payload_hash_len, payload_len) in rows {
+        let Some(bytes) = usize::try_from(record_id_len)
+            .ok()
+            .zip(usize::try_from(payload_hash_len).ok())
+            .zip(usize::try_from(payload_len).ok())
+            .and_then(|((r, h), p)| batch_event_bytes_len(r, h, p))
+        else {
+            tx.rollback().await?;
+            return Err(E2eeReplicaError::InvalidRow);
+        };
         let key = (table, row);
         if current_key.as_ref() != Some(&key) {
             current_key = Some(key);
@@ -192,18 +253,14 @@ pub async fn pending_e2ee_cloud_batch(
         groups
             .last_mut()
             .expect("active row group")
-            .push(E2eeCloudEvent {
-                record_id,
-                payload_hash,
-                payload,
-            });
+            .push(OutboxRowMetadata { record_id, bytes });
     }
 
     let first_group = &groups[0];
     let first_bytes: usize = first_group
         .iter()
-        .map(|event| batch_event_bytes(&event.record_id, &event.payload_hash, &event.payload))
-        .sum();
+        .try_fold(0_usize, |acc, item| acc.checked_add(item.bytes))
+        .ok_or(E2eeReplicaError::WitnessUploadTooLarge)?;
     if first_group.len() > MAX_CLOUD_BATCH_SINGLE_ROW_EVENTS
         || first_bytes > MAX_CLOUD_BATCH_SINGLE_ROW_BYTES
     {
@@ -211,22 +268,28 @@ pub async fn pending_e2ee_cloud_batch(
         return Err(E2eeReplicaError::WitnessUploadTooLarge);
     }
 
-    let mut events = first_group.clone();
+    let mut selected_ids: Vec<String> = first_group
+        .iter()
+        .map(|item| item.record_id.clone())
+        .collect();
     let mut total_bytes = first_bytes;
     for group in &groups[1..] {
-        let group_bytes: usize = group
+        let Some(group_bytes) = group
             .iter()
-            .map(|event| batch_event_bytes(&event.record_id, &event.payload_hash, &event.payload))
-            .sum();
+            .try_fold(0_usize, |acc, item| acc.checked_add(item.bytes))
+        else {
+            break;
+        };
         // Pack whole rows up to the tighter multi-row cap so we preserve dependency order without inflating CAS batches.
-        if events.len() + group.len() > MAX_CLOUD_BATCH_PACKED_EVENTS
-            || total_bytes + group_bytes > MAX_CLOUD_BATCH_PACKED_BYTES
+        if selected_ids.len() + group.len() > MAX_CLOUD_BATCH_PACKED_EVENTS
+            || total_bytes.saturating_add(group_bytes) > MAX_CLOUD_BATCH_PACKED_BYTES
         {
             break;
         }
-        events.extend(group.iter().cloned());
-        total_bytes += group_bytes;
+        selected_ids.extend(group.iter().map(|item| item.record_id.clone()));
+        total_bytes = total_bytes.saturating_add(group_bytes);
     }
+    let events = load_selected_outbox_events(&mut tx, workspace_id, &selected_ids).await?;
     let base_sequence: i64 = sqlx::query_scalar(
         "SELECT COALESCE((SELECT last_sequence FROM e2ee_witness_state WHERE workspace_id = ?), 0)",
     )
@@ -423,16 +486,30 @@ pub async fn preserve_e2ee_cloud_conflicts(
     Ok(())
 }
 
+const REBASE_DOCUMENTS_TX_BATCH: i64 = 8;
+
 pub async fn rebase_e2ee_cloud_documents(
     pool: &SqlitePool,
     workspace_id: &str,
     keyring: &anlg_e2ee::WorkspaceKeyring,
 ) -> E2eeReplicaResult<()> {
+    rebase_e2ee_cloud_documents_cancellable(pool, workspace_id, keyring, || false).await
+}
+
+pub async fn rebase_e2ee_cloud_documents_cancellable(
+    pool: &SqlitePool,
+    workspace_id: &str,
+    keyring: &anlg_e2ee::WorkspaceKeyring,
+    is_cancelled: impl Fn() -> bool + Sync,
+) -> E2eeReplicaResult<()> {
     use super::replica_storage::{
         insert_apply_guard, read_field, remove_apply_guard, restore_local_payload, update_field,
         upsert_local_state,
     };
+    use super::{check_e2ee_cancellation, yield_once};
     use anlg_tiptap::merge::{MergeSide, merge_documents};
+
+    check_e2ee_cancellation(&is_cancelled)?;
     let has_candidates: bool = sqlx::query_scalar(
         "SELECT EXISTS(SELECT 1 FROM e2ee_cloud_outbox WHERE workspace_id = ? AND table_name = 'session_documents' AND base_payload IS NOT NULL)",
     )
@@ -442,142 +519,171 @@ pub async fn rebase_e2ee_cloud_documents(
     if !has_candidates {
         return Ok(());
     }
-    let mut tx = pool.begin_with("BEGIN IMMEDIATE").await?;
-    let in_flight: bool = sqlx::query_scalar(
-        "SELECT EXISTS(SELECT 1 FROM e2ee_cloud_batches WHERE workspace_id = ?)",
-    )
-    .bind(workspace_id)
-    .fetch_one(&mut *tx)
-    .await?;
-    if in_flight {
-        tx.rollback().await?;
-        return Ok(());
-    }
-    let documents: Vec<(String, String, String, String, String)> = sqlx::query_as(
-        "SELECT pending.record_id, pending.payload, pending.base_payload, witness.payload_hash, witness.payload
-         FROM e2ee_cloud_outbox AS pending JOIN e2ee_witness_records_resolved AS witness
-           ON witness.workspace_id = pending.workspace_id AND witness.record_id = pending.record_id
-         WHERE pending.workspace_id = ? AND pending.table_name = 'session_documents'
-           AND pending.base_payload IS NOT NULL AND witness.payload_hash IS NOT pending.base_payload_hash
-           AND witness.payload_hash != pending.payload_hash")
-        .bind(workspace_id).fetch_all(&mut *tx).await?;
-    if documents.is_empty() {
-        tx.rollback().await?;
-        return Ok(());
-    }
-    for (record_id, local_payload, base_payload, remote_hash, remote_payload) in documents {
-        let local = keyring.open_field(workspace_id, &record_id, &local_payload)?;
-        if local.field != "body" {
-            continue;
+
+    let mut after_record_id: Option<String> = None;
+    loop {
+        check_e2ee_cancellation(&is_cancelled)?;
+        let mut tx = pool.begin_with("BEGIN IMMEDIATE").await?;
+        if let Err(error) = check_e2ee_cancellation(&is_cancelled) {
+            tx.rollback().await?;
+            return Err(error);
         }
-        let base = keyring.open_field(workspace_id, &record_id, &base_payload)?;
-        let remote = keyring.open_field(workspace_id, &record_id, &remote_payload)?;
-        let parse = |v: &serde_json::Value| {
-            v.as_str()
-                .and_then(|s| serde_json::from_str::<serde_json::Value>(s).ok())
-        };
-        let Some(current) = read_field(
-            &mut tx,
-            &local.table,
-            workspace_id,
-            &local.row_id,
-            &local.field,
+        let in_flight: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM e2ee_cloud_batches WHERE workspace_id = ?)",
         )
-        .await?
-        else {
-            continue;
-        };
-        let (Some(base_doc), Some(local_doc), Some(remote_doc)) =
-            (parse(&base.value), parse(&current), parse(&remote.value))
-        else {
-            continue;
-        };
-        let Some(merged) = merge_documents(&base_doc, &local_doc, &remote_doc, MergeSide::Local)
-        else {
-            continue;
-        };
-        if !merged.conflicts.is_empty() {
-            super::conflicts::record_conflict(
-                &mut tx,
-                &super::conflicts::ConflictCopy {
-                    id: format!("{record_id}:{remote_hash}"),
-                    workspace_id,
-                    table_name: &remote.table,
-                    row_id: &remote.row_id,
-                    field_name: &remote.field,
-                    lost_side: super::conflicts::ConflictLoser::Remote,
-                    writer_id: &remote.writer_id,
-                    revision: i64::try_from(remote.revision)
-                        .map_err(|_| E2eeReplicaError::InvalidRow)?,
-                    edited_at_ms: remote.edited_at_ms.and_then(|v| i64::try_from(v).ok()),
-                    value: &remote.value,
-                },
-            )
-            .await?;
+        .bind(workspace_id)
+        .fetch_one(&mut *tx)
+        .await?;
+        if in_flight {
+            tx.rollback().await?;
+            return Ok(());
         }
-        let value = serde_json::Value::String(
-            serde_json::to_string(&merged.doc).map_err(|_| E2eeReplicaError::InvalidRow)?,
-        );
-        let revision = local
-            .revision
-            .max(remote.revision)
-            .checked_add(1)
-            .ok_or(E2eeReplicaError::InvalidRow)?;
-        let key = keyring
-            .get(&local.key_id)
-            .ok_or(E2eeReplicaError::InvalidRow)?;
-        let sealed = key.seal_field_at(
-            workspace_id,
-            &local.table,
-            &local.row_id,
-            &local.field,
-            &local.writer_id,
-            revision,
-            local.deleted,
-            local.edited_at_ms,
-            value.clone(),
-        )?;
-        let state = LocalState {
-            record_id: sealed.record_id,
-            workspace_id: workspace_id.to_string(),
-            table_name: local.table,
-            row_id: local.row_id,
-            field_name: local.field,
-            revision: i64::try_from(revision).map_err(|_| E2eeReplicaError::InvalidRow)?,
-            writer_id: local.writer_id,
-            value_tag: key.value_tag(
-                &remote.table,
-                &remote.row_id,
-                &remote.field,
-                local.deleted,
-                &value,
-            ),
-            payload_hash: anlg_e2ee::payload_hash(&sealed.payload),
-            payload: sealed.payload,
-            edited_at_ms: local.edited_at_ms.and_then(|v| i64::try_from(v).ok()),
-            republish: false,
-        };
-        {
-            insert_apply_guard(&mut tx, workspace_id, &state.table_name, &state.row_id).await?;
-            update_field(
+        let documents: Vec<(String, String, String, String, String)> = sqlx::query_as(
+            "SELECT pending.record_id, pending.payload, pending.base_payload, witness.payload_hash, witness.payload
+             FROM e2ee_cloud_outbox AS pending JOIN e2ee_witness_records_resolved AS witness
+               ON witness.workspace_id = pending.workspace_id AND witness.record_id = pending.record_id
+             WHERE pending.workspace_id = ? AND pending.table_name = 'session_documents'
+               AND pending.base_payload IS NOT NULL AND witness.payload_hash IS NOT pending.base_payload_hash
+               AND witness.payload_hash != pending.payload_hash
+               AND (? IS NULL OR pending.record_id > ?)
+             ORDER BY pending.record_id
+             LIMIT ?",
+        )
+        .bind(workspace_id)
+        .bind(after_record_id.as_deref())
+        .bind(after_record_id.as_deref())
+        .bind(REBASE_DOCUMENTS_TX_BATCH)
+        .fetch_all(&mut *tx)
+        .await?;
+        if documents.is_empty() {
+            tx.rollback().await?;
+            return Ok(());
+        }
+        let page_len = documents.len();
+        let last_record_id = documents.last().expect("non-empty documents").0.clone();
+        for (record_id, local_payload, base_payload, remote_hash, remote_payload) in documents {
+            if let Err(error) = check_e2ee_cancellation(&is_cancelled) {
+                tx.rollback().await?;
+                return Err(error);
+            }
+            let local = keyring.open_field(workspace_id, &record_id, &local_payload)?;
+            if local.field != "body" {
+                continue;
+            }
+            let base = keyring.open_field(workspace_id, &record_id, &base_payload)?;
+            let remote = keyring.open_field(workspace_id, &record_id, &remote_payload)?;
+            let parse = |v: &serde_json::Value| {
+                v.as_str()
+                    .and_then(|s| serde_json::from_str::<serde_json::Value>(s).ok())
+            };
+            let Some(current) = read_field(
                 &mut tx,
-                &state.table_name,
+                &local.table,
                 workspace_id,
-                &state.row_id,
-                &state.field_name,
-                &value,
+                &local.row_id,
+                &local.field,
             )
-            .await?;
-            restore_local_payload(&mut tx, &state).await?;
-            upsert_local_state(&mut tx, &state).await?;
-            remove_apply_guard(&mut tx, workspace_id, &state.table_name, &state.row_id).await?;
+            .await?
+            else {
+                continue;
+            };
+            let (Some(base_doc), Some(local_doc), Some(remote_doc)) =
+                (parse(&base.value), parse(&current), parse(&remote.value))
+            else {
+                continue;
+            };
+            let Some(merged) =
+                merge_documents(&base_doc, &local_doc, &remote_doc, MergeSide::Local)
+            else {
+                continue;
+            };
+            if !merged.conflicts.is_empty() {
+                super::conflicts::record_conflict(
+                    &mut tx,
+                    &super::conflicts::ConflictCopy {
+                        id: format!("{record_id}:{remote_hash}"),
+                        workspace_id,
+                        table_name: &remote.table,
+                        row_id: &remote.row_id,
+                        field_name: &remote.field,
+                        lost_side: super::conflicts::ConflictLoser::Remote,
+                        writer_id: &remote.writer_id,
+                        revision: i64::try_from(remote.revision)
+                            .map_err(|_| E2eeReplicaError::InvalidRow)?,
+                        edited_at_ms: remote.edited_at_ms.and_then(|v| i64::try_from(v).ok()),
+                        value: &remote.value,
+                    },
+                )
+                .await?;
+            }
+            let value = serde_json::Value::String(
+                serde_json::to_string(&merged.doc).map_err(|_| E2eeReplicaError::InvalidRow)?,
+            );
+            let revision = local
+                .revision
+                .max(remote.revision)
+                .checked_add(1)
+                .ok_or(E2eeReplicaError::InvalidRow)?;
+            let key = keyring
+                .get(&local.key_id)
+                .ok_or(E2eeReplicaError::InvalidRow)?;
+            let sealed = key.seal_field_at(
+                workspace_id,
+                &local.table,
+                &local.row_id,
+                &local.field,
+                &local.writer_id,
+                revision,
+                local.deleted,
+                local.edited_at_ms,
+                value.clone(),
+            )?;
+            let state = LocalState {
+                record_id: sealed.record_id,
+                workspace_id: workspace_id.to_string(),
+                table_name: local.table,
+                row_id: local.row_id,
+                field_name: local.field,
+                revision: i64::try_from(revision).map_err(|_| E2eeReplicaError::InvalidRow)?,
+                writer_id: local.writer_id,
+                value_tag: key.value_tag(
+                    &remote.table,
+                    &remote.row_id,
+                    &remote.field,
+                    local.deleted,
+                    &value,
+                ),
+                payload_hash: anlg_e2ee::payload_hash(&sealed.payload),
+                payload: sealed.payload,
+                edited_at_ms: local.edited_at_ms.and_then(|v| i64::try_from(v).ok()),
+                republish: false,
+            };
+            {
+                insert_apply_guard(&mut tx, workspace_id, &state.table_name, &state.row_id).await?;
+                update_field(
+                    &mut tx,
+                    &state.table_name,
+                    workspace_id,
+                    &state.row_id,
+                    &state.field_name,
+                    &value,
+                )
+                .await?;
+                restore_local_payload(&mut tx, &state).await?;
+                upsert_local_state(&mut tx, &state).await?;
+                remove_apply_guard(&mut tx, workspace_id, &state.table_name, &state.row_id).await?;
+            }
+            sqlx::query("UPDATE e2ee_cloud_outbox SET payload_hash = ?, payload = ?, base_payload_hash = ?, base_payload = ? WHERE workspace_id = ? AND record_id = ?")
+                .bind(&state.payload_hash).bind(&state.payload).bind(&remote_hash).bind(&remote_payload)
+                .bind(workspace_id).bind(&record_id).execute(&mut *tx).await?;
         }
-        sqlx::query("UPDATE e2ee_cloud_outbox SET payload_hash = ?, payload = ?, base_payload_hash = ?, base_payload = ? WHERE workspace_id = ? AND record_id = ?")
-            .bind(&state.payload_hash).bind(&state.payload).bind(&remote_hash).bind(&remote_payload)
-            .bind(workspace_id).bind(&record_id).execute(&mut *tx).await?;
+        tx.commit().await?;
+        if (page_len as i64) < REBASE_DOCUMENTS_TX_BATCH {
+            return Ok(());
+        }
+        after_record_id = Some(last_record_id);
+        yield_once().await;
     }
-    tx.commit().await?;
-    Ok(())
 }
 
 pub async fn e2ee_cloud_pull_in_progress(
