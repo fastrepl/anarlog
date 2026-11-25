@@ -202,7 +202,7 @@ export default function SyncSettings() {
       {!auth.bypass && auth.billing.isPro && (
         <FieldGroup.Section title="Connected devices">
           {devices.data && (
-            <Text>{`${devices.data.usedDevices} of ${devices.data.maxDevices} device slots in use`}</Text>
+            <Text>{`${devices.data.usedDevices} ${devices.data.usedDevices === 1 ? "device" : "devices"} connected`}</Text>
           )}
           {devices.isPending ? (
             <Text>Loading devices…</Text>

@@ -80,7 +80,7 @@ const PLAN_TIERS: [PlanTier; 3] = [
             "Cloud Transcription",
             "Cloud LLM",
             "Better Speaker Identification",
-            "Cloud sync (3 personal devices or 5 per workspace member)",
+            "Cloud sync (unlimited devices)",
             "End-to-end encryption (E2EE)",
             "Share individual notes",
             "Integrations and personal automations",
@@ -1143,14 +1143,6 @@ impl ProductPane {
                 billing.trial_end.map(|end| format!("Ends {}", date(end))),
                 days_left(days.max(0)),
                 None,
-            ));
-        }
-        if let Some(devices) = &account.devices {
-            rows.push(row(
-                "Synced devices",
-                (devices.used >= devices.max).then(|| "At your device limit".into()),
-                format!("{} of {} used", devices.used, devices.max),
-                Some(devices.used as f32 / devices.max as f32),
             ));
         }
         for workspace in account.workspaces.iter().flat_map(|w| w.iter()) {

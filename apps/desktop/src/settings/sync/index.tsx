@@ -9,7 +9,6 @@ import {
   getOrCreateE2eeDeviceIdentity,
   syncCloudsyncNow,
 } from "@anlg/plugin-db";
-import { commands as openerCommands } from "@anlg/plugin-opener2";
 import {
   ArrowsClockwise,
   CheckCircle,
@@ -32,7 +31,6 @@ import {
 } from "@anlg/ui/components/ui/dialog";
 import { Input } from "@anlg/ui/components/ui/input";
 import { Switch } from "@anlg/ui/components/ui/switch";
-import { toast } from "@anlg/ui/components/ui/toast";
 import { cn, formatDistanceToNow } from "@anlg/utils";
 
 import { E2eeSetupDialog } from "../general/e2ee-setup";
@@ -68,7 +66,6 @@ import {
 } from "~/settings/queries";
 import { resolveConfigValue } from "~/shared/config";
 import { isKeychainAccessError, repairKeychainAccess } from "~/shared/keychain";
-import { buildWebAppUrl } from "~/shared/utils";
 import { useTabs } from "~/store/zustand/tabs";
 
 const STATUS_POLL_INTERVAL_MS = 10_000;
@@ -360,24 +357,6 @@ export function SettingsSync() {
           setConnectLibraryOpen(true);
         }
       }
-    },
-  });
-  const openMoreDevicesMutation = useMutation({
-    mutationFn: async () => {
-      const url = new URL(
-        await buildWebAppUrl("/app/account", { tab: "connections" }),
-      );
-      url.hash = "devices";
-      const opened = await openerCommands.openUrl(url.toString(), null);
-      if (opened.status === "error") {
-        throw new Error(String(opened.error));
-      }
-    },
-    onError: (error) => {
-      captureOperationalError(error, {
-        operation: "open_sync_device_addons",
-      });
-      toast.error(t`Couldn't open device add-ons. Try again.`);
     },
   });
   const renameDeviceMutation = useMutation({
@@ -690,7 +669,7 @@ export function SettingsSync() {
         return {
           kind: "error" as const,
           label: t`Device limit reached`,
-          description: t`Choose a device below to replace, or add more device slots to your plan. This device will continue automatically.`,
+          description: t`Choose a device below to replace. This device will continue automatically.`,
         };
       }
       if (credentialBlock === "update_required") {
@@ -945,23 +924,11 @@ export function SettingsSync() {
             <Trans>Devices</Trans>
             {devicesQuery.data && (
               <span className="text-muted-foreground ml-2 font-normal">
-                {usedDeviceSlots} / {devicesQuery.data.maxDevices}
+                {usedDeviceSlots}
               </span>
             )}
           </h2>
           <div className="flex items-center gap-2">
-            {devicesQuery.data &&
-              (usedDeviceSlots >= devicesQuery.data.maxDevices ||
-                credentialBlock === "device_limit") && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  disabled={openMoreDevicesMutation.isPending}
-                  onClick={() => openMoreDevicesMutation.mutate()}
-                >
-                  <Trans>Get more slots</Trans>
-                </Button>
-              )}
             <Button
               variant="outline"
               size="sm"

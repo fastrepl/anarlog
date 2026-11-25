@@ -379,7 +379,7 @@ describe("SettingsBilling", () => {
     expect(screen.getByText("Ends Oct 1, 2025")).toBeTruthy();
   });
 
-  it("shows synced device usage for Pro users", async () => {
+  it("does not show a synced device limit for Pro users", async () => {
     mocks.session = {
       user: { id: "user-1", email: "john@example.com" },
       access_token: "token-1",
@@ -395,23 +395,15 @@ describe("SettingsBilling", () => {
       trialDaysRemaining: null,
       currentPeriodEnd: new Date("2025-10-15T00:00:00Z"),
     };
-    mocks.requestSyncDevices.mockResolvedValue({
-      devices: [{ deviceFingerprint: "device-a" }],
-      pendingDevices: [{ deviceFingerprint: "device-b" }],
-      maxDevices: 3,
-    });
 
     renderBilling();
 
-    expect(await screen.findByText("Synced devices")).toBeTruthy();
-    expect(screen.getByText("2 of 3 used")).toBeTruthy();
     expect(screen.getByText(/renews Oct 15, 2025/)).toBeTruthy();
     expect(
       screen.getAllByRole("button", { name: "Manage billing" }),
     ).toHaveLength(1);
-    expect(mocks.requestSyncDevices).toHaveBeenCalledWith(
-      "token-1",
-      expect.anything(),
-    );
+    expect(screen.queryByText("Synced devices")).toBeNull();
+    expect(screen.queryByText("Plan limits")).toBeNull();
+    expect(mocks.requestSyncDevices).not.toHaveBeenCalled();
   });
 });

@@ -1160,6 +1160,9 @@ export const updateSyncDeviceAddon = createServerFn({ method: "POST" })
     }
 
     const currentQuantity = getSyncDeviceAddonQuantity(subscription.items.data);
+    if (data.quantity > currentQuantity) {
+      throw new Error("Unlimited synced devices are included with Pro");
+    }
     if (currentQuantity === data.quantity) {
       return { quantity: currentQuantity };
     }

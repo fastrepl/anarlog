@@ -383,8 +383,8 @@ select results_eq(
     tests.get_supabase_uid('enrollment_owner'),
     rpad('B', 43, 'B')
   ),
-  $$values (false, 5::bigint)$$,
-  'Approved and pending devices share the five-device cap'
+  $$values (true, 6::bigint)$$,
+  'Accounts can enroll beyond five devices without a device cap'
 );
 
 select results_eq(
@@ -393,17 +393,17 @@ select results_eq(
       select allowed, enrollment_status, device_count
       from public.register_e2ee_device_enrollment(
         %L,
-        'device-0006',
-        'Sixth Mac',
+        'device-0007',
+        'Seventh Mac',
         %L,
         'device-0002'
       )
     $$,
     tests.get_supabase_uid('enrollment_owner'),
-    rpad('B', 43, 'B')
+    rpad('C', 43, 'C')
   ),
-  $$values (true, 'pending'::text, 5::bigint)$$,
-  'A capped account can atomically replace a selected device'
+  $$values (true, 'pending'::text, 6::bigint)$$,
+  'Explicit replacement removes the target device while reserving the new slot'
 );
 
 select ok(
@@ -417,7 +417,7 @@ select ok(
       select 1
       from public.e2ee_device_enrollment_requests
       where user_id = tests.get_supabase_uid('enrollment_owner')
-        and device_fingerprint = 'device-0006'
+        and device_fingerprint = 'device-0007'
     ),
   'Replacement removes the old device and reserves the new slot'
 );
@@ -426,25 +426,25 @@ update public.e2ee_device_enrollment_requests
 set created_at = now() - interval '2 days',
     expires_at = now() - interval '1 day'
 where user_id = tests.get_supabase_uid('enrollment_owner')
-  and device_fingerprint = 'device-0006';
+  and device_fingerprint = 'device-0007';
 
 select results_eq(
   format(
     $$
       select allowed, device_count
-      from public.register_e2ee_device_enrollment(%L, 'device-0007', 'Seventh Mac', %L, null)
+      from public.register_e2ee_device_enrollment(%L, 'device-0008', 'Eighth Mac', %L, null)
     $$,
     tests.get_supabase_uid('enrollment_owner'),
     rpad('G', 43, 'G')
   ),
-  $$values (true, 5::bigint)$$,
-  'Expired requests free their device slot'
+  $$values (true, 6::bigint)$$,
+  'Expired requests no longer count as occupied devices'
 );
 
 select lives_ok(
   format(
     $$
-      select public.remove_sync_device(%L, 'device-0007')
+      select public.remove_sync_device(%L, 'device-0008')
     $$,
     tests.get_supabase_uid('enrollment_owner')
   ),
@@ -465,7 +465,7 @@ select is(
         and expires_at > now()
     ) as occupied_slots
   ),
-  4::bigint,
+  5::bigint,
   'Removing a pending device immediately frees the slot'
 );
 

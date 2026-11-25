@@ -389,6 +389,7 @@ describe("SettingsSync", () => {
     renderSettings();
 
     expect(await screen.findByText("Device limit reached")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Get more slots" })).toBeNull();
     fireEvent.click(await screen.findByRole("button", { name: "Replace" }));
 
     await vi.waitFor(() =>

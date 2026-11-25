@@ -82,7 +82,7 @@ pub fn status_view(
             SyncBlock::DeviceLimit => view(
                 StatusKind::Error,
                 "Device limit reached",
-                "Choose a device below to replace, or add more device slots to your plan. This device will continue automatically.",
+                "Choose a device below to replace. This device will continue automatically.",
             ),
             SyncBlock::UpdateRequired => view(
                 StatusKind::Error,
@@ -172,7 +172,6 @@ struct PendingDevice {
 struct Devices {
     devices: Vec<Device>,
     pending: Vec<PendingDevice>,
-    max: u64,
 }
 
 impl Devices {
@@ -211,11 +210,10 @@ impl Devices {
                     })
                 })
                 .collect(),
-            max: value["maxDevices"].as_u64()?,
         })
     }
 
-    /// Devices and pending enrollments both hold a slot, once per fingerprint.
+    /// Devices and pending enrollments both keep a fingerprint entry.
     fn used(&self) -> usize {
         self.devices
             .iter()
@@ -232,9 +230,7 @@ enum Pending {
     SyncNow,
     Repair,
     Remove,
-    Replace,
     Rename,
-    MoreSlots,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -628,33 +624,6 @@ impl SyncView {
             cx,
         );
     }
-
-    fn more_slots(&mut self, cx: &mut Context<Self>) {
-        if self.pending.is_some() {
-            return;
-        }
-        self.pending = Some((Pending::MoreSlots, None));
-        let open = self.calls.open_web(
-            "/app/account",
-            vec![("tab", "connections".into())],
-            Some("devices"),
-        );
-        cx.spawn(async move |this, cx| {
-            let result = open.await;
-            let _ = this.update(cx, |this, cx| {
-                this.pending = None;
-                if result.is_err() {
-                    crate::application::toasts::error(
-                        "Couldn't open device add-ons. Try again.",
-                        cx,
-                    );
-                }
-                cx.notify();
-            });
-        })
-        .detach();
-        cx.notify();
-    }
 }
 
 fn valid_device_name(name: &str) -> bool {
@@ -973,10 +942,7 @@ impl SyncView {
         let devices = self.devices.as_ref();
         let loaded = devices.and_then(|devices| devices.as_ref().ok());
         let fingerprint = self.state().map(|state| state.fingerprint.clone());
-        let block = self.state().and_then(|state| state.block.clone());
-        let device_limit = block == Some(SyncBlock::DeviceLimit);
         let border = colors.border.opacity(0.6);
-        let used = loaded.map(Devices::used);
         let pending_device = |kind: Pending, device: &Arc<str>| {
             self.pending.as_ref() == Some(&(kind, Some(device.clone())))
         };
@@ -998,51 +964,25 @@ impl SyncView {
                             .text_size(px(18.))
                             .line_height(px(28.))
                             .text_color(colors.muted_foreground)
-                            .child(format!("{} / {}", devices.used(), devices.max))
+                            .child(devices.used().to_string())
                     })),
             )
             .child(
-                div()
-                    .flex()
-                    .items_center()
-                    .gap_2()
-                    .when(
-                        loaded.is_some_and(|devices| {
-                            used.unwrap_or(0) as u64 >= devices.max || device_limit
-                        }),
-                        |view| {
-                            let enabled = !matches!(self.pending, Some((Pending::MoreSlots, _)));
-                            view.child(
-                                button(
-                                    "more-slots",
-                                    "Get more slots",
-                                    Variant::Ghost,
-                                    true,
-                                    None,
-                                    enabled,
-                                    colors,
-                                )
-                                .when(enabled, |view| {
-                                    view.on_click(cx.listener(|this, _, _, cx| this.more_slots(cx)))
-                                }),
-                            )
-                        },
+                div().flex().items_center().gap_2().child(
+                    button(
+                        "add-device",
+                        "Add device",
+                        Variant::Outline,
+                        true,
+                        Some("product/PlusIcon.svg"),
+                        true,
+                        colors,
                     )
-                    .child(
-                        button(
-                            "add-device",
-                            "Add device",
-                            Variant::Outline,
-                            true,
-                            Some("product/PlusIcon.svg"),
-                            true,
-                            colors,
-                        )
-                        .on_click(cx.listener(|this, _, _, cx| {
-                            this.add_device = true;
-                            cx.notify();
-                        })),
-                    ),
+                    .on_click(cx.listener(|this, _, _, cx| {
+                        this.add_device = true;
+                        cx.notify();
+                    })),
+                ),
             );
         let title = |name: Option<Arc<str>>,
                      current: bool,
@@ -1167,7 +1107,6 @@ impl SyncView {
                         format!("Last seen {}", distance.trim_end_matches(" ago"))
                     });
                     let fp = device.fingerprint.clone();
-                    let replacing = pending_device(Pending::Replace, &fp);
                     rows.push(
                         div()
                             .px_4()
@@ -1193,36 +1132,7 @@ impl SyncView {
                                             .child(last_seen),
                                     ),
                             )
-                            .when(!current && device_limit, |view| {
-                                let fp = fp.clone();
-                                view.child(
-                                    button(
-                                        SharedString::from(format!("replace-{fp}")),
-                                        "Replace",
-                                        Variant::Outline,
-                                        true,
-                                        replacing.then_some("product/LoaderCircleIcon.svg"),
-                                        !any_pending,
-                                        colors,
-                                    )
-                                    .when(
-                                        !any_pending,
-                                        |view| {
-                                            view.on_click(cx.listener(move |this, _, _, cx| {
-                                                this.device_command(
-                                                    Pending::Replace,
-                                                    fp.clone(),
-                                                    SyncCommand::ReplaceDevice(fp.to_string()),
-                                                    cx,
-                                                )
-                                            }))
-                                        },
-                                    ),
-                                )
-                            })
-                            .when(!current && !device_limit, |view| {
-                                view.child(disconnect(fp.clone(), cx))
-                            })
+                            .when(!current, |view| view.child(disconnect(fp.clone(), cx)))
                             .into_any_element(),
                     );
                 }
