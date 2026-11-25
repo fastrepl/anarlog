@@ -5,11 +5,11 @@ use axum::{
     http::{HeaderMap, HeaderValue, header},
     routing::{get, patch, post, put},
 };
+use chrono::{SecondsFormat, TimeDelta, Utc};
 use serde::{Deserialize, Serialize};
 use utoipa::OpenApi;
 
 use crate::{
-    config::{CloudsyncProtocolMode, CloudsyncTransport, SqliteCloudMode},
     error::{Result, SyncError},
     state::{AppState, ReplicaState},
 };
@@ -19,7 +19,6 @@ mod grants;
 mod identity;
 mod meeting_presence;
 mod projection;
-mod token;
 mod transport;
 
 use enrollment::{
@@ -44,19 +43,13 @@ use meeting_presence::{
     MeetingDeviceIntent, MeetingDevicesResponse, heartbeat_meeting_device,
 };
 pub use projection::CloudsyncWorkspace;
-pub(super) use projection::encode_workspace_token_attributes;
 use projection::{fetch_workspace_projection, validate_workspace_projection};
-use token::{E2eeCreateTokenRequest, LegacyCreateTokenRequest, mint_cloudsync_token, token_expiry};
-use transport::{
-    client_accepts_replica_transport, client_runs_accepted_replica, resolve_desktop_transport,
-};
+use transport::{client_accepts_replica_transport, client_runs_accepted_replica};
 
 #[cfg(test)]
 pub(super) use identity::{DEVICE_FINGERPRINT_HEADER, DEVICE_NAME_HEADER};
 #[cfg(test)]
-pub(super) use projection::{
-    MAX_TOKEN_ATTRIBUTES_BYTES, MAX_TOKEN_WORKSPACES, WORKSPACE_PROJECTION_SELECT,
-};
+pub(super) use projection::WORKSPACE_PROJECTION_SELECT;
 #[cfg(test)]
 pub(super) use transport::{ACCEPTED_REPLICA_TRANSPORT, CLOUDSYNC_TRANSPORTS_HEADER};
 
@@ -65,30 +58,6 @@ const CLOUDSYNC_ENCRYPTION_VERSION: u8 = 2;
 const REPLICA_CREDENTIAL_TTL_SECONDS: u64 = 15 * 60;
 pub(super) const E2EE_KEY_ID_HEADER: &str = "x-anarlog-e2ee-key-id";
 pub(super) use identity::E2EE_MEMBER_PUBLIC_KEY_HEADER;
-
-#[derive(Serialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct CloudsyncCredentials {
-    encryption_version: u8,
-    encryption_key_id: String,
-    database_id: String,
-    token: String,
-    expires_at: String,
-    workspace_id: String,
-    account_user_id: String,
-    personal_workspace_id: String,
-    workspaces: Vec<CloudsyncWorkspace>,
-    workspace_key_grants: Vec<WorkspaceE2eeKeyGrant>,
-}
-
-#[derive(Serialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct LegacyCloudsyncCredentials {
-    database_id: String,
-    token: String,
-    expires_at: String,
-    workspace_id: String,
-}
 
 #[derive(Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
@@ -102,14 +71,6 @@ pub struct ReplicaCredentials {
     personal_workspace_id: String,
     workspaces: Vec<CloudsyncWorkspace>,
     workspace_key_grants: Vec<WorkspaceE2eeKeyGrant>,
-}
-
-#[derive(Serialize, utoipa::ToSchema)]
-#[serde(untagged)]
-pub enum CloudsyncCredentialResponse {
-    Legacy(LegacyCloudsyncCredentials),
-    E2ee(CloudsyncCredentials),
-    Replica(ReplicaCredentials),
 }
 
 #[derive(Deserialize, utoipa::ToSchema)]
@@ -141,8 +102,6 @@ pub struct E2eeIdentity {
         set_workspace_e2ee_key
     ),
     components(schemas(
-        CloudsyncCredentialResponse,
-        CloudsyncCredentials,
         CloudsyncWorkspace,
         WorkspaceE2eeKeyGrant,
         WorkspaceE2eeKeyRecipient,
@@ -162,7 +121,6 @@ pub struct E2eeIdentity {
         MeetingDeviceIntent,
         MeetingDevice,
         MeetingDevicesResponse,
-        LegacyCloudsyncCredentials,
         ReplicaCredentials
     ))
 )]
@@ -280,7 +238,7 @@ async fn set_workspace_e2ee_key(
     params(
         ("x-anarlog-e2ee-key-id" = String, Header, description = "Local recovery-key identity"),
         ("x-anarlog-e2ee-member-public-key" = Option<String>, Header, description = "Account-level member identity public key"),
-        ("x-anarlog-cloudsync-transports" = Option<String>, Header, description = "Comma-separated transports the client accepts; `accepted_replica` is required once SQLite Cloud is retired")
+        ("x-anarlog-cloudsync-transports" = Option<String>, Header, description = "Comma-separated transports the client accepts; `accepted_replica` is required")
     ),
     responses(
         (status = 200, description = "Encrypted replica credentials", body = ReplicaCredentials),
@@ -288,7 +246,7 @@ async fn set_workspace_e2ee_key(
         (status = 401, description = "Authentication required"),
         (status = 403, description = "Anarlog Pro subscription required"),
         (status = 409, description = "Account already uses a different recovery key"),
-        (status = 426, description = "SQLite Cloud is retired and the client predates the accepted replica"),
+        (status = 426, description = "Client predates the accepted replica"),
         (status = 502, description = "Replica credential service unavailable")
     )
 )]
@@ -303,12 +261,10 @@ async fn create_replica_credentials(
     if !auth.claims.is_pro() {
         return Err(SyncError::ProPlanRequired);
     }
-    // Retired means the SQLite Cloud subscription has ended. Builds that predate
-    // `accepted_replica` bundle sqlite-sync 1.2.0, whose license does not cover
-    // syncing without that subscription, so they are told to update (ANLG-554).
-    if state.config.sqlitecloud_mode == SqliteCloudMode::Retired
-        && !client_runs_accepted_replica(&headers)
-    {
+    // Builds that predate `accepted_replica` bundle sqlite-sync 1.2.0, whose
+    // license does not cover syncing without SQLite Cloud, so they are told
+    // to update (ANLG-554).
+    if !client_runs_accepted_replica(&headers) {
         tracing::info!(
             anarlog.operation = "replica_credentials.retired.upgrade_required",
             "replica_credentials_refused"
@@ -491,14 +447,16 @@ async fn claim_e2ee_identity(
     params(
         ("x-anarlog-e2ee-key-id" = Option<String>, Header, description = "Local recovery-key identity"),
         ("x-anarlog-e2ee-member-public-key" = Option<String>, Header, description = "Account-level member identity public key"),
-        ("x-anarlog-cloudsync-transports" = Option<String>, Header, description = "Comma-separated transports the client accepts; `replica` allows witness-only credentials and `accepted_replica` is required once SQLite Cloud stops issuing tokens")
+        ("x-anarlog-cloudsync-transports" = Option<String>, Header, description = "Comma-separated transports the client accepts; `accepted_replica` is required")
     ),
     responses(
-        (status = 200, description = "Short-lived CloudSync credentials", body = CloudsyncCredentialResponse),
+        (status = 200, description = "Encrypted replica credentials", body = ReplicaCredentials),
+        (status = 400, description = "Invalid E2EE key identity"),
         (status = 401, description = "Authentication required"),
         (status = 403, description = "Anarlog Pro subscription required"),
+        (status = 409, description = "Account already uses a different recovery key"),
         (status = 426, description = "Client update required"),
-        (status = 502, description = "Credential issuer unavailable")
+        (status = 502, description = "Credential service unavailable")
     )
 )]
 async fn create_credentials(
@@ -507,7 +465,7 @@ async fn create_credentials(
     headers: HeaderMap,
 ) -> Result<(
     [(header::HeaderName, HeaderValue); 1],
-    Json<CloudsyncCredentialResponse>,
+    Json<ReplicaCredentials>,
 )> {
     if !auth.claims.is_pro() {
         return Err(SyncError::ProPlanRequired);
@@ -529,110 +487,21 @@ async fn create_credentials(
         ));
     }
 
-    // Only `enabled` may hand out provider tokens. Stale per-account overrides
-    // and the transport default cannot bring issuance back once draining starts.
-    let sqlitecloud = state
-        .config
-        .sqlitecloud
-        .as_ref()
-        .filter(|_| state.config.sqlitecloud_mode == SqliteCloudMode::Enabled);
-
     let Some(requested_key_id) = requested_key_id else {
-        let Some(sqlitecloud) =
-            sqlitecloud.filter(|_| state.config.protocol_mode == CloudsyncProtocolMode::Dual)
-        else {
-            record_token_outcome(&state, &headers, "upgrade_required");
-            return Err(SyncError::CloudsyncUpgradeRequired);
-        };
-
-        claim_sync_device(&state.replica, &auth.claims.sub, &headers).await?;
-        let database_id = sqlitecloud.legacy_database_id.clone().ok_or_else(|| {
-            SyncError::Internal("Legacy CloudSync database is missing".to_string())
-        })?;
-        let expires_at = token_expiry(sqlitecloud.token_ttl_seconds)?;
-        let token = mint_cloudsync_token(
-            &state.client,
-            sqlitecloud,
-            &LegacyCreateTokenRequest {
-                name: "anarlog-cloudsync",
-                user_id: &auth.claims.sub,
-                expires_at: &expires_at,
-            },
-        )
-        .await?;
-        record_token_outcome(&state, &headers, "sqlite_sync_legacy");
-
-        return Ok((
-            [(header::CACHE_CONTROL, HeaderValue::from_static("no-store"))],
-            Json(CloudsyncCredentialResponse::Legacy(
-                LegacyCloudsyncCredentials {
-                    database_id,
-                    token,
-                    expires_at,
-                    workspace_id: auth.claims.sub,
-                },
-            )),
-        ));
+        record_token_outcome(&headers, "upgrade_required");
+        return Err(SyncError::CloudsyncUpgradeRequired);
     };
-
-    let Some(sqlitecloud) = sqlitecloud else {
-        if !client_runs_accepted_replica(&headers) {
-            record_token_outcome(&state, &headers, "upgrade_required");
-            return Err(SyncError::CloudsyncUpgradeRequired);
-        }
-        return replica_credential_response(&state, auth, requested_key_id, &headers).await;
-    };
-
-    if client_accepts_replica_transport(&headers)
-        && resolve_desktop_transport(
-            &state.replica,
-            &auth.claims.sub,
-            state.config.desktop_transport,
-        )
-        .await?
-            == CloudsyncTransport::Replica
-    {
-        return replica_credential_response(&state, auth, requested_key_id, &headers).await;
+    if !client_runs_accepted_replica(&headers) {
+        record_token_outcome(&headers, "upgrade_required");
+        return Err(SyncError::CloudsyncUpgradeRequired);
     }
 
-    let workspace_rows = fetch_workspace_projection(&state.replica, &auth).await?;
-    let (personal_workspace_id, workspaces) =
-        validate_workspace_projection(workspace_rows, &auth.claims.sub)?;
-    let workspace_key_grants =
-        fetch_workspace_key_grants(&state.replica, &auth.token, &workspaces).await?;
-    let encryption_key_id =
-        claim_personal_e2ee_key(&state.replica, &auth.claims.sub, requested_key_id).await?;
-    claim_sync_device(&state.replica, &auth.claims.sub, &headers).await?;
-    let token_attributes = encode_workspace_token_attributes(&workspaces)?;
-
-    let expires_at = token_expiry(sqlitecloud.token_ttl_seconds)?;
-    let token = mint_cloudsync_token(
-        &state.client,
-        sqlitecloud,
-        &E2eeCreateTokenRequest {
-            name: "anarlog-cloudsync",
-            user_id: &auth.claims.sub,
-            expires_at: &expires_at,
-            attributes: &token_attributes,
-        },
-    )
-    .await?;
-    record_token_outcome(&state, &headers, "sqlite_sync");
-
+    let credentials =
+        issue_replica_credentials(&state.replica, auth, requested_key_id, &headers).await?;
+    record_token_outcome(&headers, "replica");
     Ok((
         [(header::CACHE_CONTROL, HeaderValue::from_static("no-store"))],
-        Json(CloudsyncCredentialResponse::E2ee(CloudsyncCredentials {
-            encryption_version: CLOUDSYNC_ENCRYPTION_VERSION,
-            encryption_key_id,
-            database_id: sqlitecloud.database_id.clone(),
-            token,
-            expires_at,
-            workspace_id: personal_workspace_id.clone(),
-            account_user_id: auth.claims.sub,
-            personal_workspace_id,
-            workspaces,
-            workspace_key_grants,
-        })),
+        Json(credentials),
     ))
 }
 
@@ -640,7 +509,7 @@ async fn create_credentials(
 /// workspace identity; the request span already scopes it. The decision goes
 /// out as one `anarlog.operation` token because the API's log sanitizer drops
 /// string fields under any key it does not list.
-fn record_token_outcome(state: &AppState, headers: &HeaderMap, outcome: &'static str) {
+fn record_token_outcome(headers: &HeaderMap, outcome: &'static str) {
     let capability = if client_runs_accepted_replica(headers) {
         "accepted_replica"
     } else if client_accepts_replica_transport(headers) {
@@ -649,30 +518,20 @@ fn record_token_outcome(state: &AppState, headers: &HeaderMap, outcome: &'static
         "none"
     };
     tracing::info!(
-        anarlog.operation = %format_args!(
-            "cloudsync_token.{}.{capability}.{outcome}",
-            state.config.sqlitecloud_mode.as_str()
-        ),
+        anarlog.operation = %format_args!("cloudsync_token.retired.{capability}.{outcome}"),
         "cloudsync_token_request"
     );
 }
 
-async fn replica_credential_response(
-    state: &AppState,
-    auth: AuthContext,
-    requested_key_id: &str,
-    headers: &HeaderMap,
-) -> Result<(
-    [(header::HeaderName, HeaderValue); 1],
-    Json<CloudsyncCredentialResponse>,
-)> {
-    let credentials =
-        issue_replica_credentials(&state.replica, auth, requested_key_id, headers).await?;
-    record_token_outcome(state, headers, "replica");
-    Ok((
-        [(header::CACHE_CONTROL, HeaderValue::from_static("no-store"))],
-        Json(CloudsyncCredentialResponse::Replica(credentials)),
-    ))
+fn token_expiry(token_ttl_seconds: u64) -> Result<String> {
+    let ttl = i64::try_from(token_ttl_seconds)
+        .map_err(|_| SyncError::Internal("CloudSync token TTL is too large".to_string()))?;
+    let ttl = TimeDelta::try_seconds(ttl)
+        .ok_or_else(|| SyncError::Internal("CloudSync token TTL is too large".to_string()))?;
+    Utc::now()
+        .checked_add_signed(ttl)
+        .ok_or_else(|| SyncError::Internal("CloudSync token expiry is invalid".to_string()))
+        .map(|expiry| expiry.to_rfc3339_opts(SecondsFormat::Secs, true))
 }
 
 async fn publish_requested_member_identity(

@@ -138,8 +138,7 @@ pub(crate) fn router(env: &RuntimeConfig) -> Router {
         .build();
 
     let auth_state = AuthState::new(&env.supabase.supabase_url);
-    let sync_config = anlg_api_sync::SyncConfig::from_env(
-        &env.sync,
+    let sync_config = anlg_api_sync::SyncConfig::new(
         &env.supabase.supabase_url,
         &env.supabase.supabase_anon_key,
         &env.supabase.supabase_service_role_key,
@@ -169,10 +168,7 @@ pub(crate) fn router(env: &RuntimeConfig) -> Router {
         .unwrap_or_else(|error| panic!("Failed to load environment: {error}")),
     );
 
-    tracing::info!(
-        sqlitecloud_mode = sync_config.sqlitecloud_mode().as_str(),
-        "sync_configured"
-    );
+    tracing::info!("sync_configured");
     let sync_routes = build_sync_routes(
         anlg_api_sync::AppState::new(sync_config),
         cloudsync_rate_limit,

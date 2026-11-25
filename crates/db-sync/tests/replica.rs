@@ -52,42 +52,35 @@ async fn fresh_devices_converge_through_the_replica_and_other_accounts_stay_out(
         .expect("replica credentials name the personal workspace")
         .to_string();
 
-    // Once the provider drains, the compatibility endpoint must stop minting
-    // provider tokens without turning supported clients away.
-    if matches!(
-        std::env::var("ANARLOG_REPLICA_SQLITECLOUD_MODE").as_deref(),
-        Ok("draining" | "retired")
-    ) {
-        let token_request = || {
-            http.post(format!("{api}/sync/token"))
-                .bearer_auth(&token_a)
-                .header(KEY_ID_HEADER, recovery.key_id())
-        };
-        assert_eq!(status_of(token_request()).await, 426);
-        let upgraded: serde_json::Value = token_request()
-            .header(TRANSPORTS_HEADER, "replica, accepted_replica")
-            .send()
-            .await
-            .unwrap()
-            .error_for_status()
-            .expect("an accepted-replica client was refused credentials")
-            .json()
-            .await
-            .unwrap();
-        assert_eq!(upgraded["transport"], "replica");
-        assert!(upgraded.get("token").is_none());
-    }
-
-    // Once retired, builds that predate the accepted replica are refused on the
-    // replica route too, so none keeps syncing after the subscription ends.
-    if std::env::var("ANARLOG_REPLICA_SQLITECLOUD_MODE").as_deref() == Ok("retired") {
-        let old_client = http
-            .post(format!("{api}/sync/replica/credentials"))
+    // The compatibility endpoint must issue only replica credentials and turn
+    // away clients that do not advertise `accepted_replica`.
+    let token_request = || {
+        http.post(format!("{api}/sync/token"))
             .bearer_auth(&token_a)
             .header(KEY_ID_HEADER, recovery.key_id())
-            .header(TRANSPORTS_HEADER, "replica");
-        assert_eq!(status_of(old_client).await, 426);
-    }
+    };
+    assert_eq!(status_of(token_request()).await, 426);
+    let upgraded: serde_json::Value = token_request()
+        .header(TRANSPORTS_HEADER, "replica, accepted_replica")
+        .send()
+        .await
+        .unwrap()
+        .error_for_status()
+        .expect("an accepted-replica client was refused credentials")
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(upgraded["transport"], "replica");
+    assert!(upgraded.get("token").is_none());
+
+    // Builds that predate the accepted replica are refused on the replica route
+    // too, so none keeps syncing after SQLite Cloud's retirement.
+    let old_client = http
+        .post(format!("{api}/sync/replica/credentials"))
+        .bearer_auth(&token_a)
+        .header(KEY_ID_HEADER, recovery.key_id())
+        .header(TRANSPORTS_HEADER, "replica");
+    assert_eq!(status_of(old_client).await, 426);
 
     let key = recovery.workspace_key(&workspace).unwrap();
     let keys = HashMap::from([(workspace.clone(), key.clone().into())]);

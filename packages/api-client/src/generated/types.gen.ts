@@ -237,21 +237,6 @@ export type CloudApiSettings = {
     updated_at?: string | null;
 };
 
-export type CloudsyncCredentialResponse = LegacyCloudsyncCredentials | CloudsyncCredentials | ReplicaCredentials;
-
-export type CloudsyncCredentials = {
-    accountUserId: string;
-    databaseId: string;
-    encryptionKeyId: string;
-    encryptionVersion: number;
-    expiresAt: string;
-    personalWorkspaceId: string;
-    token: string;
-    workspaceId: string;
-    workspaceKeyGrants: Array<WorkspaceE2EeKeyGrant>;
-    workspaces: Array<CloudsyncWorkspace>;
-};
-
 export type CloudsyncWorkspace = {
     createdAt: string;
     id: string;
@@ -1047,13 +1032,6 @@ export type LabelRef = {
 };
 
 export type LabelType = 'system' | 'user' | 'unknown';
-
-export type LegacyCloudsyncCredentials = {
-    databaseId: string;
-    expiresAt: string;
-    token: string;
-    workspaceId: string;
-};
 
 export type LegacySessionShareSnapshotRequest = {
     attachmentIds?: Array<string> | null;
@@ -5163,7 +5141,7 @@ export type CreateReplicaCredentialsData = {
          */
         'x-anarlog-e2ee-member-public-key'?: string | null;
         /**
-         * Comma-separated transports the client accepts; `accepted_replica` is required once SQLite Cloud is retired
+         * Comma-separated transports the client accepts; `accepted_replica` is required
          */
         'x-anarlog-cloudsync-transports'?: string | null;
     };
@@ -5190,7 +5168,7 @@ export type CreateReplicaCredentialsErrors = {
      */
     409: unknown;
     /**
-     * SQLite Cloud is retired and the client predates the accepted replica
+     * Client predates the accepted replica
      */
     426: unknown;
     /**
@@ -5493,7 +5471,7 @@ export type CreateCredentialsData = {
          */
         'x-anarlog-e2ee-member-public-key'?: string | null;
         /**
-         * Comma-separated transports the client accepts; `replica` allows witness-only credentials and `accepted_replica` is required once SQLite Cloud stops issuing tokens
+         * Comma-separated transports the client accepts; `accepted_replica` is required
          */
         'x-anarlog-cloudsync-transports'?: string | null;
     };
@@ -5504,6 +5482,10 @@ export type CreateCredentialsData = {
 
 export type CreateCredentialsErrors = {
     /**
+     * Invalid E2EE key identity
+     */
+    400: unknown;
+    /**
      * Authentication required
      */
     401: unknown;
@@ -5512,20 +5494,24 @@ export type CreateCredentialsErrors = {
      */
     403: unknown;
     /**
+     * Account already uses a different recovery key
+     */
+    409: unknown;
+    /**
      * Client update required
      */
     426: unknown;
     /**
-     * Credential issuer unavailable
+     * Credential service unavailable
      */
     502: unknown;
 };
 
 export type CreateCredentialsResponses = {
     /**
-     * Short-lived CloudSync credentials
+     * Encrypted replica credentials
      */
-    200: CloudsyncCredentialResponse;
+    200: ReplicaCredentials;
 };
 
 export type CreateCredentialsResponse = CreateCredentialsResponses[keyof CreateCredentialsResponses];

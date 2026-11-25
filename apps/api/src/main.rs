@@ -135,10 +135,7 @@ async fn app_with_session_gate(
         integrations_configured: env.nango.is_some(),
         billing_configured: env.subscription.is_some(),
         billing_webhooks: env.anarlog_billing_webhooks,
-        sqlitecloud_mode: service.includes(Service::Sync).then(|| {
-            anlg_api_sync::SqliteCloudMode::from_env(&env.sync)
-                .expect("sync configuration validated")
-        }),
+        sync_configured: service.includes(Service::Sync),
         transcription_configured: env
             .stt
             .as_ref()
@@ -411,12 +408,8 @@ fn main() -> std::io::Result<()> {
                     .subscription
                     .as_ref()
                     .expect("cleanup requires Stripe and Loops configuration");
-                let cloudsync_cleanup = env
-                    .cloudsync_cleanup()
-                    .expect("cleanup configuration validated");
                 let config =
-                    anlg_api_subscription::SubscriptionConfig::new(&env.supabase, stripe, loops)
-                        .with_cloudsync_cleanup(cloudsync_cleanup);
+                    anlg_api_subscription::SubscriptionConfig::new(&env.supabase, stripe, loops);
                 let worker = anlg_api_subscription::CleanupWorker::new(&config);
                 let worker_cancellation = cancellation.clone();
                 tokio::spawn(worker.run(worker_cancellation))
@@ -458,8 +451,7 @@ struct SubsystemHealthState {
     integrations_configured: bool,
     billing_configured: bool,
     billing_webhooks: bool,
-    /// Present when this runtime serves sync, which needs only Supabase.
-    sqlitecloud_mode: Option<anlg_api_sync::SqliteCloudMode>,
+    sync_configured: bool,
     transcription_configured: bool,
     llm_configured: bool,
     session_gate: anlg_transcribe_proxy::SessionGate,
@@ -471,13 +463,13 @@ async fn service_readiness(
 ) -> (StatusCode, Json<serde_json::Value>) {
     let configured = match state.service {
         Service::Ai => state.transcription_configured && state.llm_configured,
-        Service::Sync => state.sqlitecloud_mode.is_some(),
+        Service::Sync => state.sync_configured,
         Service::Core => state.integrations_configured && state.billing_configured,
         Service::Billing => state.billing_configured,
         Service::All => {
             state.transcription_configured
                 && state.llm_configured
-                && state.sqlitecloud_mode.is_some()
+                && state.sync_configured
                 && state.integrations_configured
                 && state.billing_configured
         }
@@ -516,13 +508,11 @@ fn subsystem_health_response(
 async fn sync_health(
     axum::extract::State(state): axum::extract::State<SubsystemHealthState>,
 ) -> (StatusCode, Json<serde_json::Value>) {
-    let configured = state.sqlitecloud_mode.is_some();
     subsystem_health_response(
-        configured,
+        state.sync_configured,
         serde_json::json!({
-            "status": if configured { "ok" } else { "not_configured" },
-            "configured": configured,
-            "sqlitecloud_mode": state.sqlitecloud_mode.map(|mode| mode.as_str()),
+            "status": if state.sync_configured { "ok" } else { "not_configured" },
+            "configured": state.sync_configured,
         }),
     )
 }

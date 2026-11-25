@@ -10,8 +10,6 @@ use crate::{
 };
 
 pub(in crate::routes) const WORKSPACE_PROJECTION_SELECT: &str = "id,user_id,role,created_at,updated_at,workspace:workspaces!inner(id,owner_user_id,kind,name,created_at,updated_at)";
-pub(in crate::routes) const MAX_TOKEN_WORKSPACES: usize = 128;
-pub(in crate::routes) const MAX_TOKEN_ATTRIBUTES_BYTES: usize = 8 * 1024;
 
 #[derive(Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
@@ -176,35 +174,4 @@ pub(super) fn validate_workspace_projection(
 fn invalid_workspace_projection<T>(reason: &'static str) -> Result<T> {
     tracing::warn!(reason, "Supabase workspace projection failed validation");
     Err(SyncError::Upstream)
-}
-
-pub(in crate::routes) fn encode_workspace_token_attributes(
-    workspaces: &[CloudsyncWorkspace],
-) -> Result<String> {
-    if workspaces.len() > MAX_TOKEN_WORKSPACES {
-        tracing::warn!(
-            workspace_count = workspaces.len(),
-            "CloudSync workspace projection exceeds token limit"
-        );
-        return Err(SyncError::Upstream);
-    }
-
-    let attributes = serde_json::to_string(&serde_json::json!({
-        "workspace_ids": workspaces
-            .iter()
-            .map(|workspace| workspace.id.as_str())
-            .collect::<Vec<_>>(),
-    }))
-    .map_err(|error| {
-        SyncError::Internal(format!("CloudSync token attributes are invalid: {error}"))
-    })?;
-    if attributes.len() > MAX_TOKEN_ATTRIBUTES_BYTES {
-        tracing::warn!(
-            attribute_bytes = attributes.len(),
-            "CloudSync workspace projection exceeds token size limit"
-        );
-        return Err(SyncError::Upstream);
-    }
-
-    Ok(attributes)
 }

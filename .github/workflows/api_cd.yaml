@@ -133,10 +133,9 @@ jobs:
           set -euo pipefail
 
           ai_secrets_json="$(mktemp)"
-          cloudsync_secrets_json="$(mktemp)"
           webhook_secrets_json="$(mktemp)"
           secrets_file="$(mktemp)"
-          trap 'rm -f "$ai_secrets_json" "$cloudsync_secrets_json" "$webhook_secrets_json" "$secrets_file"' EXIT
+          trap 'rm -f "$ai_secrets_json" "$webhook_secrets_json" "$secrets_file"' EXIT
 
           infisical export \
             --token="$INFISICAL_TOKEN" \
@@ -145,14 +144,6 @@ jobs:
             --path="/anarlog/ai" \
             --format=json \
             --output-file="$ai_secrets_json"
-
-          infisical export \
-            --token="$INFISICAL_TOKEN" \
-            --env="$INFISICAL_ENV" \
-            --projectId="$INFISICAL_PROJECT_ID" \
-            --path="/anarlog/cloudsync" \
-            --format=json \
-            --output-file="$cloudsync_secrets_json"
 
           printf '[]' > "$webhook_secrets_json"
           if [ "$SERVICE" = billing ]; then
@@ -163,7 +154,7 @@ jobs:
 
           python3 .github/scripts/prepare_api_service_secrets.py \
             --service "$SERVICE" --api "$ai_secrets_json" \
-            --cloudsync "$cloudsync_secrets_json" --webhooks "$webhook_secrets_json" --output "$secrets_file"
+            --webhooks "$webhook_secrets_json" --output "$secrets_file"
 
           if [ -s "$secrets_file" ]; then
             flyctl secrets import --app "$FLY_APP" --stage < "$secrets_file"
@@ -225,7 +216,7 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
       # The check before the deploy saw the previous image. Repeat the replica
-      # check against the candidate, which may have changed the lifecycle mode.
+      # check against the deployed sync candidate.
       - if: inputs.service == 'sync'
         run: |
           set -euo pipefail
@@ -241,7 +232,7 @@ jobs:
             --format=json \
             --output-file="$cloudsync_secrets_json"
 
-          python3 .github/scripts/verify_cloudsync_e2ee.py --replica-only "$cloudsync_secrets_json"
+          python3 .github/scripts/verify_cloudsync_e2ee.py "$cloudsync_secrets_json"
         env:
           INFISICAL_PROJECT_ID: ${{ secrets.INFISICAL_PROJECT_ID }}
       - if: always() && inputs.continuity_user != ''

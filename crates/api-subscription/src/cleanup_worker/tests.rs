@@ -21,31 +21,21 @@ fn full_batches_back_off_without_changing_idle_polling() {
 }
 
 fn worker(server: &MockServer) -> CleanupWorker {
-    worker_with_cloudsync(
-        server,
-        CloudsyncCleanup::Provider(crate::CloudsyncCleanupConfig::for_test(&server.uri())),
-    )
-}
-
-fn worker_with_cloudsync(server: &MockServer, cloudsync: CloudsyncCleanup) -> CleanupWorker {
-    let mut worker = CleanupWorker::new(
-        &SubscriptionConfig::new(
-            &SupabaseEnv {
-                supabase_url: server.uri(),
-                supabase_anon_key: "anon-key".to_string(),
-                supabase_service_role_key: "service-role-key".to_string(),
-            },
-            &StripeEnv {
-                stripe_secret_key: "sk_test_fake".to_string(),
-                stripe_monthly_price_id: "price_monthly".to_string(),
-                stripe_yearly_price_id: "price_yearly".to_string(),
-            },
-            &LoopsEnv {
-                loops_key: "loops-key".to_string(),
-            },
-        )
-        .with_cloudsync_cleanup(cloudsync),
-    );
+    let mut worker = CleanupWorker::new(&SubscriptionConfig::new(
+        &SupabaseEnv {
+            supabase_url: server.uri(),
+            supabase_anon_key: "anon-key".to_string(),
+            supabase_service_role_key: "service-role-key".to_string(),
+        },
+        &StripeEnv {
+            stripe_secret_key: "sk_test_fake".to_string(),
+            stripe_monthly_price_id: "price_monthly".to_string(),
+            stripe_yearly_price_id: "price_yearly".to_string(),
+        },
+        &LoopsEnv {
+            loops_key: "loops-key".to_string(),
+        },
+    ));
     worker.stripe = stripe::ClientBuilder::new("sk_test_fake")
         .url(format!("{}/", server.uri()))
         .build()
@@ -117,39 +107,6 @@ async fn mount_account_claim_with_stripe(
                 "lease_expires_at": (Utc::now() + TimeDelta::minutes(15)).to_rfc3339()
             }]))
         })
-        .mount(server)
-        .await;
-}
-
-async fn mount_cloudsync_cleanup(server: &MockServer, remaining: u64) {
-    Mock::given(method("GET"))
-        .and(path("/v1/databases/managed-e2ee"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
-            "data": {
-                "managedDatabaseId": "managed-e2ee",
-                "databaseName": "e2ee.sqlite",
-                "projectId": "test-project"
-            }
-        })))
-        .mount(server)
-        .await;
-    Mock::given(method("POST"))
-        .and(path("/v2/weblite/sql"))
-        .respond_with(move |request: &Request| {
-            let body: Value = serde_json::from_slice(&request.body).unwrap();
-            let sql = body["sql"].as_str().unwrap();
-            if sql.starts_with("DELETE FROM e2ee_records") {
-                ResponseTemplate::new(200).set_body_json(json!({ "data": [] }))
-            } else {
-                ResponseTemplate::new(200)
-                    .set_body_json(json!({ "data": [{ "remaining": remaining }] }))
-            }
-        })
-        .mount(server)
-        .await;
-    Mock::given(method("POST"))
-        .and(path("/rest/v1/rpc/mark_account_deletion_e2ee_purged"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!(true)))
         .mount(server)
         .await;
 }
@@ -395,7 +352,11 @@ async fn sweeps_all_attachment_prefixes_before_deleting_the_auth_user() {
         .respond_with(ResponseTemplate::new(200).set_body_json(json!(true)))
         .mount(&server)
         .await;
-    mount_cloudsync_cleanup(&server, 0).await;
+    Mock::given(method("POST"))
+        .and(path("/rest/v1/rpc/mark_account_deletion_e2ee_purged"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!(true)))
+        .mount(&server)
+        .await;
     Mock::given(method("DELETE"))
         .and(path(format!("/auth/v1/admin/users/{OWNER}")))
         .respond_with(ResponseTemplate::new(200))
@@ -432,32 +393,11 @@ async fn sweeps_all_attachment_prefixes_before_deleting_the_auth_user() {
             "/storage/v1/object/list/shared-note-attachments",
             "/storage/v1/object/list/profile-avatars",
             "/rest/v1/rpc/mark_account_deletion_prefix_swept",
-            "/v1/databases/managed-e2ee",
-            "/v2/weblite/sql",
-            "/v2/weblite/sql",
             "/rest/v1/rpc/mark_account_deletion_e2ee_purged",
             &format!("/auth/v1/admin/users/{OWNER}"),
             "/rest/v1/rpc/finish_account_deletion",
         ]
     );
-    let sql = server
-        .received_requests()
-        .await
-        .unwrap()
-        .into_iter()
-        .filter(|request| request.url.path() == "/v2/weblite/sql")
-        .map(|request| {
-            serde_json::from_slice::<Value>(&request.body).unwrap()["sql"]
-                .as_str()
-                .unwrap()
-                .to_string()
-        })
-        .collect::<Vec<_>>();
-    assert_eq!(sql.len(), 2);
-    assert!(sql[0].starts_with("DELETE FROM e2ee_records"));
-    assert!(sql[0].contains(OWNER));
-    assert!(sql[0].contains(WORKSPACE));
-    assert!(sql[1].starts_with("SELECT COUNT(*) AS remaining"));
 }
 
 #[tokio::test]
@@ -695,99 +635,6 @@ async fn treats_storage_sweep_cancellation_as_a_graceful_stop() {
         requests[0].url.path(),
         "/storage/v1/object/list/attachment-backups"
     );
-}
-
-#[tokio::test]
-async fn leaves_auth_intact_when_cloudsync_purge_fails() {
-    let server = MockServer::start().await;
-    mount_account_claim(&server, true, false).await;
-    Mock::given(method("GET"))
-        .and(path("/v1/databases/managed-e2ee"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
-            "data": {
-                "managedDatabaseId": "managed-e2ee",
-                "databaseName": "e2ee.sqlite",
-                "projectId": "test-project"
-            }
-        })))
-        .mount(&server)
-        .await;
-    Mock::given(method("POST"))
-        .and(path("/v2/weblite/sql"))
-        .respond_with(ResponseTemplate::new(503))
-        .mount(&server)
-        .await;
-
-    let count = worker(&server)
-        .run_account_batch(&CancellationToken::new())
-        .await
-        .unwrap();
-
-    assert_eq!(count, 1);
-    let requests = server.received_requests().await.unwrap();
-    assert!(requests.iter().all(|request| {
-        request.url.path() != format!("/auth/v1/admin/users/{OWNER}")
-            && request.url.path() != "/rest/v1/rpc/mark_account_deletion_e2ee_purged"
-            && request.url.path() != "/rest/v1/rpc/finish_account_deletion"
-    }));
-}
-
-#[tokio::test]
-async fn retired_sqlitecloud_finishes_deletion_without_contacting_the_provider() {
-    let server = MockServer::start().await;
-    mount_account_claim(&server, true, false).await;
-    for route in [
-        "/rest/v1/rpc/mark_account_deletion_e2ee_purged",
-        "/rest/v1/rpc/finish_account_deletion",
-    ] {
-        Mock::given(method("POST"))
-            .and(path(route))
-            .respond_with(ResponseTemplate::new(200).set_body_json(json!(true)))
-            .mount(&server)
-            .await;
-    }
-    Mock::given(method("DELETE"))
-        .and(path(format!("/auth/v1/admin/users/{OWNER}")))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
-        .mount(&server)
-        .await;
-
-    let count = worker_with_cloudsync(&server, CloudsyncCleanup::Retired)
-        .run_account_batch(&CancellationToken::new())
-        .await
-        .unwrap();
-
-    assert_eq!(count, 1);
-    let paths = server
-        .received_requests()
-        .await
-        .unwrap()
-        .iter()
-        .map(|request| request.url.path().to_string())
-        .collect::<Vec<_>>();
-    assert_eq!(
-        paths,
-        [
-            "/rest/v1/rpc/claim_account_deletion_leases_v2".to_string(),
-            "/rest/v1/rpc/mark_account_deletion_e2ee_purged".to_string(),
-            format!("/auth/v1/admin/users/{OWNER}"),
-            "/rest/v1/rpc/finish_account_deletion".to_string(),
-        ]
-    );
-}
-
-#[tokio::test]
-async fn a_missing_cloudsync_choice_never_counts_as_a_purge() {
-    let server = MockServer::start().await;
-    mount_account_claim(&server, true, false).await;
-
-    let count = worker_with_cloudsync(&server, CloudsyncCleanup::Unconfigured)
-        .run_account_batch(&CancellationToken::new())
-        .await
-        .unwrap();
-
-    assert_eq!(count, 1);
-    assert_eq!(server.received_requests().await.unwrap().len(), 1);
 }
 
 #[tokio::test]

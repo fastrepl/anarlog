@@ -12,83 +12,13 @@ use wiremock::{
 };
 
 use super::*;
-use crate::{
-    SyncConfig, SyncError,
-    config::{CloudsyncProtocolMode, CloudsyncTransport, SqliteCloudConfig, SqliteCloudMode},
-};
+use crate::SyncConfig;
 
 const TEST_KEY_ID: &str = "abcdefghijklmnopqrstuv";
 
-fn test_router(server: &MockServer, api_key: &str, entitlements: &[&str]) -> Router {
-    test_router_with_protocol(
-        server,
-        api_key,
-        entitlements,
-        CloudsyncProtocolMode::E2eeEnforced,
-        None,
-    )
-}
-
-fn test_router_with_protocol(
-    server: &MockServer,
-    api_key: &str,
-    entitlements: &[&str],
-    protocol_mode: CloudsyncProtocolMode,
-    legacy_database_id: Option<&str>,
-) -> Router {
-    test_router_with_transport(
-        server,
-        api_key,
-        entitlements,
-        protocol_mode,
-        legacy_database_id,
-        CloudsyncTransport::SqliteSync,
-    )
-}
-
-fn test_router_with_transport(
-    server: &MockServer,
-    api_key: &str,
-    entitlements: &[&str],
-    protocol_mode: CloudsyncProtocolMode,
-    legacy_database_id: Option<&str>,
-    desktop_transport: CloudsyncTransport,
-) -> Router {
-    test_router_with_sqlitecloud_mode(
-        server,
-        api_key,
-        entitlements,
-        protocol_mode,
-        legacy_database_id,
-        desktop_transport,
-        SqliteCloudMode::Enabled,
-    )
-}
-
-fn test_router_with_sqlitecloud_mode(
-    server: &MockServer,
-    api_key: &str,
-    entitlements: &[&str],
-    protocol_mode: CloudsyncProtocolMode,
-    legacy_database_id: Option<&str>,
-    desktop_transport: CloudsyncTransport,
-    sqlitecloud_mode: SqliteCloudMode,
-) -> Router {
-    let state = AppState::new(SyncConfig {
-        sqlitecloud_mode,
-        sqlitecloud: (sqlitecloud_mode != SqliteCloudMode::Retired).then(|| SqliteCloudConfig {
-            project_url: server.uri(),
-            token_issuer_api_key: api_key.to_string(),
-            database_id: "database-id".to_string(),
-            legacy_database_id: legacy_database_id.map(ToString::to_string),
-            token_ttl_seconds: 60,
-        }),
-        protocol_mode,
-        desktop_transport,
-        supabase_url: server.uri(),
-        supabase_anon_key: "anon-key".to_string(),
-        supabase_service_role_key: "service-role-key".to_string(),
-    });
+fn test_router(server: &MockServer, _api_key: &str, entitlements: &[&str]) -> Router {
+    let state =
+        AppState::new(SyncConfig::new(server.uri(), "anon-key", "service-role-key").unwrap());
     cloudsync_router(state.clone())
         .merge(replica_router(state.replica.clone()))
         .merge(device_router(state.replica.clone()))
@@ -232,33 +162,6 @@ fn accepted_replica_token_request() -> Request<Body> {
         )
         .body(Body::empty())
         .unwrap()
-}
-
-async fn mock_sync_transport_override(server: &MockServer, transport: Option<&str>) {
-    let body = match transport {
-        Some(transport) => json!([{ "transport": transport }]),
-        None => json!([]),
-    };
-    Mock::given(method("GET"))
-        .and(path("/rest/v1/sync_transport_overrides"))
-        .and(header("apikey", "service-role-key"))
-        .and(header("authorization", "Bearer service-role-key"))
-        .and(query_param("user_id", "eq.user-123"))
-        .and(query_param("select", "transport"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(body))
-        .mount(server)
-        .await;
-}
-
-async fn mock_sqlitecloud_token(server: &MockServer, token: &str) {
-    Mock::given(method("POST"))
-        .and(path("/v2/tokens"))
-        .and(header("authorization", "Bearer issuer-key"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
-            "data": { "token": token }
-        })))
-        .mount(server)
-        .await;
 }
 
 async fn response_json(response: axum::response::Response) -> Value {

@@ -10,8 +10,7 @@ use tokio_util::sync::CancellationToken;
 use uuid::{Uuid, Version};
 
 use crate::{
-    CloudsyncCleanup, SubscriptionConfig,
-    cloudsync_cleanup::CloudsyncCleanupClient,
+    SubscriptionConfig,
     error::{Result, SubscriptionError},
     supabase::SupabaseClient,
 };
@@ -40,14 +39,6 @@ pub struct CleanupWorker {
     supabase: SupabaseClient,
     storage: anlg_supabase_storage::SupabaseStorage,
     stripe: stripe::Client,
-    cloudsync: E2eePurge,
-}
-
-#[derive(Clone)]
-enum E2eePurge {
-    Unconfigured,
-    Provider(CloudsyncCleanupClient),
-    Retired,
 }
 
 #[derive(Serialize)]
@@ -139,18 +130,10 @@ impl CleanupWorker {
         );
         let storage = supabase.storage();
         let stripe = stripe::Client::new(&config.stripe.stripe_secret_key);
-        let cloudsync = match config.cloudsync_cleanup.clone() {
-            CloudsyncCleanup::Unconfigured => E2eePurge::Unconfigured,
-            CloudsyncCleanup::Provider(config) => {
-                E2eePurge::Provider(CloudsyncCleanupClient::new(config))
-            }
-            CloudsyncCleanup::Retired => E2eePurge::Retired,
-        };
         Self {
             supabase,
             storage,
             stripe,
-            cloudsync,
         }
     }
 
@@ -505,23 +488,9 @@ impl CleanupWorker {
             if cancellation.is_cancelled() {
                 return Ok(());
             }
-            match &self.cloudsync {
-                E2eePurge::Unconfigured => {
-                    return Err(SubscriptionError::Internal(
-                        "CloudSync cleanup is not configured".to_string(),
-                    ));
-                }
-                E2eePurge::Provider(cloudsync) => {
-                    cloudsync.purge_and_confirm(&row.e2ee_workspace_ids).await?;
-                }
-                // Nothing is left at the provider. Deleting the auth user below
-                // cascades through the owned workspaces to the Supabase
-                // encrypted log, and the job cannot finish while that user exists.
-                E2eePurge::Retired => {}
-            }
-            if cancellation.is_cancelled() {
-                return Ok(());
-            }
+            // Encrypted replica rows live only in Supabase, so deleting the auth
+            // user below cascades through the owned workspaces to remove them.
+            // `finish_account_deletion` still requires this checkpoint RPC first.
             let marked: bool = self
                 .supabase
                 .admin_rpc(

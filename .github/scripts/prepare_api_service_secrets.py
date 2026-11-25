@@ -53,26 +53,14 @@ CORE = BILLING | {
     "NANGO_WEBHOOK_SIGNING_KEY",
     "GOOGLE_DRIVE_PICKER_REDIRECT_URI",
 }
-SQLITECLOUD = {
-    "ANARLOG_CLOUDSYNC_DATABASE_ID",
-    "ANARLOG_CLOUDSYNC_E2EE_DATABASE_ID",
-    "ANARLOG_CLOUDSYNC_PROTOCOL_MODE",
-    "ANARLOG_CLOUDSYNC_TOKEN_TTL_SECONDS",
-    "SQLITECLOUD_CLOUDSYNC_MANAGEMENT_API_KEY",
-    "SQLITECLOUD_PROJECT_URL",
-    "SQLITECLOUD_TOKEN_ISSUER_API_KEY",
-}
-SQLITECLOUD_MODES = {"enabled", "draining", "retired"}
-SYNC = SQLITECLOUD | {
+SYNC = {
     "RESEND_API_KEY",
     "RESEND_FROM_EMAIL",
-    "ANARLOG_CLOUDSYNC_DESKTOP_TRANSPORT",
-    "ANARLOG_SQLITECLOUD_MODE",
 }
 ROLES = {"ai": AI, "sync": SYNC, "core": CORE | SYNC, "billing": BILLING}
 
 
-def select(service, api_secrets, cloudsync_secrets, webhook_secrets=()):
+def select(service, api_secrets, cloudsync_secrets=(), webhook_secrets=()):
     if service not in {*ROLES, "all", "gateway", "legacy"}:
         raise ValueError("Unknown API service")
     allowed = SHARED | ROLES.get(service, AI | CORE | SYNC)
@@ -108,17 +96,6 @@ def select(service, api_secrets, cloudsync_secrets, webhook_secrets=()):
         required |= {"NANGO_API_KEY", "NANGO_WEBHOOK_SIGNING_KEY"}
     if service in {"sync", "core", "all", "gateway", "legacy"}:
         required |= {"RESEND_API_KEY", "RESEND_FROM_EMAIL"}
-        mode = values.get("ANARLOG_SQLITECLOUD_MODE", "").strip() or "enabled"
-        if mode not in SQLITECLOUD_MODES:
-            raise ValueError(
-                "ANARLOG_SQLITECLOUD_MODE must be enabled, draining, or retired"
-            )
-        if mode == "retired":
-            # Deploys never unset secrets, so the explicit mode is what keeps a
-            # machine from reading provider values left over from before.
-            values = {k: v for k, v in values.items() if k not in SQLITECLOUD}
-        else:
-            required |= SQLITECLOUD - {"ANARLOG_CLOUDSYNC_TOKEN_TTL_SECONDS"}
     if service == "billing":
         webhook_values = {
             secret["key"]: secret.get("value", "") for secret in webhook_secrets
@@ -144,14 +121,14 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--service", required=True)
     parser.add_argument("--api", required=True)
-    parser.add_argument("--cloudsync", required=True)
+    parser.add_argument("--cloudsync")
     parser.add_argument("--output", required=True)
     parser.add_argument("--webhooks")
     args = parser.parse_args()
     values = select(
         args.service,
         json.loads(Path(args.api).read_text()),
-        json.loads(Path(args.cloudsync).read_text()),
+        json.loads(Path(args.cloudsync).read_text()) if args.cloudsync else [],
         json.loads(Path(args.webhooks).read_text()) if args.webhooks else [],
     )
     path = Path(args.output)
