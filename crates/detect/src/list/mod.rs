@@ -56,12 +56,30 @@ const SELF_APP_PATH_SEGMENTS: &[&str] = &[
     "/char nightly.app/",
 ];
 
+// ALSA clients routed through PipeWire or PulseAudio are named after the
+// process, not the app: Anarlog's own microphone capture on Linux shows up as
+// "PipeWire ALSA [anarlog]" (or "ALSA plug-in [anarlog]" on PulseAudio), with no
+// process binary to fall back on.
+const ALSA_CLIENT_NAME_PREFIXES: &[&str] = &["pipewire alsa [", "alsa plug-in ["];
+
+fn alsa_client_process_name(value: &str) -> Option<String> {
+    ALSA_CLIENT_NAME_PREFIXES
+        .iter()
+        .find_map(|prefix| value.strip_prefix(prefix))
+        .and_then(|rest| rest.strip_suffix(']'))
+        .map(|process| process.replace('-', " "))
+}
+
 fn is_self_app(app: &InstalledApp) -> bool {
     let id = app.id.to_lowercase();
     let name = app.name.to_lowercase();
 
     SELF_BUNDLE_IDS.contains(&id.as_str())
         || SELF_APP_NAMES.contains(&name.as_str())
+        || [&id, &name]
+            .into_iter()
+            .filter_map(|value| alsa_client_process_name(value))
+            .any(|process| SELF_APP_NAMES.contains(&process.as_str()))
         || SELF_APP_PATH_SEGMENTS
             .iter()
             .any(|segment| id.contains(segment))
@@ -127,6 +145,20 @@ mod tests {
                 "Unknown",
                 true,
             ),
+            ("PipeWire ALSA [anarlog]", "PipeWire ALSA [anarlog]", true),
+            (
+                "PipeWire ALSA [anarlog-nightly]",
+                "PipeWire ALSA [anarlog-nightly]",
+                true,
+            ),
+            ("ALSA plug-in [anarlog]", "ALSA plug-in [anarlog]", true),
+            ("PipeWire ALSA [teams]", "PipeWire ALSA [teams]", false),
+            (
+                "PipeWire ALSA [anarlog]x",
+                "PipeWire ALSA [anarlog]x",
+                false,
+            ),
+            ("PipeWire ALSA [charm]", "PipeWire ALSA [charm]", false),
             ("com.adobe.character-animator", "Character Animator", false),
             (
                 "/Applications/Chart.app/Contents/MacOS/Chart",
