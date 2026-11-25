@@ -29,6 +29,22 @@ pub(crate) fn spawn_replica_sync_with_intervals(
     fallback_interval: std::time::Duration,
     heartbeat_interval: std::time::Duration,
 ) -> ReplicaSyncTask {
+    spawn_replica_sync_with_test_intervals(
+        db,
+        hook,
+        fallback_interval,
+        heartbeat_interval,
+        REPLICA_SYNC_LOCAL_WORK_CHECK,
+    )
+}
+
+pub(crate) fn spawn_replica_sync_with_test_intervals(
+    db: Arc<Db>,
+    hook: Arc<E2eeSyncHook>,
+    fallback_interval: std::time::Duration,
+    heartbeat_interval: std::time::Duration,
+    local_work_check_interval: std::time::Duration,
+) -> ReplicaSyncTask {
     let (shutdown_tx, mut shutdown_rx) = tokio::sync::oneshot::channel::<()>();
     super::spawn_background(async move {
         let mut legacy_cloudsync_retired = !db.cloudsync_enabled();
@@ -77,7 +93,7 @@ pub(crate) fn spawn_replica_sync_with_intervals(
                 let local_check_step = if waiting_for_remote {
                     remaining
                 } else {
-                    REPLICA_SYNC_LOCAL_WORK_CHECK.min(remaining)
+                    local_work_check_interval.min(remaining)
                 };
                 tokio::select! {
                     biased;

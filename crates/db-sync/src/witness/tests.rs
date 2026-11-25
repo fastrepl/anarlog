@@ -4001,36 +4001,42 @@ async fn replica_sync_with_healthy_wait_uploads_local_edit_before_heartbeat() {
     let server = MockServer::start().await;
     let get_calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
     let post_calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let head_seq = Arc::new(std::sync::atomic::AtomicU64::new(0));
     let get_calls_ref = Arc::clone(&get_calls);
+    let head_seq_get = Arc::clone(&head_seq);
     Mock::given(method("GET"))
         .and(path("/sync/e2ee/witness/user-a/accepted"))
         .respond_with(move |_req: &Request| {
             get_calls_ref.fetch_add(1, std::sync::atomic::Ordering::AcqRel);
+            let head = head_seq_get.load(std::sync::atomic::Ordering::Acquire);
             ResponseTemplate::new(200).set_body_json(json!({
-                "initialized": false,
-                "initializedAt": null,
-                "headSequence": 0,
-                "throughSequence": 0,
-                "nextAfterSequence": 0,
-                "cloudAuthorityAfter": null,
+                "initialized": true,
+                "initializedAt": "2026-10-05T00:00:00Z",
+                "headSequence": head,
+                "throughSequence": head,
+                "nextAfterSequence": head,
+                "cloudAuthorityAfter": 0,
                 "events": []
             }))
         })
         .mount(&server)
         .await;
     let post_calls_ref = Arc::clone(&post_calls);
+    let head_seq_post = Arc::clone(&head_seq);
     Mock::given(method("POST"))
         .and(path("/sync/e2ee/witness/user-a/accepted"))
         .respond_with(move |req: &Request| {
             post_calls_ref.fetch_add(1, std::sync::atomic::Ordering::AcqRel);
             let body: serde_json::Value = serde_json::from_slice(&req.body).unwrap();
             let events = body["events"].as_array().unwrap();
+            let prev =
+                head_seq_post.fetch_add(events.len() as u64, std::sync::atomic::Ordering::AcqRel);
             let receipts: Vec<_> = events
                 .iter()
                 .enumerate()
                 .map(|(i, event)| {
                     json!({
-                        "sequence": i as u64 + 1,
+                        "sequence": prev + i as u64 + 1,
                         "recordId": event["recordId"],
                         "payloadHash": event["payloadHash"],
                     })
@@ -4038,7 +4044,7 @@ async fn replica_sync_with_healthy_wait_uploads_local_edit_before_heartbeat() {
                 .collect();
             ResponseTemplate::new(200).set_body_json(json!({
                 "initializedAt": "2026-10-05T00:00:00Z",
-                "headSequence": receipts.len() as u64,
+                "headSequence": prev + events.len() as u64,
                 "cloudAuthorityAfter": 0,
                 "mutationId": body["mutationId"],
                 "receipts": receipts,
@@ -4073,29 +4079,33 @@ async fn replica_sync_with_healthy_wait_uploads_local_edit_before_heartbeat() {
     );
     hook.set_witness_watch_healthy(true);
 
-    let _task = crate::replica_sync::spawn_replica_sync_with_intervals(
+    let _task = crate::replica_sync::spawn_replica_sync_with_test_intervals(
         Arc::clone(&db),
         Arc::clone(&hook),
         std::time::Duration::from_secs(30),
         std::time::Duration::from_secs(300),
+        std::time::Duration::from_millis(80),
     );
 
-    // Wait for initial sync request triggered by `set_replica_witness`.
+    // Wait for initial sync request triggered by `set_replica_witness` to settle.
     let initial_deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(3);
-    while get_calls.load(std::sync::atomic::Ordering::Acquire) == 0 {
+    while hook.replica_status().last_sync_at_ms.is_none() {
         assert!(tokio::time::Instant::now() < initial_deadline);
         tokio::time::sleep(std::time::Duration::from_millis(20)).await;
     }
-    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    let status = hook.replica_status();
+    assert_eq!(status.last_error, None);
     let settled_gets = get_calls.load(std::sync::atomic::Ordering::Acquire);
+    assert!(settled_gets >= 1);
     assert_eq!(post_calls.load(std::sync::atomic::Ordering::Acquire), 0);
 
-    // Confirm idle heartbeat emits zero network calls over 400ms.
+    // Confirm multiple idle local-work probes emit zero network calls.
     tokio::time::sleep(std::time::Duration::from_millis(400)).await;
     assert_eq!(
         get_calls.load(std::sync::atomic::Ordering::Acquire),
         settled_gets
     );
+    assert_eq!(post_calls.load(std::sync::atomic::Ordering::Acquire), 0);
 
     // Insert a local edit WITHOUT calling `request_replica_sync()`. Local-work check must
     // trigger an upload well before the 300s heartbeat.
@@ -4104,7 +4114,7 @@ async fn replica_sync_with_healthy_wait_uploads_local_edit_before_heartbeat() {
         .await
         .unwrap();
 
-    let upload_deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(6);
+    let upload_deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(2);
     while post_calls.load(std::sync::atomic::Ordering::Acquire) == 0 {
         assert!(
             tokio::time::Instant::now() < upload_deadline,

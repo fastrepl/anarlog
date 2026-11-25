@@ -1100,3 +1100,188 @@ async fn rebase_e2ee_cloud_documents_handles_multiple_tx_batches() {
         );
     }
 }
+
+#[tokio::test]
+async fn export_snapshot_skips_when_exceeding_byte_budget() {
+    let db = test_db().await;
+    let keys = keys("workspace-a");
+    let keyring = &keys["workspace-a"];
+    configure_e2ee_cloud_authority(db.pool(), "workspace-a", Some(0))
+        .await
+        .unwrap();
+    let e1 = keyring
+        .active()
+        .seal_field_at(
+            "workspace-a",
+            "sessions",
+            "s1",
+            "title",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            1,
+            false,
+            Some(1),
+            json!("First Title"),
+        )
+        .unwrap();
+    merge_e2ee_witness_events_with_keyring(
+        db.pool(),
+        keyring,
+        "workspace-a",
+        &[E2eeWitnessEvent {
+            sequence: 1,
+            workspace_id: "workspace-a".into(),
+            record_id: e1.record_id,
+            payload_hash: anlg_e2ee::payload_hash(&e1.payload),
+            payload: e1.payload,
+        }],
+    )
+    .await
+    .unwrap();
+    advance_e2ee_witness_cursor(db.pool(), "workspace-a", 1)
+        .await
+        .unwrap();
+
+    assert!(
+        crate::e2ee::snapshot::export_e2ee_workspace_snapshot_with_max_bytes(
+            db.pool(),
+            "workspace-a",
+            32,
+        )
+        .await
+        .unwrap()
+        .is_none()
+    );
+    assert!(
+        crate::e2ee::snapshot::export_e2ee_workspace_snapshot_with_max_bytes(
+            db.pool(),
+            "workspace-a",
+            8192,
+        )
+        .await
+        .unwrap()
+        .is_some()
+    );
+}
+
+#[tokio::test]
+async fn rebase_e2ee_cloud_documents_cancellable_resumes_after_first_page() {
+    let db = test_db().await;
+    let keys = keys("workspace-a");
+    let keyring = &keys["workspace-a"];
+    configure_e2ee_cloud_authority(db.pool(), "workspace-a", Some(0))
+        .await
+        .unwrap();
+    let ids: Vec<String> = (0..10).map(|i| format!("doc-{i:02}")).collect();
+    for id in &ids {
+        sqlx::query(
+            "INSERT INTO sessions(id,workspace_id,owner_user_id) VALUES(?,'workspace-a','u')",
+        )
+        .bind(id)
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query("INSERT INTO session_documents(id,workspace_id,session_id,kind,body_format,body) VALUES(?,'workspace-a',?,'note','prosemirror_json',?)")
+            .bind(id)
+            .bind(id)
+            .bind(document("first", "second"))
+            .execute(db.pool())
+            .await
+            .unwrap();
+    }
+    encrypt_e2ee_replica_changes(db.pool(), &keys)
+        .await
+        .unwrap();
+    let mut head = 0;
+    while let Some(batch) = pending_e2ee_cloud_batch(db.pool(), "workspace-a", false)
+        .await
+        .unwrap()
+    {
+        accept(db.pool(), keyring, &batch, &mut head).await;
+    }
+    for id in &ids {
+        sqlx::query("UPDATE session_documents SET body = ? WHERE id = ?")
+            .bind(document("local", "second"))
+            .bind(id)
+            .execute(db.pool())
+            .await
+            .unwrap();
+    }
+    encrypt_e2ee_replica_changes(db.pool(), &keys)
+        .await
+        .unwrap();
+
+    let mut remote_events = Vec::new();
+    for id in &ids {
+        let sealed = keyring
+            .active()
+            .seal_field_at(
+                "workspace-a",
+                "session_documents",
+                id,
+                "body",
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                2,
+                false,
+                Some(1),
+                json!(document("first", "cloud")),
+            )
+            .unwrap();
+        head += 1;
+        remote_events.push(E2eeWitnessEvent {
+            sequence: head,
+            workspace_id: "workspace-a".into(),
+            record_id: sealed.record_id,
+            payload_hash: anlg_e2ee::payload_hash(&sealed.payload),
+            payload: sealed.payload,
+        });
+    }
+    merge_e2ee_witness_events_with_keyring(db.pool(), keyring, "workspace-a", &remote_events)
+        .await
+        .unwrap();
+
+    // Cancel after page 1 commits 8 documents (initial + loop start + tx start + 8 docs = 11 checks).
+    let checks = std::sync::atomic::AtomicUsize::new(0);
+    let err = rebase_e2ee_cloud_documents_cancellable(db.pool(), "workspace-a", keyring, || {
+        checks.fetch_add(1, std::sync::atomic::Ordering::SeqCst) >= 11
+    })
+    .await
+    .unwrap_err();
+    assert!(matches!(err, E2eeReplicaError::Cancelled));
+
+    let rebased_expected = serde_json::from_str::<Value>(&document("local", "cloud")).unwrap();
+    let pending_expected = serde_json::from_str::<Value>(&document("local", "second")).unwrap();
+    let mut rebased = 0_usize;
+    let mut remaining = 0_usize;
+    for id in &ids {
+        let body: String = sqlx::query_scalar("SELECT body FROM session_documents WHERE id = ?")
+            .bind(id)
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+        let parsed = serde_json::from_str::<Value>(&body).unwrap();
+        if parsed == rebased_expected {
+            rebased += 1;
+        } else if parsed == pending_expected {
+            remaining += 1;
+        } else {
+            panic!("unexpected intermediate doc state for {id}: {parsed}");
+        }
+    }
+    assert_eq!(rebased, 8);
+    assert_eq!(remaining, 2);
+
+    rebase_e2ee_cloud_documents(db.pool(), "workspace-a", keyring)
+        .await
+        .unwrap();
+    for id in &ids {
+        let current: String = sqlx::query_scalar("SELECT body FROM session_documents WHERE id = ?")
+            .bind(id)
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+        assert_eq!(
+            serde_json::from_str::<Value>(&current).unwrap(),
+            serde_json::from_str::<Value>(&document("local", "cloud")).unwrap()
+        );
+    }
+}

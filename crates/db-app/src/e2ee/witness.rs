@@ -444,45 +444,14 @@ async fn merge_e2ee_witness_events_inner(
         return Ok(());
     }
 
-    let has_outbox: bool =
-        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM e2ee_cloud_outbox WHERE workspace_id = ?)")
-            .bind(workspace_id)
-            .fetch_one(pool)
-            .await?;
-    let has_local_or_pending: bool = sqlx::query_scalar(
-        "SELECT EXISTS(SELECT 1 FROM e2ee_local_state WHERE workspace_id = ?)
-             OR EXISTS(SELECT 1 FROM e2ee_witness_pending WHERE workspace_id = ?)",
-    )
-    .bind(workspace_id)
-    .bind(workspace_id)
-    .fetch_one(pool)
-    .await?;
-    let cloud_authority_after: Option<i64> = sqlx::query_scalar::<_, Option<i64>>(
-        "SELECT after_sequence FROM e2ee_cloud_authority WHERE workspace_id = ?",
-    )
-    .bind(workspace_id)
-    .fetch_optional(pool)
-    .await?
-    .flatten();
-
     let mut deduped: HashMap<String, usize> = HashMap::with_capacity(records.len());
-    let mut grouped: Vec<(WitnessRecord, Vec<String>)> = Vec::with_capacity(records.len());
+    let mut grouped: Vec<Vec<WitnessRecord>> = Vec::with_capacity(records.len());
     for record in records {
         if let Some(&slot) = deduped.get(&record.record_id) {
-            if has_outbox && record.sequence > 0 {
-                grouped[slot].1.push(record.payload_hash.clone());
-            }
-            if witness_record_beats(&record, &grouped[slot].0, cloud_authority_after) {
-                grouped[slot].0 = record;
-            }
+            grouped[slot].push(record);
         } else {
-            let hashes = if has_outbox && record.sequence > 0 {
-                vec![record.payload_hash.clone()]
-            } else {
-                Vec::new()
-            };
             deduped.insert(record.record_id.clone(), grouped.len());
-            grouped.push((record, hashes));
+            grouped.push(vec![record]);
         }
     }
 
@@ -493,11 +462,48 @@ async fn merge_e2ee_witness_events_inner(
             transaction.rollback().await?;
             return Err(error);
         }
-        for (record, outbox_hashes) in chunk {
+        let has_outbox: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM e2ee_cloud_outbox WHERE workspace_id = ?)",
+        )
+        .bind(workspace_id)
+        .fetch_one(&mut *transaction)
+        .await?;
+        let has_local_or_pending: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM e2ee_local_state WHERE workspace_id = ?)
+                 OR EXISTS(SELECT 1 FROM e2ee_witness_pending WHERE workspace_id = ?)",
+        )
+        .bind(workspace_id)
+        .bind(workspace_id)
+        .fetch_one(&mut *transaction)
+        .await?;
+        let cloud_authority_after: Option<i64> = sqlx::query_scalar::<_, Option<i64>>(
+            "SELECT after_sequence FROM e2ee_cloud_authority WHERE workspace_id = ?",
+        )
+        .bind(workspace_id)
+        .fetch_optional(&mut *transaction)
+        .await?
+        .flatten();
+
+        for candidates in chunk {
+            let mut winner = &candidates[0];
+            for candidate in &candidates[1..] {
+                if witness_record_beats(candidate, winner, cloud_authority_after) {
+                    winner = candidate;
+                }
+            }
+            let outbox_hashes: Vec<String> = if has_outbox {
+                candidates
+                    .iter()
+                    .filter(|candidate| candidate.sequence > 0)
+                    .map(|candidate| candidate.payload_hash.clone())
+                    .collect()
+            } else {
+                Vec::new()
+            };
             upsert_witness_record_in_batch(
                 &mut transaction,
-                record,
-                outbox_hashes,
+                winner,
+                &outbox_hashes,
                 has_local_or_pending,
             )
             .await?;

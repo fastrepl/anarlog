@@ -215,9 +215,9 @@ pub async fn pending_e2ee_cloud_batch(
         .map_err(|_| E2eeReplicaError::InvalidRow)?;
     let rows: Vec<(String, String, String, i64, i64, i64)> = sqlx::query_as(
         "SELECT table_name, row_id, record_id,
-                LENGTH(CAST(record_id AS BLOB)),
-                LENGTH(CAST(payload_hash AS BLOB)),
-                LENGTH(CAST(payload AS BLOB))
+                OCTET_LENGTH(record_id),
+                OCTET_LENGTH(payload_hash),
+                OCTET_LENGTH(payload)
          FROM e2ee_cloud_outbox
          WHERE workspace_id = ?
          ORDER BY CASE table_name WHEN 'session_documents' THEN 1 WHEN 'transcripts' THEN 2 ELSE 0 END,
@@ -538,23 +538,26 @@ pub async fn rebase_e2ee_cloud_documents_cancellable(
             tx.rollback().await?;
             return Ok(());
         }
-        let documents: Vec<(String, String, String, String, String)> = sqlx::query_as(
+        let mut query = sqlx::QueryBuilder::new(
             "SELECT pending.record_id, pending.payload, pending.base_payload, witness.payload_hash, witness.payload
              FROM e2ee_cloud_outbox AS pending JOIN e2ee_witness_records_resolved AS witness
                ON witness.workspace_id = pending.workspace_id AND witness.record_id = pending.record_id
-             WHERE pending.workspace_id = ? AND pending.table_name = 'session_documents'
+             WHERE pending.workspace_id = ",
+        );
+        query.push_bind(workspace_id);
+        query.push(
+            " AND pending.table_name = 'session_documents'
                AND pending.base_payload IS NOT NULL AND witness.payload_hash IS NOT pending.base_payload_hash
-               AND witness.payload_hash != pending.payload_hash
-               AND (? IS NULL OR pending.record_id > ?)
-             ORDER BY pending.record_id
-             LIMIT ?",
-        )
-        .bind(workspace_id)
-        .bind(after_record_id.as_deref())
-        .bind(after_record_id.as_deref())
-        .bind(REBASE_DOCUMENTS_TX_BATCH)
-        .fetch_all(&mut *tx)
-        .await?;
+               AND witness.payload_hash != pending.payload_hash",
+        );
+        if let Some(after) = after_record_id.as_deref() {
+            query.push(" AND pending.record_id > ");
+            query.push_bind(after);
+        }
+        query.push(" ORDER BY pending.record_id LIMIT ");
+        query.push_bind(REBASE_DOCUMENTS_TX_BATCH);
+        let documents: Vec<(String, String, String, String, String)> =
+            query.build_query_as().fetch_all(&mut *tx).await?;
         if documents.is_empty() {
             tx.rollback().await?;
             return Ok(());

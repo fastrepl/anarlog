@@ -17,6 +17,19 @@ pub async fn export_e2ee_workspace_snapshot(
     pool: &SqlitePool,
     workspace_id: &str,
 ) -> E2eeReplicaResult<Option<WorkspaceSnapshotPayload>> {
+    export_e2ee_workspace_snapshot_with_max_bytes(
+        pool,
+        workspace_id,
+        anlg_e2ee::MAX_DECOMPRESSED_SNAPSHOT_BYTES,
+    )
+    .await
+}
+
+pub(super) async fn export_e2ee_workspace_snapshot_with_max_bytes(
+    pool: &SqlitePool,
+    workspace_id: &str,
+    max_bytes: usize,
+) -> E2eeReplicaResult<Option<WorkspaceSnapshotPayload>> {
     let mut tx = pool.begin().await?;
     let cursor_row: Option<i64> =
         sqlx::query_scalar("SELECT last_sequence FROM e2ee_witness_state WHERE workspace_id = ?")
@@ -42,6 +55,27 @@ pub async fn export_e2ee_workspace_snapshot(
         .transpose()
         .map_err(|_| E2eeReplicaError::RollbackDetected)?;
 
+    let estimated_bytes: Option<i64> = sqlx::query_scalar(
+        "SELECT COALESCE(SUM(
+           OCTET_LENGTH(record_id)
+             + OCTET_LENGTH(writer_id)
+             + OCTET_LENGTH(payload_hash)
+             + OCTET_LENGTH(payload)
+             + 128
+         ), 0)
+         FROM e2ee_witness_records_resolved
+         WHERE workspace_id = ? AND payload != ''",
+    )
+    .bind(workspace_id)
+    .fetch_one(&mut *tx)
+    .await?;
+    if estimated_bytes
+        .and_then(|total| usize::try_from(total).ok())
+        .is_none_or(|total| total > max_bytes)
+    {
+        return Ok(None);
+    }
+
     let rows: Vec<(String, i64, String, String, String, i64)> = sqlx::query_as(
         "SELECT record_id, revision, writer_id, payload_hash, payload, sequence
          FROM e2ee_witness_records_resolved
@@ -54,18 +88,26 @@ pub async fn export_e2ee_workspace_snapshot(
     drop(tx);
 
     let mut records = Vec::with_capacity(rows.len());
+    let mut accumulated_bytes = 0_usize;
     for (record_id, revision, writer_id, payload_hash, payload, sequence) in rows {
         if payload.is_empty() {
             continue;
         }
-        let Ok(seq) = u64::try_from(sequence) else {
+        let Some(seq) = u64::try_from(sequence).ok().filter(|&s| s > 0) else {
             return Err(E2eeReplicaError::InvalidRow);
         };
-        if seq == 0 {
-            return Err(E2eeReplicaError::InvalidRow);
-        }
         // Defer snapshot export if a concurrent merge committed records ahead of cursor.
         if seq > cursor {
+            return Ok(None);
+        }
+        let record_bytes = record_id
+            .len()
+            .saturating_add(writer_id.len())
+            .saturating_add(payload_hash.len())
+            .saturating_add(payload.len())
+            .saturating_add(128);
+        accumulated_bytes = accumulated_bytes.saturating_add(record_bytes);
+        if accumulated_bytes > max_bytes {
             return Ok(None);
         }
         records.push(SnapshotRecord {
