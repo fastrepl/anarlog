@@ -17,7 +17,7 @@ Workspace Owners and Admins with SSO permissions configure domain policy in the 
 
 1. Open **Settings → Teams** and select your Enterprise workspace.
 2. Scroll to **Admin → Policies**.
-3. Under **Claim email domain**, enter your company domain (for example, `company.com`) and select **Verify domain**. Claiming a domain associates matching accounts on that domain with the workspace.
+3. Under **Claim email domain**, enter your company domain (for example, `company.com`) and select **Verify domain**. Claiming a domain captures future account sign-ups and email updates on that domain into the workspace; pre-existing accounts with matching emails are not added retroactively.
 4. Turn on **Require SSO**. This requires a claimed domain on the workspace.
 5. Click **Save policies**.
 
@@ -38,7 +38,7 @@ When **Require SSO** is enabled for a claimed domain:
 
 Native in-app TOTP authenticator or WebAuthn hardware-key enrollment inside Anarlog Account Settings is **forthcoming**. Choose one of these supported paths today:
 
-- **Enterprise workspaces (recommended):** Turn on **Require SSO** and enforce MFA, passkeys/FIDO2 security keys, or conditional access rules inside your SAML 2.0 identity provider. Because non-SSO sign-ins and OAuth tokens are blocked server-side, every workspace sign-in must satisfy your IdP's MFA policy.
+- **Enterprise workspaces (recommended):** Turn on **Require SSO** and enforce MFA, passkeys/FIDO2 security keys, or conditional access rules inside your SAML 2.0 identity provider. For accounts on the workspace's claimed email domain(s), non-SSO sign-ins and OAuth tokens are blocked server-side so every sign-in must satisfy your IdP's MFA policy (external collaborators on unclaimed domains are not covered by this domain SSO gate).
 - **Workspaces without Enterprise SSO (Free or Pro):** Sign in with Google, Microsoft, Apple, or GitHub and protect that identity account with the provider's MFA controls.
 
 ## Revoke active sessions

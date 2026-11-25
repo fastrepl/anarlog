@@ -37,8 +37,8 @@ For default Stable desktop installations, place `managed_settings.json` in the a
 
 | Key | Allowed value | Effect when set |
 | --- | --- | --- |
-| `telemetry_consent` | `false` | Locks PostHog product analytics off |
-| `crash_reporting_consent` | `false` | Locks sanitized error and crash reporting off |
+| `telemetry_consent` | `false` | Locks PostHog product analytics off on desktop (mobile analytics uses the app's device privacy store rather than this key) |
+| `crash_reporting_consent` | `false` | Locks sanitized Sentry error and crash reporting off on desktop (mobile crash reporting uses the app's device privacy store rather than this key) |
 | `cloud_sync_enabled` | `false` | Locks Cloud Sync off so notes remain local-only |
 | `automatic_updates` | `false` | Locks automatic app updates off for IT-managed rollouts |
 | `intelligence_disabled` | `true` | Disables Intelligence features (summaries, chat, title generation) |

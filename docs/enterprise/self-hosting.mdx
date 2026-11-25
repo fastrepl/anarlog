@@ -42,10 +42,10 @@ Pin exact container image tags or digests from the Compose files and Helm `value
 
 - **Control plane:** Serves HTTP on port `8080`, runs additive Postgres migrations, exposes `/health/live` and `/health/ready` probes, and enforces offline HMAC-SHA256 license validation in production.
 - **PostgreSQL 17:** Stores durable capture jobs, worker leases, and scheduled captures (`postgres-data` volume).
-- **S3-compatible object storage:** Uses MinIO by default (`object-data` volume) for captured media artifacts.
+- **S3-compatible object storage:** Uses MinIO by default (`object-data` volume) for deployment object storage. The Google Meet worker writes captured recording chunks to its own local recordings storage volume (`FilesystemRecordingStore`).
 - **Durable-lease workers:** Crashed workers do not strand meetings; another worker reclaims the job once its lease expires.
 
-Back up `postgres-data`, `object-data`, and the Meet worker's recordings storage independently.
+Back up `postgres-data`, `object-data`, and the Meet worker's recordings storage volume independently.
 
 ### Required environment and secrets
 
@@ -55,7 +55,7 @@ Customer credentials and license material are customer-managed and must never be
 - `ANARLOG_ENTERPRISE_WORKSPACE_TOKENS` (or Helm `workspaceTokens.existingSecret`): Token mapping authorizing workspace clients against your control plane.
 - `ANARLOG_ENTERPRISE_LICENSE` and `ANARLOG_ENTERPRISE_LICENSE_KEY` (or Helm `license.existingSecret`): Offline HMAC-SHA256 Enterprise license payload and verification key.
 - PostgreSQL (`POSTGRES_*`) and MinIO/object-storage credentials.
-- Optional `ANARLOG_ENTERPRISE_STT_URL`: Customer-hosted transcription service URL for capture workers. When unset, transcript finalization uses the worker's local configuration.
+- `ANARLOG_ENTERPRISE_STT_URL` (**forthcoming**): Reserved environment variable for customer-hosted transcription routing. The Compose and Helm manifests pass it through, but capture workers do not read it yet and setting it currently has no effect (transcript finalization uses the worker's local configuration).
 
 ### Supported meeting platforms
 

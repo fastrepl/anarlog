@@ -68,7 +68,7 @@ Under **Settings → Teams → Members**, the Primary owner can turn on **Join a
 
 ## Upcoming bot attendance
 
-When the desktop client is configured for a [customer-hosted capture data plane](/enterprise/self-hosting#customer-hosted-capture-data-plane), **Settings → Teams → Admin → Upcoming bot attendance** displays pending and dispatched calendar-scheduled capture jobs for the workspace. Select **Cancel bot** on a scheduled meeting to prevent it from joining.
+When the desktop client is configured for a [customer-hosted capture data plane](/enterprise/self-hosting#customer-hosted-capture-data-plane), **Settings → Teams → Admin → Upcoming bot attendance** displays `pending` and `dispatched` calendar-scheduled capture jobs for the workspace. Select **Cancel bot** on a `pending` scheduled meeting to cancel it; already-`dispatched` jobs are not canceled and the bot can still join, and a later calendar-event upsert (refresh) for the same meeting can clear the cancellation and return the job to `pending`.
 
 ## Forthcoming admin controls
 

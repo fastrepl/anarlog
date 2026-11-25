@@ -27,7 +27,7 @@ Anarlog stores only a SHA-256 hash of the bearer token and cannot display it aga
 | `GET /scim/v2/ServiceProviderConfig` | Returns supported SCIM capabilities | `patch.supported` is `true`; `bulk`, `filter`, `sort`, `etag`, and `changePassword` are `false` |
 | `POST /scim/v2/Users` | Adds or activates an existing Anarlog user in the workspace | Matches `emails[0].value` or `userName`; `active` defaults to `true`; returns `201 Created` |
 | `PATCH /scim/v2/Users/{user_id}` | Updates workspace active status | Expects a `replace` operation targeting `active` (or schema-prefixed `*:active`); `{user_id}` accepts a user UUID or email address |
-| `PUT /scim/v2/Users/{user_id}` | Replaces active status for a workspace member | Reads `emails[].value` or `userName` and `active` (`true` or `false`) |
+| `PUT /scim/v2/Users/{user_id}` | Replaces active status for a workspace member | Matches the target user by `emails[].value` or `userName` in the request body (rather than `{user_id}` in the path) and applies `active` (`true` or `false`) |
 
 ### Example requests
 
@@ -75,8 +75,8 @@ Errors use the SCIM `urn:ietf:params:scim:api:messages:2.0:Error` payload format
 When SCIM sets `active` to `false`:
 
 - Anarlog removes the user's active membership from the workspace immediately.
-- Anarlog deletes the user's registered cloud sync devices for that workspace so sync stops.
-- Rotating the workspace E2EE key prevents deactivated members from decrypting data encrypted under future workspace keys.
+- Anarlog deletes the user's registered cloud sync devices (`sync_devices`) account-wide across that Anarlog account (not scoped to a single workspace) so sync stops.
+- Separately rotating the workspace E2EE key (SCIM deactivation itself does not rotate workspace keys) prevents deactivated members from decrypting data encrypted under future workspace keys.
 
 <Warning>
   Deactivating a user via SCIM revokes server membership and cloud sync access, but it does not remotely wipe local notes or audio recordings already stored on an offline laptop or phone. Remove local files through your organization's endpoint or MDM offboarding workflow.
