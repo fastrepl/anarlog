@@ -11,9 +11,16 @@ anlg-nango = { workspace = true }
 
 axum = { workspace = true }
 futures-util = { workspace = true }
+reqwest = { workspace = true }
 utoipa = { workspace = true }
 
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
+tracing = { workspace = true }
 urlencoding = { workspace = true }
+
+[dev-dependencies]
+anlg-api-env = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+wiremock = { workspace = true }

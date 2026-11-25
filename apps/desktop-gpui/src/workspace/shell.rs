@@ -230,12 +230,18 @@ impl WorkspaceView {
         self.calendar_sync.update(cx, |sync, cx| sync.schedule(cx));
     }
 
+    pub fn automation_client(&self) -> Option<super::automation_runner::AutomationClient> {
+        self.automation_client.clone()
+    }
+
     pub fn set_automation_client(
         &mut self,
         client: Option<super::automation_runner::AutomationClient>,
         cx: &mut Context<Self>,
     ) {
         self.automation_client = client.clone();
+        self.note
+            .update(cx, |note, _| note.set_automation_client(client.clone()));
         self.automations
             .update(cx, |automations, cx| automations.set_client(client, cx));
     }

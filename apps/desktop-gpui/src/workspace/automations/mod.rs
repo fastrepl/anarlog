@@ -27,7 +27,11 @@ pub const SETTINGS_SQL: &str = "SELECT id, value_json FROM app_settings WHERE id
     'automation_linear_issues_enabled', 'automation_linear_issues_team',
     'automation_linear_issues_last_run',
     'automation_notion_update_enabled', 'automation_notion_update_page',
-    'automation_notion_update_last_run')";
+    'automation_notion_update_last_run',
+    'automation_pre_meeting_brief_enabled', 'automation_pre_meeting_brief_config',
+    'automation_pre_meeting_brief_last_run',
+    'automation_crm_update_enabled', 'automation_crm_update_target',
+    'automation_crm_update_last_run')";
 
 /// Chat groups whose messages were sent from the automations scope (`useChatGroups`).
 pub const CHATS_SQL: &str = "SELECT g.id, g.title, g.created_at FROM chat_groups AS g
@@ -39,6 +43,7 @@ pub const CHATS_SQL: &str = "SELECT g.id, g.title, g.created_at FROM chat_groups
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Trigger {
+    BeforeMeeting,
     NoteEnhanced,
     MeetingCompleted,
 }
@@ -46,6 +51,7 @@ pub enum Trigger {
 impl Trigger {
     pub fn key(self) -> &'static str {
         match self {
+            Self::BeforeMeeting => "before_meeting",
             Self::NoteEnhanced => "note_enhanced",
             Self::MeetingCompleted => "meeting_completed",
         }
@@ -53,6 +59,7 @@ impl Trigger {
 
     pub fn label(self) -> &'static str {
         match self {
+            Self::BeforeMeeting => "Before a meeting starts",
             Self::NoteEnhanced => "After the meeting summary is ready",
             Self::MeetingCompleted => "After the meeting ends",
         }
@@ -135,31 +142,79 @@ impl MarkdownOptions {
     }
 }
 
+pub const DEFAULT_BRIEF_LEAD_MINUTES: u32 = 15;
+pub const BRIEF_LEAD_OPTIONS: [u32; 3] = [5, 15, 30];
+
+pub const CRM_PROVIDERS: [(&str, &str); 5] = [
+    ("hubspot", "HubSpot"),
+    ("attio", "Attio"),
+    ("salesforce", "Salesforce"),
+    ("pipedrive", "Pipedrive"),
+    ("close", "Close"),
+];
+
+pub fn parse_brief_config(raw: &str) -> (u32, Option<String>) {
+    let Ok(value) = serde_json::from_str::<Value>(raw) else {
+        return (DEFAULT_BRIEF_LEAD_MINUTES, None);
+    };
+    brief_config_from_value(&value)
+}
+
+pub fn encode_brief_config(lead_minutes: u32, crm_provider: Option<&str>) -> String {
+    let mut value = json!({ "leadMinutes": lead_minutes });
+    if let Some(provider) = crm_provider.map(str::trim).filter(|p| !p.is_empty()) {
+        value["crmProvider"] = json!(provider);
+    }
+    value.to_string()
+}
+
+fn brief_config_from_value(value: &Value) -> (u32, Option<String>) {
+    let lead_minutes = value["leadMinutes"]
+        .as_u64()
+        .and_then(|minutes| u32::try_from(minutes).ok())
+        .filter(|minutes| (1..=120).contains(minutes))
+        .unwrap_or(DEFAULT_BRIEF_LEAD_MINUTES);
+    let crm_provider = value["crmProvider"]
+        .as_str()
+        .map(str::trim)
+        .filter(|provider| {
+            *provider == "none" || CRM_PROVIDERS.iter().any(|(id, _)| id == provider)
+        })
+        .map(str::to_owned);
+    (lead_minutes, crm_provider)
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum StepType {
+    PreMeetingBrief,
     Slack,
     Notion,
     Linear,
     Drive,
     Markdown,
+    CrmUpdate,
 }
 
 impl StepType {
-    pub const ALL: [Self; 5] = [
+    pub const ALL: [Self; 7] = [
+        Self::PreMeetingBrief,
         Self::Slack,
         Self::Notion,
         Self::Linear,
         Self::Drive,
         Self::Markdown,
+        Self::CrmUpdate,
     ];
 
     fn key(self) -> &'static str {
         match self {
+            Self::PreMeetingBrief => "pre_meeting_brief",
             Self::Slack => "slack_recap",
             Self::Notion => "notion_update",
             Self::Linear => "linear_issues",
             Self::Drive => "google_drive_export",
             Self::Markdown => "markdown_export",
+            Self::CrmUpdate => "crm_update",
         }
     }
 
@@ -170,28 +225,37 @@ impl StepType {
     /// The label in a step's action select.
     pub fn label(self) -> &'static str {
         match self {
+            Self::PreMeetingBrief => "Prepare a pre-meeting brief",
             Self::Slack => "Post a recap to Slack",
             Self::Notion => "Append an update to Notion",
             Self::Linear => "Create Linear issues from action items",
             Self::Drive => "Save to Google Drive",
             Self::Markdown => "Export the meeting as Markdown",
+            Self::CrmUpdate => "Log meeting update to CRM",
         }
     }
 
     /// The label in the "Add step" select.
     pub fn short_label(self) -> &'static str {
         match self {
+            Self::PreMeetingBrief => "Pre-meeting brief",
             Self::Slack => "Slack recap",
             Self::Notion => "Notion update",
             Self::Linear => "Linear issues",
             Self::Drive => "Save to Google Drive",
             Self::Markdown => "Markdown export",
+            Self::CrmUpdate => "Update CRM",
         }
     }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Step {
+    Brief {
+        id: Arc<str>,
+        lead_minutes: u32,
+        crm_provider: Option<String>,
+    },
     Target {
         id: Arc<str>,
         kind: StepType,
@@ -215,6 +279,11 @@ impl Step {
     pub fn new(kind: StepType) -> Self {
         let id: Arc<str> = Uuid::new_v4().to_string().into();
         match kind {
+            StepType::PreMeetingBrief => Self::Brief {
+                id,
+                lead_minutes: DEFAULT_BRIEF_LEAD_MINUTES,
+                crm_provider: None,
+            },
             StepType::Drive => Self::Drive {
                 id,
                 google_docs: false,
@@ -236,12 +305,16 @@ impl Step {
 
     pub fn id(&self) -> &Arc<str> {
         match self {
-            Self::Target { id, .. } | Self::Drive { id, .. } | Self::Markdown { id, .. } => id,
+            Self::Brief { id, .. }
+            | Self::Target { id, .. }
+            | Self::Drive { id, .. }
+            | Self::Markdown { id, .. } => id,
         }
     }
 
     pub fn kind(&self) -> StepType {
         match self {
+            Self::Brief { .. } => StepType::PreMeetingBrief,
             Self::Target { kind, .. } => *kind,
             Self::Drive { .. } => StepType::Drive,
             Self::Markdown { .. } => StepType::Markdown,
@@ -252,6 +325,14 @@ impl Step {
         let id: Arc<str> = value["id"].as_str()?.into();
         let target = Target::parse(&value["target"]);
         Some(match StepType::from_key(value["type"].as_str()?)? {
+            StepType::PreMeetingBrief => {
+                let (lead_minutes, crm_provider) = brief_config_from_value(value);
+                Self::Brief {
+                    id,
+                    lead_minutes,
+                    crm_provider,
+                }
+            }
             StepType::Drive => Self::Drive {
                 id,
                 google_docs: value["format"] == "google_docs",
@@ -272,6 +353,21 @@ impl Step {
         let target =
             |target: &Option<Target>| target.as_ref().map_or(Value::Null, Target::to_value);
         match self {
+            Self::Brief {
+                id,
+                lead_minutes,
+                crm_provider,
+            } => {
+                let mut value = json!({
+                    "id": id,
+                    "type": StepType::PreMeetingBrief.key(),
+                    "leadMinutes": lead_minutes,
+                });
+                if let Some(provider) = crm_provider.as_deref().filter(|p| !p.is_empty()) {
+                    value["crmProvider"] = json!(provider);
+                }
+                value
+            }
             Self::Target {
                 id,
                 kind,
@@ -312,6 +408,14 @@ impl Step {
     /// `isWorkflowStepReady`.
     pub fn ready(&self) -> bool {
         match self {
+            Self::Brief { lead_minutes, .. } => (1..=120).contains(lead_minutes),
+            Self::Target {
+                kind: StepType::CrmUpdate,
+                target,
+                ..
+            } => target
+                .as_ref()
+                .is_some_and(|t| CRM_PROVIDERS.iter().any(|(id, _)| *id == t.id.as_ref())),
             Self::Target { target, .. } => target.is_some(),
             Self::Drive {
                 connection_id,
@@ -437,10 +541,10 @@ impl Workflow {
                 .unwrap_or("Untitled automation")
                 .into(),
             enabled: value["enabled"] == true,
-            trigger: if value["trigger"] == "meeting_completed" {
-                Trigger::MeetingCompleted
-            } else {
-                Trigger::NoteEnhanced
+            trigger: match value["trigger"].as_str() {
+                Some("before_meeting") => Trigger::BeforeMeeting,
+                Some("meeting_completed") => Trigger::MeetingCompleted,
+                _ => Trigger::NoteEnhanced,
             },
             steps: value["steps"]
                 .as_array()
@@ -476,6 +580,16 @@ impl Workflow {
             && self.steps.iter().all(Step::ready)
             && (self.trigger == Trigger::NoteEnhanced
                 || !self.steps.iter().any(|step| step.kind() == StepType::Drive))
+            && (self.trigger == Trigger::BeforeMeeting
+                || !self
+                    .steps
+                    .iter()
+                    .any(|step| step.kind() == StepType::PreMeetingBrief))
+            && (self.trigger != Trigger::BeforeMeeting
+                || self
+                    .steps
+                    .iter()
+                    .all(|step| step.kind() == StepType::PreMeetingBrief))
     }
 
     pub fn display_title(&self) -> &str {
@@ -528,6 +642,8 @@ pub enum StepKind {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum StarterId {
     GoogleDrive,
+    PreMeetingBrief,
+    CrmUpdate,
     SlackRecap,
     NotionProjectNotes,
     LinearActionItems,
@@ -538,6 +654,8 @@ impl StarterId {
     fn key(self) -> &'static str {
         match self {
             Self::GoogleDrive => "google-drive",
+            Self::PreMeetingBrief => "pre-meeting-brief",
+            Self::CrmUpdate => "crm-update",
             Self::SlackRecap => "slack-recap",
             Self::NotionProjectNotes => "notion-project-notes",
             Self::LinearActionItems => "linear-action-items",
@@ -556,6 +674,16 @@ impl StarterId {
     pub fn keys(self) -> Option<[&'static str; 3]> {
         Some(match self {
             Self::GoogleDrive => return None,
+            Self::PreMeetingBrief => [
+                "automation_pre_meeting_brief_enabled",
+                "automation_pre_meeting_brief_config",
+                "automation_pre_meeting_brief_last_run",
+            ],
+            Self::CrmUpdate => [
+                "automation_crm_update_enabled",
+                "automation_crm_update_target",
+                "automation_crm_update_last_run",
+            ],
             Self::SlackRecap => [
                 "automation_slack_recap_enabled",
                 "automation_slack_recap_channel",
@@ -582,6 +710,8 @@ impl StarterId {
     pub fn readiness_hint(self) -> &'static str {
         match self {
             Self::GoogleDrive => "Choose a Google Drive folder first.",
+            Self::PreMeetingBrief => "Choose when briefs run before a meeting.",
+            Self::CrmUpdate => "Choose a CRM first.",
             Self::MarkdownExport => "Choose an export folder first.",
             Self::SlackRecap => "Choose a Slack channel first.",
             Self::LinearActionItems => "Choose a Linear team first.",
@@ -598,7 +728,7 @@ pub struct Starter {
     pub preview: &'static str,
 }
 
-pub const STARTERS: [Starter; 5] = [
+pub const STARTERS: [Starter; 7] = [
     Starter {
         id: StarterId::GoogleDrive,
         title: "Save meetings to Google Drive",
@@ -621,6 +751,52 @@ pub const STARTERS: [Starter; 5] = [
             ),
         ],
         preview: "A Markdown file or Google document with the meeting summary and transcript.",
+    },
+    Starter {
+        id: StarterId::PreMeetingBrief,
+        title: "Prepare pre-meeting briefs",
+        description: "Generate a brief from past notes and CRM context before calendar meetings start.",
+        steps: [
+            (
+                StepKind::Trigger,
+                "Before meeting starts",
+                "Runs automatically ahead of upcoming calendar meetings with attendees.",
+            ),
+            (
+                StepKind::Ai,
+                "Combine past notes & CRM",
+                "Pull related past notes and connected CRM deals, notes, and contact info.",
+            ),
+            (
+                StepKind::Action,
+                "Write to empty note",
+                "Save the brief into the upcoming meeting's empty note before you join.",
+            ),
+        ],
+        preview: "A concise pre-meeting brief saved in the upcoming meeting's empty note.",
+    },
+    Starter {
+        id: StarterId::CrmUpdate,
+        title: "Update CRM after meetings",
+        description: "Log meeting summaries and action items as notes on matched CRM contacts and deals.",
+        steps: [
+            (
+                StepKind::Trigger,
+                "Summary ready",
+                "Runs once the AI summary for the meeting is ready.",
+            ),
+            (
+                StepKind::Ai,
+                "Format CRM update",
+                "Gather the summary, open action items, and attendee emails or names.",
+            ),
+            (
+                StepKind::Action,
+                "Log note in CRM",
+                "Attach a dated note to matching contacts and linked deals in your CRM.",
+            ),
+        ],
+        preview: "A CRM note with the meeting summary and action items on matched contacts.",
     },
     Starter {
         id: StarterId::SlackRecap,
@@ -802,11 +978,23 @@ impl Settings {
         }
     }
 
+    pub fn brief_starter_config(&self) -> (u32, Option<String>) {
+        parse_brief_config(self.text("automation_pre_meeting_brief_config"))
+    }
+
     pub fn starter_ready(&self, id: StarterId) -> bool {
         match id.keys() {
             None => self.drive_starter().ready(),
+            Some(_) if id == StarterId::PreMeetingBrief => true,
             Some([_, target, _]) if id == StarterId::MarkdownExport => {
                 !self.text(target).trim().is_empty()
+            }
+            Some([_, target, _]) if id == StarterId::CrmUpdate => {
+                Target::parse_stored(self.text(target)).is_some_and(|parsed| {
+                    CRM_PROVIDERS
+                        .iter()
+                        .any(|(provider, _)| *provider == parsed.id.as_ref())
+                })
             }
             Some([_, target, _]) => Target::parse_stored(self.text(target)).is_some(),
         }
@@ -833,6 +1021,7 @@ pub fn clear_shared_state(workflow: &mut Value) {
                 step["target"] = Value::Null;
             }
             Some("markdown_export") => step["directory"] = json!(""),
+            Some("pre_meeting_brief") => {}
             _ => step["target"] = Value::Null,
         }
     }
@@ -1241,5 +1430,44 @@ mod tests {
         assert!(!settings.starter_ready(StarterId::GoogleDrive));
         let run = settings.starter_last_run(StarterId::SlackRecap).unwrap();
         assert!(!run.success);
+    }
+
+    #[test]
+    fn brief_and_crm_steps_enforce_trigger_and_provider_readiness() {
+        let brief = Step::new(StepType::PreMeetingBrief);
+        assert!(brief.ready());
+
+        let mut workflow = Workflow::empty(None, None, "CRM");
+        workflow.trigger = Trigger::BeforeMeeting;
+        workflow.steps.push(brief);
+        assert!(workflow.ready());
+
+        workflow.trigger = Trigger::NoteEnhanced;
+        assert!(!workflow.ready());
+
+        let crm = Step::Target {
+            id: "crm".into(),
+            kind: StepType::CrmUpdate,
+            target: Some(Target {
+                id: "hubspot".into(),
+                name: "HubSpot".into(),
+            }),
+        };
+        assert!(crm.ready());
+        workflow.steps = vec![crm];
+        assert!(workflow.ready());
+
+        workflow.trigger = Trigger::BeforeMeeting;
+        assert!(!workflow.ready());
+
+        let unknown_crm = Step::Target {
+            id: "crm-bad".into(),
+            kind: StepType::CrmUpdate,
+            target: Some(Target {
+                id: "zoho".into(),
+                name: "Zoho".into(),
+            }),
+        };
+        assert!(!unknown_crm.ready());
     }
 }

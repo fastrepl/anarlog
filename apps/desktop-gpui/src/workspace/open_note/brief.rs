@@ -10,7 +10,10 @@ use std::{
 };
 
 use chrono::{DateTime, Local, Utc};
-use desktop_runtime::{CancellationToken, Result, RuntimeHandle, ServiceError, SessionId};
+use desktop_runtime::{
+    CancellationToken, DocumentSnapshot, Result, RuntimeHandle, SaveDocument, ServiceError,
+    SessionId,
+};
 use futures::StreamExt;
 use gpui::{AnyElement, Context, Entity, SharedString, div, prelude::*, px};
 use regex::Regex;
@@ -681,11 +684,11 @@ fn participant_names(event: &BriefEvent) -> Vec<String> {
 /// `pre-meeting-brief.system.md.jinja`.
 fn system_prompt(language: &str) -> String {
     format!(
-        "You write a 20-second pre-meeting brief from the notes in the user message only.
+        "You write a 20-second pre-meeting brief from the meeting notes and CRM records in the user message only.
 
 Write in {language}.
 
-Fill opener with one sentence that names the single most important thing that should or will likely be discussed. Use a real fact from the notes. Fill bullets with exactly three supporting details: an open loop, a named commitment, or something to listen for.
+Fill opener with one sentence that names the single most important thing that should or will likely be discussed. Use a real fact from the notes or CRM context. Fill bullets with exactly three supporting details: an open loop, a named commitment, an active deal, or something to listen for.
 
 Do not justify why the meeting exists. Everyone already knows they are meeting. Do not write that a sync is crucial, important, or needed for alignment.
 
@@ -696,12 +699,179 @@ Rules:
 - Three bullets total. Never a second list.
 - Do not write a recap and then a preview. Each topic appears once.
 - Do not restate the calendar title, time, location, or attendee list.
-- Every name and fact must come from the notes. If it is not there, omit it."
+- Every name and fact must come from the notes or CRM context. If it is not there, omit it."
     )
 }
 
-/// `pre-meeting-brief.user.md.jinja` with shipping's `getBriefPromptMeetings`.
-fn user_prompt(event: &BriefEvent, notes: &[&PastNote]) -> String {
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub(super) struct CrmDealSummary {
+    pub name: String,
+    pub stage: String,
+    pub amount: String,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub(super) struct CrmNoteSummary {
+    pub title: String,
+    pub body: String,
+    pub created_at: String,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub(super) struct CrmAttendeeContext {
+    pub provider_name: String,
+    pub contact_name: String,
+    pub email: String,
+    pub company_name: String,
+    pub job_title: String,
+    pub deals: Vec<CrmDealSummary>,
+    pub notes: Vec<CrmNoteSummary>,
+}
+
+pub(super) async fn fetch_crm_context(
+    client: Option<&crate::workspace::automation_runner::AutomationClient>,
+    event: &BriefEvent,
+    provider_filter: Option<&str>,
+) -> Vec<CrmAttendeeContext> {
+    use crate::workspace::{automation_runner::CrmCallOutcome, automations::CRM_PROVIDERS};
+
+    if provider_filter == Some("none") {
+        return Vec::new();
+    }
+    let Some(client) = client else {
+        return Vec::new();
+    };
+    let Ok(connections) = client.connections().await else {
+        return Vec::new();
+    };
+    let targets: Vec<(&'static str, &'static str, String)> = CRM_PROVIDERS
+        .iter()
+        .filter(|(id, _)| provider_filter.is_none_or(|filter| *id == filter))
+        .filter_map(|(id, name)| {
+            connections
+                .iter()
+                .find(|conn| conn.integration.as_ref() == *id && !conn.reconnect)
+                .map(|conn| (*id, *name, conn.id.to_string()))
+        })
+        .collect();
+    if targets.is_empty() {
+        return Vec::new();
+    }
+
+    let mut seen = Vec::new();
+    let mut participants = Vec::new();
+    for participant in event.participants.iter().filter(|p| !p.is_current_user) {
+        let email = participant.email.trim();
+        let name = participant.name.trim();
+        if email.is_empty() && name.is_empty() {
+            continue;
+        }
+        let key = if !email.is_empty() {
+            email.to_ascii_lowercase()
+        } else {
+            format!("name:{}", name.to_ascii_lowercase())
+        };
+        if seen.contains(&key) {
+            continue;
+        }
+        seen.push(key);
+        participants.push((
+            (!email.is_empty()).then(|| email.to_owned()),
+            (!name.is_empty()).then(|| name.to_owned()),
+        ));
+        if participants.len() >= 4 {
+            break;
+        }
+    }
+    if participants.is_empty() {
+        return Vec::new();
+    }
+
+    let mut contexts = Vec::new();
+    for (provider_id, provider_name, connection_id) in targets {
+        for (email, name) in &participants {
+            let mut body = json!({
+                "provider": provider_id,
+                "connection_id": connection_id,
+                "limit": 3,
+            });
+            if let Some(email) = email {
+                body["email"] = json!(email);
+            }
+            if let Some(name) = name {
+                body["name"] = json!(name);
+            }
+            match client.crm_contact_context(body).await {
+                Ok(CrmCallOutcome::Ok(value)) => {
+                    let contact = &value["contact"];
+                    let deals: Vec<CrmDealSummary> = value["deals"]
+                        .as_array()
+                        .into_iter()
+                        .flatten()
+                        .filter_map(|deal| {
+                            let summary = CrmDealSummary {
+                                name: text(deal, "name"),
+                                stage: text(deal, "stage"),
+                                amount: text(deal, "amount"),
+                            };
+                            (!summary.name.is_empty()
+                                || !summary.stage.is_empty()
+                                || !summary.amount.is_empty())
+                            .then_some(summary)
+                        })
+                        .take(3)
+                        .collect();
+                    let notes: Vec<CrmNoteSummary> = value["notes"]
+                        .as_array()
+                        .into_iter()
+                        .flatten()
+                        .filter_map(|note| {
+                            let summary = CrmNoteSummary {
+                                title: text(note, "title"),
+                                body: text(note, "body"),
+                                created_at: text(note, "createdAt"),
+                            };
+                            (!summary.body.is_empty() || !summary.title.is_empty())
+                                .then_some(summary)
+                        })
+                        .take(3)
+                        .collect();
+                    if !contact.is_object() && deals.is_empty() && notes.is_empty() {
+                        continue;
+                    }
+                    let contact_name = text(contact, "name");
+                    let contact_email = text(contact, "email");
+                    contexts.push(CrmAttendeeContext {
+                        provider_name: provider_name.to_owned(),
+                        contact_name: if contact_name.is_empty() {
+                            name.clone().unwrap_or_default()
+                        } else {
+                            contact_name
+                        },
+                        email: if contact_email.is_empty() {
+                            email.clone().unwrap_or_default()
+                        } else {
+                            contact_email
+                        },
+                        company_name: text(contact, "companyName"),
+                        job_title: text(contact, "jobTitle"),
+                        deals,
+                        notes,
+                    });
+                    if contexts.len() >= 6 {
+                        return contexts;
+                    }
+                }
+                Ok(CrmCallOutcome::ReconnectRequired) => break,
+                Ok(CrmCallOutcome::NotFound) | Err(_) => continue,
+            }
+        }
+    }
+    contexts
+}
+
+/// `pre-meeting-brief.user.md.jinja` with shipping's `getBriefPromptMeetings` plus CRM context.
+fn user_prompt(event: &BriefEvent, notes: &[&PastNote], crm: &[CrmAttendeeContext]) -> String {
     let title = match event.title.trim() {
         "" => "Untitled",
         title => title,
@@ -748,7 +918,68 @@ Description: {}
             facts.join("\n")
         ));
     }
+    if !crm.is_empty() {
+        prompt.push_str("\n# CRM context\n");
+        for contact in crm {
+            let label = match (contact.contact_name.as_str(), contact.email.as_str()) {
+                ("", email) => email.to_owned(),
+                (name, "") => name.to_owned(),
+                (name, email) => format!("{name} ({email})"),
+            };
+            prompt.push_str(&format!(
+                "\n## {} — {}\n",
+                compact(&label, 140),
+                contact.provider_name
+            ));
+            let role = [contact.job_title.as_str(), contact.company_name.as_str()]
+                .into_iter()
+                .filter(|value| !value.is_empty())
+                .collect::<Vec<_>>()
+                .join(" · ");
+            if !role.is_empty() {
+                prompt.push_str(&format!("Role: {}\n", compact(&role, 120)));
+            }
+            for deal in &contact.deals {
+                let parts = [
+                    deal.name.as_str(),
+                    deal.stage.as_str(),
+                    deal.amount.as_str(),
+                ]
+                .into_iter()
+                .filter(|value| !value.is_empty())
+                .collect::<Vec<_>>()
+                .join(" · ");
+                if !parts.is_empty() {
+                    prompt.push_str(&format!("- Deal: {}\n", compact(&parts, 180)));
+                }
+            }
+            for note in &contact.notes {
+                let text = [note.title.as_str(), note.body.as_str()]
+                    .into_iter()
+                    .filter(|value| !value.is_empty())
+                    .collect::<Vec<_>>()
+                    .join(": ");
+                if !text.is_empty() {
+                    let prefix = date_label_short(&note.created_at);
+                    if prefix.is_empty() {
+                        prompt.push_str(&format!("- Note: {}\n", compact(&text, 240)));
+                    } else {
+                        prompt.push_str(&format!("- Note ({prefix}): {}\n", compact(&text, 240)));
+                    }
+                }
+            }
+        }
+    }
     prompt
+}
+
+fn date_label_short(created_at: &str) -> &str {
+    let trimmed = created_at.trim();
+    if trimmed.len() >= 10 && trimmed.is_char_boundary(10) {
+        &trimmed[..10]
+    } else {
+        ""
+    }
 }
 
 /// Shipping's zod `briefSchema`.
@@ -956,16 +1187,18 @@ fn final_brief(text: &str) -> Option<String> {
 
 /// Shipping's `streamPreMeetingBrief`: the brief's Markdown (`None` when the reply holds no
 /// usable brief), with the reply's text passed to `observe` as it streams.
+#[allow(clippy::too_many_arguments)]
 pub(super) async fn generate(
     ai: &AiServices,
     session: SessionId,
     language: String,
     event: &BriefEvent,
     notes: &[&PastNote],
+    crm: &[CrmAttendeeContext],
     cancellation: CancellationToken,
     observe: StreamObserver,
 ) -> Result<Option<String>> {
-    if notes.is_empty() {
+    if notes.is_empty() && crm.is_empty() {
         return Ok(None);
     }
     let reply = tokio::time::timeout(
@@ -973,7 +1206,7 @@ pub(super) async fn generate(
         ai.generate(
             session,
             system_prompt(&language),
-            user_prompt(event, notes),
+            user_prompt(event, notes, crm),
             Some(Structured {
                 schema: schema(),
                 max_tokens: BRIEF_MAX_OUTPUT_TOKENS,
@@ -985,6 +1218,105 @@ pub(super) async fn generate(
     .await
     .map_err(|_| failure("Pre-meeting brief timed out."))??;
     Ok(final_brief(&reply))
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum BriefOutcome {
+    Written,
+    SkippedNonEmpty,
+    SkippedNoContext,
+}
+
+pub(super) fn is_empty_memo_body(body: &str) -> bool {
+    fn has_content(node: &Value) -> bool {
+        if node["text"]
+            .as_str()
+            .is_some_and(|text| !text.trim().is_empty())
+        {
+            return true;
+        }
+        if matches!(
+            node["type"].as_str(),
+            Some("image" | "horizontalRule" | "codeBlock")
+        ) {
+            return true;
+        }
+        node["content"]
+            .as_array()
+            .is_some_and(|children| children.iter().any(has_content))
+    }
+
+    let trimmed = body.trim();
+    if trimmed.is_empty() || trimmed == EMPTY_MEMO_DOC {
+        return true;
+    }
+    let Ok(doc) = serde_json::from_str::<Value>(trimmed) else {
+        return false;
+    };
+    !has_content(&doc)
+}
+
+pub(crate) async fn prepare_brief_for_session(
+    runtime: &RuntimeHandle,
+    ai: &AiServices,
+    client: Option<&crate::workspace::automation_runner::AutomationClient>,
+    session: SessionId,
+    crm_provider: Option<&str>,
+) -> Result<BriefOutcome> {
+    let open = runtime
+        .open_session(session.clone(), CancellationToken::new())?
+        .receive()
+        .await?;
+    if let Some(note) = &open.note
+        && !is_empty_memo_body(&note.body)
+    {
+        return Ok(BriefOutcome::SkippedNonEmpty);
+    }
+    let brief = load(runtime, session.clone()).await?;
+    let notes = source_notes(&brief.notes);
+    let event = brief.event.as_ref().unwrap_or(&brief.fallback);
+    let crm = fetch_crm_context(client, event, crm_provider).await;
+    if notes.is_empty() && crm.is_empty() {
+        return Ok(BriefOutcome::SkippedNoContext);
+    }
+    let language = crate::meeting::config::preferences(runtime)
+        .await
+        .map(|settings| settings.text("ai_language"))
+        .unwrap_or_default();
+    let language = if language.is_empty() {
+        "en".into()
+    } else {
+        language
+    };
+    let observe: StreamObserver = Arc::new(|_| {});
+    let Some(markdown) = generate(
+        ai,
+        session.clone(),
+        language,
+        event,
+        &notes,
+        &crm,
+        CancellationToken::new(),
+        observe,
+    )
+    .await?
+    else {
+        return Ok(BriefOutcome::SkippedNoContext);
+    };
+    let Some(body) = markdown_body(&markdown) else {
+        return Err(failure("Could not format the pre-meeting brief"));
+    };
+    let base = open
+        .note
+        .unwrap_or_else(|| DocumentSnapshot::unsaved_note(session));
+    runtime
+        .save_document(SaveDocument {
+            base,
+            body: body.into(),
+        })?
+        .receive()
+        .await?;
+    Ok(BriefOutcome::Written)
 }
 
 fn markdown_body(markdown: &str) -> Option<String> {
@@ -1167,6 +1499,7 @@ impl NoteView {
             let _ = send.unbounded_send(update.text);
         });
         let runtime = self.runtime.clone();
+        let automation_client = self.automation_client.clone();
         let ai = services.ai.clone();
         let reply = services.ai.enqueue(Box::pin(async move {
             let language = crate::meeting::config::preferences(&runtime)
@@ -1179,12 +1512,14 @@ impl NoteView {
                 language
             };
             let notes: Vec<&PastNote> = notes.iter().collect();
+            let crm = fetch_crm_context(automation_client.as_ref(), &event, None).await;
             generate(
                 &ai,
                 session,
                 language,
                 &event,
                 &notes,
+                &crm,
                 cancellation,
                 observe,
             )
@@ -1506,6 +1841,7 @@ mod tests {
             "en".into(),
             &brief.fallback,
             &notes,
+            &[],
             CancellationToken::new(),
             Arc::new(move |update| observed.lock().unwrap().push_str(&update.text)),
         )
@@ -1819,5 +2155,53 @@ mod tests {
         );
         drop((memo, reloaded, note));
         block_on(runtime.shutdown()).unwrap();
+    }
+
+    #[test]
+    fn user_prompt_includes_crm_context_even_without_past_notes_and_detects_empty_memos() {
+        assert!(is_empty_memo_body(""));
+        assert!(is_empty_memo_body(EMPTY_MEMO_DOC));
+        assert!(is_empty_memo_body(r#"{"type":"doc","content":[]}"#));
+        assert!(is_empty_memo_body(
+            r#"{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"   "}]}]}"#
+        ));
+        assert!(!is_empty_memo_body(
+            r#"{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Existing note"}]}]}"#
+        ));
+
+        let event = BriefEvent {
+            title: "Enterprise Discovery".into(),
+            participants: vec![EventParticipant {
+                name: "Ada Lovelace".into(),
+                email: "ada@acme.com".into(),
+                is_current_user: false,
+            }],
+            ..BriefEvent::default()
+        };
+        let crm = [CrmAttendeeContext {
+            provider_name: "HubSpot".into(),
+            contact_name: "Ada Lovelace".into(),
+            email: "ada@acme.com".into(),
+            company_name: "Acme".into(),
+            job_title: "CTO".into(),
+            deals: vec![CrmDealSummary {
+                name: "Acme Q1 Pilot".into(),
+                stage: "Security Review".into(),
+                amount: "$24,000".into(),
+            }],
+            notes: vec![CrmNoteSummary {
+                title: "Intro call".into(),
+                body: "Requested SOC2 report before legal sign-off".into(),
+                created_at: "2026-11-20T09:00:00Z".into(),
+            }],
+        }];
+        let prompt = user_prompt(&event, &[], &crm);
+        assert!(prompt.contains("# CRM context"));
+        assert!(prompt.contains("## Ada Lovelace (ada@acme.com) — HubSpot"));
+        assert!(prompt.contains("Role: CTO · Acme"));
+        assert!(prompt.contains("- Deal: Acme Q1 Pilot · Security Review · $24,000"));
+        assert!(prompt.contains(
+            "- Note (2026-11-20): Intro call: Requested SOC2 report before legal sign-off"
+        ));
     }
 }

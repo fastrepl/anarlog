@@ -9,7 +9,7 @@ use std::{
 use anlg_agent_access::MeetingExport;
 use desktop_runtime::{Reply, Result, RuntimeHandle, ServiceError, Services, SessionId};
 use futures::future::BoxFuture;
-use reqwest::{Client, Method, Url};
+use reqwest::{Client, Method, StatusCode, Url};
 use serde_json::{Value, json};
 
 use super::{
@@ -48,6 +48,7 @@ impl Drop for RunGuard {
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Trigger {
+    BeforeMeeting,
     NoteEnhanced,
     MeetingCompleted,
 }
@@ -73,6 +74,7 @@ pub fn matching_workflows(
             };
             let workflows = decode_json_text(raw)?;
             let trigger = match trigger {
+                Trigger::BeforeMeeting => "before_meeting",
                 Trigger::NoteEnhanced => "note_enhanced",
                 Trigger::MeetingCompleted => "meeting_completed",
             };
@@ -125,7 +127,12 @@ impl AutomationClient {
         })
     }
 
-    async fn request(&self, method: Method, path: &str, body: Option<Value>) -> Result<Value> {
+    async fn request_status(
+        &self,
+        method: Method,
+        path: &str,
+        body: Option<Value>,
+    ) -> Result<(StatusCode, Value)> {
         let url = self.base.join(path).map_err(failure)?;
         let mut request = self
             .client
@@ -138,12 +145,7 @@ impl AutomationClient {
             .send()
             .await
             .map_err(|_| failure("Automation API could not be reached"))?;
-        if !response.status().is_success() {
-            return Err(failure(format!(
-                "Automation API returned HTTP {}",
-                response.status().as_u16()
-            )));
-        }
+        let status = response.status();
         let mut bytes = Vec::new();
         while let Some(chunk) = response
             .chunk()
@@ -155,11 +157,52 @@ impl AutomationClient {
             }
             bytes.extend_from_slice(&chunk);
         }
-        if bytes.is_empty() {
-            Ok(Value::Null)
-        } else {
-            serde_json::from_slice(&bytes).map_err(failure)
+        if !status.is_success() {
+            let parsed = if bytes.is_empty() {
+                Value::Null
+            } else {
+                serde_json::from_slice(&bytes).unwrap_or(Value::Null)
+            };
+            return Ok((status, parsed));
         }
+        let parsed = if bytes.is_empty() {
+            Value::Null
+        } else {
+            serde_json::from_slice(&bytes).map_err(failure)?
+        };
+        Ok((status, parsed))
+    }
+
+    async fn request(&self, method: Method, path: &str, body: Option<Value>) -> Result<Value> {
+        let (status, parsed) = self.request_status(method, path, body).await?;
+        if !status.is_success() {
+            return Err(failure(format!(
+                "Automation API returned HTTP {}",
+                status.as_u16()
+            )));
+        }
+        Ok(parsed)
+    }
+
+    async fn request_crm(&self, path: &str, body: Value) -> Result<CrmCallOutcome> {
+        let (status, parsed) = self.request_status(Method::POST, path, Some(body)).await?;
+        match status {
+            StatusCode::NOT_FOUND => Ok(CrmCallOutcome::NotFound),
+            StatusCode::FAILED_DEPENDENCY => Ok(CrmCallOutcome::ReconnectRequired),
+            status if status.is_success() => Ok(CrmCallOutcome::Ok(parsed)),
+            status => Err(failure(format!(
+                "Automation API returned HTTP {}",
+                status.as_u16()
+            ))),
+        }
+    }
+
+    pub async fn crm_contact_context(&self, body: Value) -> Result<CrmCallOutcome> {
+        self.request_crm("/crm/contact-context", body).await
+    }
+
+    pub async fn crm_log_note(&self, body: Value) -> Result<CrmCallOutcome> {
+        self.request_crm("/crm/log-note", body).await
     }
 
     /// `listConnections`: each integration's connection id and whether it needs a reconnect.
@@ -244,6 +287,13 @@ impl AutomationClient {
             .map(str::to_owned)
             .ok_or_else(|| failure("Connection response has no ID"))
     }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum CrmCallOutcome {
+    Ok(Value),
+    NotFound,
+    ReconnectRequired,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -539,6 +589,73 @@ async fn execute_step(
                 count => format!("{count} issues in {team}"),
             });
         }
+        "crm_update" => {
+            let summary = summary.ok_or_else(|| failure("No meeting summary is available yet"))?;
+            let provider_name = step["target"]["name"].as_str().unwrap_or(target);
+            let participants = collect_crm_participants(export, client.sender.as_ref());
+            if participants.is_empty() {
+                return Ok(format!("No attendees found for {provider_name}"));
+            }
+            let connection = client.connection(target).await?;
+            reserve.await?;
+            let note_title = if export.meeting.title.trim().is_empty() {
+                "Meeting note"
+            } else {
+                export.meeting.title.trim()
+            };
+            let occurred_at = if !export.meeting.started_at.is_empty() {
+                Some(export.meeting.started_at.as_str())
+            } else if !export.meeting.created_at.is_empty() {
+                Some(export.meeting.created_at.as_str())
+            } else {
+                None
+            };
+            let body = format_crm_note_body(export, &summary.markdown);
+            let mut logged_contacts = HashSet::new();
+            let mut logged_count = 0usize;
+            for (email, name) in participants {
+                let mut payload = json!({
+                    "provider": target,
+                    "connection_id": connection,
+                    "title": note_title,
+                    "body": body,
+                });
+                if let Some(email) = email {
+                    payload["email"] = json!(email);
+                }
+                if let Some(name) = name {
+                    payload["name"] = json!(name);
+                }
+                if let Some(occurred_at) = occurred_at {
+                    payload["occurred_at"] = json!(occurred_at);
+                }
+                match client.crm_log_note(payload).await? {
+                    CrmCallOutcome::Ok(logged) => {
+                        let contact_id =
+                            logged["contactId"].as_str().unwrap_or_default().to_owned();
+                        if contact_id.is_empty() || logged_contacts.insert(contact_id) {
+                            logged_count += 1;
+                        }
+                    }
+                    CrmCallOutcome::NotFound => continue,
+                    CrmCallOutcome::ReconnectRequired => {
+                        return Err(failure(format!(
+                            "Reconnect {provider_name} to continue logging notes"
+                        )));
+                    }
+                }
+            }
+            return Ok(match logged_count {
+                0 => format!("No matching contacts found in {provider_name}"),
+                1 => format!("Logged note in {provider_name}"),
+                count => format!("Logged note on {count} contacts in {provider_name}"),
+            });
+        }
+        "pre_meeting_brief" => {
+            return Err(failure(
+                "Pre-meeting brief steps run before a meeting starts",
+            ));
+        }
         "google_drive_export" => {
             return Err(failure(
                 "Google Drive export is not available in this app yet",
@@ -566,7 +683,7 @@ struct StarterRun {
     processed: Option<&'static str>,
 }
 
-const STARTERS: [StarterRun; 4] = [
+const STARTERS: [StarterRun; 5] = [
     StarterRun {
         trigger: Trigger::MeetingCompleted,
         kind: "markdown_export",
@@ -574,6 +691,14 @@ const STARTERS: [StarterRun; 4] = [
         target: "automation_markdown_export_directory",
         last_run: "automation_markdown_export_last_run",
         processed: None,
+    },
+    StarterRun {
+        trigger: Trigger::NoteEnhanced,
+        kind: "crm_update",
+        enabled: "automation_crm_update_enabled",
+        target: "automation_crm_update_target",
+        last_run: "automation_crm_update_last_run",
+        processed: Some("automation_crm_update_processed"),
     },
     StarterRun {
         trigger: Trigger::NoteEnhanced,
@@ -680,25 +805,379 @@ pub fn run_starters(
                 Ok(detail) => ("success", detail.clone()),
                 Err(error) => ("error", error.to_string()),
             };
-            let record = json!({
-                "at": chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
-                "status": status,
-                "detail": detail,
-            });
-            database
-                .submit(move |services| async move {
-                    super::automations::set_settings(
-                        &services.executor,
-                        vec![(last_run, json!(record.to_string()))],
-                    )
-                    .await
-                })?
-                .receive()
-                .await?;
+            record_starter_last_run(&database, last_run, status, detail.clone()).await?;
             messages.push(detail);
         }
         Ok(messages)
     })
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BriefAutomationSchedule {
+    pub max_lead_minutes: Option<u32>,
+}
+
+pub fn brief_automation_schedule(
+    runtime: &RuntimeHandle,
+) -> Result<Reply<BriefAutomationSchedule>> {
+    runtime.read(
+        desktop_runtime::CancellationToken::new(),
+        move |services| async move {
+            let rows = services
+                .executor
+                .execute(
+                    "SELECT id, value_json FROM app_settings WHERE id IN (
+                        'automation_pre_meeting_brief_enabled',
+                        'automation_pre_meeting_brief_config',
+                        'automation_workflows'
+                    )"
+                    .into(),
+                    vec![],
+                )
+                .await
+                .map_err(failure)?;
+            let setting = |key: &str| starter_setting(&rows, key);
+            let mut max_lead: Option<u32> = None;
+            if setting("automation_pre_meeting_brief_enabled") == true {
+                let (lead, _) = super::automations::parse_brief_config(
+                    setting("automation_pre_meeting_brief_config")
+                        .as_str()
+                        .unwrap_or_default(),
+                );
+                max_lead = Some(max_lead.map_or(lead, |best| best.max(lead)));
+            }
+            if let Some(raw) = setting("automation_workflows").as_str()
+                && let Ok(workflows) = serde_json::from_str::<Value>(raw)
+            {
+                for workflow in workflows.as_array().into_iter().flatten() {
+                    if workflow["enabled"] != true
+                        || workflow["trigger"] != "before_meeting"
+                        || !workflow_configured(workflow)
+                    {
+                        continue;
+                    }
+                    for step in workflow["steps"].as_array().into_iter().flatten() {
+                        if step["type"] == "pre_meeting_brief" {
+                            let lead = step["leadMinutes"]
+                                .as_u64()
+                                .and_then(|m| u32::try_from(m).ok())
+                                .filter(|m| (1..=120).contains(m))
+                                .unwrap_or(super::automations::DEFAULT_BRIEF_LEAD_MINUTES);
+                            max_lead = Some(max_lead.map_or(lead, |best| best.max(lead)));
+                        }
+                    }
+                }
+            }
+            Ok(BriefAutomationSchedule {
+                max_lead_minutes: max_lead,
+            })
+        },
+    )
+}
+
+pub fn run_pre_meeting_briefs(
+    runtime: &RuntimeHandle,
+    ai: Arc<crate::meeting::ai::AiServices>,
+    session: SessionId,
+    client: Option<AutomationClient>,
+    minutes_until_start: i64,
+) -> Result<Reply<bool>> {
+    let handle = runtime.clone();
+    runtime.service(move |database| async move {
+        let rows = database
+            .submit(|services| async move {
+                services
+                    .executor
+                    .execute(
+                        "SELECT id, value_json FROM app_settings WHERE id LIKE 'automation\\_%' ESCAPE '\\'"
+                            .into(),
+                        vec![],
+                    )
+                    .await
+                    .map_err(failure)
+            })?
+            .receive()
+            .await?;
+        let setting = |key: &str| starter_setting(&rows, key);
+
+        let mut starter_crm: Option<Option<String>> = None;
+        if setting("automation_pre_meeting_brief_enabled") == true
+            && !delivered(&setting("automation_pre_meeting_brief_processed"), &session)
+        {
+            let (lead, crm) = super::automations::parse_brief_config(
+                setting("automation_pre_meeting_brief_config")
+                    .as_str()
+                    .unwrap_or_default(),
+            );
+            if minutes_until_start <= i64::from(lead) {
+                starter_crm = Some(crm);
+            }
+        }
+
+        let mut workflow_targets: Vec<(Arc<str>, Option<String>)> = Vec::new();
+        if let Some(raw) = setting("automation_workflows").as_str()
+            && let Ok(workflows) = serde_json::from_str::<Value>(raw)
+        {
+            for workflow in workflows.as_array().into_iter().flatten() {
+                if workflow["enabled"] != true
+                    || workflow["trigger"] != "before_meeting"
+                    || !workflow_configured(workflow)
+                    || already_processed(workflow, &session.0)
+                {
+                    continue;
+                }
+                let Some(id) = workflow["id"].as_str().map(Arc::<str>::from) else {
+                    continue;
+                };
+                for step in workflow["steps"].as_array().into_iter().flatten() {
+                    if step["type"] == "pre_meeting_brief" {
+                        let lead = step["leadMinutes"]
+                            .as_u64()
+                            .and_then(|m| u32::try_from(m).ok())
+                            .filter(|m| (1..=120).contains(m))
+                            .unwrap_or(super::automations::DEFAULT_BRIEF_LEAD_MINUTES);
+                        if minutes_until_start <= i64::from(lead) {
+                            let crm = step["crmProvider"]
+                                .as_str()
+                                .map(str::trim)
+                                .filter(|p| !p.is_empty())
+                                .map(str::to_owned);
+                            workflow_targets.push((id.clone(), crm));
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        if starter_crm.is_none() && workflow_targets.is_empty() {
+            return Ok(false);
+        }
+
+        let _guard = RunGuard::acquire("pre_meeting_brief", &session)?;
+        let mut wrote = false;
+        let mut handled_non_empty = false;
+
+        if let Some(crm) = starter_crm {
+            if database.shutdown_requested.is_cancelled() {
+                return Ok(false);
+            }
+            match super::open_note::brief::prepare_brief_for_session(
+                &handle,
+                &ai,
+                client.as_ref(),
+                session.clone(),
+                crm.as_deref(),
+            )
+            .await
+            {
+                Ok(super::open_note::brief::BriefOutcome::Written) => {
+                    wrote = true;
+                    let _ = reserve_starter(
+                        &database,
+                        "automation_pre_meeting_brief_processed",
+                        session.clone(),
+                    )
+                    .await;
+                    record_starter_last_run(
+                        &database,
+                        "automation_pre_meeting_brief_last_run",
+                        "success",
+                        "Prepared pre-meeting brief".into(),
+                    )
+                    .await?;
+                }
+                Ok(super::open_note::brief::BriefOutcome::SkippedNonEmpty) => {
+                    handled_non_empty = true;
+                    let _ = reserve_starter(
+                        &database,
+                        "automation_pre_meeting_brief_processed",
+                        session.clone(),
+                    )
+                    .await;
+                    record_starter_last_run(
+                        &database,
+                        "automation_pre_meeting_brief_last_run",
+                        "success",
+                        "Skipped: note already has content".into(),
+                    )
+                    .await?;
+                }
+                Ok(super::open_note::brief::BriefOutcome::SkippedNoContext) => {}
+                Err(error) => {
+                    record_starter_last_run(
+                        &database,
+                        "automation_pre_meeting_brief_last_run",
+                        "error",
+                        error.to_string(),
+                    )
+                    .await?;
+                    return Err(error);
+                }
+            }
+        }
+
+        for (workflow_id, crm) in workflow_targets {
+            if database.shutdown_requested.is_cancelled() {
+                break;
+            }
+            if wrote {
+                let _ = record_run(
+                    &database,
+                    workflow_id,
+                    session.clone(),
+                    "success",
+                    "Prepared pre-meeting brief".into(),
+                    true,
+                )
+                .await;
+                continue;
+            }
+            if handled_non_empty {
+                let _ = record_run(
+                    &database,
+                    workflow_id,
+                    session.clone(),
+                    "success",
+                    "Skipped: note already has content".into(),
+                    true,
+                )
+                .await;
+                continue;
+            }
+            match super::open_note::brief::prepare_brief_for_session(
+                &handle,
+                &ai,
+                client.as_ref(),
+                session.clone(),
+                crm.as_deref(),
+            )
+            .await
+            {
+                Ok(super::open_note::brief::BriefOutcome::Written) => {
+                    wrote = true;
+                    let _ = record_run(
+                        &database,
+                        workflow_id,
+                        session.clone(),
+                        "success",
+                        "Prepared pre-meeting brief".into(),
+                        true,
+                    )
+                    .await;
+                }
+                Ok(super::open_note::brief::BriefOutcome::SkippedNonEmpty) => {
+                    handled_non_empty = true;
+                    let _ = record_run(
+                        &database,
+                        workflow_id,
+                        session.clone(),
+                        "success",
+                        "Skipped: note already has content".into(),
+                        true,
+                    )
+                    .await;
+                }
+                Ok(super::open_note::brief::BriefOutcome::SkippedNoContext) => {}
+                Err(error) => {
+                    let _ = record_run(
+                        &database,
+                        workflow_id,
+                        session.clone(),
+                        "error",
+                        error.to_string(),
+                        false,
+                    )
+                    .await;
+                    return Err(error);
+                }
+            }
+        }
+
+        Ok(wrote)
+    })
+}
+
+async fn record_starter_last_run(
+    database: &Services,
+    last_run_key: &'static str,
+    status: &str,
+    detail: String,
+) -> Result<()> {
+    let record = json!({
+        "at": chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
+        "status": status,
+        "detail": detail,
+    });
+    database
+        .submit(move |services| async move {
+            super::automations::set_settings(
+                &services.executor,
+                vec![(last_run_key, json!(record.to_string()))],
+            )
+            .await
+        })?
+        .receive()
+        .await
+}
+
+fn collect_crm_participants(
+    export: &MeetingExport,
+    sender_email: &str,
+) -> Vec<(Option<String>, Option<String>)> {
+    let mut seen = HashSet::new();
+    let mut out = Vec::new();
+    for participant in &export.meeting.participants {
+        let email = participant.email.trim();
+        let name = participant.display_name.trim();
+        if !sender_email.is_empty() && email.eq_ignore_ascii_case(sender_email) {
+            continue;
+        }
+        if email.is_empty() && name.is_empty() {
+            continue;
+        }
+        let dedupe_key = if !email.is_empty() {
+            email.to_ascii_lowercase()
+        } else {
+            format!("name:{}", name.to_ascii_lowercase())
+        };
+        if !seen.insert(dedupe_key) {
+            continue;
+        }
+        out.push((
+            (!email.is_empty()).then(|| email.to_owned()),
+            (!name.is_empty()).then(|| name.to_owned()),
+        ));
+        if out.len() >= 5 {
+            break;
+        }
+    }
+    out
+}
+
+fn format_crm_note_body(export: &MeetingExport, summary_markdown: &str) -> String {
+    let mut sections = vec![summary_markdown.trim().to_owned()];
+    let items: Vec<&str> = export
+        .meeting
+        .action_items
+        .iter()
+        .filter(|item| {
+            item.completed_at.is_none()
+                && !matches!(item.status.as_str(), "done" | "completed")
+                && !item.text.trim().is_empty()
+        })
+        .map(|item| item.text.trim())
+        .take(10)
+        .collect();
+    if !items.is_empty() {
+        let bullets = items
+            .into_iter()
+            .map(|item| format!("- {item}"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        sections.push(format!("Action items:\n{bullets}"));
+    }
+    sections.join("\n\n")
 }
 
 /// A starter setting; booleans and strings, with targets and lists as JSON strings.

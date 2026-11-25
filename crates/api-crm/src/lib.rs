@@ -11,5 +11,8 @@ pub use openapi::openapi;
 pub use providers::CrmProvider;
 
 pub fn router() -> Router {
-    Router::new().route("/search-contacts", post(routes::search_contacts))
+    Router::new()
+        .route("/search-contacts", post(routes::search_contacts))
+        .route("/contact-context", post(routes::contact_context))
+        .route("/log-note", post(routes::log_note))
 }

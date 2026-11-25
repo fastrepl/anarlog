@@ -30,6 +30,67 @@ pub struct CrmContact {
     pub url: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CrmDeal {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stage: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub amount: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub close_date: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CrmNote {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    pub body: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CrmContactContext {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub contact: Option<CrmContact>,
+    pub deals: Vec<CrmDeal>,
+    pub notes: Vec<CrmNote>,
+}
+
+#[derive(Debug, Clone)]
+pub struct CrmNoteInput {
+    pub contact_id: Option<String>,
+    pub query: CrmContactQuery,
+    pub title: String,
+    pub body: String,
+    pub occurred_at: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CrmLoggedNote {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub note_id: Option<String>,
+    pub contact_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub contact_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub deal_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
+}
+
 /// A raw contact matches when the email is exactly the requested one, or —
 /// with no email to check — the normalized name contains the query.
 pub fn contact_matches(contact: &CrmContact, query: &CrmContactQuery) -> bool {

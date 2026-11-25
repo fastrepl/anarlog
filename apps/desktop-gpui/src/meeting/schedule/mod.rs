@@ -6,6 +6,7 @@ pub mod apps;
 pub mod attendance;
 pub mod auto_start;
 pub mod auto_stop;
+pub mod brief_schedule;
 pub mod capture;
 pub mod records;
 

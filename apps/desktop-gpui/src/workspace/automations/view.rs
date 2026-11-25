@@ -12,8 +12,8 @@ use gpui::{
 };
 
 use super::{
-    MarkdownOptions, STARTERS, Settings, StarterCommand, StarterId, Step, StepKind, StepType,
-    Target, Trigger, Workflow, assets,
+    BRIEF_LEAD_OPTIONS, CRM_PROVIDERS, MarkdownOptions, STARTERS, Settings, StarterCommand,
+    StarterId, Step, StepKind, StepType, Target, Trigger, Workflow, assets, encode_brief_config,
 };
 use crate::ui::a11y::Accessible;
 use crate::{
@@ -65,6 +65,8 @@ enum Menu {
     StepType(Arc<str>),
     DriveFormat(Arc<str>),
     Targets(Arc<str>),
+    BriefLead(Arc<str>),
+    BriefCrm(Arc<str>),
 }
 
 enum Load<T> {
@@ -1352,21 +1354,37 @@ impl AutomationsView {
                 ),
             )
             .when(trigger_open, |view| {
-                let options = [Trigger::NoteEnhanced, Trigger::MeetingCompleted]
-                    .into_iter()
-                    .map(|trigger| {
-                        let id = trigger_id.clone();
-                        SelectOption {
-                            key: trigger.key().into(),
-                            label: trigger.label().into(),
-                            selected: workflow.trigger == trigger,
-                            enabled: trigger == Trigger::NoteEnhanced || !has_drive,
-                            on_select: Box::new(cx.listener(move |this, _, _, cx| {
-                                this.edit_workflow(&id, |workflow| workflow.trigger = trigger, cx)
-                            })),
-                        }
-                    })
-                    .collect();
+                let has_brief = workflow
+                    .steps
+                    .iter()
+                    .any(|step| step.kind() == StepType::PreMeetingBrief);
+                let has_post_meeting = workflow
+                    .steps
+                    .iter()
+                    .any(|step| step.kind() != StepType::PreMeetingBrief);
+                let options = [
+                    Trigger::BeforeMeeting,
+                    Trigger::NoteEnhanced,
+                    Trigger::MeetingCompleted,
+                ]
+                .into_iter()
+                .map(|trigger| {
+                    let id = trigger_id.clone();
+                    SelectOption {
+                        key: trigger.key().into(),
+                        label: trigger.label().into(),
+                        selected: workflow.trigger == trigger,
+                        enabled: match trigger {
+                            Trigger::BeforeMeeting => !has_post_meeting,
+                            Trigger::NoteEnhanced => !has_brief,
+                            Trigger::MeetingCompleted => !has_drive && !has_brief,
+                        },
+                        on_select: Box::new(cx.listener(move |this, _, _, cx| {
+                            this.edit_workflow(&id, |workflow| workflow.trigger = trigger, cx)
+                        })),
+                    }
+                })
+                .collect();
                 view.child(select_menu(options, Some(320.), colors))
             });
         let mut cards = vec![workflow_card(
@@ -1478,6 +1496,7 @@ impl AutomationsView {
     ) -> AnyElement {
         let open = self.menu == Some(Menu::AddStep);
         let id = workflow.id.clone();
+        let before_meeting = workflow.trigger == Trigger::BeforeMeeting;
         let note_enhanced = workflow.trigger == Trigger::NoteEnhanced;
         div()
             .p_4()
@@ -1551,7 +1570,11 @@ impl AutomationsView {
                                     key: format!("{kind:?}").into(),
                                     label: kind.short_label().into(),
                                     selected: false,
-                                    enabled: kind != StepType::Drive || note_enhanced,
+                                    enabled: match kind {
+                                        StepType::PreMeetingBrief => before_meeting,
+                                        StepType::Drive => note_enhanced,
+                                        _ => !before_meeting,
+                                    },
                                     on_select: Box::new(cx.listener(move |this, _, _, cx| {
                                         this.edit_workflow(
                                             &id,
@@ -1578,6 +1601,7 @@ impl AutomationsView {
         let colors = theme(window);
         let (workflow_id, step_id) = (workflow.id.clone(), step.id().clone());
         let open = self.menu == Some(Menu::StepType(step_id.clone()));
+        let before_meeting = workflow.trigger == Trigger::BeforeMeeting;
         let note_enhanced = workflow.trigger == Trigger::NoteEnhanced;
         let kind_select = div()
             .relative()
@@ -1609,7 +1633,11 @@ impl AutomationsView {
                             key: format!("{kind:?}").into(),
                             label: kind.label().into(),
                             selected: step.kind() == kind,
-                            enabled: kind != StepType::Drive || note_enhanced,
+                            enabled: match kind {
+                                StepType::PreMeetingBrief => before_meeting,
+                                StepType::Drive => note_enhanced,
+                                _ => !before_meeting,
+                            },
                             on_select: Box::new(cx.listener(move |this, _, _, cx| {
                                 this.filenames.remove(&step_id);
                                 this.edit_step(
@@ -1643,6 +1671,18 @@ impl AutomationsView {
         let workflow_id = workflow.map(|workflow| workflow.id.clone());
         let step_id = step.id().clone();
         match step {
+            Step::Brief {
+                lead_minutes,
+                crm_provider,
+                ..
+            } => self.brief_config(
+                *lead_minutes,
+                crm_provider.as_deref(),
+                workflow_id,
+                step_id,
+                window,
+                cx,
+            ),
             Step::Markdown {
                 directory, options, ..
             } => {
@@ -1668,6 +1708,11 @@ impl AutomationsView {
                     ))
                     .into_any_element()
             }
+            Step::Target {
+                kind: StepType::CrmUpdate,
+                target,
+                ..
+            } => self.crm_update_config(target.as_ref(), workflow_id, step_id, window, cx),
             Step::Target { kind, target, .. } => {
                 self.target_config(*kind, target.as_ref(), workflow_id, step_id, window, cx)
             }
@@ -1920,6 +1965,332 @@ impl AutomationsView {
                 .into_any_element())
             }
         }
+    }
+
+    fn brief_config(
+        &mut self,
+        lead_minutes: u32,
+        crm_provider: Option<&str>,
+        workflow: Option<Arc<str>>,
+        step: Arc<str>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let colors = theme(window);
+        let menu_key: Arc<str> = workflow
+            .as_ref()
+            .map_or_else(|| STARTER_MENU.into(), |_| step.clone());
+        let lead_open = self.menu == Some(Menu::BriefLead(menu_key.clone()));
+        let crm_open = self.menu == Some(Menu::BriefCrm(menu_key.clone()));
+        let apply = Arc::new({
+            let workflow = workflow.clone();
+            let step = step.clone();
+            move |this: &mut Self,
+                  next_lead: u32,
+                  next_crm: Option<String>,
+                  cx: &mut Context<Self>| match &workflow {
+                Some(workflow) => this.edit_step(
+                    workflow,
+                    &step,
+                    |step| {
+                        if let Step::Brief {
+                            lead_minutes,
+                            crm_provider,
+                            ..
+                        } = step
+                        {
+                            *lead_minutes = next_lead;
+                            *crm_provider = next_crm;
+                        }
+                    },
+                    cx,
+                ),
+                None => this.starter(
+                    StarterId::PreMeetingBrief,
+                    StarterCommand::SetTarget(encode_brief_config(next_lead, next_crm.as_deref())),
+                    cx,
+                ),
+            }
+        });
+        let current_crm = crm_provider.map(str::to_owned);
+        let crm_label: SharedString = match current_crm.as_deref() {
+            Some("none") => "Past notes only",
+            Some(id) => CRM_PROVIDERS
+                .iter()
+                .find(|(k, _)| *k == id)
+                .map_or("Connected CRMs (auto)", |(_, name)| *name),
+            None => "Connected CRMs (auto)",
+        }
+        .into();
+        let lead_label: SharedString = format!("{lead_minutes} minutes before start").into();
+
+        let lead_select = div()
+            .relative()
+            .w(px(208.))
+            .child(
+                select_trigger(
+                    ElementId::Name(format!("brief-lead-{menu_key}").into()),
+                    lead_label.clone(),
+                    false,
+                    true,
+                    colors,
+                )
+                .aria_label("When to generate")
+                .on_mouse_down(
+                    MouseButton::Left,
+                    cx.listener({
+                        let menu_key = menu_key.clone();
+                        move |this, _, _, cx| this.toggle(Menu::BriefLead(menu_key.clone()), cx)
+                    }),
+                ),
+            )
+            .when(lead_open, |view| {
+                let options = BRIEF_LEAD_OPTIONS
+                    .into_iter()
+                    .map(|minutes| {
+                        let apply = apply.clone();
+                        let current_crm = current_crm.clone();
+                        SelectOption {
+                            key: format!("lead-{minutes}").into(),
+                            label: format!("{minutes} minutes before start").into(),
+                            selected: lead_minutes == minutes,
+                            enabled: true,
+                            on_select: Box::new(cx.listener(move |this, _, _, cx| {
+                                apply(this, minutes, current_crm.clone(), cx)
+                            })),
+                        }
+                    })
+                    .collect();
+                view.child(select_menu(options, Some(208.), colors))
+            })
+            .into_any_element();
+
+        let crm_select = div()
+            .relative()
+            .w(px(208.))
+            .child(
+                select_trigger(
+                    ElementId::Name(format!("brief-crm-{menu_key}").into()),
+                    crm_label.clone(),
+                    current_crm.as_deref() == Some("none"),
+                    true,
+                    colors,
+                )
+                .aria_label("CRM context")
+                .on_mouse_down(
+                    MouseButton::Left,
+                    cx.listener({
+                        let menu_key = menu_key.clone();
+                        move |this, _, _, cx| this.toggle(Menu::BriefCrm(menu_key.clone()), cx)
+                    }),
+                ),
+            )
+            .when(crm_open, |view| {
+                let mut options = vec![
+                    SelectOption {
+                        key: "auto".into(),
+                        label: "Connected CRMs (auto)".into(),
+                        selected: current_crm.is_none(),
+                        enabled: true,
+                        on_select: Box::new(cx.listener({
+                            let apply = apply.clone();
+                            move |this, _, _, cx| apply(this, lead_minutes, None, cx)
+                        })),
+                    },
+                    SelectOption {
+                        key: "none".into(),
+                        label: "Past notes only".into(),
+                        selected: current_crm.as_deref() == Some("none"),
+                        enabled: true,
+                        on_select: Box::new(cx.listener({
+                            let apply = apply.clone();
+                            move |this, _, _, cx| {
+                                apply(this, lead_minutes, Some("none".to_owned()), cx)
+                            }
+                        })),
+                    },
+                ];
+                for (id, name) in CRM_PROVIDERS {
+                    let apply = apply.clone();
+                    options.push(SelectOption {
+                        key: id.into(),
+                        label: name.into(),
+                        selected: current_crm.as_deref() == Some(id),
+                        enabled: true,
+                        on_select: Box::new(cx.listener(move |this, _, _, cx| {
+                            apply(this, lead_minutes, Some(id.to_owned()), cx)
+                        })),
+                    });
+                }
+                view.child(select_menu(options, Some(208.), colors))
+            })
+            .into_any_element();
+
+        let crm_gate = current_crm.as_deref().and_then(|provider_id| {
+            CRM_PROVIDERS
+                .iter()
+                .find(|(id, _)| *id == provider_id)
+                .map(|(id, name)| match self.gate(id, name, cx, colors) {
+                    Err(btn) => btn,
+                    Ok(connection) => button(
+                        ElementId::Name(format!("reconnect-{id}").into()),
+                        None,
+                        format!("Reconnect {name}"),
+                        Variant::Link,
+                        !self.opening,
+                        colors,
+                    )
+                    .on_click(cx.listener(move |this, _, _, cx| {
+                        this.connect(id, Some(connection.clone()), cx)
+                    }))
+                    .into_any_element(),
+                })
+        });
+
+        div()
+            .flex()
+            .flex_col()
+            .gap_3()
+            .child(config_row(
+                "When to generate",
+                lead_label,
+                Some(lead_select),
+                colors,
+            ))
+            .child(config_row(
+                "CRM context",
+                crm_label,
+                Some(crm_select),
+                colors,
+            ))
+            .when_some(crm_gate, |view, gate| {
+                view.child(div().flex().justify_end().child(gate))
+            })
+            .into_any_element()
+    }
+
+    fn crm_update_config(
+        &mut self,
+        selected: Option<&Target>,
+        workflow: Option<Arc<str>>,
+        step: Arc<str>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let colors = theme(window);
+        let menu_key: Arc<str> = workflow
+            .as_ref()
+            .map_or_else(|| STARTER_MENU.into(), |_| step.clone());
+        let open = self.menu == Some(Menu::Targets(menu_key.clone()));
+        let valid_selected = selected.filter(|target| {
+            CRM_PROVIDERS
+                .iter()
+                .any(|(id, _)| *id == target.id.as_ref())
+        });
+        let value: SharedString = valid_selected
+            .map(|target| target.name.clone().into())
+            .unwrap_or_else(|| "No CRM selected yet.".into());
+        let apply = Arc::new({
+            let workflow = workflow.clone();
+            let step = step.clone();
+            move |this: &mut Self, target: Target, cx: &mut Context<Self>| match &workflow {
+                Some(workflow) => this.edit_step(
+                    workflow,
+                    &step,
+                    |step| {
+                        if let Step::Target {
+                            target: current, ..
+                        } = step
+                        {
+                            *current = Some(target);
+                        }
+                    },
+                    cx,
+                ),
+                None => {
+                    let stored =
+                        serde_json::json!({"id": target.id, "name": target.name}).to_string();
+                    this.starter(StarterId::CrmUpdate, StarterCommand::SetTarget(stored), cx)
+                }
+            }
+        });
+        let picker = div()
+            .relative()
+            .w(px(208.))
+            .child(
+                select_trigger(
+                    ElementId::Name(format!("targets-{menu_key}").into()),
+                    valid_selected
+                        .map(|target| SharedString::from(target.name.to_string()))
+                        .unwrap_or_else(|| "Choose a CRM".into()),
+                    valid_selected.is_none(),
+                    true,
+                    colors,
+                )
+                .aria_label("Choose a CRM")
+                .on_mouse_down(
+                    MouseButton::Left,
+                    cx.listener({
+                        let menu_key = menu_key.clone();
+                        move |this, _, _, cx| this.toggle(Menu::Targets(menu_key.clone()), cx)
+                    }),
+                ),
+            )
+            .when(open, |view| {
+                let options = CRM_PROVIDERS
+                    .into_iter()
+                    .map(|(id, name)| {
+                        let apply = apply.clone();
+                        let target = Target {
+                            id: id.into(),
+                            name: name.into(),
+                        };
+                        SelectOption {
+                            key: id.into(),
+                            label: name.into(),
+                            selected: valid_selected
+                                .is_some_and(|current| current.id.as_ref() == id),
+                            enabled: true,
+                            on_select: Box::new(
+                                cx.listener(move |this, _, _, cx| apply(this, target.clone(), cx)),
+                            ),
+                        }
+                    })
+                    .collect();
+                view.child(select_menu(options, Some(208.), colors))
+            })
+            .into_any_element();
+
+        let gate = valid_selected.and_then(|target| {
+            CRM_PROVIDERS
+                .iter()
+                .find(|(id, _)| *id == target.id.as_ref())
+                .map(|(id, name)| match self.gate(id, name, cx, colors) {
+                    Err(btn) => btn,
+                    Ok(connection) => button(
+                        ElementId::Name(format!("reconnect-{id}").into()),
+                        None,
+                        format!("Reconnect {name}"),
+                        Variant::Link,
+                        !self.opening,
+                        colors,
+                    )
+                    .on_click(cx.listener(move |this, _, _, cx| {
+                        this.connect(id, Some(connection.clone()), cx)
+                    }))
+                    .into_any_element(),
+                })
+        });
+
+        div()
+            .flex()
+            .flex_col()
+            .gap_3()
+            .child(config_row("CRM", value, Some(picker), colors))
+            .when_some(gate, |view, gate| {
+                view.child(div().flex().justify_end().child(gate))
+            })
+            .into_any_element()
     }
 
     /// `SlackRecapConfig`, `LinearIssuesConfig` and `NotionUpdateConfig`.
@@ -2659,6 +3030,14 @@ impl AutomationsView {
             Some([_, target_key, _]) => {
                 let raw = self.settings.text(target_key).to_owned();
                 let step = match id {
+                    StarterId::PreMeetingBrief => {
+                        let (lead_minutes, crm_provider) = self.settings.brief_starter_config();
+                        Step::Brief {
+                            id: STARTER_MENU.into(),
+                            lead_minutes,
+                            crm_provider,
+                        }
+                    }
                     StarterId::MarkdownExport => Step::Markdown {
                         id: STARTER_MENU.into(),
                         directory: raw,
@@ -2667,6 +3046,7 @@ impl AutomationsView {
                     _ => Step::Target {
                         id: STARTER_MENU.into(),
                         kind: match id {
+                            StarterId::CrmUpdate => StepType::CrmUpdate,
                             StarterId::SlackRecap => StepType::Slack,
                             StarterId::LinearActionItems => StepType::Linear,
                             _ => StepType::Notion,
@@ -2999,6 +3379,22 @@ fn description_text(text: SharedString, colors: Theme) -> Div {
 /// A starter's brand mark. The Markdown mark is wide; the 16px sidebar box squeezes it.
 fn starter_icon(id: StarterId, size: f32, header: bool, colors: Theme) -> AnyElement {
     let name = match id {
+        StarterId::PreMeetingBrief => {
+            return svg()
+                .path(catalog_icons::path("SparkleIcon"))
+                .size(px(size))
+                .flex_shrink_0()
+                .text_color(colors.primary)
+                .into_any_element();
+        }
+        StarterId::CrmUpdate => {
+            return svg()
+                .path(catalog_icons::path("Briefcase01Icon"))
+                .size(px(size))
+                .flex_shrink_0()
+                .text_color(colors.primary)
+                .into_any_element();
+        }
         StarterId::GoogleDrive => "google-drive",
         StarterId::SlackRecap => "slack-icon",
         StarterId::NotionProjectNotes => "notion-icon",
