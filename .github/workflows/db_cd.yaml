@@ -8,6 +8,9 @@ on:
         type: boolean
         default: false
 
+permissions:
+  contents: read
+
 jobs:
   run:
     runs-on: ubuntu-latest
@@ -16,14 +19,16 @@ jobs:
       PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
       - uses: supabase/setup-cli@1dedf2c611547ede7232d26866dd3c56ab903bbb # v1
         with:
           version: latest
-      - run: supabase link --project-ref $PROJECT_ID
+      - run: supabase link --project-ref "$PROJECT_ID"
       - env:
           INCLUDE_ALL: ${{ inputs.include_all }}
         run: |
-          arguments=(db push)
+          arguments=(db push --remote --yes)
           if [[ "$INCLUDE_ALL" == "true" ]]; then
             arguments+=(--include-all)
           fi
