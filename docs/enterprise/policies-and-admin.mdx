@@ -1,0 +1,79 @@
+---
+title: "Admin controls and policies"
+description: "Configure workspace roles, sharing restrictions, shared-note retention, custom subdomains, and usage visibility."
+---
+
+Enterprise workspace Owners and Admins can restrict note sharing, enforce server-side retention on shared notes, claim a custom sharing subdomain, review metadata-only usage counters, and control work-domain auto-join.
+
+## Roles and ownership
+
+Every workspace member holds one of these roles under **Settings → Teams → Members**:
+
+- **Primary owner:** One per workspace. Has full control over billing, policies, members, transferring primary ownership, and deleting the workspace. Primary ownership transfers require the recipient to accept; until accepted, permissions stay unchanged, and afterward the previous Primary owner remains an Owner.
+- **Owner:** Manages workspace billing, policies, domains, SCIM tokens, admins, and members. Cannot remove or demote the Primary owner.
+- **Admin:** Manages standard members and non-Owner workspace administration within their granted permissions.
+- **Member:** Accesses workspace shared notes and team libraries.
+
+See [Teams and shared libraries](/teams) for creating workspaces and managing invitations.
+
+## Sharing policies
+
+Workspace sharing restrictions are enforced fail-closed on the server:
+
+1. Open **Settings → Teams** and select your workspace.
+2. Scroll to **Admin → Policies**.
+3. Configure:
+   - **Allow anyone-with-the-link sharing:** Controls whether members can enable bearer links for a meeting summary.
+   - **Allow public indexing:** Controls whether publicly indexed shares are permitted.
+4. Click **Save policies**.
+
+When external link or public sharing is disabled, members can still use named-person invitations and workspace-only sharing (`workspace`), while disallowed link and public access fail closed on the server. See [Share meetings](/sharing) for how sharing scopes work in notes.
+
+## Shared-note retention
+
+1. Open **Settings → Teams → Admin → Policies**.
+2. Enter a number of days in **Retention (days)**, or leave it blank for **Keep forever**.
+3. Click **Save policies**.
+
+When set, shared notes in that workspace expire after the configured number of days and their server-side share snapshots are removed.
+
+<Note>
+  Workspace **Retention (days)** applies to **shared notes** stored on the server. Local audio recording retention on each user's computer is controlled per device under **Settings → Meetings → Audio file retention** (see [Data, privacy, and retention](/data-and-privacy)) or locked with `managed_settings.json` (see [Managed deployment and MDM](/enterprise/managed-deployment)).
+</Note>
+
+## Custom sharing subdomain
+
+Enterprise workspaces can publish shared note links under `<slug>.anarlog.so`:
+
+1. Open **Settings → Teams → Admin → Sharing domain**.
+2. Enter your desired subdomain (`3–63` lowercase letters, numbers, or hyphens; reserved slugs are blocked).
+3. Wait for availability confirmation and click **Save subdomain**.
+
+Your custom sharing subdomain deactivates automatically if Enterprise billing ends.
+
+## Usage visibility
+
+Under **Settings → Teams → Admin → Usage**, Enterprise Owners and Admins can review workspace counts derived strictly from metadata:
+
+- **Members:** Current active workspace member count.
+- **Seats:** Used seats and configured seat limit when applicable.
+- **Devices:** Enrolled desktop and mobile devices across the workspace.
+- **Shares (30d):** Shared notes created in the past 30 days.
+
+Usage metrics never expose or inspect users' private notes, transcripts, or recordings.
+
+## Work email domain auto-join
+
+Under **Settings → Teams → Members**, the Primary owner can turn on **Join automatically with a work email**. Co-workers signing in with a verified email matching your work domain join the workspace automatically. Personal email domains such as Gmail are excluded, and previously removed members are not automatically readmitted.
+
+## Upcoming bot attendance
+
+When the desktop client is configured for a [customer-hosted capture data plane](/enterprise/self-hosting#customer-hosted-capture-data-plane), **Settings → Teams → Admin → Upcoming bot attendance** displays `pending` and `dispatched` calendar-scheduled capture jobs for the workspace. Select **Cancel bot** on a `pending` scheduled meeting to cancel it; already-`dispatched` jobs are not canceled and the bot can still join, and a later calendar-event upsert (refresh) for the same meeting can clear the cancellation and return the job to `pending`.
+
+## Forthcoming admin controls
+
+These governance features are planned and not yet available:
+
+- **Org-wide admin audit-log export UI:** Downloadable organization audit events across workspace, SSO, SCIM, and share actions.
+- **Centrally enforced recording consent disclosure:** Workspace-mandated participant disclosure notices prior to capture.
+- **Expanded client-side policy sync:** Automatic syncing of additional desktop behavior locks directly from workspace admin settings.

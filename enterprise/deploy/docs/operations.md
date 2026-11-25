@@ -20,7 +20,7 @@ Customer-managed, never committed:
 - `ANARLOG_ENTERPRISE_LICENSE` + `ANARLOG_ENTERPRISE_LICENSE_KEY`
 - Postgres and object-storage passwords
 - Optional Zoom client/webhook secrets
-- Optional customer STT URL (`ANARLOG_ENTERPRISE_STT_URL`)
+- Reserved customer STT URL (`ANARLOG_ENTERPRISE_STT_URL`; customer-hosted STT routing is forthcoming and capture workers do not read this variable yet)
 
 Offline license validation uses HMAC-SHA256 over versioned claims. Telemetry is not exported; scrape `/health/live` and `/health/ready` from customer-owned collectors.
 
@@ -33,7 +33,7 @@ Offline license validation uses HMAC-SHA256 over versioned claims. Telemetry is 
 
 ## Capture workers
 
-Google Meet workers join as a visible Anarlog participant. If `ANARLOG_ENTERPRISE_CAPTURE_JOB_ID` is unset they poll dispatched calendar jobs for the workspace. Zoom uses RTMS in the control plane (no browser bot). Optional STT is customer-hosted; leaving `ANARLOG_ENTERPRISE_STT_URL` empty keeps transcript finalization local to whatever the worker is configured with.
+Google Meet workers join as a visible Anarlog participant. If `ANARLOG_ENTERPRISE_CAPTURE_JOB_ID` is unset they poll dispatched calendar jobs for the workspace. Zoom uses RTMS in the control plane (no browser bot). Customer-hosted STT routing via `ANARLOG_ENTERPRISE_STT_URL` is forthcoming — although manifests pass the variable through, capture workers do not read it yet and setting it currently has no effect (transcript finalization stays local to the worker's configuration).
 
 ## Network
 

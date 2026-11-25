@@ -1,0 +1,88 @@
+---
+title: "SCIM 2.0 provisioning"
+description: "Manage Enterprise workspace membership and offboarding from your identity provider using SCIM 2.0."
+---
+
+Anarlog provides a SCIM 2.0 API for Enterprise workspaces to activate workspace membership and deprovision members directly from your identity provider.
+
+## Base URL and authentication
+
+- **SCIM 2.0 base URL:** `https://api.anarlog.so/scim/v2`
+- **Authentication:** OAuth 2.0 Bearer Token (`Authorization: Bearer <token>`). Tokens must be 32 to 512 characters with no control characters.
+
+Configure or rotate your workspace SCIM bearer token in the desktop app:
+
+1. Open **Settings → Teams** and select your Enterprise workspace.
+2. Scroll to **Admin → Policies**.
+3. Enter your claimed workspace domain under **Claim email domain**.
+4. Enter a new 32–512 character secret under **SCIM bearer token**.
+5. Click **Save SCIM token**, then configure that same bearer token in your identity provider.
+
+Anarlog stores only a SHA-256 hash of the bearer token and cannot display it again after saving. To rotate the token, enter a new secret and click **Save SCIM token**, then update your identity provider.
+
+## Supported endpoints
+
+| Method and path | Purpose | Notes |
+| --- | --- | --- |
+| `GET /scim/v2/ServiceProviderConfig` | Returns supported SCIM capabilities | `patch.supported` is `true`; `bulk`, `filter`, `sort`, `etag`, and `changePassword` are `false` |
+| `POST /scim/v2/Users` | Adds or activates an existing Anarlog user in the workspace | Matches `emails[0].value` or `userName`; `active` defaults to `true`; returns `201 Created` |
+| `PATCH /scim/v2/Users/{user_id}` | Updates workspace active status | Expects a `replace` operation targeting `active` (or schema-prefixed `*:active`); `{user_id}` accepts a user UUID or email address |
+| `PUT /scim/v2/Users/{user_id}` | Replaces active status for a workspace member | Matches the target user by `emails[].value` or `userName` in the request body (rather than `{user_id}` in the path) and applies `active` (`true` or `false`) |
+
+### Example requests
+
+Activate a user:
+
+```bash
+curl -X POST https://api.anarlog.so/scim/v2/Users \
+  -H "Authorization: Bearer $SCIM_TOKEN" \
+  -H "Content-Type: application/scim+json" \
+  -d '{
+    "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
+    "userName": "alex@company.com",
+    "emails": [{ "value": "alex@company.com", "primary": true }],
+    "active": true
+  }'
+```
+
+Deactivate a user:
+
+```bash
+curl -X PATCH https://api.anarlog.so/scim/v2/Users/alex@company.com \
+  -H "Authorization: Bearer $SCIM_TOKEN" \
+  -H "Content-Type: application/scim+json" \
+  -d '{
+    "schemas": ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
+    "Operations": [
+      { "op": "replace", "path": "active", "value": false }
+    ]
+  }'
+```
+
+## Error responses
+
+Errors use the SCIM `urn:ietf:params:scim:api:messages:2.0:Error` payload format:
+
+| Status | `detail` | Cause |
+| --- | --- | --- |
+| `400` | `userName or emails.value is required` or `active replace operation is required` | Missing email/userName or invalid `PATCH` `replace` operation |
+| `401` | `invalid bearer token` | Missing, malformed, or unmatched SCIM bearer token |
+| `404` | `user not found` | No existing Anarlog account matches that email address or user ID |
+| `502` | `directory update failed` | Upstream database or RPC failure while applying the update |
+
+## What deactivation does
+
+When SCIM sets `active` to `false`:
+
+- Anarlog removes the user's active membership from the workspace immediately.
+- Anarlog deletes the user's registered cloud sync devices (`sync_devices`) account-wide across that Anarlog account (not scoped to a single workspace) so sync stops.
+- Separately rotating the workspace E2EE key (SCIM deactivation itself does not rotate workspace keys) prevents deactivated members from decrypting data encrypted under future workspace keys.
+
+<Warning>
+  Deactivating a user via SCIM revokes server membership and cloud sync access, but it does not remotely wipe local notes or audio recordings already stored on an offline laptop or phone. Remove local files through your organization's endpoint or MDM offboarding workflow.
+</Warning>
+
+## Current limits
+
+- **Existing accounts only:** `POST /scim/v2/Users` returns `404 user not found` if no Anarlog account exists for that email address yet. Have the user sign in once (for example, via [SSO](/enterprise/sso-and-mfa)) before provisioning, or retry SCIM provisioning after their first sign-in.
+- **Unsupported SCIM features:** Group provisioning (`/Groups`), `filter`, `bulk`, `sort`, `etag`, and `changePassword` are not supported.

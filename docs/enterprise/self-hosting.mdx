@@ -1,0 +1,79 @@
+---
+title: "Self-hosting"
+description: "Run local or VPC AI models, deploy the customer-hosted enterprise capture data plane, and understand current self-hosting boundaries."
+---
+
+Anarlog separates local desktop execution, AI inference, server-side meeting capture, and cloud sync so organizations can match their network and custody requirements.
+
+| Layer | Availability today | Plan | What runs in your environment |
+| --- | --- | --- | --- |
+| Self-hosted AI & local desktop | Yes | Free, Pro, Enterprise | Desktop notes, SQLite database, audio, local/VPC transcription, and local/VPC LLM inference |
+| Customer-hosted capture data plane | Yes | Enterprise | Control plane, Postgres, S3/MinIO object storage, and platform capture workers for Google Meet, Zoom RTMS, and Microsoft Teams |
+| Self-hosted E2EE Cloud Sync & Auth backend | **Forthcoming** | Enterprise | Full customer-hosted replacement for `api.anarlog.so` sync, sharing, and authentication |
+
+## Self-hosted AI models and local-only desktop
+
+Every Anarlog plan can keep meeting capture, transcription, summarization, and note storage completely on your machine or inside your own VPC without sending audio or text to Fastrepl's hosted AI gateways:
+
+- **On-device transcription:** Select **Soniqo** (`Parakeet Streaming` or `Parakeet Batch`), **Apple Speech** (macOS 26), or **On-device file** (whisper.cpp `.bin`) on Apple Silicon Macs under **Settings → Transcription**.
+- **VPC transcription:** Configure **Custom** (or Deepgram's **Advanced** base URL) for a self-hosted Deepgram-compatible server, **NVIDIA Speech NIM** on your own NIM deployment, or **Amazon Bedrock** through an OpenAI-compatible gateway exposing `/audio/transcriptions`.
+- **Local or VPC Intelligence:** Connect **Ollama**, **LM Studio**, **Unsloth**, or an OpenAI-compatible internal LLM endpoint under **Settings → Intelligence**.
+- **Fleet lockdown:** Combine local/VPC models with [Managed deployment and MDM](/enterprise/managed-deployment) to lock `cloud_sync_enabled: false`, `telemetry_consent: false`, `crash_reporting_consent: false`, and your internal `stt:custom` URL.
+
+See [Use Anarlog offline](/offline) and [Models and providers](/models-and-providers) for model compatibility and network details.
+
+<a id="customer-hosted-capture-data-plane" />
+
+## Customer-hosted capture data plane
+
+Enterprise customers can deploy Anarlog's commercially licensed server-side capture data plane (`enterprise/` in the repository) inside their own VMs or Kubernetes clusters. Anarlog exports zero telemetry from this deployment; metrics and health are scraped locally from `/health/live` and `/health/ready`.
+
+### Deployment manifests
+
+| Mode | Path | Offline license | Typical use |
+| --- | --- | --- | --- |
+| Evaluation Docker Compose | `enterprise/control-plane/compose.yaml` | Optional | Single-box soak and validation of the control plane |
+| Production Docker Compose | `enterprise/deploy/compose.prod.yaml` | Required | Production deployment on customer VMs |
+| Production Helm chart | `enterprise/deploy/helm/anarlog-capture` | Required | Production Kubernetes clusters |
+
+Pin exact container image tags or digests from the Compose files and Helm `values.yaml`. Do not float untagged `latest` images.
+
+### Core services and backups
+
+- **Control plane:** Serves HTTP on port `8080`, runs additive Postgres migrations, exposes `/health/live` and `/health/ready` probes, and enforces offline HMAC-SHA256 license validation in production.
+- **PostgreSQL 17:** Stores durable capture jobs, worker leases, and scheduled captures (`postgres-data` volume).
+- **S3-compatible object storage:** Uses MinIO by default (`object-data` volume) for deployment object storage. The Google Meet worker writes captured recording chunks to its own local recordings storage volume (`FilesystemRecordingStore`).
+- **Durable-lease workers:** Crashed workers do not strand meetings; another worker reclaims the job once its lease expires.
+
+Back up `postgres-data`, `object-data`, and the Meet worker's recordings storage volume independently.
+
+### Required environment and secrets
+
+Customer credentials and license material are customer-managed and must never be committed:
+
+- `ANARLOG_ENTERPRISE_DATABASE_URL`: PostgreSQL connection string for the control plane.
+- `ANARLOG_ENTERPRISE_WORKSPACE_TOKENS` (or Helm `workspaceTokens.existingSecret`): Token mapping authorizing workspace clients against your control plane.
+- `ANARLOG_ENTERPRISE_LICENSE` and `ANARLOG_ENTERPRISE_LICENSE_KEY` (or Helm `license.existingSecret`): Offline HMAC-SHA256 Enterprise license payload and verification key.
+- PostgreSQL (`POSTGRES_*`) and MinIO/object-storage credentials.
+- `ANARLOG_ENTERPRISE_STT_URL` (**forthcoming**): Reserved environment variable for customer-hosted transcription routing. The Compose and Helm manifests pass it through, but capture workers do not read it yet and setting it currently has no effect (transcript finalization uses the worker's local configuration).
+
+### Supported meeting platforms
+
+| Platform | Worker component | Capture mechanism | Requirements and limits |
+| --- | --- | --- | --- |
+| **Google Meet** | `anarlog-enterprise-google-meet-worker` | Joins as a visible participant (`ANARLOG_ENTERPRISE_BOT_NAME`, default `Anarlog Notetaker`) | Polls dispatched calendar jobs when `ANARLOG_ENTERPRISE_CAPTURE_JOB_ID` is unset |
+| **Zoom** | `anarlog-enterprise-zoom-rtms-worker` | Native Zoom Realtime Media Streams (RTMS); no browser bot | Requires Zoom Developer Pack / RTMS, account-level app approval, webhook endpoint `POST /webhooks/zoom`, and `ANARLOG_ENTERPRISE_ZOOM_CLIENT_ID`, `ANARLOG_ENTERPRISE_ZOOM_CLIENT_SECRET`, `ANARLOG_ENTERPRISE_ZOOM_WEBHOOK_SECRET`, and `ANARLOG_ENTERPRISE_ZOOM_ACCOUNT_WORKSPACES`. Video frames are metadata-only |
+| **Microsoft Teams** | `anarlog-enterprise-meeting-sdk-bridge-worker` | Windows Server sidecar using Microsoft Graph application-hosted media (`MeetingSdkBridge` JSON-lines protocol) | Requires Azure subscription, Teams application-hosted media app registration, and **Windows Server** for the sidecar. Not supported on Linux-only Helm clusters; Chromium bots against Teams web are unsupported |
+
+<Note>
+  **Network egress requirement:** Server-side capture workers must reach Google Meet, Zoom, or Microsoft Teams cloud media edges to join public cloud calls. A completely air-gapped cluster cannot capture public cloud meetings; restrict outbound firewall rules to the meeting platform, your STT endpoint, and object storage.
+</Note>
+
+## Self-hosted Cloud Sync and authentication (forthcoming)
+
+A standalone self-hosted backend replacing Fastrepl's Cloud Sync, sharing, and authentication services is **forthcoming**.
+
+Until that package ships, choose between:
+
+- **Zero Fastrepl cloud storage:** Keep notes purely local on managed devices and lock `cloud_sync_enabled`, `telemetry_consent`, and `crash_reporting_consent` to `false` via [Managed deployment and MDM](/enterprise/managed-deployment).
+- **Fastrepl-operated E2EE Cloud Sync:** Fastrepl's hosted [Cloud Sync](/sync) stores only end-to-end encrypted ciphertext; recovery keys remain on customer devices and cannot be read by Fastrepl.
