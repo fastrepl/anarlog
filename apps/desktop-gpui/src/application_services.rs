@@ -372,6 +372,7 @@ impl NativeServices {
                 version: crate::platform::package::VERSION,
             },
             storage_root: profile,
+            database_dir: storage.database_dir.clone(),
             storage_pointer: storage.pointer,
             shipping_store,
         });

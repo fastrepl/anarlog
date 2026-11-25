@@ -1840,6 +1840,10 @@ msgstr ""
 msgid "Could not load the data folder"
 msgstr ""
 
+#: src/settings/general/storage/data-location.tsx
+msgid "Could not load the notes database folder"
+msgstr ""
+
 #: src/settings/team/index.tsx
 msgid "Could not load workspace members."
 msgstr ""
@@ -2525,10 +2529,6 @@ msgstr ""
 
 #: src/settings/general/e2ee-setup.tsx
 msgid "Enter your saved recovery key when another approved device is unavailable."
-msgstr ""
-
-#: src/settings/privacy/index.tsx
-msgid "Error"
 msgstr ""
 
 #: src/composer/index.tsx
@@ -4153,6 +4153,10 @@ msgstr ""
 msgid "Notes"
 msgstr ""
 
+#: src/settings/general/storage/data-location.tsx
+msgid "Notes database"
+msgstr ""
+
 #: src/settings/appearance/sidebar-item-fields.tsx
 #: src/sidebar/settings-nav-groups.ts
 msgid "Notes list"
@@ -5399,6 +5403,10 @@ msgstr ""
 
 #: src/session-sharing/attachment-controls.tsx
 msgid "Share audio"
+msgstr ""
+
+#: src/settings/privacy/index.tsx
+msgid "Share error reports"
 msgstr ""
 
 #: src/session-sharing/index.tsx
@@ -6783,6 +6791,10 @@ msgstr ""
 
 #: src/changelog/index.tsx
 msgid "What's new in {version}?"
+msgstr ""
+
+#: src/settings/general/camera-watermark.tsx
+msgid "When Anarlog records a call in {switchApps}, switch its camera to Anarlog Camera."
 msgstr ""
 
 #: src/settings/dictionary/replacements.tsx

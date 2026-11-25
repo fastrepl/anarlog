@@ -442,62 +442,89 @@ impl PreferencesView {
         }
     }
 
-    fn data_location(&self, colors: &Theme) -> Option<Div> {
-        let root = self.storage_root.as_ref()?;
-        let path = root.to_string_lossy().into_owned();
+    fn folder_location_row(
+        &self,
+        row_id: &'static str,
+        button_id: &'static str,
+        title: &'static str,
+        location: &std::path::Path,
+        colors: &Theme,
+    ) -> Div {
+        let path = location.to_string_lossy().into_owned();
         let shown = tildify_path(&path);
-        let row_path = root.clone();
-        let button_path = root.clone();
+        let row_path = location.to_path_buf();
+        let button_path = location.to_path_buf();
         let hover = colors.muted.opacity(0.4);
-        Some(
-            div()
-                .flex()
-                .items_center()
-                .gap_3()
-                .child(
-                    div()
-                        .id("open-data-location")
-                        .a11y_button(format!("Data location, {shown}"))
-                        .flex_1()
-                        .min_w_0()
-                        .px_2()
-                        .py_2()
-                        .flex()
-                        .items_center()
-                        .gap_2()
-                        .cursor_pointer()
-                        .hover(move |style| style.bg(hover))
-                        .on_click(move |_, _, cx| cx.open_with_system(&row_path))
-                        .child(controls::icon(
-                            "workspace/Folder01Icon.svg",
-                            16.,
-                            colors.muted_foreground,
-                        ))
-                        .child(
-                            div()
-                                .min_w_0()
-                                .child(
-                                    div()
-                                        .text_sm()
-                                        .font_weight(crate::ui::theme::MEDIUM)
-                                        .child("Data location"),
-                                )
-                                .child(controls::description(shown, colors).truncate()),
-                        ),
-                )
-                .child(
-                    div().w(px(144.)).flex().child(
-                        controls::outline_button(
-                            "open-data-folder",
-                            "Open folder",
-                            true,
-                            colors,
-                            Some(Box::new(move |_, _, cx| cx.open_with_system(&button_path))),
-                        )
-                        .w_full(),
+        div()
+            .flex()
+            .items_center()
+            .gap_3()
+            .child(
+                div()
+                    .id(row_id)
+                    .a11y_button(format!("{title}, {shown}"))
+                    .flex_1()
+                    .min_w_0()
+                    .px_2()
+                    .py_2()
+                    .flex()
+                    .items_center()
+                    .gap_2()
+                    .cursor_pointer()
+                    .hover(move |style| style.bg(hover))
+                    .on_click(move |_, _, cx| cx.open_with_system(&row_path))
+                    .child(controls::icon(
+                        "workspace/Folder01Icon.svg",
+                        16.,
+                        colors.muted_foreground,
+                    ))
+                    .child(
+                        div()
+                            .min_w_0()
+                            .child(
+                                div()
+                                    .text_sm()
+                                    .font_weight(crate::ui::theme::MEDIUM)
+                                    .child(title),
+                            )
+                            .child(controls::description(shown, colors).truncate()),
                     ),
+            )
+            .child(
+                div().w(px(144.)).flex().child(
+                    controls::outline_button(
+                        button_id,
+                        "Open folder",
+                        true,
+                        colors,
+                        Some(Box::new(move |_, _, cx| cx.open_with_system(&button_path))),
+                    )
+                    .w_full(),
                 ),
-        )
+            )
+    }
+
+    fn data_location(&self, colors: &Theme) -> Vec<Div> {
+        let Some(locations) = self.storage_locations.as_ref() else {
+            return Vec::new();
+        };
+        let mut rows = vec![self.folder_location_row(
+            "open-data-location",
+            "open-data-folder",
+            "Data location",
+            &locations.data_dir,
+            colors,
+        )];
+        if let Some(database_dir) = locations.separate_database_dir() {
+            rows.push(self.folder_location_row(
+                "open-database-location",
+                "open-database-folder",
+                "Notes database",
+                database_dir,
+                colors,
+            ));
+        }
+        rows
     }
 
     /// `settings/general/storage/export-location.tsx`.
@@ -1705,7 +1732,7 @@ impl PreferencesView {
                     ))
                     .child(self.switch_row(
                         "crash_reporting_consent",
-                        "Error",
+                        "Share error reports",
                         None,
                         true,
                         &colors,

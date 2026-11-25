@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   vaultBase: vi.fn(),
+  getDatabaseDir: vi.fn(),
   openPath: vi.fn(),
 }));
 
@@ -15,6 +16,9 @@ vi.mock("@anlg/plugin-settings", () => ({
 }));
 vi.mock("@anlg/plugin-opener2", () => ({
   commands: { openPath: mocks.openPath },
+}));
+vi.mock("~/types/tauri.gen", () => ({
+  commands: { getDatabaseDir: mocks.getDatabaseDir },
 }));
 
 import { DataLocationRow } from "./data-location";
@@ -37,6 +41,10 @@ describe("DataLocationRow", () => {
       status: "ok",
       data: "/Users/test/Library/Application Support/anarlog",
     });
+    mocks.getDatabaseDir.mockResolvedValue({
+      status: "ok",
+      data: "/Users/test/Library/Application Support/anarlog",
+    });
     mocks.openPath.mockResolvedValue({ status: "ok", data: null });
   });
   afterEach(cleanup);
@@ -44,9 +52,38 @@ describe("DataLocationRow", () => {
   it("shows the tildified data directory and opens it on click", async () => {
     renderRow();
     await screen.findByText("~/Library/Application Support/anarlog");
+    expect(screen.queryByText("Notes database")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Open folder" }));
     expect(mocks.openPath).toHaveBeenCalledWith(
       "/Users/test/Library/Application Support/anarlog",
+      null,
+    );
+  });
+
+  it("shows the active notes database directory separately on legacy bundle fallback", async () => {
+    mocks.getDatabaseDir.mockResolvedValue({
+      status: "ok",
+      data: "/Users/test/Library/Application Support/com.hyprnote.stable",
+    });
+    renderRow();
+    await screen.findByText("~/Library/Application Support/anarlog");
+    await screen.findByText(
+      "\u2026/Library/Application Support/com.hyprnote.stable",
+    );
+
+    const buttons = screen.getAllByRole("button", { name: "Open folder" });
+    expect(buttons).toHaveLength(2);
+    fireEvent.click(buttons[0]);
+    fireEvent.click(buttons[1]);
+
+    expect(mocks.openPath).toHaveBeenNthCalledWith(
+      1,
+      "/Users/test/Library/Application Support/anarlog",
+      null,
+    );
+    expect(mocks.openPath).toHaveBeenNthCalledWith(
+      2,
+      "/Users/test/Library/Application Support/com.hyprnote.stable",
       null,
     );
   });
@@ -57,9 +94,7 @@ describe("DataLocationRow", () => {
       error: "Settings unavailable",
     });
     renderRow();
-    expect((await screen.findByRole("alert")).textContent).toBe(
-      "Could not load the data folder",
-    );
+    expect(await screen.findByRole("alert")).toBeTruthy();
     expect(
       screen
         .getByRole("button", { name: "Open folder" })

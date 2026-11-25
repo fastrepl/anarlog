@@ -1840,6 +1840,10 @@ msgstr "Could not load sync logs."
 msgid "Could not load the data folder"
 msgstr "Could not load the data folder"
 
+#: src/settings/general/storage/data-location.tsx
+msgid "Could not load the notes database folder"
+msgstr "Could not load the notes database folder"
+
 #: src/settings/team/index.tsx
 msgid "Could not load workspace members."
 msgstr "Could not load workspace members."
@@ -2526,10 +2530,6 @@ msgstr "Enter your API key (optional)"
 #: src/settings/general/e2ee-setup.tsx
 msgid "Enter your saved recovery key when another approved device is unavailable."
 msgstr "Enter your saved recovery key when another approved device is unavailable."
-
-#: src/settings/privacy/index.tsx
-msgid "Error"
-msgstr "Error"
 
 #: src/composer/index.tsx
 msgid "Esc to dismiss"
@@ -4153,6 +4153,10 @@ msgstr "notes"
 msgid "Notes"
 msgstr "Notes"
 
+#: src/settings/general/storage/data-location.tsx
+msgid "Notes database"
+msgstr "Notes database"
+
 #: src/settings/appearance/sidebar-item-fields.tsx
 #: src/sidebar/settings-nav-groups.ts
 msgid "Notes list"
@@ -5400,6 +5404,10 @@ msgstr "Share a meeting recap in Slack"
 #: src/session-sharing/attachment-controls.tsx
 msgid "Share audio"
 msgstr "Share audio"
+
+#: src/settings/privacy/index.tsx
+msgid "Share error reports"
+msgstr "Share error reports"
 
 #: src/session-sharing/index.tsx
 #: src/session-sharing/management-panel.tsx
@@ -6784,6 +6792,10 @@ msgstr "What were the key decisions that have been made?"
 #: src/changelog/index.tsx
 msgid "What's new in {version}?"
 msgstr "What's new in {version}?"
+
+#: src/settings/general/camera-watermark.tsx
+msgid "When Anarlog records a call in {switchApps}, switch its camera to Anarlog Camera."
+msgstr "When Anarlog records a call in {switchApps}, switch its camera to Anarlog Camera."
 
 #: src/settings/dictionary/replacements.tsx
 msgid "When I say"

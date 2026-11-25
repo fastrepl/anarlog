@@ -58,6 +58,8 @@ pub struct Storage {
     pub channel: Option<Channel>,
     /// Settings, models and this app's own files.
     pub root: PathBuf,
+    /// Where `app.db` lives (`Locations::database_dir`); matches `root` outside legacy fallbacks.
+    pub database_dir: PathBuf,
     /// Where a sandbox records that its profile moved. Channel data never moves.
     pub pointer: Option<PathBuf>,
 }
@@ -68,6 +70,7 @@ impl Storage {
         Self {
             channel: Some(channel),
             root: locations.base.clone(),
+            database_dir: locations.database_dir.clone(),
             pointer: None,
         }
     }
@@ -340,12 +343,33 @@ mod tests {
                 Locations::resolve_in(data.path(), local.path(), channel.identifier(), is_debug);
             let storage = Storage::channel(channel, &locations);
             assert_eq!(storage.root, shipping, "{channel:?}");
+            assert_eq!(storage.database_dir, locations.database_dir, "{channel:?}");
             assert_eq!(storage.vault(), shipping, "{channel:?}");
             assert_eq!(storage.pointer, None);
         }
+        let legacy_data = tempfile::tempdir().unwrap();
+        let legacy_local = tempfile::tempdir().unwrap();
+        let bundle_dir = legacy_data.path().join(Channel::Stable.identifier());
+        std::fs::create_dir(&bundle_dir).unwrap();
+        std::fs::write(
+            bundle_dir.join(anlg_desktop_identity::paths::DB_FILENAME),
+            "",
+        )
+        .unwrap();
+        let legacy_locations = Locations::resolve_in(
+            legacy_data.path(),
+            legacy_local.path(),
+            Channel::Stable.identifier(),
+            false,
+        );
+        let legacy_storage = Storage::channel(Channel::Stable, &legacy_locations);
+        assert_ne!(legacy_storage.root, legacy_storage.database_dir);
+        assert_eq!(legacy_storage.database_dir, bundle_dir);
+
         let sandbox = Storage {
             channel: None,
             root: PathBuf::from("/profile"),
+            database_dir: PathBuf::from("/profile"),
             pointer: None,
         };
         assert_eq!(sandbox.vault(), PathBuf::from("/profile/vault"));

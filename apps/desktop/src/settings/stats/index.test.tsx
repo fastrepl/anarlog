@@ -85,7 +85,11 @@ describe("merged insights page", () => {
     const day = screen.getByRole("listitem", {
       name: "August 1, 2026. Conversations: 1",
     });
+    fireEvent.pointerEnter(day);
+    fireEvent.mouseEnter(day);
+    fireEvent.mouseMove(day);
     fireEvent.click(day);
+    expect(screen.queryByRole("tooltip")).toBeNull();
     expect(screen.queryByText("August 1, 2026. Conversations: 1")).toBeNull();
   });
 

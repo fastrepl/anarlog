@@ -36,6 +36,8 @@ const EXIT_FLUSH_FALLBACK_TIMEOUT: std::time::Duration = std::time::Duration::fr
 const QUICK_EXIT_FLUSH_FALLBACK_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(3);
 const EXIT_HARD_FALLBACK_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(12);
 
+pub struct DatabaseDir(pub std::path::PathBuf);
+
 pub(crate) struct CrashReportingState;
 
 impl CrashReportingState {
@@ -192,8 +194,8 @@ pub fn main() {
         }
     };
 
-    let (root_supervisor_ctx, root_supervisor_handle, db, crash_reporting_enabled) = runtime
-        .block_on(async {
+    let (root_supervisor_ctx, root_supervisor_handle, db, database_dir, crash_reporting_enabled) =
+        runtime.block_on(async {
             let (root_supervisor_ctx, root_supervisor_handle) =
                 match supervisor::spawn_root_supervisor().await {
                     Some((ctx, handle)) => (Some(ctx), Some(handle)),
@@ -202,8 +204,8 @@ pub fn main() {
 
             let startup_indicator = startup::SlowStartupIndicator::show_after_delay();
             startup::consolidate_custom_storage(&identifier);
-            let db = match open_desktop_db(&identifier).await {
-                Ok(db) => db,
+            let (db, database_dir) = match open_desktop_db(&identifier).await {
+                Ok(opened) => opened,
                 Err(error) => {
                     startup_indicator.dismiss();
                     exit_after_startup_failure(&identifier, &error)
@@ -215,6 +217,7 @@ pub fn main() {
                 root_supervisor_ctx,
                 root_supervisor_handle,
                 db,
+                database_dir,
                 crash_reporting_enabled,
             )
         });
@@ -280,6 +283,7 @@ pub fn main() {
     let mut builder = tauri_plugin_windows::extend_builder(tauri::Builder::default())
         .manage(audio)
         .manage(db.clone())
+        .manage(DatabaseDir(database_dir))
         .manage(crash_reporting_state);
 
     #[cfg(target_os = "macos")]
@@ -767,6 +771,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::get_recently_opened_sessions::<tauri::Wry>,
             commands::set_recently_opened_sessions::<tauri::Wry>,
             commands::mirror_local_storage::<tauri::Wry>,
+            commands::get_database_dir,
             commands::is_crash_reporting_enabled,
             commands::set_crash_reporting_enabled,
             commands::check_embedded_cli::<tauri::Wry>,

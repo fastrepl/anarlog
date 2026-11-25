@@ -56,6 +56,7 @@ pub struct LocalServices {
     pub calendar: calendar::CalendarService,
     pub developers: developers::DeveloperTools,
     pub storage_root: PathBuf,
+    pub database_dir: PathBuf,
     /// `None` when the data is the shipping app's, which must stay where it expects it.
     pub storage_pointer: Option<PathBuf>,
     /// The shipping app's `store.json` in a channel run.
@@ -63,8 +64,11 @@ pub struct LocalServices {
 }
 
 impl ProductServices for LocalServices {
-    fn storage_root(&self) -> Option<PathBuf> {
-        Some(self.storage_root.clone())
+    fn storage_locations(&self) -> Option<super::services::StorageLocations> {
+        Some(super::services::StorageLocations {
+            data_dir: self.storage_root.clone(),
+            database_dir: self.database_dir.clone(),
+        })
     }
 
     fn load(&self, surface: Surface, request: Request) -> BoxFuture<'static, Result<Panel>> {

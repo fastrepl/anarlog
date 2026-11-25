@@ -46,7 +46,7 @@ impl SelectOption {
 /// serialized so each compare-and-swap uses the revision the previous write produced.
 pub struct PreferencesView {
     pub(super) runtime: RuntimeHandle,
-    pub(super) storage_root: Option<std::path::PathBuf>,
+    pub(super) storage_locations: Option<super::services::StorageLocations>,
     pub section: &'static str,
     snapshot: Option<Arc<Snapshot>>,
     desired: BTreeMap<String, Value>,
@@ -79,7 +79,7 @@ impl EventEmitter<super::OpenSettingsPage> for PreferencesView {}
 impl PreferencesView {
     pub fn new(
         runtime: RuntimeHandle,
-        storage_root: Option<std::path::PathBuf>,
+        storage_locations: Option<super::services::StorageLocations>,
         cx: &mut Context<Self>,
     ) -> Self {
         let menu_search = cx.new(|cx| TextInput::new("Search...", cx).inline());
@@ -125,7 +125,7 @@ impl PreferencesView {
         .detach();
         let mut this = Self {
             runtime,
-            storage_root,
+            storage_locations,
             section: "app",
             snapshot: None,
             desired: BTreeMap::new(),

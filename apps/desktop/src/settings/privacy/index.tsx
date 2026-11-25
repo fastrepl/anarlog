@@ -79,7 +79,7 @@ export function SettingsPrivacy() {
           }}
         />
         <SettingSwitchRow
-          title={t`Error`}
+          title={t`Share error reports`}
           checked={sentryEnabled}
           onChange={(crashReportingConsent) => {
             setSettingValues({

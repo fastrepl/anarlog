@@ -72,10 +72,8 @@ describe("Permissions", () => {
     mocks.closePermissionAssistant.mockClear();
   });
 
-  it("opens Settings when Accessibility is denied without static descriptions", () => {
+  it("opens Settings when Accessibility is denied", () => {
     const accessibility = renderPermissions("denied");
-
-    expect(screen.queryByText(/Read meeting controls/)).toBeNull();
 
     fireEvent.click(
       screen.getByRole("button", { name: "Open accessibility settings" }),

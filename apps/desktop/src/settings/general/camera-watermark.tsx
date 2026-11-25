@@ -205,6 +205,12 @@ export function CameraWatermarkSettings() {
         {available && switchApps && (
           <SettingSwitchRow
             title={<Trans>Switch my camera automatically</Trans>}
+            description={
+              <Trans>
+                When Anarlog records a call in {switchApps}, switch its camera
+                to Anarlog Camera.
+              </Trans>
+            }
             checked={enabled && autoSwitch}
             onChange={(value) => savePrefs.mutate({ auto_switch: value })}
             disabled={!enabled}
