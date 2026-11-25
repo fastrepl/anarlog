@@ -1,0 +1,47 @@
+---
+title: "SSO and MFA"
+description: "Configure domain SAML 2.0 single sign-on, enforce mandatory SSO, and apply MFA through your identity provider."
+---
+
+Enterprise workspaces support domain-based SAML 2.0 single sign-on and server-side mandatory SSO enforcement. Today, organizations enforce multi-factor authentication (MFA) through their SAML identity provider rather than standalone in-app MFA enrollment.
+
+## SAML 2.0 single sign-on
+
+Anarlog supports SAML 2.0 authentication with enterprise identity providers such as Okta, Microsoft Entra ID, Google Workspace, and JumpCloud.
+
+Identity provider (IdP) SAML registration is coordinated with Fastrepl during Enterprise onboarding because self-serve SAML XML upload in Workspace Settings is forthcoming. Email [team@fastrepl.com](mailto:team@fastrepl.com) to register your IdP metadata and bind your domain.
+
+### Claim a domain and require SSO
+
+Workspace Owners and Admins with SSO permissions configure domain policy in the desktop app:
+
+1. Open **Settings → Teams** and select your Enterprise workspace.
+2. Scroll to **Admin → Policies**.
+3. Under **Claim email domain**, enter your company domain (for example, `company.com`) and select **Verify domain**. Claiming a domain associates matching accounts on that domain with the workspace.
+4. Turn on **Require SSO**. This requires a claimed domain on the workspace.
+5. Click **Save policies**.
+
+### How users sign in with SSO
+
+1. Open `https://anarlog.so/auth` or trigger sign-in from the desktop or mobile app.
+2. Select **Sign in with SSO**.
+3. Enter your work email address to continue to your organization's SAML identity provider.
+
+### Server-side SSO enforcement
+
+When **Require SSO** is enabled for a claimed domain:
+
+- Password and email magic-link sign-in requests for that domain are rejected with `This organization requires SSO.`.
+- Non-SSO OAuth tokens (Google, Microsoft, Apple, GitHub) are blocked at token issuance on the server unless the session authenticated through SAML SSO.
+
+## Multi-factor authentication (MFA)
+
+Native in-app TOTP authenticator or WebAuthn hardware-key enrollment inside Anarlog Account Settings is **forthcoming**. Choose one of these supported paths today:
+
+- **Enterprise workspaces (recommended):** Turn on **Require SSO** and enforce MFA, passkeys/FIDO2 security keys, or conditional access rules inside your SAML 2.0 identity provider. Because non-SSO sign-ins and OAuth tokens are blocked server-side, every workspace sign-in must satisfy your IdP's MFA policy.
+- **Workspaces without Enterprise SSO (Free or Pro):** Sign in with Google, Microsoft, Apple, or GitHub and protect that identity account with the provider's MFA controls.
+
+## Revoke active sessions
+
+- Individual users can invalidate sessions across all browsers and devices from **Account → Sign out everywhere**.
+- To offboard a workspace member immediately, suspend their account in your identity provider and deactivate them through [SCIM 2.0 provisioning](/enterprise/scim).

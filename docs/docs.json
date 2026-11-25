@@ -51,6 +51,17 @@
         ]
       },
       {
+        "group": "Enterprise",
+        "pages": [
+          "enterprise/overview",
+          "enterprise/sso-and-mfa",
+          "enterprise/scim",
+          "enterprise/policies-and-admin",
+          "enterprise/managed-deployment",
+          "enterprise/self-hosting"
+        ]
+      },
+      {
         "group": "CLI and agents",
         "pages": [
           "installation",

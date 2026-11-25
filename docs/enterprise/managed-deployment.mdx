@@ -1,0 +1,83 @@
+---
+title: "Managed deployment and MDM"
+description: "Lock down desktop and mobile settings across managed devices with managed_settings.json."
+---
+
+IT teams can lock critical desktop and mobile settings on managed endpoints by deploying a JSON policy file named `managed_settings.json` alongside Anarlog's application database (`app.db`).
+
+## How managed configuration works
+
+When Anarlog opens its local database on startup, it looks for `managed_settings.json` in the same directory as `app.db`:
+
+- **Locked enforcement:** Every setting defined in `managed_settings.json` is written to app settings and protected by database triggers so users cannot change, rename, or delete those settings inside the app.
+- **Fail-closed validation:** If `managed_settings.json` exists and is unreadable, invalid JSON, larger than 64 KiB, uses a `schema_version` other than `1`, contains unknown fields or setting keys, or uses an invalid value, Anarlog refuses to start rather than falling back to unlocked defaults.
+- **Clean unlock:** Removing a key from `managed_settings.json` (or removing the file) unlocks that setting on the next app launch.
+
+<Warning>
+  Never modify `app.db` directly. Deploy and update `managed_settings.json` through your endpoint management tool while Anarlog handles database enforcement at startup.
+</Warning>
+
+## Where to deploy `managed_settings.json`
+
+For default Stable desktop installations, place `managed_settings.json` in the application data folder containing `app.db`:
+
+| Platform | Default Stable path |
+| --- | --- |
+| **macOS** | `~/Library/Application Support/anarlog/managed_settings.json` |
+| **Windows** | `%APPDATA%\anarlog\managed_settings.json` |
+| **Linux** | `~/.local/share/anarlog/managed_settings.json` (or `$XDG_DATA_HOME/anarlog/managed_settings.json`) |
+
+<Note>
+  Desktop installations upgraded from earlier releases may still store `app.db` inside a legacy `hyprnote/` or `com.hyprnote.stable/` directory under the same OS application data root. Check which folder holds `app.db` on upgraded hosts and deploy `managed_settings.json` into that same directory.
+</Note>
+
+## Schema and supported keys
+
+`managed_settings.json` uses schema version `1` and rejects unknown top-level fields or unknown setting keys:
+
+| Key | Allowed value | Effect when set |
+| --- | --- | --- |
+| `telemetry_consent` | `false` | Locks PostHog product analytics off |
+| `crash_reporting_consent` | `false` | Locks sanitized error and crash reporting off |
+| `cloud_sync_enabled` | `false` | Locks Cloud Sync off so notes remain local-only |
+| `automatic_updates` | `false` | Locks automatic app updates off for IT-managed rollouts |
+| `intelligence_disabled` | `true` | Disables Intelligence features (summaries, chat, title generation) |
+| `current_llm_provider` | `""` | Locks Intelligence provider selection cleared |
+| `current_llm_model` | `""` | Locks Intelligence model selection cleared |
+| `auto_start_scheduled_meetings` | `true` or `false` | Locks automatic capture start for scheduled meetings |
+| `save_recordings` | `true` or `false` | Locks whether meeting audio recordings are saved |
+| `audio_retention` | `"forever"` | Locks audio recording retention to forever |
+| `current_stt_provider` | `"custom"` | Locks Transcription provider to a custom endpoint |
+| `current_stt_model` | Non-empty string (1–200 characters) | Locks the Transcription model ID sent to the custom endpoint |
+| `stt:custom` | `{ "type": "stt", "base_url": "https://...", "api_key": "" }` | Locks a custom HTTPS Transcription server URL (`<= 2048` characters; no embedded username, password, query string, or `#fragment`). `api_key` must be `""`; plaintext API keys are rejected in managed policy files |
+
+## Example policy
+
+Lock down a workstation to disable telemetry, crash reporting, Cloud Sync, automatic updates, and LLM Intelligence while routing transcription to an internal HTTPS gateway:
+
+```json
+{
+  "schema_version": 1,
+  "settings": {
+    "telemetry_consent": false,
+    "crash_reporting_consent": false,
+    "cloud_sync_enabled": false,
+    "automatic_updates": false,
+    "intelligence_disabled": true,
+    "current_llm_provider": "",
+    "current_llm_model": "",
+    "current_stt_provider": "custom",
+    "current_stt_model": "nova-3",
+    "stt:custom": {
+      "type": "stt",
+      "base_url": "https://stt.internal.company.com/v1",
+      "api_key": ""
+    }
+  }
+}
+```
+
+## Forthcoming MDM capabilities
+
+- Native macOS configuration profile (`.plist` / `NSUserDefaults`) and Windows Registry GPO ingestion are forthcoming.
+- Additional managed policy keys (such as locking specific local Intelligence providers and model IDs) are planned.

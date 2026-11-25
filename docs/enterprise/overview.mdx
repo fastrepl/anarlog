@@ -1,0 +1,28 @@
+---
+title: "Enterprise overview"
+description: "Identity, provisioning, admin policies, managed deployment, and self-hosting options for Anarlog Enterprise."
+---
+
+Anarlog Enterprise adds organization identity controls, automated provisioning, workspace governance, managed device lockdown, and optional customer-hosted capture on top of Anarlog's local-first desktop app and end-to-end encrypted sync.
+
+Your meeting notes remain local on each device unless a user or workspace feature explicitly sends data elsewhere. See [Data, privacy, and retention](/data-and-privacy) for what leaves the device.
+
+## Capabilities by availability
+
+| Capability | Status today | Forthcoming | Guide |
+| --- | --- | --- | --- |
+| Single sign-on and MFA | Domain SAML 2.0 SSO with server-enforced mandatory SSO; enforce MFA in your SAML identity provider or sign in via an MFA-protected OAuth provider | Native in-app TOTP and WebAuthn MFA enrollment; self-serve IdP XML upload | [SSO and MFA](/enterprise/sso-and-mfa) |
+| Directory provisioning | SCIM 2.0 (`POST /Users`, `PATCH /Users/{user_id}`, `PUT /Users/{user_id}`) to add, activate, and deactivate existing accounts | Pre-provisioning unknown accounts before first sign-in; group sync; `filter`, `bulk`, `sort`, `etag`, and `changePassword`; remote wipe of offline files | [SCIM 2.0 provisioning](/enterprise/scim) |
+| Workspace governance | Server-enforced sharing limits, server-side shared-note retention, custom workspace sharing subdomain, metadata-only usage overview, domain auto-join, Primary owner controls, and scheduled capture cancellation | Org-wide admin audit-log export UI; centrally enforced recording consent disclosure policies; expanded client-side policy sync | [Admin controls and policies](/enterprise/policies-and-admin) |
+| Endpoint configuration | Fail-closed `managed_settings.json` locking telemetry, crash reporting, Cloud Sync, updates, Intelligence, recording flags, and custom HTTPS transcription URLs | Native macOS `.plist` profile and Windows Registry GPO ingestion | [Managed deployment and MDM](/enterprise/managed-deployment) |
+| Self-hosting | Local/VPC transcription and LLMs on all plans; customer-hosted enterprise capture data plane (Compose and Kubernetes Helm) with an Enterprise license | Standalone self-hosted E2EE Cloud Sync and authentication server | [Self-hosting](/enterprise/self-hosting) |
+
+## Onboarding and procurement
+
+- Start an Enterprise deployment or evaluation from [Anarlog Enterprise](https://anarlog.so/enterprise).
+- Review architecture, encryption, retention, and subprocessors on the [Anarlog security page](https://anarlog.so/security) and [Security and procurement](/security).
+- Email [team@fastrepl.com](mailto:team@fastrepl.com) to coordinate SAML 2.0 identity provider registration, offline enterprise capture licenses, or a Data Processing Addendum.
+
+<Note>
+  We do not claim SOC 2, ISO 27001, or HIPAA on these pages.
+</Note>
