@@ -13,6 +13,7 @@ pub mod product;
 pub mod runtime_bridge;
 pub mod shipping_store;
 mod shipping_webview;
+pub mod telemetry;
 pub mod ui;
 pub mod workspace;
 pub mod zoom;

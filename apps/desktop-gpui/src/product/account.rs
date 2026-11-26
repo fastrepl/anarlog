@@ -297,6 +297,26 @@ pub fn notify_plan_required(cx: &mut App) {
 /// Replaces the app-wide account; views observing `Account` re-render.
 pub fn set(account: Account, cx: &mut App) {
     if cx.try_global::<Account>() != Some(&account) {
+        if let Some(user) = &account.user {
+            let now = now();
+            let billing = account.billing(now);
+            let plan = if billing.is_trialing {
+                "trial"
+            } else {
+                match account.tier(now) {
+                    Some(Tier::Enterprise) => "enterprise",
+                    Some(Tier::Pro) => "pro",
+                    Some(Tier::Free) if billing.is_lite => "lite",
+                    Some(Tier::Free) => "free",
+                    None if billing.is_pro => "pro",
+                    None if billing.is_lite => "lite",
+                    None => "free",
+                }
+            };
+            crate::telemetry::identify(&user.id, plan, billing.trial_end);
+        } else {
+            crate::telemetry::clear_identity();
+        }
         cx.set_global(account);
     }
 }

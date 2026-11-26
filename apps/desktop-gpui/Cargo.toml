@@ -12,6 +12,7 @@ members = [".", "runtime"]
 [workspace.dependencies]
 anlg-agent-access = { path = "../../crates/agent-access", package = "agent-access" }
 anlg-am = { path = "../../crates/am", package = "am" }
+anlg-analytics = { path = "../../crates/analytics", package = "analytics" }
 anlg-api-client = { path = "../../crates/api-client", package = "api-client" }
 anlg-apple-calendar = { path = "../../crates/apple-calendar", package = "apple-calendar" }
 anlg-audio = { path = "../../crates/audio", package = "audio" }
@@ -31,6 +32,7 @@ anlg-dictation-ui-macos = { path = "../../crates/dictation-ui-macos", package = 
 anlg-e2ee = { path = "../../crates/e2ee", package = "e2ee" }
 anlg-export-core = { path = "../../crates/export-core", package = "export-core" }
 anlg-fs-sync-core = { path = "../../crates/fs-sync-core", package = "fs-sync-core" }
+anlg-host = { path = "../../crates/host", package = "host" }
 anlg-language = { path = "../../crates/language", package = "language" }
 anlg-listener-core = { path = "../../crates/listener-core", package = "listener-core" }
 anlg-listener2-core = { path = "../../crates/listener2-core", package = "listener2-core" }
@@ -49,11 +51,13 @@ anlg-tiptap = { path = "../../crates/tiptap", package = "tiptap" }
 anlg-transcribe-soniqo = { path = "../../crates/transcribe-soniqo", package = "transcribe-soniqo" }
 anlg-transcribe-speechanalyzer = { path = "../../crates/transcribe-speechanalyzer", package = "transcribe-speechanalyzer" }
 anlg-transcript = { path = "../../crates/transcript", package = "transcript" }
+anlg-user-error = { path = "../../crates/user-error", package = "user-error" }
 anyhow = "1"
 base64 = "0.22.1"
 block2 = "0.6"
 chrono = "0.4"
 chrono-tz = "0.10"
+dirs = "6.0.0"
 hound = "3.5.1"
 image = { version = "0.25.10", default-features = false, features = ["webp"] }
 keyring = "4.1.4"
@@ -61,17 +65,21 @@ objc2 = "0.6"
 objc2-av-foundation = "0.3.2"
 owhisper-client = { path = "../../crates/owhisper-client", package = "owhisper-client" }
 owhisper-interface = { path = "../../crates/owhisper-interface", package = "owhisper-interface" }
+posthog-rs = "0.5"
 ractor = "0.15.10"
 regex = "1.12"
 reqwest = "0.13"
 rodio = { version = "0.22", features = ["tracing"] }
+sentry = "=0.42.0"
 serde = "1"
 serde_json = "1"
 serde_qs = "1"
 sha2 = "0.11"
+specta = "2.0.0-rc.22"
 sqlx = { version = "=0.9.0-alpha.1", default-features = false }
 swift-rs = { git = "https://github.com/Brendonovich/swift-rs", rev = "41a1605" }
 sys-locale = "0.3.2"
+sysinfo = "0.38"
 tempfile = "3"
 thiserror = "2"
 tokio = "1"
@@ -108,6 +116,7 @@ debug = "line-tables-only"
 [dependencies]
 anlg-agent-access = { workspace = true }
 anlg-am = { workspace = true }
+anlg-analytics = { workspace = true }
 anlg-api-client = { workspace = true }
 anlg-audio = { workspace = true }
 anlg-audio-actual = { workspace = true }
@@ -122,6 +131,7 @@ anlg-detect = { workspace = true, features = ["list", "mic", "screen", "sleep"] 
 anlg-e2ee = { workspace = true }
 anlg-export-core = { workspace = true }
 anlg-fs-sync-core = { workspace = true }
+anlg-host = { workspace = true }
 anlg-language = { workspace = true }
 anlg-listener-core = { workspace = true }
 anlg-listener2-core = { workspace = true }
@@ -139,6 +149,7 @@ anlg-tiptap = { workspace = true }
 anlg-transcribe-soniqo = { workspace = true }
 anlg-transcribe-speechanalyzer = { workspace = true }
 anlg-transcript = { workspace = true }
+anlg-user-error = { workspace = true }
 anyhow = { workspace = true }
 arboard = { version = "=3.6.1", features = ["wayland-data-control"] }
 base64 = { workspace = true }
@@ -146,6 +157,7 @@ chrono = { workspace = true }
 chrono-tz = { workspace = true }
 csv = "=1.4.0"
 desktop-runtime = { path = "runtime" }
+dirs = { workspace = true }
 flate2 = "=1.1.9"
 futures = "0.3"
 global-hotkey = "=0.8.0"
@@ -170,6 +182,7 @@ regex = { workspace = true }
 reqwest = { workspace = true, features = ["json", "stream", "form"] }
 rfd = { version = "=0.16.0", default-features = false, features = ["xdg-portal", "wayland", "async-std"] }
 rodio = { workspace = true }
+sentry = { workspace = true, features = ["tracing"] }
 serde = { workspace = true, features = ["derive", "rc"] }
 serde_json = { workspace = true }
 sha2 = { workspace = true }
@@ -185,7 +198,7 @@ tray-icon = { version = "=0.24.2", default-features = false, features = ["gtk"] 
 unicode-segmentation = "=1.13.2"
 unicode-width = "=0.2.2"
 url = { workspace = true }
-uuid = { workspace = true, features = ["v4"] }
+uuid = { workspace = true, features = ["v4", "v7"] }
 zeroize = "=1.8.2"
 
 [[test]]

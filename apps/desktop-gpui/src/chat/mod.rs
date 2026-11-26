@@ -575,6 +575,7 @@ impl ChatView {
             refs,
         };
         self.entries.push(Entry::new(user.clone()));
+        crate::telemetry::track("message_sent", &[]);
         self.start(user, None, cx);
     }
 

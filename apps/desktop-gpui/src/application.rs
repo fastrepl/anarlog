@@ -328,6 +328,19 @@ impl ApplicationView {
                     tracing::warn!(%error, "the shipping app's onboarding state was not read");
                 }
             }
+            if let Ok(reply) = crate::product::settings::watch(&startup_runtime)
+                && let Ok(watch) = reply.receive().await
+            {
+                let snapshot =
+                    crate::product::settings::decode(&watch.snapshots.borrow().rows).ok();
+                let _ = watch.unsubscribe().await;
+                if let Some(snapshot) = snapshot {
+                    let (telemetry, crash) = crate::telemetry::consent_from_settings(&snapshot);
+                    crate::telemetry::set_telemetry_enabled(telemetry);
+                    crate::telemetry::set_crash_reporting_enabled(crash);
+                }
+            }
+            crate::telemetry::track("app_opened", &[]);
             if let Some(mirror) = shipping_webview {
                 crate::shipping_webview::import(&mirror, &profile);
             }
@@ -566,15 +579,10 @@ impl ApplicationView {
                             return;
                         };
                         cx.spawn(async move |this, cx| {
+                            let is_auth =
+                                matches!(link, desktop_runtime::deeplink::DeepLink::Auth { .. });
                             let result = match url::Url::parse(&raw) {
-                                Ok(url)
-                                    if matches!(
-                                        link,
-                                        desktop_runtime::deeplink::DeepLink::Auth { .. }
-                                    ) =>
-                                {
-                                    cloud.handle_deep_link(url).await.map(|_| ())
-                                }
+                                Ok(url) if is_auth => cloud.handle_deep_link(url).await.map(|_| ()),
                                 Ok(_) => {
                                     let billing = matches!(
                                         link,
@@ -586,6 +594,9 @@ impl ApplicationView {
                             };
                             let _ = this.update(cx, |this, cx| match result {
                                 Ok(_) => {
+                                    if is_auth {
+                                        crate::telemetry::track("user_signed_in", &[]);
+                                    }
                                     cloud.publish_account(cx);
                                     toasts::success("Account updated.", cx)
                                 }
@@ -670,10 +681,17 @@ impl ApplicationView {
         let update = services.capture.take_update(u64::MAX);
         match update.phase {
             Phase::Loading | Phase::Listening | Phase::Finalizing => {
+                if self.capture_session.is_none() && update.session.is_some() {
+                    crate::telemetry::track(
+                        "recording_started",
+                        &[("provider", serde_json::json!(update.provider.as_ref()))],
+                    );
+                }
                 self.capture_session = update.session
             }
             Phase::Idle => {
                 if let Some(session) = self.capture_session.take() {
+                    crate::telemetry::track("recording_completed", &[]);
                     lock::capture_ended(&session, cx);
                     crate::meeting::automation::capture_completed(cx);
                     self.workspace.update(cx, |workspace, cx| {
@@ -687,6 +705,7 @@ impl ApplicationView {
             }
             Phase::Failed => {
                 if let Some(session) = self.capture_session.take() {
+                    crate::telemetry::track("recording_failed", &[]);
                     lock::capture_ended(&session, cx);
                 }
             }
@@ -1594,6 +1613,7 @@ impl ApplicationView {
                 desktop_runtime::RuntimeState::Closed(_)
             )
         {
+            crate::telemetry::track("app_exit_requested", &[]);
             quit_drained(cx);
             return;
         }
@@ -1633,6 +1653,7 @@ impl ApplicationView {
             .workspace
             .update(cx, |workspace, cx| workspace.save_pending(cx));
         self.closing = true;
+        crate::telemetry::track("app_exit_requested", &[]);
         // Undo windows end at quit so deleted notes do not keep their folders.
         self.workspace
             .update(cx, |workspace, cx| workspace.confirm_pending_deletions(cx));
