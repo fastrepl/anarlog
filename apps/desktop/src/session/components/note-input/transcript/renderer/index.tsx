@@ -479,10 +479,16 @@ export function TranscriptViewer({
           className={cn([
             "flex min-h-0 min-w-0 flex-1 flex-col overflow-x-clip overflow-y-auto",
             "scrollbar-hide",
-            "scroll-pb-[calc(8rem+env(safe-area-inset-bottom))]",
           ])}
         >
-          <div className="flex flex-col gap-8 pb-[calc(4rem+env(safe-area-inset-bottom))]">
+          <div
+            className={cn([
+              "flex flex-col gap-8 pb-[calc(4rem+env(safe-area-inset-bottom))]",
+              "[&_section]:scroll-mb-[calc(8rem+env(safe-area-inset-bottom))]",
+              "[&_[data-transcript-editor]]:scroll-mb-[calc(8rem+env(safe-area-inset-bottom))]",
+              "[&_[data-line-current]]:scroll-mb-[calc(8rem+env(safe-area-inset-bottom))]",
+            ])}
+          >
             {visibleTranscriptIds.map((transcriptId, index) => {
               const isLastTranscript =
                 index === visibleTranscriptIds.length - 1;

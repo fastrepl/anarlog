@@ -311,11 +311,11 @@ html[data-rounded-window] #root {
   corner-shape: round;
 }
 
-[data-scroll-anchor-container] * {
+[data-scroll-anchor-container] > :not([data-scroll-anchor]) {
   overflow-anchor: none;
 }
 
-[data-scroll-anchor-container] [data-scroll-anchor] {
+[data-scroll-anchor-container] > [data-scroll-anchor] {
   overflow-anchor: auto;
   height: 1px;
   flex-shrink: 0;

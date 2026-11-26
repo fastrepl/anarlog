@@ -1349,10 +1349,12 @@ impl TranscriptView {
 
     fn reveal_found(&mut self, cx: &App) {
         let active = self.find.as_ref().map_or(0, |find| find.2);
-        if let Some((row, _)) = self.found(cx).get(active) {
+        if let Some((row, _)) = self.found(cx).get(active)
+            && self
+                .scroll
+                .scroll_to_item(row + usize::from(self.error.is_some()))
+        {
             self.user_scrolled_away = true;
-            self.scroll
-                .scroll_to_item(row + usize::from(self.error.is_some()));
         }
     }
 
@@ -1668,7 +1670,7 @@ impl Render for TranscriptView {
                             .overflow_y_scroll()
                             .track_scroll(self.scroll.handle())
                             .on_scroll(cx.listener(|this, event: &ScrollEvent, window, cx| {
-                                let delta_y = event.delta.pixel_delta(window.line_height()).y;
+                                let delta_y = BottomAnchor::vertical_delta(event, window);
                                 let changed = this.scroll.on_scroll(event, window);
                                 if delta_y > px(0.) && this.scroll.handle().max_offset().y > px(0.)
                                 {

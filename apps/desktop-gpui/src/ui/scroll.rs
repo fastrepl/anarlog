@@ -54,9 +54,28 @@ impl BottomAnchor {
         self.handle.set_offset(point(px(0.), px(0.)));
     }
 
-    pub fn scroll_to_item(&mut self, ix: usize) {
-        self.pinned = false;
-        self.handle.scroll_to_item(ix);
+    pub fn scroll_to_item(&mut self, ix: usize) -> bool {
+        let needs_scroll = self.item_needs_scroll(ix);
+        if needs_scroll {
+            self.pinned = false;
+            self.handle.scroll_to_item(ix);
+        }
+        needs_scroll
+    }
+
+    fn item_needs_scroll(&self, ix: usize) -> bool {
+        let Some(bounds) = self.handle.bounds_for_item(ix) else {
+            return true;
+        };
+        let viewport = self.handle.bounds();
+        let offset = self.handle.offset().y;
+        let tolerance = px(0.5);
+        if bounds.size.height > viewport.size.height {
+            (bounds.top() + offset - viewport.top()).abs() > tolerance
+        } else {
+            bounds.top() + offset < viewport.top() - tolerance
+                || bounds.bottom() + offset > viewport.bottom() + tolerance
+        }
     }
 
     /// Requests a frame-end scroll-to-bottom while following and pinned so newly grown
@@ -67,8 +86,15 @@ impl BottomAnchor {
         }
     }
 
+    /// Matches GPUI's `paint_scroll_listener` on vertical-only scrollers, falling back to
+    /// horizontal wheel delta when the vertical delta is zero.
+    pub fn vertical_delta(event: &ScrollEvent, window: &Window) -> Pixels {
+        let delta = event.delta.pixel_delta(window.line_height());
+        if delta.y != px(0.) { delta.y } else { delta.x }
+    }
+
     pub fn on_scroll(&mut self, event: &ScrollEvent, window: &Window) -> bool {
-        let delta_y = event.delta.pixel_delta(window.line_height()).y;
+        let delta_y = Self::vertical_delta(event, window);
         self.apply_scroll_delta(delta_y)
     }
 
@@ -191,6 +217,75 @@ mod tests {
             assert!(!view.anchor.is_pinned());
             view.anchor.scroll_to_bottom();
             assert!(view.anchor.is_pinned());
+        });
+    }
+
+    #[gpui::test]
+    fn horizontal_only_scroll_detaches_and_repins_vertical_only_scroller(cx: &mut TestAppContext) {
+        let (view, cx) = mount(600., cx);
+        cx.simulate_event(ScrollEvent {
+            position: point(px(50.), px(50.)),
+            delta: gpui::ScrollDelta::Pixels(point(px(20.), px(0.))),
+            ..Default::default()
+        });
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        view.read_with(cx, |view, _| {
+            assert!(!view.anchor.is_pinned());
+            assert!(!view.anchor.is_at_bottom());
+        });
+
+        cx.simulate_event(ScrollEvent {
+            position: point(px(50.), px(50.)),
+            delta: gpui::ScrollDelta::Pixels(point(px(-20.), px(0.))),
+            ..Default::default()
+        });
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        view.read_with(cx, |view, _| {
+            assert!(view.anchor.is_pinned());
+            assert!(view.anchor.is_at_bottom());
+        });
+    }
+
+    struct MultiItemView {
+        anchor: BottomAnchor,
+    }
+
+    impl Render for MultiItemView {
+        fn render(&mut self, _: &mut Window, cx: &mut gpui::Context<Self>) -> impl IntoElement {
+            self.anchor.sync_render(true);
+            div().w(px(300.)).h(px(200.)).child(
+                div()
+                    .id("multi-scroll")
+                    .size_full()
+                    .overflow_y_scroll()
+                    .track_scroll(self.anchor.handle())
+                    .on_scroll(cx.listener(|this, event: &ScrollEvent, window, cx| {
+                        if this.anchor.on_scroll(event, window) {
+                            cx.notify();
+                        }
+                    }))
+                    .children((0..10).map(|ix| div().id(ix).w_full().h(px(50.)))),
+            )
+        }
+    }
+
+    #[gpui::test]
+    fn scroll_to_item_keeps_pin_when_target_is_already_visible_and_unpins_when_offscreen(
+        cx: &mut TestAppContext,
+    ) {
+        let (view, cx) = cx.add_window_view(|_, _| MultiItemView {
+            anchor: BottomAnchor::new(true),
+        });
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+
+        view.update(cx, |view, _| {
+            // Item 9 (last 50px row) is fully visible at the bottom, so following stays active.
+            assert!(!view.anchor.scroll_to_item(9));
+            assert!(view.anchor.is_pinned());
+
+            // Item 0 is above the viewport, so scrolling to reveal it detaches following.
+            assert!(view.anchor.scroll_to_item(0));
+            assert!(!view.anchor.is_pinned());
         });
     }
 }
