@@ -358,12 +358,28 @@ fn folded(kind: ProviderKind, id: &str) -> bool {
     kind == ProviderKind::Llm && matches!(id, "chatgpt" | "claude" | "grok" | "kimi_code")
 }
 
-/// Providers the native app can select as the active one. On-device engines start from
-/// Manage local models, and subscriptions need a sign-in flow the native app lacks.
+fn apple_speech_available() -> bool {
+    static AVAILABLE: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *AVAILABLE.get_or_init(|| {
+        anlg_transcribe_speechanalyzer::AppleSpeechModel::Default.is_available_on_current_platform()
+    })
+}
+
+/// Providers the native app can select as the active one. Subscriptions need a sign-in flow the
+/// native app lacks, and BYO `.bin` files (`local_file`) have no native file picker yet.
 fn selectable(kind: ProviderKind, provider: &ProviderInfo) -> bool {
-    !provider.subscription
-        && !(kind == ProviderKind::Stt && provider.built_in && provider.id != "anarlog")
-        && !(kind == ProviderKind::Llm && provider.id == "apple_foundation")
+    if provider.subscription {
+        return false;
+    }
+    match (kind, provider.id) {
+        (ProviderKind::Stt, "soniqo") => {
+            anlg_local_model::SoniqoModel::ParakeetStreaming.is_available_on_current_platform()
+        }
+        (ProviderKind::Stt, "apple_speech") => apple_speech_available(),
+        (ProviderKind::Stt, "local_file") => false,
+        (ProviderKind::Llm, "apple_foundation") => cfg!(target_os = "macos"),
+        _ => true,
+    }
 }
 
 /// What a save submitted, so only those edits become clean.
@@ -482,6 +498,12 @@ impl ProviderView {
                 .any(|input| input.read(cx).buffer.marked.is_some())
     }
 
+    pub fn refresh(&mut self, cx: &mut Context<Self>) {
+        if !self.has_unsaved(cx) {
+            self.reload(true, cx);
+        }
+    }
+
     fn reload(&mut self, restore: bool, cx: &mut Context<Self>) {
         if self.operation.is_some() {
             return;
@@ -504,7 +526,11 @@ impl ProviderView {
                 match result {
                     Ok(snapshot) => {
                         this.snapshot = Some(snapshot);
-                        if restore && this.generation == generation && !this.queued {
+                        if restore
+                            && this.generation == generation
+                            && !this.queued
+                            && this.draft.is_none()
+                        {
                             this.restore(cx);
                         }
                         if this
@@ -662,6 +688,11 @@ impl ProviderView {
                 .iter()
                 .map(|(id, label)| (*id, *label, true))
                 .collect(),
+            ProviderKind::Llm if provider == "apple_foundation" => vec![(
+                provider_catalog::APPLE_FOUNDATION_MODEL,
+                provider_catalog::APPLE_FOUNDATION_MODEL,
+                true,
+            )],
             ProviderKind::Llm => Vec::new(),
         }
     }
@@ -841,6 +872,22 @@ impl ProviderView {
                             let id = info.id;
                             let note = if locked {
                                 Some("Upgrade to Pro to use this provider.")
+                            } else if !enabled {
+                                match (self.kind, id) {
+                                    (ProviderKind::Stt, "soniqo") => {
+                                        Some("Requires Apple Silicon.")
+                                    }
+                                    (ProviderKind::Stt, "apple_speech") => {
+                                        Some("Requires macOS 26 or later.")
+                                    }
+                                    (ProviderKind::Stt, "local_file") => {
+                                        Some("Not available in this build.")
+                                    }
+                                    (ProviderKind::Llm, "apple_foundation") => {
+                                        Some("Requires macOS with Apple Intelligence.")
+                                    }
+                                    _ => None,
+                                }
                             } else if self.kind == ProviderKind::Stt {
                                 provider_catalog::stt_description(id)
                             } else {
@@ -1054,6 +1101,12 @@ impl ProviderView {
             .iter()
             .find(|(id, ..)| *id == current)
             .map(|(id, label, _)| (*id, *label));
+        let display = selected.map(|(_, label)| label.to_owned()).or_else(|| {
+            (!current.trim().is_empty()).then(|| match self.kind {
+                ProviderKind::Stt => provider_catalog::stt_model_label(&current).to_owned(),
+                ProviderKind::Llm => current.clone(),
+            })
+        });
         let muted = colors.muted_foreground;
         // Shipping heads Anarlog's cloud model with its "latest" category.
         let recommended = self.kind == ProviderKind::Stt && provider == "anarlog";
@@ -1105,7 +1158,7 @@ impl ProviderView {
                     .id("model-select")
                     .role(gpui::Role::ComboBox)
                     .aria_label("Model")
-                    .aria_value(selected.map_or("Select a model", |(_, label)| label))
+                    .aria_value(display.clone().unwrap_or_else(|| "Select a model".into()))
                     .aria_expanded(self.model_menu)
                     .justify_between()
                     .cursor_pointer()
@@ -1117,10 +1170,10 @@ impl ProviderView {
                         div()
                             .min_w_0()
                             .truncate()
-                            .when(selected.is_none(), |view| {
+                            .when(display.is_none(), |view| {
                                 view.text_color(colors.muted_foreground)
                             })
-                            .child(selected.map_or("Select a model", |(_, label)| label)),
+                            .child(display.unwrap_or_else(|| "Select a model".into())),
                     )
                     .child(controls::icon(
                         "ArrowDown01Icon.svg",
@@ -1358,6 +1411,16 @@ impl Render for ProviderView {
                             && !provider.is_empty()
                             && !matches!(provider.as_str(), "anarlog" | "apple_foundation"),
                         |view| view.child(self.reasoning_effort(&colors, window, cx)),
+                    )
+                    .when(
+                        self.kind == ProviderKind::Stt
+                            && matches!(provider.as_str(), "soniqo" | "apple_speech"),
+                        |view| {
+                            view.child(controls::description(
+                                "Download or remove on-device transcription models in Manage local models.",
+                                &colors,
+                            ))
+                        },
                     ),
             )
             .child(
@@ -1703,6 +1766,42 @@ mod tests {
             .update(cx, |view, cx| view.select_kind(ProviderKind::Llm, cx));
         fixture.pick("anarlog", cx);
         assert_eq!(fixture.setting("current_llm_model").unwrap(), "Auto");
+        fixture.shutdown();
+    }
+
+    #[gpui::test]
+    fn picking_on_device_providers_saves_soniqo_and_apple_foundation(cx: &mut TestAppContext) {
+        let fixture = fixture(cx);
+        fixture.pick("soniqo", cx);
+        assert_eq!(fixture.setting("current_stt_provider").unwrap(), "soniqo");
+        assert_eq!(
+            fixture.setting("current_stt_model").unwrap(),
+            "soniqo-parakeet-streaming"
+        );
+        fixture.view.update(cx, |view, cx| {
+            view.model.update(cx, |input, cx| {
+                input.set_text("soniqo-parakeet-batch".into(), cx)
+            });
+            view.save_choice(cx);
+        });
+        fixture.settle(cx);
+        assert_eq!(
+            fixture.setting("current_stt_model").unwrap(),
+            "soniqo-parakeet-batch"
+        );
+
+        fixture
+            .view
+            .update(cx, |view, cx| view.select_kind(ProviderKind::Llm, cx));
+        fixture.pick("apple_foundation", cx);
+        assert_eq!(
+            fixture.setting("current_llm_provider").unwrap(),
+            "apple_foundation"
+        );
+        assert_eq!(
+            fixture.setting("current_llm_model").unwrap(),
+            provider_catalog::APPLE_FOUNDATION_MODEL
+        );
         fixture.shutdown();
     }
 

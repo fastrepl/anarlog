@@ -304,7 +304,10 @@ impl ProductPane {
                     _ => None,
                 };
                 if let Some(kind) = kind {
-                    providers.update(cx, |view, cx| view.select_kind(kind, cx));
+                    providers.update(cx, |view, cx| {
+                        view.select_kind(kind, cx);
+                        view.refresh(cx);
+                    });
                 }
             }
             if self.preferences.is_none() {
@@ -742,7 +745,36 @@ impl ProductPane {
             .flex()
             .flex_col()
             .gap_6()
-            .when(!titled, |view| view.child(controls::page_title(title)))
+            .when(!titled, |view| {
+                let action = if self.active.id == "transcription" && self.service.is_none() {
+                    Some(("local-models", "Manage local models", Some(Surface::Models)))
+                } else if surface == Some(Surface::Models) {
+                    Some(("local-models-back", "Back", None))
+                } else {
+                    None
+                };
+                if let Some((id, label, target)) = action {
+                    view.child(
+                        div()
+                            .flex()
+                            .items_center()
+                            .justify_between()
+                            .gap_4()
+                            .child(controls::page_title(title))
+                            .child(controls::outline_button(
+                                id,
+                                label,
+                                true,
+                                colors,
+                                Some(Box::new(cx.listener(move |this, _, _, cx| {
+                                    this.show_surface(target, cx)
+                                }))),
+                            )),
+                    )
+                } else {
+                    view.child(controls::page_title(title))
+                }
+            })
             .when(!self.notice.is_empty(), |view| {
                 view.child(
                     div()
@@ -760,17 +792,6 @@ impl ProductPane {
                 |view| {
                     view.when_some(self.providers.clone(), |view, providers| {
                         view.child(providers)
-                    })
-                    .when(self.active.id == "transcription", |view| {
-                        view.child(div().flex().child(controls::outline_button(
-                            "local-models",
-                            "Manage local models",
-                            true,
-                            colors,
-                            Some(Box::new(cx.listener(|this, _, _, cx| {
-                                this.show_surface(Some(Surface::Models), cx)
-                            }))),
-                        )))
                     })
                 },
             )

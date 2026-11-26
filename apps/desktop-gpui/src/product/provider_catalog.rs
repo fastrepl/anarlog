@@ -745,7 +745,7 @@ pub const LLM: &[ProviderInfo] = &[
         needs_base_url: false,
         needs_api_key: false,
         subscription: false,
-        built_in: false,
+        built_in: true,
     },
     ProviderInfo {
         id: "custom",
@@ -759,11 +759,15 @@ pub const LLM: &[ProviderInfo] = &[
     },
 ];
 
+pub const APPLE_FOUNDATION_MODEL: &str = "System Language Model";
+
 /// `models` of each transcription provider in `settings/ai/stt/shared.tsx`; custom and
 /// NVIDIA take a typed model identifier instead.
 pub fn stt_models(provider: &str) -> &'static [&'static str] {
     match provider {
         "anarlog" => &["cloud"],
+        "soniqo" => &["soniqo-parakeet-streaming", "soniqo-parakeet-batch"],
+        "apple_speech" => &["apple-speech"],
         "deepgram" => &[
             "flux-general-multi",
             "flux-general-en",
@@ -940,6 +944,8 @@ pub fn stt_model_label(model: &str) -> &str {
 /// starts with.
 pub fn default_stt_model(provider: &str) -> Option<&'static str> {
     Some(match provider {
+        "soniqo" => "soniqo-parakeet-streaming",
+        "apple_speech" => "apple-speech",
         "local_file" => "local-file",
         "deepgram" => "nova-3-general",
         "assemblyai" => "universal-3-5-pro",

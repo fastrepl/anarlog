@@ -5,7 +5,7 @@ use std::sync::Arc;
 use desktop_runtime::{DocumentSnapshot, ServiceError};
 use gpui::{Context, Task};
 
-use super::{EditorPane, with_title};
+use super::{EditorPane, normalize_stored_prosemirror, with_title};
 use crate::editor::{document::Document, model::EditorModel};
 
 impl EditorPane {
@@ -108,7 +108,7 @@ impl EditorPane {
         let title = self.title.clone();
         cx.background_executor().spawn(async move {
             let body: Arc<str> = match format.as_ref() {
-                "prosemirror_json" => body,
+                "prosemirror_json" => normalize_stored_prosemirror(body),
                 "markdown" => anlg_tiptap::md_to_tiptap_json(&body)?.to_string().into(),
                 format => return Err(format!("Unsupported stored format: {format}")),
             };
@@ -324,6 +324,81 @@ mod tests {
                 !editor.is_dirty() && !editor.save_conflict()
             })
         });
+        drop(editor);
+        cx.update(|cx| {
+            window
+                .update(cx, |_, window, _| window.remove_window())
+                .unwrap()
+        });
+        block_on(runtime.shutdown()).unwrap();
+    }
+
+    #[gpui::test]
+    fn empty_prosemirror_memo_opens_without_error_and_saves_first_edit(cx: &mut TestAppContext) {
+        cx.executor().allow_parking();
+        cx.update(crate::ui::theme::UiFonts::init);
+        let directory = tempfile::tempdir().unwrap();
+        let (runtime, ready) = RuntimeHandle::start(Profile {
+            database: directory.path().join("library.sqlite"),
+        })
+        .unwrap();
+        block_on(ready.receive()).unwrap();
+        execute(
+            &runtime,
+            "INSERT INTO sessions (id, title) VALUES ('s', 'Note')",
+            vec![],
+        );
+        execute(
+            &runtime,
+            "INSERT INTO session_documents (id, session_id, kind, body_format, body)
+             VALUES ('s', 's', 'note', 'prosemirror_json', '')",
+            vec![],
+        );
+        let session = SessionId("s".into());
+        let document = block_on(
+            runtime
+                .open_session(session.clone(), CancellationToken::new())
+                .unwrap()
+                .receive(),
+        )
+        .unwrap()
+        .note
+        .unwrap();
+        let context = LaneContext {
+            runtime: runtime.clone(),
+        };
+        let window = cx.add_window(|window, cx| {
+            let init = EditorInit {
+                session_id: session,
+                document,
+                return_focus: cx.focus_handle(),
+            };
+            EditorPane::new(context, init, window, cx)
+        });
+        let editor = window.update(cx, |_, _, cx| cx.entity()).unwrap();
+        wait(cx, "load", |cx| {
+            editor.read_with(cx, |editor, _| editor.model.is_some())
+        });
+        editor.read_with(cx, |editor, _| assert_eq!(editor.message, ""));
+        editor.update(cx, |editor, cx| {
+            let model = editor.model.as_mut().unwrap();
+            let before = model.revision;
+            let result = model.replace(model.selection.range(), "hello");
+            editor.edited(before, result, cx);
+        });
+        let flush = editor.update(cx, |editor, _| editor.flush());
+        block_on(flush).unwrap().unwrap();
+        let saved = execute(
+            &runtime,
+            "SELECT body FROM session_documents WHERE id = 's'",
+            vec![],
+        )[0]["body"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        let parsed: Value = serde_json::from_str(&saved).unwrap();
+        assert_eq!(parsed["type"], "doc");
+        assert!(saved.contains("hello"), "{saved}");
         drop(editor);
         cx.update(|cx| {
             window

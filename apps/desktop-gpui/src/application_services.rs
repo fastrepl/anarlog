@@ -32,7 +32,7 @@ use crate::{
             calendar::{AccessToken, CalendarAuth, CalendarService},
             developers::DeveloperTools,
             failure,
-            models::{EngineResources, ModelService, NativeEngine},
+            models::{EngineResources, ModelService},
         },
         services::{Mutation, Outcome, Panel, ProductServices, Request, Surface},
     },
@@ -51,7 +51,6 @@ pub struct Effects {
     sender: mpsc::Sender<HostCommand>,
     runtime: RuntimeHandle,
     capture: Mutex<Option<MeetingServices>>,
-    native: Arc<Mutex<Option<NativeEngine>>>,
 }
 
 impl Effects {
@@ -62,7 +61,6 @@ impl Effects {
                 sender,
                 runtime,
                 capture: Mutex::new(None),
-                native: Arc::default(),
             }),
             receiver,
         )
@@ -119,21 +117,20 @@ impl HostEffects for Effects {
         &self,
         model: anlg_local_model::LocalModel,
         _: String,
-        native: Option<NativeEngine>,
     ) -> BoxFuture<'static, Result<()>> {
         let idle = self.idle();
         let runtime = self.runtime.clone();
-        let current = self.native.clone();
         Box::pin(async move {
             idle?;
-            let kind = if matches!(model, anlg_local_model::LocalModel::GgufLlm(_)) {
-                "llm"
-            } else {
-                "stt"
+            let (kind, provider) = match &model {
+                anlg_local_model::LocalModel::Soniqo(_) => ("stt", "soniqo"),
+                anlg_local_model::LocalModel::AppleSpeech(_) => ("stt", "apple_speech"),
+                anlg_local_model::LocalModel::GgufLlm(_) => ("llm", "local"),
+                _ => ("stt", "anarlog"),
             };
-            let result = runtime.submit(move |services| async move {
+            runtime.submit(move |services| async move {
                 let statements = [
-                    (format!("current_{kind}_provider"), if kind == "llm" { "local" } else { "anarlog" }.to_owned()),
+                    (format!("current_{kind}_provider"), provider.to_owned()),
                     (format!("current_{kind}_model"), model.cli_name().to_owned()),
                 ].into_iter().map(|(key, value)| anlg_db_execute::TransactionStatement {
                     sql: "INSERT INTO app_settings (id,value_json,updated_at) VALUES (?,?,strftime('%Y-%m-%dT%H:%M:%fZ','now')) ON CONFLICT(id) DO UPDATE SET value_json=excluded.value_json,updated_at=excluded.updated_at".into(),
@@ -141,37 +138,7 @@ impl HostEffects for Effects {
                 }).collect();
                 services.executor.execute_transaction(statements).await.map_err(failure)?;
                 Ok(())
-            })?.receive().await;
-            if result.is_ok() {
-                if let Some(native) = native {
-                    let previous = current.lock().map_err(failure)?.replace(native);
-                    if let Some(previous) = previous {
-                        tokio::task::spawn_blocking(move || previous.stop())
-                            .await
-                            .map_err(failure)??;
-                    }
-                }
-            } else if let Some(native) = native {
-                tokio::task::spawn_blocking(move || native.stop())
-                    .await
-                    .map_err(failure)??;
-            }
-            result
-        })
-    }
-
-    fn stop_model(&self) -> BoxFuture<'static, Result<()>> {
-        let idle = self.idle();
-        let native = self.native.clone();
-        Box::pin(async move {
-            idle?;
-            let session = native.lock().map_err(failure)?.take();
-            if let Some(session) = session {
-                tokio::task::spawn_blocking(move || session.stop())
-                    .await
-                    .map_err(failure)??;
-            }
-            Ok(())
+            })?.receive().await
         })
     }
 }
@@ -342,17 +309,10 @@ impl NativeServices {
             secret_write: crate::meeting::subscription::keyring_writer(identifier.into()),
         };
         let stop_models = models.clone();
-        let stop_effects = effects.clone();
         runtime
             .register_shutdown(
                 desktop_runtime::ShutdownPhase::StopServices,
-                Box::new(move || {
-                    Box::pin(async move {
-                        let (native, engines) =
-                            tokio::join!(stop_effects.stop_model(), stop_models.stop());
-                        native.and(engines)
-                    })
-                }),
+                Box::new(move || Box::pin(async move { stop_models.stop().await })),
             )?
             .receive()
             .await?;

@@ -324,6 +324,13 @@ impl Render for WorkspaceView {
                                         )),
                                 ),
                         ),
+                        Route::Settings(_) => view.child(
+                            div()
+                                .p_6()
+                                .text_sm()
+                                .text_color(colors.muted_foreground)
+                                .child("Loading settings…"),
+                        ),
                         _ => view.child(div().p_6().text_sm().child(format!(
                             "{} content has not been connected to the workspace.",
                             route.label()

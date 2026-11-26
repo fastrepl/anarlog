@@ -225,7 +225,7 @@ impl EditorPane {
         let display_title = title.clone();
         let load = cx.background_executor().spawn(async move {
             let body: Arc<str> = match snapshot.body_format.as_ref() {
-                "prosemirror_json" => snapshot.body.clone(),
+                "prosemirror_json" => normalize_stored_prosemirror(snapshot.body.clone()),
                 // Shipping decodes imported Markdown for display; the first edit saves
                 // ProseMirror JSON in its place, as shipping does.
                 "markdown" => anlg_tiptap::md_to_tiptap_json(&snapshot.body)?
@@ -1774,7 +1774,10 @@ impl EditorPane {
             return;
         }
         let generation = self.external_generation;
-        let body = with_title(snapshot.body.clone(), self.title.as_deref());
+        let body = with_title(
+            normalize_stored_prosemirror(snapshot.body.clone()),
+            self.title.as_deref(),
+        );
         let job = cx
             .background_executor()
             .spawn(async move { Document::parse(body) });
@@ -2840,6 +2843,18 @@ fn attachment_node(
         "fileAttachment"
     };
     (kind, attrs)
+}
+
+const EMPTY_PROSEMIRROR_DOC: &str = r#"{"type":"doc","content":[{"type":"paragraph"}]}"#;
+
+/// Shipping writes `body = ''` alongside `body_format = 'prosemirror_json'` for empty memos;
+/// keep the original empty snapshot in `SaveJournal` for CAS while opening an empty document.
+pub(super) fn normalize_stored_prosemirror(body: Arc<str>) -> Arc<str> {
+    if body.trim().is_empty() {
+        EMPTY_PROSEMIRROR_DOC.into()
+    } else {
+        body
+    }
 }
 
 fn with_title(body: Arc<str>, title: Option<&str>) -> Arc<str> {

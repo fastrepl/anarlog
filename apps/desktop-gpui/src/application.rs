@@ -84,6 +84,8 @@ pub struct ApplicationView {
     automation: Entity<crate::meeting::automation::MeetingAutomation>,
     dictation: Option<Entity<crate::dictation::Dictation>>,
     product: Option<Entity<ProductPane>>,
+    pending_product: Option<ProductRoute>,
+    startup_error: Option<String>,
     trial_dialogs: Entity<crate::product::trial::TrialDialogs>,
     instruction: Entity<instruction::Instruction>,
     services: Option<MeetingServices>,
@@ -415,6 +417,19 @@ impl ApplicationView {
                     }
                     cloud_api::start(&native, cx);
                     this.native = Some(native);
+                    if let Some(route) = this.pending_product.take() {
+                        let window = this.window;
+                        let view = cx.entity().downgrade();
+                        cx.defer(move |cx| {
+                            let _ = cx.update_window(window, |_, window, cx| {
+                                let _ = view.update(cx, |this, cx| {
+                                    if this.product.is_none() {
+                                        this.open_product(route, window, cx);
+                                    }
+                                });
+                            });
+                        });
+                    }
                     this.start_schedule(cx);
                     this.watch_preferences(cx);
                     this.start_lifecycle(cx);
@@ -424,7 +439,11 @@ impl ApplicationView {
                         this.offer_discard(capture, vault.clone(), cx);
                     }
                 }
-                Err(error) => this.status(&format!("Meeting startup failed: {error}"), cx),
+                Err(error) => {
+                    this.pending_product = None;
+                    this.startup_error = Some(error.to_string());
+                    this.status(&format!("Meeting startup failed: {error}"), cx);
+                }
             });
         })
         .detach();
@@ -452,6 +471,8 @@ impl ApplicationView {
             automation,
             dictation,
             product: None,
+            pending_product: None,
+            startup_error: None,
             trial_dialogs,
             instruction,
             services: None,
@@ -1277,6 +1298,7 @@ impl ApplicationView {
             );
             return;
         }
+        self.pending_product = None;
         let return_focus = self.workspace.read(cx).focus_handle(cx);
         let editor = cx.new(|cx| {
             let mut editor = EditorPane::new(
@@ -1426,6 +1448,7 @@ impl ApplicationView {
             self.status("Meeting services are still starting or recovery failed. Retry after resolving the startup error.", cx);
             return;
         };
+        self.pending_product = None;
         // Shipping records inside the note itself; only an explicit open shows the meeting pane.
         let reply = match &intent {
             MeetingIntent::Start { session_id } => Some(host::start(&services, session_id.clone())),
@@ -1481,9 +1504,14 @@ impl ApplicationView {
 
     fn open_product(&mut self, route: ProductRoute, window: &mut Window, cx: &mut Context<Self>) {
         let Some(native) = &self.native else {
-            self.status("Native services are still starting.", cx);
+            if let Some(error) = &self.startup_error {
+                self.status(&format!("Native services failed to start: {error}"), cx);
+            } else {
+                self.pending_product = Some(route);
+            }
             return;
         };
+        self.pending_product = None;
         let local = native.local.clone();
         let cloud = native.cloud.service.clone();
         let scope = cloud.as_ref().map(|c| c.scope()).unwrap_or_default();
@@ -1583,6 +1611,7 @@ impl ApplicationView {
         {
             return;
         }
+        self.pending_product = None;
         self.product = None;
         self.product_subscriptions.clear();
         self.workspace.update(cx, |workspace, cx| {
