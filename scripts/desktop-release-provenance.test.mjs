@@ -1041,7 +1041,10 @@ test("GPUI stable publish workflow enforces bridge-gate cutover safety and relea
   }
 
   const workflowCode = workflow.replace(/^\s*#.*$/gm, "");
-  assert.match(workflow, /default:\s*["']?fastrepl\/anarlog["']?/);
+  assert.match(
+    workflow,
+    /default:\s*(?:"fastrepl\/anarlog"|'fastrepl\/anarlog'|fastrepl\/anarlog(?:\s|$))/,
+  );
   for (const forbidden of [
     /linux-package-bump/,
     /update-aur-pkgbuild/,
@@ -1106,6 +1109,15 @@ test("GPUI stable publish workflow enforces bridge-gate cutover safety and relea
   };
 
   assert.equal(runParse().status, 0);
+  const defaultOutput = path.join(scratchDir, "github-output-default");
+  assert.equal(
+    runParse({ INPUT_CN_APPLICATION: "", GITHUB_OUTPUT: defaultOutput }).status,
+    0,
+  );
+  assert.match(
+    await readFile(defaultOutput, "utf8"),
+    /^cn_application=fastrepl\/anarlog$/m,
+  );
   for (const overrides of [
     { INPUT_CN_APPLICATION: "fastrepl/hyprnote2" },
     { INPUT_CN_APPLICATION: "FASTREPL/HYPRNOTE2" },
