@@ -42,6 +42,14 @@ on:
         required: true
       VITE_SUPABASE_ANON_KEY:
         required: true
+      POSTHOG_API_KEY:
+        required: true
+      SENTRY_DSN_HYPRNOTE_2:
+        required: true
+      INFISICAL_PROJECT_ID:
+        required: true
+      INFISICAL_SENTRY_TOKEN:
+        required: true
 
 permissions:
   contents: read
@@ -116,12 +124,25 @@ jobs:
         env:
           ANARLOG_CHANNEL: ${{ inputs.channel }}
           CARGO_PROFILE_RELEASE_DEBUG: line-tables-only
+          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN_HYPRNOTE_2 }}
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_APP_URL: "https://anarlog.so"
           VITE_API_URL: "https://api.anarlog.so"
           VITE_APP_VERSION: ${{ inputs.version }}
-        run: cargo build --locked --release --target "$TARGET"
+        run: |
+          if [[ "$RELEASE_CHANNEL" != "staging" ]]; then
+            if [[ "$POSTHOG_API_KEY" != phc_* ]]; then
+              echo "::error::Missing or invalid POSTHOG_API_KEY for $RELEASE_CHANNEL"
+              exit 1
+            fi
+            if [[ -z "$SENTRY_DSN" ]]; then
+              echo "::error::Missing SENTRY_DSN_HYPRNOTE_2 for $RELEASE_CHANNEL"
+              exit 1
+            fi
+          fi
+          cargo build --locked --release --target "$TARGET"
       - env:
           # Shipping's CD opts in to the DMG's Finder layout the same way.
           CI: false
@@ -141,6 +162,57 @@ jobs:
             --binary "apps/desktop-gpui/target/$TARGET/release/desktop-gpui" \
             --bundles app,dmg \
             --team-id "$APPLE_TEAM_ID"
+      - if: ${{ inputs.channel != 'staging' }}
+        id: macos-symbols
+        name: Generate and verify macOS debug symbols
+        run: |
+          shopt -s nullglob
+          apps=("$BUNDLE_DIR"/macos/*.app)
+          if [[ ${#apps[@]} -ne 1 ]]; then
+            echo "::error::Expected one macOS app for $TARGET, found ${#apps[@]}"
+            exit 1
+          fi
+          binary="${apps[0]}/Contents/MacOS/$APP_BINARY"
+          dsym="apps/desktop-gpui/target/$TARGET/release/$APP_BINARY.dSYM"
+          dsymutil "$binary" -o "$dsym"
+
+          binary_uuid=$(dwarfdump --uuid "$binary" | awk '{print $2}')
+          dsym_uuid=$(dwarfdump --uuid "$dsym" | awk '{print $2}')
+          if [[ -z "$binary_uuid" || "$binary_uuid" != "$dsym_uuid" ]]; then
+            echo "::error::dSYM UUID does not match the packaged binary"
+            exit 1
+          fi
+          echo "Verified dSYM UUID $dsym_uuid"
+          echo "path=$dsym" >> "$GITHUB_OUTPUT"
+      - if: ${{ inputs.channel != 'staging' }}
+        uses: $/.github/actions/sentry_cli
+      - if: ${{ inputs.channel != 'staging' }}
+        name: Upload macOS debug symbols to Sentry
+        env:
+          DSYM_PATH: ${{ steps.macos-symbols.outputs.path }}
+          INFISICAL_PROJECT_ID: ${{ secrets.INFISICAL_PROJECT_ID }}
+          INFISICAL_TOKEN: ${{ secrets.INFISICAL_SENTRY_TOKEN }}
+        run: |
+          response=$(
+            curl --fail --silent --show-error --get \
+              --header "Authorization: Bearer $INFISICAL_TOKEN" \
+              --data-urlencode "projectId=$INFISICAL_PROJECT_ID" \
+              --data-urlencode "environment=prod" \
+              --data-urlencode "secretPath=/anarlog/github" \
+              --data-urlencode "expandSecretReferences=false" \
+              "https://app.infisical.com/api/v4/secrets/SENTRY_AUTH_TOKEN"
+          )
+          if ! SENTRY_AUTH_TOKEN=$(jq -er '.secret.secretValue | select(length > 0)' <<< "$response"); then
+            echo "::error::Missing SENTRY_AUTH_TOKEN in Infisical prod:/anarlog/github"
+            exit 1
+          fi
+          export SENTRY_AUTH_TOKEN
+
+          sentry-cli debug-files upload \
+            --org fastrepl \
+            --project anarlog \
+            --include-sources \
+            "$DSYM_PATH"
       - id: find-dmg
         run: |
           shopt -s nullglob
@@ -252,12 +324,56 @@ jobs:
         env:
           ANARLOG_CHANNEL: ${{ inputs.channel }}
           CARGO_PROFILE_RELEASE_DEBUG: line-tables-only
+          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN_HYPRNOTE_2 }}
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_APP_URL: https://anarlog.so
           VITE_API_URL: https://api.anarlog.so
           VITE_APP_VERSION: ${{ inputs.version }}
-        run: cargo build --locked --release --target "$TARGET"
+        run: |
+          if [[ "$RELEASE_CHANNEL" != "staging" ]]; then
+            if [[ "$POSTHOG_API_KEY" != phc_* ]]; then
+              echo "::error::Missing or invalid POSTHOG_API_KEY for $RELEASE_CHANNEL"
+              exit 1
+            fi
+            if [[ -z "$SENTRY_DSN" ]]; then
+              echo "::error::Missing SENTRY_DSN_HYPRNOTE_2 for $RELEASE_CHANNEL"
+              exit 1
+            fi
+          fi
+          cargo build --locked --release --target "$TARGET"
+      - if: ${{ inputs.channel != 'staging' }}
+        uses: $/.github/actions/sentry_cli
+      - if: ${{ inputs.channel != 'staging' }}
+        name: Upload Linux debug symbols to Sentry
+        env:
+          INFISICAL_PROJECT_ID: ${{ secrets.INFISICAL_PROJECT_ID }}
+          INFISICAL_TOKEN: ${{ secrets.INFISICAL_SENTRY_TOKEN }}
+        run: |
+          binary="apps/desktop-gpui/target/$TARGET/release/desktop-gpui"
+          sentry-cli debug-files check "$binary"
+
+          response=$(
+            curl --fail --silent --show-error --get \
+              --header "Authorization: Bearer $INFISICAL_TOKEN" \
+              --data-urlencode "projectId=$INFISICAL_PROJECT_ID" \
+              --data-urlencode "environment=prod" \
+              --data-urlencode "secretPath=/anarlog/github" \
+              --data-urlencode "expandSecretReferences=false" \
+              "https://app.infisical.com/api/v4/secrets/SENTRY_AUTH_TOKEN"
+          )
+          if ! SENTRY_AUTH_TOKEN=$(jq -er '.secret.secretValue | select(length > 0)' <<< "$response"); then
+            echo "::error::Missing SENTRY_AUTH_TOKEN in Infisical prod:/anarlog/github"
+            exit 1
+          fi
+          export SENTRY_AUTH_TOKEN
+
+          sentry-cli debug-files upload \
+            --org fastrepl \
+            --project anarlog \
+            --include-sources \
+            "$binary"
       - env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
@@ -484,12 +600,25 @@ jobs:
         env:
           ANARLOG_CHANNEL: ${{ inputs.channel }}
           CARGO_PROFILE_RELEASE_DEBUG: line-tables-only
+          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN_HYPRNOTE_2 }}
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_APP_URL: https://anarlog.so
           VITE_API_URL: https://api.anarlog.so
           VITE_APP_VERSION: ${{ inputs.version }}
-        run: cargo build --locked --release --target "$TARGET"
+        run: |
+          if [[ "$RELEASE_CHANNEL" != "staging" ]]; then
+            if [[ "$POSTHOG_API_KEY" != phc_* ]]; then
+              echo "::error::Missing or invalid POSTHOG_API_KEY for $RELEASE_CHANNEL"
+              exit 1
+            fi
+            if [[ -z "$SENTRY_DSN" ]]; then
+              echo "::error::Missing SENTRY_DSN_HYPRNOTE_2 for $RELEASE_CHANNEL"
+              exit 1
+            fi
+          fi
+          cargo build --locked --release --target "$TARGET"
       # Tauri's bundler rewrites this marker before NSIS embeds the app even with --no-sign, which
       # would invalidate a prior Authenticode signature. Stamp NSIS before signing so Tauri leaves
       # the signed binary untouched.
@@ -506,6 +635,48 @@ jobs:
               raise SystemExit(f"Expected 1 bundle-type marker in {path}, found {count}")
           path.write_bytes(data.replace(old, new, 1))
           ' "apps/desktop-gpui/target/$TARGET/release/desktop-gpui.exe"
+      - if: ${{ inputs.channel != 'staging' }}
+        uses: $/.github/actions/sentry_cli
+      - if: ${{ inputs.channel != 'staging' }}
+        name: Upload Windows debug symbols to Sentry
+        shell: bash
+        env:
+          INFISICAL_PROJECT_ID: ${{ secrets.INFISICAL_PROJECT_ID }}
+          INFISICAL_TOKEN: ${{ secrets.INFISICAL_SENTRY_TOKEN }}
+        run: |
+          release_dir="apps/desktop-gpui/target/$TARGET/release"
+          shopt -s nullglob
+          pdbs=("$release_dir"/*.pdb)
+          if [[ ${#pdbs[@]} -eq 0 ]]; then
+            echo "::error::No PDB found next to the Windows binary"
+            exit 1
+          fi
+          echo "Found PDBs: ${pdbs[*]}"
+          for pdb in "${pdbs[@]}"; do
+            sentry-cli debug-files check "$pdb"
+          done
+
+          response=$(
+            curl --fail --silent --show-error --get \
+              --header "Authorization: Bearer $INFISICAL_TOKEN" \
+              --data-urlencode "projectId=$INFISICAL_PROJECT_ID" \
+              --data-urlencode "environment=prod" \
+              --data-urlencode "secretPath=/anarlog/github" \
+              --data-urlencode "expandSecretReferences=false" \
+              "https://app.infisical.com/api/v4/secrets/SENTRY_AUTH_TOKEN"
+          )
+          if ! SENTRY_AUTH_TOKEN=$(jq -er '.secret.secretValue | select(length > 0)' <<< "$response"); then
+            echo "::error::Missing SENTRY_AUTH_TOKEN in Infisical prod:/anarlog/github"
+            exit 1
+          fi
+          export SENTRY_AUTH_TOKEN
+
+          sentry-cli debug-files upload \
+            --org fastrepl \
+            --project anarlog \
+            --include-sources \
+            "$release_dir/desktop-gpui.exe" \
+            "${pdbs[@]}"
       - if: ${{ inputs.channel != 'staging' }}
         uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3
         with:

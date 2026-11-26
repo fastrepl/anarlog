@@ -448,6 +448,10 @@ impl ApplicationView {
                                         cx,
                                     );
                                 });
+                                let (telemetry, crash) =
+                                    crate::telemetry::consent_from_settings(&snapshot);
+                                crate::telemetry::set_telemetry_enabled(telemetry);
+                                crate::telemetry::set_crash_reporting_enabled(crash);
                                 this.automation.update(cx, |automation, _| {
                                     automation.set_preferences(snapshot.clone())
                                 });

@@ -13,13 +13,9 @@ use desktop_gpui::{
 };
 use desktop_runtime::{Profile, RuntimeHandle, Startup};
 use gpui::AppContext;
+use tracing_subscriber::prelude::*;
 
 fn main() -> anyhow::Result<()> {
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "warn".into()),
-        )
-        .init();
     let (mode, urls) = match launch::parse(
         std::env::args_os().skip(1),
         launch::COMPILED_CHANNEL,
@@ -72,6 +68,15 @@ fn main() -> anyhow::Result<()> {
             (Storage::channel(channel, &locations), locations.database())
         }
     };
+    let _sentry_guard = desktop_gpui::telemetry::init_sentry(storage.channel);
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "warn".into()),
+        )
+        .with(tracing_subscriber::fmt::layer())
+        .with(desktop_gpui::telemetry::sentry_tracing_layer())
+        .init();
+    desktop_gpui::telemetry::init_analytics(storage.channel);
     let events = NativeEvents::default();
     // Before the runtime takes the profile, which the running instance holds.
     #[cfg(any(target_os = "linux", target_os = "windows"))]
