@@ -774,6 +774,11 @@ impl ApplicationView {
                     crate::telemetry::track("recording_completed", &[]);
                     lock::capture_ended(&session, cx);
                     crate::meeting::automation::capture_completed(cx);
+                    if !self.closing && !self.shutdown_begun() {
+                        crate::meeting::upload::Uploads::global(cx).update(cx, |uploads, cx| {
+                            uploads.capture_transcribed(session.clone(), cx)
+                        });
+                    }
                     self.workspace.update(cx, |workspace, cx| {
                         workspace.run_automations(
                             crate::workspace::automation_runner::Trigger::MeetingCompleted,
