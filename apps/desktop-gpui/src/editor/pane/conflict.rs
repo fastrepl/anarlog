@@ -407,4 +407,93 @@ mod tests {
         });
         block_on(runtime.shutdown()).unwrap();
     }
+
+    #[gpui::test]
+    fn empty_prosemirror_memo_merges_remote_revision(cx: &mut TestAppContext) {
+        cx.executor().allow_parking();
+        cx.update(crate::ui::theme::UiFonts::init);
+        let directory = tempfile::tempdir().unwrap();
+        let (runtime, ready) = RuntimeHandle::start(Profile {
+            database: directory.path().join("library.sqlite"),
+        })
+        .unwrap();
+        block_on(ready.receive()).unwrap();
+        execute(
+            &runtime,
+            "INSERT INTO sessions (id, title) VALUES ('s', 'Note')",
+            vec![],
+        );
+        execute(
+            &runtime,
+            "INSERT INTO session_documents (id, session_id, kind, body_format, body)
+             VALUES ('s', 's', 'note', 'prosemirror_json', '')",
+            vec![],
+        );
+        let session = SessionId("s".into());
+        let document = block_on(
+            runtime
+                .open_session(session.clone(), CancellationToken::new())
+                .unwrap()
+                .receive(),
+        )
+        .unwrap()
+        .note
+        .unwrap();
+        let context = LaneContext {
+            runtime: runtime.clone(),
+        };
+        let window = cx.add_window(|window, cx| {
+            let init = EditorInit {
+                session_id: session,
+                document,
+                return_focus: cx.focus_handle(),
+            };
+            EditorPane::new(context, init, window, cx)
+        });
+        let editor = window.update(cx, |_, _, cx| cx.entity()).unwrap();
+        wait(cx, "load", |cx| {
+            editor.read_with(cx, |editor, _| editor.model.is_some())
+        });
+        execute(
+            &runtime,
+            "UPDATE session_documents SET body = ?,
+               updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '+1 second')
+             WHERE id = 's'",
+            vec![json!(paragraph("Remote edit"))],
+        );
+        wait(cx, "remote revision", |cx| {
+            editor.read_with(cx, |editor, _| editor.external.is_some())
+        });
+        editor.update(cx, |editor, cx| editor.merge_external(cx));
+        wait(cx, "merge", |cx| {
+            editor.read_with(cx, |editor, _| {
+                editor.external.is_none() && !editor.is_dirty()
+            })
+        });
+        let flush = editor.update(cx, |editor, _| editor.flush());
+        block_on(flush).unwrap().unwrap();
+        editor.read_with(cx, |editor, _| {
+            assert!(
+                !editor.message.contains("EOF") && !editor.message.contains("Invalid JSON"),
+                "{}",
+                editor.message
+            );
+        });
+        let saved = execute(
+            &runtime,
+            "SELECT body FROM session_documents WHERE id = 's'",
+            vec![],
+        )[0]["body"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        assert!(saved.contains("Remote edit"), "{saved}");
+        drop(editor);
+        cx.update(|cx| {
+            window
+                .update(cx, |_, window, _| window.remove_window())
+                .unwrap()
+        });
+        block_on(runtime.shutdown()).unwrap();
+    }
 }

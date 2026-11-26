@@ -70,14 +70,22 @@ impl Effects {
         *self.capture.lock().unwrap_or_else(|e| e.into_inner()) = Some(services);
     }
 
-    fn idle(&self) -> Result<()> {
-        let services = self.capture.lock().map_err(failure)?.clone();
-        if services.is_some_and(|s| {
+    pub fn is_capturing(&self) -> bool {
+        let Ok(capture) = self.capture.lock() else {
+            // Treat a poisoned lock conservatively as active so destructive model actions stay blocked.
+            return true;
+        };
+        capture.as_ref().is_some_and(|s| {
             matches!(
                 s.capture.take_update(u64::MAX).phase,
                 Phase::Loading | Phase::Listening | Phase::Finalizing
             )
-        }) {
+        })
+    }
+
+    fn idle(&self) -> Result<()> {
+        drop(self.capture.lock().map_err(failure)?);
+        if self.is_capturing() {
             return Err(failure("Finish the recording before changing models"));
         }
         Ok(())
@@ -260,16 +268,22 @@ impl NativeServices {
             .or_else(|| std::env::var_os("USERPROFILE"))
             .map(PathBuf::from)
             .ok_or_else(|| failure("No home directory configured"))?;
-        let models = Arc::new(ModelService::new(
-            profile.join("models"),
-            EngineResources {
-                argmax: executable("argmax"),
-                llama_server: executable("llama-server"),
-                argmax_api_key: std::env::var("ARGMAX_API_KEY").unwrap_or_default(),
-            },
-        ));
+        let capture_effects = effects.clone();
+        let models = Arc::new(
+            ModelService::new(
+                profile.join("models"),
+                EngineResources {
+                    argmax: executable("argmax"),
+                    llama_server: executable("llama-server"),
+                    argmax_api_key: std::env::var("ARGMAX_API_KEY").unwrap_or_default(),
+                },
+            )
+            .with_capture_active(Arc::new(move || capture_effects.is_capturing())),
+        );
         let model_runtime = runtime.clone();
         let model_service = models.clone();
+        let on_device_runtime = runtime.clone();
+        let on_device_models = models.clone();
         let provider_cloud = cloud.clone();
         let providers = ProviderServices {
             runtime: runtime.clone(),
@@ -303,6 +317,57 @@ impl NativeServices {
                         })?
                         .receive()
                         .await
+                })
+            }),
+            on_device: Arc::new(move || {
+                let runtime = on_device_runtime.clone();
+                let models = on_device_models.clone();
+                Box::pin(async move {
+                    let result = async {
+                        runtime
+                            .service(move |_| async move {
+                                let soniqo_available =
+                                    anlg_local_model::SoniqoModel::ParakeetStreaming
+                                        .is_available_on_current_platform();
+                                let apple_speech_available = tokio::task::spawn_blocking(|| {
+                                    anlg_transcribe_speechanalyzer::AppleSpeechModel::Default
+                                        .is_available_on_current_platform()
+                                })
+                                .await
+                                .unwrap_or(false);
+                                let mut installed_stt_models = std::collections::BTreeSet::new();
+                                for model in ModelService::registry() {
+                                    if matches!(
+                                        model,
+                                        anlg_local_model::LocalModel::Soniqo(_)
+                                            | anlg_local_model::LocalModel::AppleSpeech(_)
+                                    ) && models
+                                        .state(model.clone())
+                                        .await
+                                        .is_ok_and(|state| state.installed)
+                                    {
+                                        installed_stt_models.insert(model.cli_name().to_owned());
+                                    }
+                                }
+                                let apple_foundation_unavailable =
+                                    match crate::meeting::foundation::availability().await {
+                                        crate::meeting::foundation::Availability::Available => None,
+                                        crate::meeting::foundation::Availability::Unavailable(
+                                            reason,
+                                        ) => Some(reason),
+                                    };
+                                Ok(crate::meeting::config::OnDeviceStatus {
+                                    soniqo_available,
+                                    apple_speech_available,
+                                    installed_stt_models,
+                                    apple_foundation_unavailable,
+                                })
+                            })?
+                            .receive()
+                            .await
+                    }
+                    .await;
+                    result.unwrap_or_default()
                 })
             }),
             secret: crate::meeting::config::keyring_secrets(identifier.into()),

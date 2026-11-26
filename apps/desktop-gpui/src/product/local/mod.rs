@@ -263,7 +263,9 @@ impl LocalServices {
                             } else {
                                 "Not downloaded"
                             },
-                            if in_process && state.installed && selected {
+                            if in_process && state.in_use {
+                                " · In use"
+                            } else if in_process && state.installed && selected {
                                 " · Active"
                             } else if state.running {
                                 " · Running"
@@ -300,6 +302,16 @@ impl LocalServices {
                             && op.action != Action::DeleteModel
                         {
                             op.disabled_reason = Some(reason.into());
+                        } else if state.in_use
+                            && matches!(
+                                op.action,
+                                Action::DeleteModel | Action::CancelDownload | Action::StartModel
+                            )
+                        {
+                            op.disabled_reason = Some(
+                                "Finish the active recording before changing or deleting this model"
+                                    .into(),
+                            );
                         }
                         actions.push(op);
                     }

@@ -990,6 +990,7 @@ mod tests {
                 api_url: String::new(),
                 cloud: Arc::new(move || Box::pin(async move { Err(offline()) })),
                 local: Arc::new(move |_| Box::pin(async move { Err(offline()) })),
+                on_device: Arc::new(|| Box::pin(async { Default::default() })),
                 secret: Arc::new(|_, _| Box::pin(async { Ok(None) })),
                 secret_write: Arc::new(|_, _, _| Box::pin(async { Ok(()) })),
             },

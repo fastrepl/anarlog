@@ -70,6 +70,11 @@ impl anlg_storage::StorageRuntime for ProfileStorage {
     }
 }
 
+struct PendingProduct {
+    route: ProductRoute,
+    workspace_route: Option<Route>,
+}
+
 pub struct ApplicationView {
     runtime: RuntimeHandle,
     window: gpui::AnyWindowHandle,
@@ -84,7 +89,7 @@ pub struct ApplicationView {
     automation: Entity<crate::meeting::automation::MeetingAutomation>,
     dictation: Option<Entity<crate::dictation::Dictation>>,
     product: Option<Entity<ProductPane>>,
-    pending_product: Option<ProductRoute>,
+    pending_product: Option<PendingProduct>,
     startup_error: Option<String>,
     trial_dialogs: Entity<crate::product::trial::TrialDialogs>,
     instruction: Entity<instruction::Instruction>,
@@ -167,6 +172,14 @@ impl ApplicationView {
             }),
             cx.subscribe_in(&workspace, window, |this, _, event, window, cx| {
                 this.workspace_event(event, window, cx)
+            }),
+            cx.observe(&workspace, |this, workspace, cx| {
+                if let Some(pending) = &this.pending_product
+                    && let Some(expected) = &pending.workspace_route
+                    && &workspace.read(cx).current_route() != expected
+                {
+                    this.pending_product = None;
+                }
             }),
             cx.subscribe(&workspace, |this, _, event, cx| match event {
                 WorkspaceAction::SidebarChanged => cx.notify(),
@@ -417,13 +430,23 @@ impl ApplicationView {
                     }
                     cloud_api::start(&native, cx);
                     this.native = Some(native);
-                    if let Some(route) = this.pending_product.take() {
+                    if let Some(pending) = this.pending_product.take()
+                        && pending.workspace_route.as_ref().is_none_or(|expected| {
+                            this.workspace.read(cx).current_route() == *expected
+                        })
+                    {
                         let window = this.window;
                         let view = cx.entity().downgrade();
+                        let route = pending.route;
+                        let expected = pending.workspace_route;
                         cx.defer(move |cx| {
                             let _ = cx.update_window(window, |_, window, cx| {
                                 let _ = view.update(cx, |this, cx| {
-                                    if this.product.is_none() {
+                                    if this.product.is_none()
+                                        && expected.as_ref().is_none_or(|expected| {
+                                            this.workspace.read(cx).current_route() == *expected
+                                        })
+                                    {
                                         this.open_product(route, window, cx);
                                     }
                                 });
@@ -1507,7 +1530,12 @@ impl ApplicationView {
             if let Some(error) = &self.startup_error {
                 self.status(&format!("Native services failed to start: {error}"), cx);
             } else {
-                self.pending_product = Some(route);
+                let current = self.workspace.read(cx).current_route();
+                self.pending_product = Some(PendingProduct {
+                    route,
+                    workspace_route: matches!(current, Route::Settings(_) | Route::Onboarding)
+                        .then_some(current),
+                });
             }
             return;
         };

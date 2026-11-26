@@ -52,6 +52,7 @@ impl Fixture {
                 let url = url.clone();
                 Box::pin(async move { Ok(url) })
             }),
+            on_device: Arc::new(|| Box::pin(async { Default::default() })),
             secret: Arc::new(|_, _| Box::pin(async { Ok(Some("fixture-key".into())) })),
             secret_write: Arc::new(|_, _, _| Box::pin(async { Ok(()) })),
         }
@@ -2272,9 +2273,6 @@ async fn on_device_and_cloud_stt_and_llm_providers_resolve_across_modes() {
         batch.provider,
         anlg_listener2_core::BatchProvider::Anarlog
     ));
-    paid.store(false, Ordering::SeqCst);
-    assert!(services.capture(fixture.session.clone()).await.is_err());
-    paid.store(true, Ordering::SeqCst);
 
     // 2. BYOK Cloud STT
     fixture
@@ -2471,6 +2469,80 @@ async fn on_device_and_cloud_stt_and_llm_providers_resolve_across_modes() {
         .setting("current_llm_model", json!("System Language Model"))
         .await;
     assert!(resolver(fixture.session.clone()).await.is_ok());
+
+    // 9. Real ModelService local resolver validates availability/install without opening a sidecar slot
+    let models_dir = tempfile::tempdir().unwrap();
+    let engines_dir = tempfile::tempdir().unwrap();
+    let model_service = Arc::new(crate::product::local::models::ModelService::new(
+        models_dir.path().to_owned(),
+        crate::product::local::models::EngineResources {
+            argmax: engines_dir.path().join("argmax"),
+            llama_server: engines_dir.path().join("llama-server"),
+            argmax_api_key: String::new(),
+        },
+    ));
+    let real_models = model_service.clone();
+    services.local = Arc::new(move |request| {
+        let models = real_models.clone();
+        Box::pin(async move {
+            let model = crate::product::local::models::ModelService::resolve(&request.model)?;
+            let cancel = CancellationToken::new();
+            if request.batch {
+                models.batch(model, cancel).await
+            } else {
+                models.start(model, cancel).await
+            }
+        })
+    });
+    for (provider, model_id, expected_url) in [
+        (
+            "soniqo",
+            "soniqo-parakeet-streaming",
+            anlg_transcribe_soniqo::LOCAL_BASE_URL,
+        ),
+        (
+            "soniqo",
+            "soniqo-parakeet-batch",
+            anlg_transcribe_soniqo::LOCAL_BASE_URL,
+        ),
+        (
+            "apple_speech",
+            "apple-speech",
+            anlg_transcribe_speechanalyzer::LOCAL_BASE_URL,
+        ),
+    ] {
+        fixture
+            .setting("current_stt_provider", json!(provider))
+            .await;
+        fixture.setting("current_stt_model", json!(model_id)).await;
+        match services.capture(fixture.session.clone()).await {
+            Ok(config) => assert_eq!(config.params.base_url, expected_url),
+            Err(error) => {
+                let message = error.to_string();
+                assert!(
+                    !message.contains("realtime transcription")
+                        && !message.contains("Unknown or unsupported model"),
+                    "unexpected local capture error for {model_id}: {message}"
+                );
+            }
+        }
+        match services
+            .batch(fixture.session.clone(), PathBuf::from("meeting.wav"))
+            .await
+        {
+            Ok(params) => assert_eq!(params.base_url, expected_url),
+            Err(error) => {
+                let message = error.to_string();
+                assert!(
+                    !message.contains("realtime transcription")
+                        && !message.contains("Unknown or unsupported model"),
+                    "unexpected local batch error for {model_id}: {message}"
+                );
+            }
+        }
+        let model = crate::product::local::models::ModelService::resolve(model_id).unwrap();
+        assert!(!model_service.state(model).await.unwrap().running);
+    }
 
     fixture.close().await;
 }

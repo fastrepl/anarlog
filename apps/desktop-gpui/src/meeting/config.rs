@@ -40,6 +40,16 @@ pub struct LocalRequest {
     pub batch: bool,
 }
 
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct OnDeviceStatus {
+    pub soniqo_available: bool,
+    pub apple_speech_available: bool,
+    pub installed_stt_models: std::collections::BTreeSet<String>,
+    pub apple_foundation_unavailable: Option<String>,
+}
+
+pub type OnDeviceResolver = Arc<dyn Fn() -> BoxFuture<'static, OnDeviceStatus> + Send + Sync>;
+
 pub type CloudResolver = Arc<dyn Fn() -> BoxFuture<'static, Result<CloudAccess>> + Send + Sync>;
 pub type LocalResolver =
     Arc<dyn Fn(LocalRequest) -> BoxFuture<'static, Result<String>> + Send + Sync>;
@@ -52,6 +62,7 @@ pub struct ProviderServices {
     pub api_url: String,
     pub cloud: CloudResolver,
     pub local: LocalResolver,
+    pub on_device: OnDeviceResolver,
     pub secret: SecretResolver,
     pub secret_write: super::subscription::SecretWriter,
 }

@@ -766,16 +766,26 @@ impl WorkspaceView {
     }
 
     pub fn restore_pinned(&mut self, routes: &[Route], cx: &mut Context<Self>) {
+        let active = self.navigation.active;
         for route in routes.iter().filter(|route| route.persistent_pin()) {
-            let slot = self.navigation.open(route.clone(), true, false);
+            let slot = self
+                .navigation
+                .tabs
+                .iter()
+                .find(|tab| tab.route.same_resource(route))
+                .map(|tab| tab.slot)
+                .unwrap_or_else(|| self.navigation.open(route.clone(), true, false));
             self.navigation.pin(slot, true);
         }
-        self.navigation.active = self
-            .navigation
-            .tabs
-            .iter()
-            .find(|tab| tab.route == Route::Empty)
-            .map(|tab| tab.slot);
+        self.navigation.active = active
+            .filter(|slot| self.navigation.tabs.iter().any(|tab| tab.slot == *slot))
+            .or_else(|| {
+                self.navigation
+                    .tabs
+                    .iter()
+                    .find(|tab| tab.route == Route::Empty)
+                    .map(|tab| tab.slot)
+            });
         cx.notify();
     }
 
@@ -1383,7 +1393,7 @@ impl WorkspaceView {
         cx.stop_propagation();
     }
 
-    pub(super) fn dismiss_overlay(
+    pub(crate) fn dismiss_overlay(
         &mut self,
         event: &KeyDownEvent,
         window: &mut Window,

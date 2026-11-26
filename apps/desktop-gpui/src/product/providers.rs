@@ -358,28 +358,8 @@ fn folded(kind: ProviderKind, id: &str) -> bool {
     kind == ProviderKind::Llm && matches!(id, "chatgpt" | "claude" | "grok" | "kimi_code")
 }
 
-fn apple_speech_available() -> bool {
-    static AVAILABLE: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-    *AVAILABLE.get_or_init(|| {
-        anlg_transcribe_speechanalyzer::AppleSpeechModel::Default.is_available_on_current_platform()
-    })
-}
-
-/// Providers the native app can select as the active one. Subscriptions need a sign-in flow the
-/// native app lacks, and BYO `.bin` files (`local_file`) have no native file picker yet.
-fn selectable(kind: ProviderKind, provider: &ProviderInfo) -> bool {
-    if provider.subscription {
-        return false;
-    }
-    match (kind, provider.id) {
-        (ProviderKind::Stt, "soniqo") => {
-            anlg_local_model::SoniqoModel::ParakeetStreaming.is_available_on_current_platform()
-        }
-        (ProviderKind::Stt, "apple_speech") => apple_speech_available(),
-        (ProviderKind::Stt, "local_file") => false,
-        (ProviderKind::Llm, "apple_foundation") => cfg!(target_os = "macos"),
-        _ => true,
-    }
+fn is_local_stt_provider(kind: ProviderKind, provider: &str) -> bool {
+    kind == ProviderKind::Stt && matches!(provider, "soniqo" | "apple_speech")
 }
 
 /// What a save submitted, so only those edits become clean.
@@ -396,6 +376,8 @@ pub struct ProviderView {
     services: ProviderServices,
     kind: ProviderKind,
     snapshot: Option<Snapshot>,
+    on_device: Option<crate::meeting::config::OnDeviceStatus>,
+    on_device_loading: bool,
     /// A provider picked in the menu until its choice is saved, or until a language model
     /// is entered for it. It is not an unsaved edit: leaving drops it, as in shipping.
     draft: Option<&'static str>,
@@ -434,6 +416,7 @@ impl ProviderView {
         self.menu = false;
         self.model_menu = false;
         self.effort_menu = false;
+        self.refresh_on_device(cx);
         self.restore(cx);
     }
 
@@ -466,6 +449,8 @@ impl ProviderView {
             services,
             kind: ProviderKind::Stt,
             snapshot: None,
+            on_device: None,
+            on_device_loading: false,
             draft: None,
             remembered: Default::default(),
             queued: false,
@@ -501,7 +486,26 @@ impl ProviderView {
     pub fn refresh(&mut self, cx: &mut Context<Self>) {
         if !self.has_unsaved(cx) {
             self.reload(true, cx);
+        } else {
+            self.refresh_on_device(cx);
         }
+    }
+
+    fn refresh_on_device(&mut self, cx: &mut Context<Self>) {
+        if self.on_device_loading {
+            return;
+        }
+        self.on_device_loading = true;
+        let on_device = (self.services.on_device)();
+        cx.spawn(async move |this, cx| {
+            let status = on_device.await;
+            let _ = this.update(cx, |this, cx| {
+                this.on_device = Some(status);
+                this.on_device_loading = false;
+                cx.notify();
+            });
+        })
+        .detach();
     }
 
     fn reload(&mut self, restore: bool, cx: &mut Context<Self>) {
@@ -509,6 +513,7 @@ impl ProviderView {
             return;
         }
         self.operation = Some(Operation::Loading);
+        self.on_device_loading = true;
         let generation = self.generation;
         let reply = self.services.runtime.read(desktop_runtime::CancellationToken::new(), |services| async move {
             let rows = services.executor.execute("SELECT id,value_json FROM app_settings WHERE (id LIKE 'ai_provider:%' OR id IN ('current_stt_provider','current_stt_model','current_llm_provider','current_llm_model','current_llm_reasoning_effort')) AND length(CAST(value_json AS BLOB)) <= 524288 LIMIT 256".into(), vec![]).await.map_err(failure)?;
@@ -516,13 +521,19 @@ impl ProviderView {
             let parsed = values.iter().map(|(key, value)| Ok((key.clone(), serde_json::from_str(value).map_err(failure)?))).collect::<Result<_>>()?;
             Ok(Snapshot { values, parsed })
         });
+        let on_device = (self.services.on_device)();
         cx.spawn(async move |this, cx| {
-            let result = match reply {
-                Ok(reply) => reply.receive().await,
-                Err(error) => Err(error),
+            let snapshot = async {
+                match reply {
+                    Ok(reply) => reply.receive().await,
+                    Err(error) => Err(error),
+                }
             };
+            let (result, status) = futures::future::join(snapshot, on_device).await;
             let _ = this.update(cx, |this, cx| {
                 this.operation = None;
+                this.on_device = Some(status);
+                this.on_device_loading = false;
                 match result {
                     Ok(snapshot) => {
                         this.snapshot = Some(snapshot);
@@ -610,6 +621,43 @@ impl ProviderView {
         self.dirty_card = false;
     }
 
+    fn is_local_model_installed(&self, model_id: &str) -> bool {
+        self.on_device
+            .as_ref()
+            .is_some_and(|status| status.installed_stt_models.contains(model_id))
+    }
+
+    fn provider_unavailable_reason(
+        &self,
+        kind: ProviderKind,
+        provider: &ProviderInfo,
+    ) -> Option<String> {
+        if provider.subscription {
+            return Some(
+                "Connecting a subscription needs the browser sign-in flow, which the native app does not have yet."
+                    .into(),
+            );
+        }
+        match (kind, provider.id) {
+            (ProviderKind::Stt, "soniqo") => match &self.on_device {
+                Some(status) if status.soniqo_available => None,
+                Some(_) => Some("Requires Apple Silicon.".into()),
+                None => Some("Checking on-device availability…".into()),
+            },
+            (ProviderKind::Stt, "apple_speech") => match &self.on_device {
+                Some(status) if status.apple_speech_available => None,
+                Some(_) => Some("Requires macOS 26 or later.".into()),
+                None => Some("Checking on-device availability…".into()),
+            },
+            (ProviderKind::Stt, "local_file") => Some("Not available in this build.".into()),
+            (ProviderKind::Llm, "apple_foundation") => match &self.on_device {
+                Some(status) => status.apple_foundation_unavailable.clone(),
+                None => Some("Checking Apple Intelligence availability…".into()),
+            },
+            _ => None,
+        }
+    }
+
     /// Shipping's `handleProviderChange`: switches to `provider` with a model chosen for it and
     /// saves right away. A transcription provider with no model to default to is saved
     /// without one; a language model provider waits until one is entered.
@@ -623,11 +671,24 @@ impl ProviderView {
             cx.notify();
             return;
         }
+        if let Some(info) = catalog(self.kind).iter().find(|info| info.id == provider)
+            && let Some(reason) = self.provider_unavailable_reason(self.kind, info)
+        {
+            self.status = reason;
+            cx.notify();
+            return;
+        }
+        let model = self.next_model(provider, cx);
+        if is_local_stt_provider(self.kind, provider) && model.is_empty() {
+            self.status =
+                "Download a model in Manage local models before selecting this provider.".into();
+            cx.notify();
+            return;
+        }
         let saved = self.current("model");
         if !current.is_empty() && !saved.is_empty() {
             self.remembered.insert((self.kind, current), saved);
         }
-        let model = self.next_model(provider, cx);
         self.draft = Some(provider);
         self.dirty_choice = false;
         self.model
@@ -654,17 +715,17 @@ impl ProviderView {
                 typed
                     || models
                         .iter()
-                        .any(|(id, _, offered)| *offered && id == model)
+                        .any(|(id, _, disabled_reason)| disabled_reason.is_none() && id == model)
             })
             .cloned()
             .or_else(|| {
                 models
                     .iter()
-                    .find(|(_, _, offered)| *offered)
+                    .find(|(_, _, disabled_reason)| disabled_reason.is_none())
                     .map(|(id, ..)| (*id).to_owned())
             })
             .or_else(|| {
-                (self.kind == ProviderKind::Stt)
+                (self.kind == ProviderKind::Stt && !is_local_stt_provider(self.kind, provider))
                     .then(|| provider_catalog::default_stt_model(provider))
                     .flatten()
                     .map(str::to_owned)
@@ -672,26 +733,38 @@ impl ProviderView {
             .unwrap_or_default()
     }
 
-    /// `provider`'s fixed models as `(id, label, offered)`; without them the model is typed.
+    /// `provider`'s fixed models as `(id, label, disabled_reason)`; without them the model is typed.
     /// Anarlog's transcription model is offered on a paid plan, where shipping lists it as
     /// downloaded.
-    fn models(&self, provider: &str, cx: &gpui::App) -> Vec<(&'static str, &'static str, bool)> {
+    fn models(
+        &self,
+        provider: &str,
+        cx: &gpui::App,
+    ) -> Vec<(&'static str, &'static str, Option<&'static str>)> {
         match self.kind {
             ProviderKind::Stt => provider_catalog::stt_models(provider)
                 .iter()
                 .map(|id| {
-                    let offered = *id != "cloud" || super::account::is_paid(cx);
-                    (*id, provider_catalog::stt_model_label(id), offered)
+                    let disabled_reason = if *id == "cloud" && !super::account::is_paid(cx) {
+                        Some("Upgrade to use")
+                    } else if is_local_stt_provider(self.kind, provider)
+                        && !self.is_local_model_installed(id)
+                    {
+                        Some("Download in Manage local models")
+                    } else {
+                        None
+                    };
+                    (*id, provider_catalog::stt_model_label(id), disabled_reason)
                 })
                 .collect(),
             ProviderKind::Llm if provider == "anarlog" => provider_catalog::ANARLOG_LLM_MODELS
                 .iter()
-                .map(|(id, label)| (*id, *label, true))
+                .map(|(id, label)| (*id, *label, None))
                 .collect(),
             ProviderKind::Llm if provider == "apple_foundation" => vec![(
                 provider_catalog::APPLE_FOUNDATION_MODEL,
                 provider_catalog::APPLE_FOUNDATION_MODEL,
-                true,
+                None,
             )],
             ProviderKind::Llm => Vec::new(),
         }
@@ -733,6 +806,22 @@ impl ProviderView {
         };
         let provider = self.provider();
         let model = self.model.read(cx).buffer.text.clone();
+        if let Some(info) = catalog(self.kind).iter().find(|info| info.id == provider)
+            && let Some(reason) = self.provider_unavailable_reason(self.kind, info)
+        {
+            self.status = reason;
+            self.restore(cx);
+            cx.notify();
+            return;
+        }
+        if is_local_stt_provider(self.kind, &provider)
+            && !self.is_local_model_installed(model.trim())
+        {
+            self.status = "Download this model in Manage local models before selecting it.".into();
+            self.restore(cx);
+            cx.notify();
+            return;
+        }
         let base = self.stored_base(&provider);
         let kind = self.kind;
         let reply = self.services.runtime.submit(move |services| async move {
@@ -868,34 +957,30 @@ impl ProviderView {
                             let locked = self.kind == ProviderKind::Llm
                                 && info.id == "anarlog"
                                 && !super::account::is_paid(cx);
-                            let enabled = selectable(self.kind, info) && !locked;
+                            let unavailable = self.provider_unavailable_reason(self.kind, info);
+                            let needs_download = unavailable.is_none()
+                                && is_local_stt_provider(self.kind, info.id)
+                                && !provider_catalog::stt_models(info.id)
+                                    .iter()
+                                    .any(|model| self.is_local_model_installed(model));
+                            let enabled = !locked && unavailable.is_none() && !needs_download;
                             let id = info.id;
-                            let note = if locked {
-                                Some("Upgrade to Pro to use this provider.")
-                            } else if !enabled {
-                                match (self.kind, id) {
-                                    (ProviderKind::Stt, "soniqo") => {
-                                        Some("Requires Apple Silicon.")
-                                    }
-                                    (ProviderKind::Stt, "apple_speech") => {
-                                        Some("Requires macOS 26 or later.")
-                                    }
-                                    (ProviderKind::Stt, "local_file") => {
-                                        Some("Not available in this build.")
-                                    }
-                                    (ProviderKind::Llm, "apple_foundation") => {
-                                        Some("Requires macOS with Apple Intelligence.")
-                                    }
-                                    _ => None,
-                                }
+                            let note: Option<String> = if locked {
+                                Some("Upgrade to Pro to use this provider.".into())
+                            } else if info.subscription {
+                                None
+                            } else if let Some(reason) = unavailable {
+                                Some(reason)
+                            } else if needs_download {
+                                Some("Download a model in Manage local models to use.".into())
                             } else if self.kind == ProviderKind::Stt {
-                                provider_catalog::stt_description(id)
+                                provider_catalog::stt_description(id).map(str::to_owned)
                             } else {
                                 None
                             };
                             controls::select_item(
                                 SharedString::from(format!("provider-option-{id}")),
-                                match note {
+                                match note.as_deref() {
                                     Some(note) => format!("{}, {note}", info.name).into(),
                                     None => info.name.into(),
                                 },
@@ -1130,11 +1215,12 @@ impl ProviderView {
                                 .child("RECOMMENDED"),
                         )
                     })
-                    .children(models.into_iter().map(|(model, label, offered)| {
+                    .children(models.into_iter().map(|(model, label, disabled_reason)| {
+                        let offered = disabled_reason.is_none();
                         controls::menu_item(
                             SharedString::from(format!("model-{model}")),
                             label,
-                            (!offered).then(|| "Upgrade to use".into()),
+                            disabled_reason.map(Into::into),
                             Some(model) == selected.map(|(id, _)| id),
                             colors,
                         )
@@ -1164,6 +1250,9 @@ impl ProviderView {
                     .cursor_pointer()
                     .on_click(cx.listener(|this, _, _, cx| {
                         this.model_menu = !this.model_menu;
+                        if this.model_menu {
+                            this.refresh_on_device(cx);
+                        }
                         cx.notify();
                     }))
                     .child(
@@ -1361,6 +1450,9 @@ impl Render for ProviderView {
                                             .cursor_pointer()
                                             .on_click(cx.listener(|this, _, _, cx| {
                                                 this.menu = !this.menu;
+                                                if this.menu {
+                                                    this.refresh_on_device(cx);
+                                                }
                                                 cx.notify();
                                             }))
                                             .child(
@@ -1492,6 +1584,7 @@ mod tests {
         view: Entity<ProviderView>,
         runtime: desktop_runtime::RuntimeHandle,
         services: ProviderServices,
+        on_device: Arc<std::sync::Mutex<crate::meeting::config::OnDeviceStatus>>,
         _directory: tempfile::TempDir,
     }
 
@@ -1526,11 +1619,24 @@ mod tests {
         })
         .unwrap();
         futures::executor::block_on(ready.receive()).unwrap();
+        let on_device = Arc::new(std::sync::Mutex::new(
+            crate::meeting::config::OnDeviceStatus {
+                soniqo_available: true,
+                apple_speech_available: true,
+                installed_stt_models: Default::default(),
+                apple_foundation_unavailable: None,
+            },
+        ));
+        let on_device_state = on_device.clone();
         let services = ProviderServices {
             runtime: runtime.clone(),
             api_url: String::new(),
             cloud: Arc::new(|| Box::pin(async { Err(ServiceError::Closed) })),
             local: Arc::new(|_| Box::pin(async { Err(ServiceError::Closed) })),
+            on_device: Arc::new(move || {
+                let status = on_device_state.lock().unwrap().clone();
+                Box::pin(async move { status })
+            }),
             // Like the keyring resolver, which reads on Tokio's blocking pool.
             secret: Arc::new(|_, _| {
                 Box::pin(async { tokio::task::spawn_blocking(|| None).await.map_err(failure) })
@@ -1542,6 +1648,7 @@ mod tests {
             view,
             runtime,
             services,
+            on_device,
             _directory: directory,
         };
         fixture.settle(cx);
@@ -1554,13 +1661,27 @@ mod tests {
             for _ in 0..400 {
                 cx.run_until_parked();
                 if self.view.read_with(cx, |view, _| {
-                    view.snapshot.is_some() && view.operation.is_none() && !view.queued
+                    view.snapshot.is_some()
+                        && view.operation.is_none()
+                        && !view.queued
+                        && view.on_device.is_some()
+                        && !view.on_device_loading
                 }) {
                     return;
                 }
                 std::thread::sleep(std::time::Duration::from_millis(5));
             }
             panic!("provider view did not settle");
+        }
+
+        fn set_on_device(
+            &self,
+            status: crate::meeting::config::OnDeviceStatus,
+            cx: &mut TestAppContext,
+        ) {
+            *self.on_device.lock().unwrap() = status;
+            self.view.update(cx, |view, cx| view.refresh(cx));
+            self.settle(cx);
         }
 
         fn pick(&self, provider: &'static str, cx: &mut TestAppContext) {
@@ -1772,15 +1893,40 @@ mod tests {
     #[gpui::test]
     fn picking_on_device_providers_saves_soniqo_and_apple_foundation(cx: &mut TestAppContext) {
         let fixture = fixture(cx);
+        fixture.pick("deepgram", cx);
+
+        // Undownloaded local providers must not replace the working provider.
+        fixture.pick("soniqo", cx);
+        assert_eq!(fixture.setting("current_stt_provider").unwrap(), "deepgram");
+        fixture.view.read_with(cx, |view, _| {
+            assert!(
+                view.status.contains("Manage local models"),
+                "{}",
+                view.status
+            );
+        });
+
+        // With only Batch downloaded, picking Soniqo defaults to Batch and rejects Streaming.
+        fixture.set_on_device(
+            crate::meeting::config::OnDeviceStatus {
+                soniqo_available: true,
+                apple_speech_available: true,
+                installed_stt_models: ["soniqo-parakeet-batch".to_owned()].into_iter().collect(),
+                apple_foundation_unavailable: Some(
+                    "Enable Apple Intelligence in System Settings.".into(),
+                ),
+            },
+            cx,
+        );
         fixture.pick("soniqo", cx);
         assert_eq!(fixture.setting("current_stt_provider").unwrap(), "soniqo");
         assert_eq!(
             fixture.setting("current_stt_model").unwrap(),
-            "soniqo-parakeet-streaming"
+            "soniqo-parakeet-batch"
         );
         fixture.view.update(cx, |view, cx| {
             view.model.update(cx, |input, cx| {
-                input.set_text("soniqo-parakeet-batch".into(), cx)
+                input.set_text("soniqo-parakeet-streaming".into(), cx)
             });
             view.save_choice(cx);
         });
@@ -1790,9 +1936,32 @@ mod tests {
             "soniqo-parakeet-batch"
         );
 
+        // Unavailable Apple Intelligence refuses selection until availability changes on refresh.
+        set_paid(cx);
         fixture
             .view
             .update(cx, |view, cx| view.select_kind(ProviderKind::Llm, cx));
+        fixture.settle(cx);
+        fixture.pick("anarlog", cx);
+        assert_eq!(fixture.setting("current_llm_provider").unwrap(), "anarlog");
+        fixture.pick("apple_foundation", cx);
+        assert_eq!(fixture.setting("current_llm_provider").unwrap(), "anarlog");
+        fixture.view.read_with(cx, |view, _| {
+            assert!(
+                view.status.contains("Enable Apple Intelligence"),
+                "{}",
+                view.status
+            );
+        });
+
+        *fixture.on_device.lock().unwrap() = crate::meeting::config::OnDeviceStatus {
+            soniqo_available: true,
+            apple_speech_available: true,
+            installed_stt_models: Default::default(),
+            apple_foundation_unavailable: None,
+        };
+        fixture.view.update(cx, |view, cx| view.refresh(cx));
+        fixture.settle(cx);
         fixture.pick("apple_foundation", cx);
         assert_eq!(
             fixture.setting("current_llm_provider").unwrap(),

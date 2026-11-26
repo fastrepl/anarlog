@@ -46,6 +46,7 @@ pub struct ModelService {
     runtime: Arc<DownloadRuntime>,
     resources: EngineResources,
     running: tokio::sync::Mutex<[Option<RunningModel>; 2]>,
+    capture_active: Arc<dyn Fn() -> bool + Send + Sync>,
 }
 
 struct RunningModel {
@@ -59,6 +60,7 @@ pub struct ModelState {
     pub model: LocalModel,
     pub installed: bool,
     pub running: bool,
+    pub in_use: bool,
     pub progress: Option<DownloadStatus>,
     /// Why this model can't be downloaded or started here, if it can't.
     pub unavailable: Option<&'static str>,
@@ -75,7 +77,21 @@ impl ModelService {
             runtime,
             resources,
             running: tokio::sync::Mutex::new([None, None]),
+            capture_active: Arc::new(|| false),
         }
+    }
+
+    pub fn with_capture_active(
+        mut self,
+        capture_active: Arc<dyn Fn() -> bool + Send + Sync>,
+    ) -> Self {
+        self.capture_active = capture_active;
+        self
+    }
+
+    pub fn is_in_process_busy(&self, model: &LocalModel) -> bool {
+        matches!(model, LocalModel::Soniqo(_) | LocalModel::AppleSpeech(_))
+            && (self.capture_active)()
     }
 
     pub fn registry() -> Vec<LocalModel> {
@@ -153,6 +169,7 @@ impl ModelService {
                 model,
                 installed: false,
                 running: false,
+                in_use: false,
                 progress: None,
                 unavailable,
             });
@@ -209,6 +226,7 @@ impl ModelService {
         }
         Ok(ModelState {
             running: running.as_ref().is_some_and(|r| r.model == model),
+            in_use: self.is_in_process_busy(&model),
             progress: native_progress.or(self
                 .runtime
                 .progress
@@ -244,6 +262,11 @@ impl ModelService {
     }
 
     pub async fn cancel(&self, model: LocalModel) -> Result<()> {
+        if self.is_in_process_busy(&model) {
+            return Err(failure(
+                "Finish the active recording before changing or resetting this model",
+            ));
+        }
         match model {
             LocalModel::Soniqo(native) => {
                 tokio::task::spawn_blocking(move || anlg_transcribe_soniqo::reset_model(native))
@@ -268,6 +291,11 @@ impl ModelService {
     }
 
     pub async fn delete(&self, model: LocalModel) -> Result<()> {
+        if self.is_in_process_busy(&model) {
+            return Err(failure(
+                "Finish the active recording before deleting this model",
+            ));
+        }
         if self.running.lock().await[model_slot(&model)]
             .as_ref()
             .is_some_and(|r| r.model == model)
@@ -577,6 +605,44 @@ mod tests {
                         "unexpected error on unsupported platform: {message}"
                     );
                 }
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn in_process_model_delete_and_cancel_reject_while_capture_is_active() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+
+        let directory = tempfile::tempdir().unwrap();
+        let engines = tempfile::tempdir().unwrap();
+        let capturing = Arc::new(AtomicBool::new(true));
+        let capture_flag = capturing.clone();
+        let service = ModelService::new(
+            directory.path().to_owned(),
+            EngineResources {
+                argmax: engines.path().join("argmax"),
+                llama_server: engines.path().join("llama-server"),
+                argmax_api_key: String::new(),
+            },
+        )
+        .with_capture_active(Arc::new(move || capture_flag.load(Ordering::SeqCst)));
+
+        let soniqo = LocalModel::Soniqo(anlg_local_model::SoniqoModel::ParakeetStreaming);
+        let apple_speech = LocalModel::AppleSpeech(anlg_local_model::AppleSpeechModel::Default);
+        for model in [soniqo.clone(), apple_speech.clone()] {
+            let delete_err = service.delete(model.clone()).await.unwrap_err().to_string();
+            assert!(delete_err.contains("recording"), "{delete_err}");
+            let cancel_err = service.cancel(model.clone()).await.unwrap_err().to_string();
+            assert!(cancel_err.contains("recording"), "{cancel_err}");
+            if model.is_available_on_current_platform() {
+                assert!(service.state(model.clone()).await.unwrap().in_use);
+            }
+        }
+
+        capturing.store(false, Ordering::SeqCst);
+        for model in [soniqo, apple_speech] {
+            if model.is_available_on_current_platform() {
+                assert!(!service.state(model).await.unwrap().in_use);
             }
         }
     }

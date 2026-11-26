@@ -1682,8 +1682,16 @@ impl EditorPane {
         let selection = model.selection;
         let generation = self.external_generation;
         let local = model.document.clone();
-        let base = self.init.document.body.clone();
-        let remote_body = remote.body.clone();
+        let base = if self.init.document.body_format.as_ref() == "prosemirror_json" {
+            normalize_stored_prosemirror(self.init.document.body.clone())
+        } else {
+            self.init.document.body.clone()
+        };
+        let remote_body = if remote.body_format.as_ref() == "prosemirror_json" {
+            normalize_stored_prosemirror(remote.body.clone())
+        } else {
+            remote.body.clone()
+        };
         let job = cx.background_executor().spawn(async move {
             let base: serde_json::Value = serde_json::from_str(&base).map_err(|error| error.to_string())?;
             let remote: serde_json::Value = serde_json::from_str(&remote_body).map_err(|error| error.to_string())?;
