@@ -37,19 +37,9 @@ pub fn consent_from_settings(snapshot: &Snapshot) -> (bool, bool) {
         .unwrap_or(true);
     let crash = snapshot
         .get("crash_reporting_consent")
+        .filter(|setting| setting.source != "Default")
         .and_then(|setting| setting.value.as_bool())
         .unwrap_or(telemetry);
-    (telemetry, crash)
-}
-
-pub fn consent_from_rows(rows: &[(String, String)]) -> (bool, bool) {
-    let read = |id: &str| {
-        rows.iter()
-            .find(|(key, _)| key == id)
-            .and_then(|(_, value)| serde_json::from_str::<bool>(value).ok())
-    };
-    let telemetry = read("telemetry_consent").unwrap_or(true);
-    let crash = read("crash_reporting_consent").unwrap_or(telemetry);
     (telemetry, crash)
 }
 
@@ -82,28 +72,50 @@ pub fn clear_identity() {
 
 #[cfg(test)]
 mod tests {
+    use serde_json::json;
+
     use super::*;
 
+    fn row(id: &str, value_json: &str) -> Value {
+        json!({
+            "id": id,
+            "value_json": value_json,
+            "oversized": 0,
+            "source_rank": 0,
+        })
+    }
+
     #[test]
-    fn consent_from_rows_defaults_to_true_and_inherits_telemetry_for_missing_crash_flag() {
-        assert_eq!(consent_from_rows(&[]), (true, true));
-        assert_eq!(
-            consent_from_rows(&[("telemetry_consent".into(), "false".into())]),
-            (false, false)
-        );
-        assert_eq!(
-            consent_from_rows(&[
-                ("telemetry_consent".into(), "false".into()),
-                ("crash_reporting_consent".into(), "true".into()),
-            ]),
-            (false, true)
-        );
-        assert_eq!(
-            consent_from_rows(&[
-                ("telemetry_consent".into(), "true".into()),
-                ("crash_reporting_consent".into(), "false".into()),
-            ]),
-            (true, false)
-        );
+    fn consent_from_settings_honors_legacy_and_direct_overrides() {
+        let defaults = crate::product::settings::decode(&[]).unwrap();
+        assert_eq!(consent_from_settings(&defaults), (true, true));
+
+        let legacy_opt_out = crate::product::settings::decode(&[row(
+            "legacy_settings_document",
+            r#"{"general":{"telemetry_consent":false}}"#,
+        )])
+        .unwrap();
+        assert_eq!(consent_from_settings(&legacy_opt_out), (false, false));
+
+        let legacy_split = crate::product::settings::decode(&[
+            row(
+                "legacy_settings_document",
+                r#"{"general":{"telemetry_consent":false}}"#,
+            ),
+            row("crash_reporting_consent", "true"),
+        ])
+        .unwrap();
+        assert_eq!(consent_from_settings(&legacy_split), (false, true));
+
+        let direct_override = crate::product::settings::decode(&[
+            row(
+                "legacy_settings_document",
+                r#"{"general":{"telemetry_consent":false}}"#,
+            ),
+            row("telemetry_consent", "true"),
+            row("crash_reporting_consent", "false"),
+        ])
+        .unwrap();
+        assert_eq!(consent_from_settings(&direct_override), (true, false));
     }
 }

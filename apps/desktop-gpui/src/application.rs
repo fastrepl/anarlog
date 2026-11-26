@@ -321,34 +321,6 @@ impl ApplicationView {
                 }
                 state.changed().await.map_err(|_| ServiceError::Closed)?;
             }
-            if let Ok(rows) = startup_runtime
-                .read(desktop_runtime::CancellationToken::new(), |services| async move {
-                    services
-                        .executor
-                        .execute(
-                            "SELECT id, value_json FROM app_settings WHERE id IN ('telemetry_consent', 'crash_reporting_consent')".into(),
-                            Vec::new(),
-                        )
-                        .await
-                        .map_err(|error| ServiceError::Failed(error.to_string().into()))
-                })?
-                .receive()
-                .await
-            {
-                let pairs = rows
-                    .iter()
-                    .filter_map(|row| {
-                        Some((
-                            row["id"].as_str()?.to_owned(),
-                            row["value_json"].as_str()?.to_owned(),
-                        ))
-                    })
-                    .collect::<Vec<_>>();
-                let (telemetry, crash) = crate::telemetry::consent_from_rows(&pairs);
-                crate::telemetry::set_telemetry_enabled(telemetry);
-                crate::telemetry::set_crash_reporting_enabled(crash);
-            }
-            crate::telemetry::track("app_opened", &[]);
             if let Some(store) = shipping_store {
                 let imported =
                     crate::product::onboarding::import_shipping(&startup_runtime, store).await;
@@ -356,6 +328,19 @@ impl ApplicationView {
                     tracing::warn!(%error, "the shipping app's onboarding state was not read");
                 }
             }
+            if let Ok(reply) = crate::product::settings::watch(&startup_runtime)
+                && let Ok(watch) = reply.receive().await
+            {
+                let snapshot =
+                    crate::product::settings::decode(&watch.snapshots.borrow().rows).ok();
+                let _ = watch.unsubscribe().await;
+                if let Some(snapshot) = snapshot {
+                    let (telemetry, crash) = crate::telemetry::consent_from_settings(&snapshot);
+                    crate::telemetry::set_telemetry_enabled(telemetry);
+                    crate::telemetry::set_crash_reporting_enabled(crash);
+                }
+            }
+            crate::telemetry::track("app_opened", &[]);
             if let Some(mirror) = shipping_webview {
                 crate::shipping_webview::import(&mirror, &profile);
             }

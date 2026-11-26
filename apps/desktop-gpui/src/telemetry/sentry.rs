@@ -53,7 +53,7 @@ pub(super) fn init(channel: Option<Channel>) -> Option<::sentry::ClientInitGuard
         dsn,
         ::sentry::ClientOptions {
             release: Some(release.into()),
-            traces_sample_rate: 1.0,
+            traces_sample_rate: 0.0,
             auto_session_tracking: false,
             before_send: Some(Arc::new(|event| {
                 super::crash_reporting_enabled()
@@ -296,6 +296,29 @@ fn sanitize_sentry_event_with_home(
     event
         .tags
         .retain(|key, _| SAFE_TAGS.contains(&key.as_str()));
+    if !event.debug_meta.images.is_empty() {
+        for image in &mut event.debug_meta.to_mut().images {
+            match image {
+                ::sentry::protocol::DebugImage::Apple(apple) => {
+                    apple.name = basename_only(&apple.name);
+                }
+                ::sentry::protocol::DebugImage::Symbolic(symbolic) => {
+                    symbolic.name = basename_only(&symbolic.name);
+                    if let Some(debug_file) = symbolic.debug_file.as_mut() {
+                        *debug_file = basename_only(debug_file);
+                    }
+                }
+                ::sentry::protocol::DebugImage::Wasm(wasm) => {
+                    wasm.name = basename_only(&wasm.name);
+                    wasm.code_file = basename_only(&wasm.code_file);
+                    if let Some(debug_file) = wasm.debug_file.as_mut() {
+                        *debug_file = basename_only(debug_file);
+                    }
+                }
+                ::sentry::protocol::DebugImage::Proguard(_) => {}
+            }
+        }
+    }
 
     if event.exception.is_empty() && event.stacktrace.is_none() {
         let logger = event
@@ -318,6 +341,13 @@ fn sanitize_sentry_event_with_home(
     }
 
     event
+}
+
+fn basename_only(path: &str) -> String {
+    path.rsplit(['/', '\\'])
+        .find(|segment| !segment.is_empty())
+        .unwrap_or(path)
+        .to_string()
 }
 
 pub(super) fn sanitize_sentry_event(event: Event<'static>) -> Option<Event<'static>> {
@@ -427,5 +457,63 @@ mod tests {
         assert!(parse_dsn(Some("   ")).is_none());
         assert!(parse_dsn(Some("not-a-dsn")).is_none());
         assert!(parse_dsn(Some("https://public@example.ingest.sentry.io/123456")).is_some());
+        assert!(parse_dsn(Some("  https://public@example.ingest.sentry.io/123456  ")).is_some());
+    }
+
+    #[test]
+    fn sanitize_strips_debug_image_paths_while_keeping_symbolication_ids() {
+        use std::str::FromStr;
+
+        let debug_id =
+            ::sentry::types::DebugId::from_str("41e825a2-82c5-3b88-902f-2a5b62b1c3d4").unwrap();
+        let code_id = ::sentry::types::CodeId::new("abcd1234".into());
+        let apple_uuid =
+            ::sentry::types::Uuid::from_str("41e825a2-82c5-3b88-902f-2a5b62b1c3d4").unwrap();
+        let mut event = Event::default();
+        event.debug_meta.to_mut().images = vec![
+            ::sentry::protocol::DebugImage::Symbolic(::sentry::protocol::SymbolicDebugImage {
+                name: "/Users/alice/Applications/Anarlog.app/Contents/MacOS/Anarlog".into(),
+                arch: Some("arm64".into()),
+                image_addr: ::sentry::protocol::Addr(0x1000_0000),
+                image_size: 4096,
+                image_vmaddr: ::sentry::protocol::Addr(0x1000_0000),
+                id: debug_id,
+                code_id: Some(code_id.clone()),
+                debug_file: Some("/Users/alice/builds/Anarlog.dSYM".into()),
+            }),
+            ::sentry::protocol::DebugImage::Apple(::sentry::protocol::AppleDebugImage {
+                name: "/Users/alice/lib/libfoo.dylib".into(),
+                arch: Some("arm64".into()),
+                cpu_type: None,
+                cpu_subtype: None,
+                image_addr: ::sentry::protocol::Addr(0x2000_0000),
+                image_size: 2048,
+                image_vmaddr: ::sentry::protocol::Addr(0x2000_0000),
+                uuid: apple_uuid,
+            }),
+        ];
+
+        let sanitized = sanitize_sentry_event_with_home(event, Some("/Users/alice"));
+        assert_eq!(sanitized.debug_meta.images.len(), 2);
+        match &sanitized.debug_meta.images[0] {
+            ::sentry::protocol::DebugImage::Symbolic(symbolic) => {
+                assert_eq!(symbolic.name, "Anarlog");
+                assert_eq!(symbolic.debug_file.as_deref(), Some("Anarlog.dSYM"));
+                assert_eq!(symbolic.id, debug_id);
+                assert_eq!(symbolic.code_id.as_ref(), Some(&code_id));
+                assert_eq!(symbolic.image_addr, ::sentry::protocol::Addr(0x1000_0000));
+                assert_eq!(symbolic.image_size, 4096);
+            }
+            other => panic!("unexpected image variant: {other:?}"),
+        }
+        match &sanitized.debug_meta.images[1] {
+            ::sentry::protocol::DebugImage::Apple(apple) => {
+                assert_eq!(apple.name, "libfoo.dylib");
+                assert_eq!(apple.uuid, apple_uuid);
+                assert_eq!(apple.image_addr, ::sentry::protocol::Addr(0x2000_0000));
+                assert_eq!(apple.image_size, 2048);
+            }
+            other => panic!("unexpected image variant: {other:?}"),
+        }
     }
 }
