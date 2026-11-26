@@ -1,0 +1,1244 @@
+<title>Anarlog Film</title>
+<meta name="claude:viewport-fit-sides" content="cover" />
+<style>
+  /* One deterministic stage (1920x1080, or 1080x1920 with FORMAT = "9:16"), scaled to fit a dark
+     workspace, transport beneath. Tokens come from apps/web/src/styles.css: square corners,
+     newsprint page, white surfaces, grey-900 ink, brand yellow. Two polarities share one grid:
+     "red" (third-party cloud, obsidian) and "local" (Anarlog, newsprint). */
+  :root {
+    --obsidian: #121210;
+    --obsidian-raised: #1a1917;
+    --obsidian-line: #272623;
+    --obsidian-line-strong: #3a3834;
+    --obsidian-muted: #8a877f;
+    --crimson: #dc2626;
+    --crimson-wash: rgb(220 38 38 / 14%);
+    --page: #f2f1ef;
+    --surface: #ffffff;
+    --ink: oklch(0.3 0.0197 81.53);
+    --ink-strong: #1f1c19;
+    --ink-muted: oklch(0.4922 0.0127 67.79);
+    --border: #302d2a;
+    --page-line: #dedbd5;
+    --page-line-strong: #c9c5bd;
+    --yellow: oklch(0.9484 0.0672 90.6);
+    --emerald: #15803d;
+    --emerald-wash: rgb(21 128 61 / 10%);
+    --sans: system-ui, -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    color-scheme: dark;
+  }
+  html,
+  body {
+    height: 100%;
+  }
+  body {
+    margin: 0;
+    background: #0b0b0a;
+    color: var(--page);
+    font-family: var(--sans);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 16px max(16px, env(safe-area-inset-left, 0px));
+    box-sizing: border-box;
+  }
+  .frame {
+    position: relative;
+    width: min(100%, calc((100vh - 110px) * 16 / 9), 1600px);
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+    border: 1px solid var(--obsidian-line-strong);
+    background: var(--obsidian);
+  }
+  body.vertical .frame,
+  body.vertical .transport {
+    width: min(100%, calc((100vh - 110px) * 9 / 16), 600px);
+  }
+  body.vertical .frame {
+    aspect-ratio: 9 / 16;
+  }
+  .stage {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 1920px;
+    height: 1080px;
+    transform-origin: 0 0;
+    overflow: hidden;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--sans);
+  }
+  .stage[data-format="9:16"] {
+    width: 1080px;
+    height: 1920px;
+  }
+  [data-zone="red"] {
+    --bg: var(--obsidian);
+    --fg: var(--page);
+    --fg-muted: var(--obsidian-muted);
+    --line: var(--obsidian-line);
+    --line-strong: var(--obsidian-line-strong);
+    --panel: var(--obsidian-raised);
+    --accent: var(--crimson);
+  }
+  [data-zone="local"] {
+    --bg: var(--page);
+    --fg: var(--ink-strong);
+    --fg-muted: var(--ink-muted);
+    --line: var(--page-line);
+    --line-strong: var(--page-line-strong);
+    --panel: var(--surface);
+    --accent: var(--emerald);
+  }
+  .stage * {
+    box-sizing: border-box;
+    border-radius: 0;
+  }
+  html:has(body.export) {
+    overflow: hidden;
+  }
+  body.export {
+    padding: 0;
+    display: block;
+    overflow: hidden;
+  }
+  body.export .frame {
+    max-width: none;
+    border: 0;
+  }
+  body.export .transport {
+    display: none;
+  }
+  .layer,
+  .abs {
+    position: absolute;
+  }
+  .layer {
+    inset: 0;
+  }
+
+  /* Architectural grid: 1px hairlines every 60px, a stronger line every 240px. */
+  #grid {
+    background-image:
+      linear-gradient(to right, var(--line-strong) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--line-strong) 1px, transparent 1px),
+      linear-gradient(to right, var(--line) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--line) 1px, transparent 1px);
+    background-size:
+      240px 240px,
+      240px 240px,
+      60px 60px,
+      60px 60px;
+    background-position: 0 0;
+  }
+  /* The polarity wipe: newsprint sweeping over the obsidian, led by a 2px scan line. */
+  #wipe {
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 0;
+    background: var(--page);
+    z-index: 30;
+  }
+  #wipe::after {
+    content: "";
+    position: absolute;
+    right: -2px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--emerald);
+  }
+
+  /* Telemetry rails */
+  .rail {
+    left: 0;
+    right: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 32px;
+    padding: 0 64px;
+    font-family: var(--mono);
+    font-size: 20px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--fg-muted);
+    background: var(--bg);
+    z-index: 20;
+    white-space: nowrap;
+  }
+  #railTop {
+    top: 0;
+    height: 72px;
+    border-bottom: 1px solid var(--line-strong);
+  }
+  #railBottom {
+    bottom: 0;
+    height: 56px;
+    border-top: 1px solid var(--line-strong);
+    font-size: 18px;
+  }
+  .rail-group {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+  }
+  .rail-dock {
+    width: 108px;
+    height: 30px;
+    flex: none;
+  }
+  .rail-sep {
+    width: 1px;
+    height: 24px;
+    background: var(--line-strong);
+  }
+  .rail .hot {
+    color: var(--accent);
+  }
+  .rail .strong {
+    color: var(--fg);
+  }
+  .stage[data-format="9:16"] .rail-dock,
+  .stage[data-format="9:16"] .rail-dock + .rail-sep {
+    display: none;
+  }
+  .stage[data-format="9:16"] .rail {
+    padding: 0 48px;
+    font-size: 19px;
+  }
+  .stage[data-format="9:16"] .rail-wide {
+    display: none;
+  }
+
+  /* Wordmark: apps/web/public/logo.svg, drawn at its own 1205x334 and scaled by transform. */
+  #markWrap {
+    left: 0;
+    top: 0;
+    transform-origin: 0 0;
+    z-index: 25;
+    color: var(--fg);
+  }
+  #markWrap svg {
+    display: block;
+    width: 1205px;
+    height: 334px;
+  }
+  #markScan {
+    width: 2px;
+    background: var(--accent);
+    z-index: 26;
+  }
+
+  /* Copy column: one mono tag, one headline, an optional mono footnote. */
+  .copy {
+    left: 120px;
+    top: 72px;
+    bottom: 56px;
+    width: calc(var(--demo-x, 920px) - 200px);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 28px;
+  }
+  .copy h2 {
+    margin: 0;
+    font-size: 88px;
+    line-height: 1.04;
+    font-weight: 700;
+    letter-spacing: -0.035em;
+    text-wrap: balance;
+    color: var(--fg);
+  }
+  /* Headlines break between sentences, never inside one. */
+  .copy h2 span {
+    white-space: nowrap;
+  }
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 14px;
+    border: 1px solid currentColor;
+    font-family: var(--mono);
+    font-size: 20px;
+    line-height: 1.2;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    color: var(--fg-muted);
+  }
+  .tag.hot {
+    color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+  }
+  .tag .dot {
+    width: 10px;
+    height: 10px;
+    background: currentColor;
+  }
+  .note {
+    font-family: var(--mono);
+    font-size: 20px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--fg-muted);
+  }
+  .demo {
+    left: var(--demo-x, 920px);
+    top: 72px;
+    bottom: 56px;
+    width: 880px;
+    display: flex;
+    align-items: center;
+  }
+  .dz {
+    position: relative;
+    width: 880px;
+  }
+  .stage[data-format="9:16"] .copy {
+    left: 72px;
+    right: 72px;
+    width: auto;
+    top: 230px;
+    bottom: auto;
+    justify-content: flex-start;
+    gap: 22px;
+  }
+  .stage[data-format="9:16"] .copy h2 {
+    font-size: 76px;
+  }
+  .stage[data-format="9:16"] .note {
+    display: none;
+  }
+  .stage[data-format="9:16"] #s1Line {
+    left: 72px !important;
+    right: 72px !important;
+    font-size: 96px !important;
+  }
+  .stage[data-format="9:16"] .demo {
+    left: 100px;
+    top: 560px;
+    bottom: 420px;
+    width: 880px;
+  }
+
+  /* Schematic parts: square nodes, 1px borders, mono labels. */
+  .node {
+    position: absolute;
+    border: 1px solid var(--line-strong);
+    background: var(--panel);
+    font-family: var(--mono);
+    color: var(--fg);
+  }
+  [data-zone="local"] .node,
+  [data-zone="local"] .panel {
+    border-color: var(--border);
+  }
+  .node-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 50px;
+    padding: 0 18px;
+    border-bottom: 1px solid var(--line-strong);
+    font-size: 20px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--fg-muted);
+  }
+  [data-zone="local"] .node-head,
+  [data-zone="local"] .panel-head {
+    border-bottom-color: var(--border);
+  }
+  .node-body {
+    padding: 16px 18px;
+    font-size: 26px;
+    line-height: 1.3;
+  }
+  .node.hot {
+    border-color: var(--crimson);
+    box-shadow: inset 0 0 0 1px var(--crimson);
+  }
+  .wire {
+    fill: none;
+    stroke: var(--line-strong);
+    stroke-width: 2;
+  }
+  .wire.hot {
+    stroke: var(--crimson);
+  }
+  .wire.ok {
+    stroke: var(--emerald);
+    stroke-width: 3;
+  }
+  .packet {
+    fill: var(--crimson);
+  }
+  .panel {
+    position: relative;
+    border: 1px solid var(--line-strong);
+    background: var(--panel);
+    font-family: var(--mono);
+  }
+  .panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    height: 56px;
+    padding: 0 22px;
+    border-bottom: 1px solid var(--line-strong);
+    font-size: 21px;
+    letter-spacing: 0.04em;
+    color: var(--fg-muted);
+    white-space: nowrap;
+  }
+  .row {
+    display: grid;
+    grid-template-columns: 250px 1fr;
+    align-items: center;
+    min-height: 76px;
+    padding: 0 22px;
+    border-bottom: 1px solid var(--line);
+    font-size: 28px;
+    white-space: nowrap;
+  }
+  .row:last-child {
+    border-bottom: 0;
+  }
+  .row .k {
+    font-size: 20px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--fg-muted);
+  }
+  .row .v.hot {
+    color: var(--crimson);
+  }
+  .stamp {
+    position: absolute;
+    padding: 14px 22px;
+    border: 3px solid var(--crimson);
+    font-family: var(--mono);
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: var(--crimson);
+    background: var(--obsidian);
+    white-space: nowrap;
+  }
+  /* Archival highlight: brand yellow swept left to right behind the line. */
+  .hl {
+    background: linear-gradient(var(--yellow), var(--yellow)) no-repeat 0 0 / var(--hl, 0%) 100%;
+  }
+  .caret {
+    display: inline-block;
+    width: 0.5em;
+    height: 0.86em;
+    margin-left: 0.08em;
+    margin-right: -0.58em;
+    vertical-align: -0.08em;
+    background: var(--accent);
+  }
+
+  /* Components: dossier rows, stamps, call tiles, waveforms, SQLite tables, the device boundary,
+     router routes, policy code with locks, the repo bar, the end card. */
+  .tiles {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    padding: 16px 18px 18px;
+  }
+  .tile {
+    height: 82px;
+    border: 1px solid var(--line-strong);
+    display: grid;
+    place-items: center;
+    color: var(--fg-muted);
+    font-size: 15px;
+    letter-spacing: 0.08em;
+  }
+  .tile svg {
+    width: 34px;
+    height: 34px;
+  }
+  .tile.bot {
+    border-color: var(--crimson);
+    background: var(--crimson-wash);
+    color: var(--crimson);
+    font-size: 17px;
+    font-weight: 700;
+  }
+  .sub {
+    width: 200px;
+    height: 118px;
+  }
+  .sub .node-head {
+    height: 42px;
+    font-size: 17px;
+  }
+  .sub .node-body {
+    font-size: 22px;
+    padding: 12px;
+  }
+  .wave {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 72px;
+    overflow: hidden;
+  }
+  .wave i {
+    display: block;
+    width: 8px;
+    background: var(--ink-strong);
+  }
+  .wave-row {
+    display: grid;
+    grid-template-columns: 190px 1fr;
+    align-items: center;
+    padding: 6px 22px;
+  }
+  .wave-row .k {
+    font-size: 20px;
+    letter-spacing: 0.08em;
+    color: var(--ink-muted);
+  }
+  .tbl {
+    display: grid;
+    grid-template-columns: 1fr 120px 130px;
+    align-items: center;
+    height: 66px;
+    padding: 0 22px;
+    border-bottom: 1px solid var(--page-line);
+    font-size: 26px;
+    white-space: nowrap;
+  }
+  .tbl.th {
+    height: 50px;
+    font-size: 18px;
+    letter-spacing: 0.08em;
+    color: var(--ink-muted);
+  }
+  .tbl .loc {
+    color: var(--emerald);
+  }
+  .boundary {
+    position: absolute;
+    inset: -22px;
+    border: 2px solid var(--emerald);
+    pointer-events: none;
+  }
+  .boundary-tag {
+    position: absolute;
+    left: -2px;
+    top: -36px;
+    padding: 6px 12px;
+    background: var(--emerald);
+    color: #fff;
+    font-family: var(--mono);
+    font-size: 18px;
+    letter-spacing: 0.1em;
+    white-space: nowrap;
+  }
+  .route {
+    position: absolute;
+    left: 360px;
+    width: 520px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    font-family: var(--mono);
+    font-size: 27px;
+    white-space: nowrap;
+  }
+  .route .kind {
+    font-size: 18px;
+    letter-spacing: 0.08em;
+    color: var(--ink-muted);
+  }
+  .route.on {
+    border-color: var(--emerald);
+    box-shadow: inset 0 0 0 1px var(--emerald);
+  }
+  .group-label {
+    position: absolute;
+    left: 360px;
+    font-family: var(--mono);
+    font-size: 19px;
+    letter-spacing: 0.1em;
+    color: var(--ink-muted);
+  }
+  .code {
+    padding: 14px 0;
+    font-size: 27px;
+    line-height: 46px;
+  }
+  .code-line {
+    position: relative;
+    display: grid;
+    grid-template-columns: 56px 1fr 136px;
+    align-items: center;
+    padding-right: 22px;
+    white-space: pre;
+  }
+  .code-line .ln {
+    text-align: right;
+    padding-right: 20px;
+    color: var(--ink-muted);
+    font-size: 18px;
+  }
+  .code-line .lock {
+    justify-self: end;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 2px 10px;
+    border: 1px solid var(--emerald);
+    color: var(--emerald);
+    font-size: 17px;
+    letter-spacing: 0.1em;
+    line-height: 1.5;
+  }
+  .code-line .lock svg {
+    width: 14px;
+    height: 14px;
+  }
+  .j-key {
+    color: var(--ink-strong);
+  }
+  .j-val {
+    color: var(--emerald);
+  }
+  .repo {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 76px;
+    margin-top: 24px;
+    padding: 0 22px;
+    border: 1px solid var(--border);
+    background: var(--ink-strong);
+    color: var(--page);
+    font-family: var(--mono);
+    font-size: 25px;
+  }
+  .repo .lic {
+    padding: 6px 14px;
+    background: var(--yellow);
+    color: var(--ink-strong);
+    font-size: 19px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+  }
+  .end-line {
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 64px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+  }
+  .end-line span {
+    white-space: nowrap;
+  }
+  .end-url {
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 30px;
+    letter-spacing: 0.08em;
+    color: var(--ink-muted);
+  }
+
+  /* Vertical captions (filled in by vertical-page.py): square, solid, inverted against the zone, above the docked mark. */
+  .cap {
+    position: absolute;
+    left: 50%;
+    top: 1560px;
+    transform: translateX(-50%);
+    max-width: 936px;
+    padding: 16px 28px;
+    border-left: 6px solid var(--accent);
+    background: var(--fg);
+    color: var(--bg);
+    font-family: var(--sans);
+    font-size: 44px;
+    font-weight: 600;
+    line-height: 1.2;
+    text-align: center;
+    white-space: nowrap;
+    z-index: 27;
+    opacity: 0;
+  }
+
+  /* Transport */
+  .transport {
+    width: min(100%, calc((100vh - 110px) * 16 / 9), 1600px);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--obsidian-muted);
+  }
+  .transport button {
+    width: 36px;
+    height: 36px;
+    border: 1px solid var(--obsidian-line-strong);
+    border-radius: 0;
+    flex: none;
+    background: var(--obsidian-raised);
+    color: var(--page);
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+  }
+  .transport button:hover {
+    border-color: var(--obsidian-muted);
+  }
+  .transport button:focus-visible,
+  .transport input:focus-visible {
+    outline: 2px solid var(--yellow);
+    outline-offset: 2px;
+  }
+  .transport svg {
+    width: 14px;
+    height: 14px;
+    fill: currentColor;
+  }
+  .transport input[type="range"] {
+    flex: 1;
+    min-width: 0;
+    accent-color: var(--yellow);
+  }
+  .transport .time {
+    font-variant-numeric: tabular-nums;
+    min-width: 96px;
+    text-align: right;
+  }
+  .transport .chapter {
+    color: var(--page);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 32%;
+  }
+</style>
+<div class="frame" id="frame">
+  <div class="stage" id="stage" data-zone="red" data-format="16:9" aria-label="Anarlog film" role="img">
+    <div class="layer" id="grid"></div>
+
+    <!-- EXAMPLE SCENES: replace these with the film's own. Each scene is one .layer. -->
+    <!-- S1: opening question, typed centred on the grid -->
+    <div class="layer" id="s1">
+      <div class="abs" id="s1Line" style="left: 160px; right: 160px; top: 0; bottom: 0; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 104px; font-weight: 700; letter-spacing: -0.04em; line-height: 1.04"></div>
+    </div>
+
+    <!-- S2: red zone, forensic egress map (headline left, schematic right) -->
+    <div class="layer" id="s2">
+      <div class="abs copy">
+        <span class="tag hot"><span class="dot"></span>Third-party cloud</span>
+        <h2><span>A bot joins.</span> <span>Your audio leaves.</span></h2>
+        <div class="note">Illustrative: typical cloud notetaker</div>
+      </div>
+      <div class="abs demo">
+        <div class="dz" style="height: 650px">
+          <svg class="abs" id="s2Wires" width="880" height="640" viewBox="0 0 880 640" style="left: 0; top: 0; overflow: visible">
+            <polyline class="wire hot" id="s2W0" points="300,175 520,175" pathLength="1" />
+            <polyline class="wire hot" id="s2W1" points="700,235 700,350 100,350 100,440" pathLength="1" />
+            <polyline class="wire hot" id="s2W2" points="700,235 700,350 327,350 327,440" pathLength="1" />
+            <polyline class="wire hot" id="s2W3" points="700,235 700,350 553,350 553,440" pathLength="1" />
+            <polyline class="wire hot" id="s2W4" points="700,235 700,350 780,350 780,440" pathLength="1" />
+            <g id="s2Packets"></g>
+          </svg>
+          <div class="node" id="s2Call" style="left: 0; top: 40px; width: 300px">
+            <div class="node-head"><span>Meeting</span><span>6 in call</span></div>
+            <div class="tiles" id="s2Tiles"></div>
+          </div>
+          <div class="node" id="s2Cloud" style="left: 520px; top: 115px; width: 360px; height: 120px">
+            <div class="node-head"><span>Vendor cloud</span><span class="hot" style="color: var(--crimson)">US</span></div>
+            <div class="node-body" style="font-size: 28px">us-east-1</div>
+          </div>
+          <div class="node sub" id="s2Sub1" style="left: 0; top: 440px"><div class="node-head">Sub-proc 01</div><div class="node-body">Transcription</div></div>
+          <div class="node sub" id="s2Sub2" style="left: 227px; top: 440px"><div class="node-head">Sub-proc 02</div><div class="node-body">Inference</div></div>
+          <div class="node sub" id="s2Sub3" style="left: 453px; top: 440px"><div class="node-head">Sub-proc 03</div><div class="node-body">Analytics</div></div>
+          <div class="node sub" id="s2Sub4" style="left: 680px; top: 440px"><div class="node-head">Sub-proc 04</div><div class="node-body">Backup</div></div>
+          <div class="abs tag hot" id="s2Tag" style="left: 0; top: 600px">Big Tech cloud · US CLOUD Act · 4 sub-processors</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- S3: local zone, zero-bot capture + local SQLite inspector -->
+    <div class="layer" id="s3">
+      <div class="abs copy">
+        <span class="tag hot"><span class="dot"></span>Anarlog · on device</span>
+        <h2><span>No bot.</span> <span>Just your machine.</span></h2>
+        <div class="note">Mic + system audio · captured locally</div>
+      </div>
+      <div class="abs demo">
+        <div class="dz">
+          <div class="boundary" id="s3Bound"><span class="boundary-tag">DEVICE BOUNDARY · NET EGRESS 0 B</span></div>
+          <div class="panel" id="s3Cap">
+            <div class="panel-head"><span id="s3Rec" style="color: var(--crimson)">● REC 00:12:38</span><span style="color: var(--emerald)">BOTS IN CALL: 0</span></div>
+            <div class="wave-row" style="padding-top: 14px"><span class="k">MIC</span><div class="wave" id="s3WaveMic"></div></div>
+            <div class="wave-row" style="padding-bottom: 14px"><span class="k">SYSTEM AUDIO</span><div class="wave" id="s3WaveSys"></div></div>
+          </div>
+          <div class="panel" id="s3Db" style="margin-top: 28px">
+            <div class="panel-head"><span style="color: var(--ink-strong)">~/Library/Application Support/anarlog/app.db</span><span>SQLITE</span></div>
+            <div class="tbl th"><span>SESSIONS</span><span>LENGTH</span><span>STORED</span></div>
+            <div class="tbl" id="s3R1"><span><span class="hl" id="s3R1T">Weekly sync · EU pilot</span></span><span id="s3R1L">12:38</span><span class="loc">LOCAL</span></div>
+            <div class="tbl" id="s3R2"><span>Design review</span><span>48:10</span><span class="loc">LOCAL</span></div>
+            <div class="tbl" id="s3R3" style="border-bottom: 0"><span>Customer call</span><span>31:05</span><span class="loc">LOCAL</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- S4: end card under the returning wordmark -->
+    <div class="layer" id="s4">
+      <div class="abs end-line" id="s4Line" style="top: 600px"><span>Your meetings stay</span> <span>on your machine.</span></div>
+      <div class="abs end-url" id="s4Url" style="top: 720px">anarlog.so</div>
+    </div>
+
+    <!-- Rails sit over the scenes; the wipe sits over both. -->
+    <div class="abs rail" id="railTop">
+      <div class="rail-group">
+        <span class="rail-dock"></span><span class="rail-sep"></span>
+        <span class="strong">EP 00</span><span id="railChapter"></span>
+      </div>
+      <div class="rail-group">
+        <span id="railScene"></span><span class="rail-sep"></span><span id="railEgress"></span>
+      </div>
+    </div>
+    <div class="abs rail" id="railBottom">
+      <span id="railTc"></span>
+      <span class="rail-wide" id="railZone"></span>
+      <span>anarlog.so</span>
+    </div>
+    <div class="abs" id="wipe"></div>
+    <div class="abs" id="markScan"></div>
+    <div class="abs" id="markWrap">
+      <svg viewBox="0 0 1205 334" fill="currentColor" aria-hidden="true">
+        <path d="M18.1625 149.721C31.7585 138.071 50.2802 135.096 70.2299 140.442C85.7141 144.592 96.5945 153.887 104.637 163.586C107.515 167.056 110.192 170.797 112.669 174.541C113.465 170.055 113.905 165.137 113.905 159.76C113.905 143.781 111.862 135.005 109.565 130.209C107.772 126.465 105.679 124.694 101.932 123.308C97.067 121.509 89.6875 120.561 77.7162 120.414C64.807 120.255 53.3089 120.879 35.1342 120.879V80.8786C49.4279 80.8786 66.5105 80.2725 78.2084 80.4167C90.8439 80.5725 104.099 81.4613 115.809 85.7927C128.638 90.5378 139.061 99.1923 145.641 112.931C151.717 125.618 153.905 141.381 153.905 159.76C153.905 180.288 149.3 198.446 140.772 213.409C144.143 215.498 147.711 216.391 152 216.391V256.391C135.341 256.391 122.811 250.627 113.12 242.718C98.8789 251.856 82.2137 256.391 65.0532 256.391C21.9673 256.391 0.110005 221.954 0.000425813 192.082C-0.0544308 177.123 5.1868 160.84 18.1625 149.721ZM59.8764 179.08C49.6362 176.336 45.5919 178.894 44.1899 180.095C42.168 181.828 39.9776 185.714 40.0004 191.935C40.0463 204.424 48.3803 216.391 65.0532 216.391C73.6167 216.391 81.4305 214.507 88.1391 211.007C82.7097 201.967 78.7316 195.009 73.8471 189.119C69.1238 183.423 64.8159 180.404 59.8764 179.08Z" />
+<path d="M310.348 256.391V157.779C310.348 147.573 307.144 139.267 300.736 132.859C294.328 126.451 286.022 123.247 275.816 123.247C269.171 123.247 263.238 124.671 258.016 127.519C252.795 130.367 248.642 134.401 245.556 139.623C242.708 144.844 241.284 150.896 241.284 157.779L223.128 148.523C223.128 134.995 225.976 123.247 231.672 113.279C237.606 103.073 245.675 95.1228 255.88 89.4268C266.323 83.7308 278.071 80.8828 291.124 80.8828C303.703 80.8828 314.976 84.0868 324.944 90.4948C334.912 96.6655 342.744 104.853 348.44 115.059C354.136 125.027 356.984 135.825 356.984 147.455V256.391H310.348ZM194.648 256.391V84.4428H241.284V256.391H194.648Z" />
+<path d="M582.648 257.391V85.4428H629.284V257.391H582.648ZM629.284 162.339L611.128 150.235C613.264 129.112 619.435 112.499 629.64 100.395C639.846 88.0535 654.56 81.8828 673.784 81.8828C682.091 81.8828 689.567 83.3068 696.212 86.1548C702.858 88.7655 708.91 93.1561 714.368 99.3268L685.176 132.791C682.566 129.943 679.362 127.807 675.564 126.383C672.004 124.959 667.851 124.247 663.104 124.247C653.136 124.247 644.948 127.451 638.54 133.859C632.37 140.029 629.284 149.523 629.284 162.339Z" />
+<path d="M739.648 257.388V0H786.284V257.388H739.648Z" />
+<path d="M914.461 260.951C897.135 260.951 881.471 257.035 867.469 249.203C853.703 241.134 842.667 230.335 834.361 216.807C826.291 203.042 822.257 187.734 822.257 170.883C822.257 154.033 826.291 138.962 834.361 125.671C842.43 112.143 853.466 101.463 867.469 93.6313C881.471 85.562 897.017 81.5273 914.105 81.5273C931.667 81.5273 947.331 85.562 961.097 93.6313C975.099 101.463 986.135 112.143 994.205 125.671C1002.27 138.962 1006.31 154.033 1006.31 170.883C1006.31 187.734 1002.27 203.042 994.205 216.807C986.135 230.335 975.099 241.134 961.097 249.203C947.331 257.035 931.786 260.951 914.461 260.951ZM914.105 217.519C922.886 217.519 930.599 215.621 937.245 211.823C944.127 207.789 949.349 202.33 952.909 195.447C956.706 188.327 958.605 180.258 958.605 171.239C958.605 162.221 956.706 154.27 952.909 147.387C949.111 140.505 943.89 135.165 937.245 131.367C930.599 127.333 922.886 125.315 914.105 125.315C905.561 125.315 897.966 127.333 891.321 131.367C884.675 135.165 879.454 140.505 875.657 147.387C871.859 154.27 869.961 162.221 869.961 171.239C869.961 180.258 871.859 188.327 875.657 195.447C879.454 202.33 884.675 207.789 891.321 211.823C897.966 215.621 905.561 217.519 914.105 217.519Z" />
+<path d="M1111.56 333.575C1093.29 333.575 1077.15 330.252 1063.14 323.607C1049.14 317.199 1037.99 308.061 1029.68 296.195L1059.23 266.647C1065.87 274.479 1073.23 280.412 1081.3 284.447C1089.61 288.719 1099.58 290.855 1111.2 290.855C1125.68 290.855 1137.07 287.176 1145.38 279.819C1153.92 272.461 1158.2 262.256 1158.2 249.203V206.127L1166.03 168.391L1158.55 130.655V85.4428H1204.83V248.491C1204.83 265.579 1200.8 280.412 1192.73 292.991C1184.9 305.807 1173.98 315.775 1159.98 322.895C1145.97 330.015 1129.84 333.575 1111.56 333.575ZM1109.42 252.763C1094 252.763 1080.11 249.084 1067.77 241.727C1055.43 234.132 1045.7 223.808 1038.58 210.755C1031.7 197.701 1028.26 183.105 1028.26 166.967C1028.26 150.828 1031.7 136.351 1038.58 123.535C1045.7 110.719 1055.43 100.632 1067.77 93.2748C1080.11 85.6801 1094 81.8828 1109.42 81.8828C1122.24 81.8828 1133.51 84.3748 1143.24 89.3588C1153.21 94.3428 1161.04 101.225 1166.74 110.007C1172.44 118.551 1175.52 128.637 1176 140.267V194.379C1175.52 205.771 1172.32 215.976 1166.38 224.995C1160.69 233.776 1152.86 240.659 1142.89 245.643C1133.16 250.389 1122 252.763 1109.42 252.763ZM1118.68 210.399C1127.22 210.399 1134.58 208.619 1140.75 205.059C1147.16 201.261 1152.14 196.159 1155.7 189.751C1159.26 183.105 1161.04 175.629 1161.04 167.323C1161.04 158.779 1159.26 151.303 1155.7 144.895C1152.14 138.487 1147.16 133.503 1140.75 129.943C1134.58 126.145 1127.22 124.247 1118.68 124.247C1110.14 124.247 1102.66 126.145 1096.25 129.943C1089.84 133.503 1084.86 138.605 1081.3 145.251C1077.74 151.659 1075.96 159.016 1075.96 167.323C1075.96 175.392 1077.74 182.749 1081.3 189.395C1084.86 195.803 1089.84 200.905 1096.25 204.703C1102.66 208.5 1110.14 210.399 1118.68 210.399Z" />
+<path d="M402.163 149.721C415.759 138.071 434.28 135.096 454.23 140.442C469.714 144.592 480.594 153.887 488.637 163.586C491.515 167.056 494.192 170.797 496.669 174.541C497.465 170.055 497.905 165.137 497.905 159.76C497.905 143.781 495.862 135.005 493.565 130.209C491.772 126.465 489.679 124.694 485.932 123.308C481.067 121.509 473.688 120.561 461.716 120.414C448.807 120.255 437.309 120.879 419.134 120.879V80.8786C433.428 80.8786 450.51 80.2725 462.208 80.4167C474.844 80.5725 488.099 81.4613 499.809 85.7927C512.638 90.5378 523.061 99.1923 529.641 112.931C535.717 125.618 537.905 141.381 537.905 159.76C537.905 180.288 533.3 198.446 524.772 213.409C528.143 215.498 531.711 216.391 536 216.391V256.391C519.341 256.391 506.811 250.627 497.12 242.718C482.879 251.856 466.214 256.391 449.053 256.391C405.967 256.391 384.11 221.954 384 192.082C383.946 177.123 389.187 160.84 402.163 149.721ZM443.876 179.08C433.636 176.336 429.592 178.894 428.19 180.095C426.168 181.828 423.978 185.714 424 191.935C424.046 204.424 432.38 216.391 449.053 216.391C457.617 216.391 465.431 214.507 472.139 211.007C466.71 201.967 462.732 195.009 457.847 189.119C453.124 183.423 448.816 180.404 443.876 179.08Z" />
+      </svg>
+    </div>
+    <div class="cap" id="cap"></div>
+  </div>
+</div>
+<div class="transport" id="transport">
+  <button id="playBtn" type="button" aria-label="Pause">
+    <svg viewBox="0 0 16 16" id="playIcon"><rect x="3" y="2" width="3.5" height="12" /><rect x="9.5" y="2" width="3.5" height="12" /></svg>
+  </button>
+  <button id="restartBtn" type="button" aria-label="Restart">
+    <svg viewBox="0 0 16 16"><path d="M8 2.5a5.5 5.5 0 1 1-5.2 3.7l1.4.5A4 4 0 1 0 8 4v2L4.5 3.2 8 .5z" /></svg>
+  </button>
+  <span class="chapter" id="chapter"></span>
+  <input id="scrub" type="range" min="0" max="1" step="0.01" value="0" aria-label="Timeline" />
+  <span class="time" id="time">0:00</span>
+</div>
+<script>
+  (() => {
+    /* ---------- Format and timing ---------- */
+    // vertical-page.py flips FORMAT to "9:16" and fills CUES; everything else lays itself out from it.
+    const FORMAT = "16:9";
+    const VERTICAL = FORMAT === "9:16";
+    const W = VERTICAL ? 1080 : 1920,
+      H = VERTICAL ? 1920 : 1080;
+    // Scenes are written in scene time. DURATION is where the last scene ends.
+    const DURATION = 26;
+    // The take plays untouched from NARRATION_AT; TIME_MAP pairs [scene time, film time] land each
+    // beat on its words. Equal scene times hold; equal film times cut ahead. Identity until narrated.
+    const NARRATION_AT = 2.2;
+    const TIME_MAP = [
+      [0, 0],
+      [DURATION, DURATION],
+    ];
+    const FILM_DURATION = TIME_MAP[TIME_MAP.length - 1][1];
+    function sceneTime(T) {
+      if (T <= 0) return 0;
+      for (let i = 1; i < TIME_MAP.length; i++) {
+        const [t0, f0] = TIME_MAP[i - 1],
+          [t1, f1] = TIME_MAP[i];
+        if (T < f1) return t0 + ((T - f0) / (f1 - f0)) * (t1 - t0);
+      }
+      return DURATION;
+    }
+    // Polarity: red (third-party cloud) until the wipe lands, local (Anarlog) after it.
+    const CUT = { at: 12.6, dur: 0.34 };
+    // [scene time, chapter label, scene number or null].
+    const CHAPTERS = [
+      [0, "Opening", 1],
+      [5.4, "Egress map", 2],
+      [CUT.at + CUT.dur, "Local capture", 3],
+      [21.5, "anarlog.so", null],
+    ];
+    const SCENES = 3;
+    // Captions on the film clock T: [start, end, text]. Empty in 16:9.
+    const CUES = [];
+
+    /* ---------- Helpers ---------- */
+    const $ = (id) => document.getElementById(id);
+    const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+    const lerp = (a, b, p) => a + (b - a) * p;
+    // Mechanical eases: fast out, hard landing, no overshoot.
+    const E = {
+      snap: (p) => 1 - Math.pow(1 - p, 4),
+      out: (p) => 1 - Math.pow(1 - p, 3),
+      inOut: (p) => (p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2),
+      linear: (p) => p,
+    };
+    const P = (t, start, dur, ease = E.snap) => ease(clamp((t - start) / dur));
+    // On screen from a to b: a fast cut in, a fast cut out.
+    const win = (t, a, b, fi = 0.18, fo = 0.18) => Math.min(P(t, a, fi, E.linear), 1 - P(t, b - fo, fo, E.linear));
+    const show = (el, o) => {
+      el.style.opacity = o;
+      el.style.visibility = o <= 0.001 ? "hidden" : "visible";
+    };
+    const move = (el, x = 0, y = 0, s = 1) => {
+      el.style.transform = `translate(${x}px, ${y}px) scale(${s})`;
+    };
+    // Hairline wipe: reveal left to right.
+    const wipe = (el, p) => {
+      el.style.clipPath = p >= 1 ? "" : `inset(-4px ${(1 - p) * 100}% -4px -4px)`;
+    };
+    const typed = (str, t, start, cps = 38) => str.slice(0, Math.max(0, Math.floor((t - start) * cps)));
+    const draw = (wire, p) => {
+      wire.style.strokeDasharray = "1 1";
+      wire.style.strokeDashoffset = 1 - p;
+    };
+    // Seeded, smooth pseudo-noise: same t, same value, every render.
+    const noise = (i, t) => 0.5 + 0.25 * Math.sin(i * 1.7 + t * 6.1) + 0.25 * Math.sin(i * 0.53 - t * 3.7 + Math.sin(i * 0.31));
+    // A point a fraction u along an orthogonal polyline.
+    function along(pts, u) {
+      const segs = [];
+      let total = 0;
+      for (let i = 1; i < pts.length; i++) {
+        const l = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+        segs.push(l);
+        total += l;
+      }
+      let d = clamp(u) * total;
+      for (let i = 0; i < segs.length; i++) {
+        if (d <= segs[i] || i === segs.length - 1) {
+          const k = segs[i] ? d / segs[i] : 0;
+          return [lerp(pts[i][0], pts[i + 1][0], k), lerp(pts[i][1], pts[i + 1][1], k)];
+        }
+        d -= segs[i];
+      }
+      return pts[pts.length - 1];
+    }
+    const pointsOf = (polyline) =>
+      polyline
+        .getAttribute("points")
+        .trim()
+        .split(/\s+/)
+        .map((p) => p.split(",").map(Number));
+    // A scene's copy: tag cuts in, headline wipes in, footnote follows.
+    function renderCopy(layer, t, a) {
+      const copy = layer.querySelector(".copy");
+      if (!copy) return;
+      [...copy.children].forEach((c, i) => {
+        const p = P(t, a + 0.25 + i * 0.16, 0.36);
+        show(c, p > 0 ? 1 : 0);
+        wipe(c, p);
+      });
+    }
+    const clock = (s) => `${String(Math.floor(s / 3600)).padStart(2, "0")}:${String(Math.floor(s / 60) % 60).padStart(2, "0")}:${String(Math.floor(s) % 60).padStart(2, "0")}`;
+
+    /* ---------- Wordmark ---------- */
+    // One continuous motion: wipes in centred on the grid, docks into the top rail (16:9) or the
+    // bottom centre (9:16), then returns to centre for the end card.
+    const MARK = { wipeAt: 0.3, dockAt: 1.6, endIn: 21.5 };
+    const markWrap = $("markWrap"),
+      markScan = $("markScan");
+    const fitMark = (w, cx, y) => ({ k: w / 1205, x: cx - w / 2, y });
+    const CENTER = VERTICAL ? fitMark(760, 540, 855) : fitMark(900, 960, 373);
+    const DOCK = VERTICAL ? fitMark(210, 540, 1765) : { k: 30 / 334, x: 64, y: 21 };
+    const END = VERTICAL ? fitMark(640, 540, 690) : fitMark(620, 960, 340);
+    function renderMark(t) {
+      let m = CENTER;
+      const reveal = P(t, MARK.wipeAt, 0.8, E.inOut);
+      if (t >= MARK.endIn) {
+        const p = P(t, MARK.endIn, 0.6, E.inOut);
+        m = { k: lerp(DOCK.k, END.k, p), x: lerp(DOCK.x, END.x, p), y: lerp(DOCK.y, END.y, p) };
+      } else if (t >= MARK.dockAt) {
+        const p = P(t, MARK.dockAt, 0.5, E.inOut);
+        m = { k: lerp(CENTER.k, DOCK.k, p), x: lerp(CENTER.x, DOCK.x, p), y: lerp(CENTER.y, DOCK.y, p) };
+      }
+      move(markWrap, m.x, m.y, m.k);
+      markWrap.firstElementChild.style.clipPath = reveal >= 1 ? "" : `inset(0 ${(1 - reveal) * 100}% 0 0)`;
+      const scanOn = reveal > 0 && reveal < 1;
+      show(markScan, scanOn ? 1 : 0);
+      if (scanOn) {
+        markScan.style.left = `${CENTER.x + reveal * 1205 * CENTER.k}px`;
+        markScan.style.top = `${CENTER.y - 40}px`;
+        markScan.style.height = `${334 * CENTER.k + 80}px`;
+      }
+    }
+
+    /* ---------- Backdrop, rails, polarity ---------- */
+    const stage = $("stage"),
+      grid = $("grid"),
+      wipeEl = $("wipe"),
+      railTop = $("railTop"),
+      railBottom = $("railBottom");
+    // Outbound bytes while the third-party scenes run: monotonic, deterministic, about 30 MB/s.
+    const EGRESS_FROM = 7.9;
+    const egressMB = (t) => (t < EGRESS_FROM ? 0 : 30.4 * (t - EGRESS_FROM) + 2.1 * (1 - Math.cos((t - EGRESS_FROM) * 5.3)));
+    function renderBackdrop(T, t) {
+      const local = t >= CUT.at + CUT.dur;
+      stage.dataset.zone = local ? "local" : "red";
+      wipe(grid, P(t, 0, 0.5, E.out));
+      const wp = P(t, CUT.at, CUT.dur, E.inOut);
+      show(wipeEl, wp > 0 && wp < 1 ? 1 : 0);
+      wipeEl.style.width = `${wp * W}px`;
+      const railO = (t < 0.15 ? 0 : 1) * (1 - P(t, MARK.endIn - 0.2, 0.3, E.linear));
+      show(railTop, railO);
+      show(railBottom, railO);
+      const ch = CHAPTERS.filter(([s]) => s <= t).pop();
+      $("railChapter").textContent = ch[1];
+      $("railScene").textContent = ch[2] ? `${String(ch[2]).padStart(2, "0")} / ${String(SCENES).padStart(2, "0")}` : "";
+      const eg = $("railEgress");
+      if (local) {
+        eg.innerHTML = '<span class="hot">NET EGRESS 0 B</span>';
+      } else {
+        eg.innerHTML = `EGRESS <span class="hot">▲ ${egressMB(t).toFixed(1).padStart(5, "0")} MB</span>`;
+      }
+      const f = Math.floor(T * 30);
+      $("railTc").textContent = `TC ${clock(f / 30)}:${String(f % 30).padStart(2, "0")}`;
+      $("railZone").textContent = local ? "Zone · local device · SQLite" : "Zone · third-party cloud · US";
+    }
+
+    /* ---------- Scenes ---------- */
+    // S1: the opening line types out on the grid. Keep it under ~45 characters.
+    const s1 = $("s1"),
+      s1Line = $("s1Line");
+    const S1_TEXT = "Where does your meeting audio actually go?";
+    function renderS1(t) {
+      show(s1, win(t, 2.0, 5.6, 0.01, 0.16));
+      const blink = t > 3.4 && Math.floor(t * 2.4) % 2 === 1;
+      const shown = typed(S1_TEXT, t, 2.15, 30);
+      // The untyped rest is laid out but invisible, so the line never reflows while it types.
+      s1Line.innerHTML = `<span>${shown}<span class="caret"${blink ? ' style="opacity:0"' : ""}></span><span style="opacity:0">${S1_TEXT.slice(shown.length)}</span></span>`;
+    }
+
+    // S2: the bot joins, the audio leaves for the vendor cloud and fans out to sub-processors.
+    const s2 = $("s2"),
+      s2Tiles = $("s2Tiles"),
+      s2Packets = $("s2Packets");
+    const PERSON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="8" y="4" width="8" height="8"/><path d="M4 21v-3h16v3"/></svg>';
+    for (let i = 0; i < 6; i++) s2Tiles.insertAdjacentHTML("beforeend", `<div class="tile">${PERSON}</div>`);
+    const s2Bot = s2Tiles.lastElementChild;
+    const S2_WIRES = [0, 1, 2, 3, 4].map((i) => $(`s2W${i}`));
+    const S2_PATHS = S2_WIRES.map(pointsOf);
+    const S2_PACKETS = S2_PATHS.flatMap((_, w) =>
+      [0, 1, 2].map((k) => {
+        const r = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        r.setAttribute("class", "packet");
+        r.setAttribute("width", "12");
+        r.setAttribute("height", "12");
+        s2Packets.appendChild(r);
+        return { r, w, k };
+      }),
+    );
+    const S2_SUBS = [1, 2, 3, 4].map((i) => $(`s2Sub${i}`));
+    function renderS2(t) {
+      show(s2, win(t, 5.4, CUT.at + CUT.dur, 0.18, 0.01));
+      renderCopy(s2, t, 5.4);
+      const call = $("s2Call");
+      const cp = P(t, 5.8, 0.3);
+      show(call, cp > 0 ? 1 : 0);
+      wipe(call, cp);
+      const bot = t >= 6.6;
+      s2Bot.className = bot ? "tile bot" : "tile";
+      s2Bot.innerHTML = bot ? (Math.floor(t * 2) % 2 ? "BOT ●" : "BOT ○") : PERSON;
+      call.classList.toggle("hot", bot);
+      draw(S2_WIRES[0], P(t, 7.3, 0.4));
+      const cl = P(t, 7.6, 0.3);
+      show($("s2Cloud"), cl > 0 ? 1 : 0);
+      wipe($("s2Cloud"), cl);
+      S2_WIRES.slice(1).forEach((w, i) => draw(w, P(t, 8.7 + i * 0.12, 0.5)));
+      S2_SUBS.forEach((n, i) => {
+        const p = P(t, 9.2 + i * 0.24, 0.24);
+        show(n, p > 0 ? 1 : 0);
+        wipe(n, p);
+      });
+      S2_PACKETS.forEach(({ r, w, k }) => {
+        const start = w === 0 ? 7.9 : 9.9 + w * 0.1;
+        const on = t >= start;
+        const u = ((t - start) * (w === 0 ? 0.9 : 0.55) + k / 3) % 1;
+        const [x, y] = along(S2_PATHS[w], u);
+        r.setAttribute("x", (x - 6).toFixed(1));
+        r.setAttribute("y", (y - 6).toFixed(1));
+        r.style.opacity = on ? 1 : 0;
+      });
+      const tp = P(t, 10.6, 0.3);
+      show($("s2Tag"), tp > 0 ? 1 : 0);
+      wipe($("s2Tag"), tp);
+    }
+
+    // S3: zero-bot capture on the device, rows written to app.db, the boundary holds.
+    const s3 = $("s3");
+    const waves = [$("s3WaveMic"), $("s3WaveSys")].map((host) => {
+      for (let i = 0; i < 44; i++) host.appendChild(document.createElement("i"));
+      return [...host.children];
+    });
+    function renderS3(t) {
+      const a = CUT.at + CUT.dur;
+      show(s3, win(t, a, 21.3, 0.01, 0.18));
+      renderCopy(s3, t, a - 0.1);
+      const cp = P(t, a + 0.35, 0.3);
+      show($("s3Cap"), cp > 0 ? 1 : 0);
+      wipe($("s3Cap"), cp);
+      const rec = 12 * 60 + 38 + Math.max(0, t - a);
+      $("s3Rec").textContent = `${Math.floor(t * 2) % 2 ? "●" : "○"} REC ${clock(rec)}`;
+      waves.forEach((bars, row) =>
+        bars.forEach((b, i) => {
+          const env = row === 0 ? 0.55 + 0.45 * Math.sin(t * 1.3) ** 2 : 0.4 + 0.6 * Math.cos(t * 0.9 + 1) ** 2;
+          b.style.height = `${Math.round(6 + 60 * env * noise(i + row * 50, t))}px`;
+        }),
+      );
+      const dp = P(t, a + 1.6, 0.3);
+      show($("s3Db"), dp > 0 ? 1 : 0);
+      wipe($("s3Db"), dp);
+      $("s3R1L").textContent = clock(rec).slice(3);
+      $("s3R1T").style.setProperty("--hl", `${P(t, a + 3.46, 0.5, E.inOut) * 100}%`);
+      ["s3R1", "s3R2", "s3R3"].forEach((id, i) => {
+        const p = P(t, a + 2.0 + i * 0.22, 0.2);
+        show($(id), p);
+      });
+      const bp = P(t, a + 4.86, 0.4, E.inOut);
+      const bound = $("s3Bound");
+      show(bound, bp > 0 ? 1 : 0);
+      wipe(bound, bp);
+    }
+
+    // S4: end card under the returning mark.
+    const s4 = $("s4");
+    if (VERTICAL) {
+      $("s4Line").style.cssText += "top: 960px; left: 72px; right: 72px; font-size: 60px; line-height: 1.1;";
+      $("s4Url").style.top = "1150px";
+    }
+    function renderS4(t) {
+      show(s4, t >= MARK.endIn ? 1 : 0);
+      const lp = P(t, MARK.endIn + 0.7, 0.4);
+      show($("s4Line"), lp > 0 ? 1 : 0);
+      wipe($("s4Line"), lp);
+      show($("s4Url"), P(t, MARK.endIn + 1.4, 0.2, E.linear));
+    }
+
+    /* ---------- Captions (9:16) ---------- */
+    const cap = $("cap");
+    function renderCaption(T) {
+      const cue = CUES.find(([a, b]) => T >= a && T < b);
+      if (cue && cap.textContent !== cue[2]) cap.textContent = cue[2];
+      cap.style.opacity = cue ? 1 : 0;
+    }
+
+    /* ---------- Engine ---------- */
+    const frame = $("frame"),
+      scrub = $("scrub"),
+      timeEl = $("time"),
+      chapterEl = $("chapter"),
+      playBtn = $("playBtn"),
+      playIcon = $("playIcon");
+    stage.dataset.format = FORMAT;
+    document.body.classList.toggle("vertical", VERTICAL);
+    const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+    function render(T) {
+      const t = sceneTime(T);
+      renderBackdrop(T, t);
+      renderMark(t);
+      renderS1(t);
+      renderS2(t);
+      renderS3(t);
+      renderS4(t);
+      renderCaption(T);
+      scrub.value = T.toFixed(2);
+      timeEl.textContent = `${fmt(T)} / ${fmt(FILM_DURATION)}`;
+      chapterEl.textContent = CHAPTERS.filter(([s]) => s <= t).pop()[1];
+    }
+    const fit = () => (stage.style.transform = `scale(${frame.clientWidth / W})`);
+    new ResizeObserver(fit).observe(frame);
+    fit();
+    scrub.max = FILM_DURATION;
+    let T = 0,
+      playing = !window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+      last = performance.now();
+    function setPlaying(p) {
+      playing = p;
+      last = performance.now();
+      playIcon.innerHTML = p ? '<rect x="3" y="2" width="3.5" height="12"/><rect x="9.5" y="2" width="3.5" height="12"/>' : '<path d="M4 2.5v11l9.5-5.5z"/>';
+      playBtn.setAttribute("aria-label", p ? "Pause" : "Play");
+    }
+    // Playback only advances the clock; every frame is still render(T).
+    function tick(now) {
+      if (playing) {
+        T += (now - last) / 1000;
+        if (T >= FILM_DURATION) T = 0;
+        render(T);
+      }
+      last = now;
+      requestAnimationFrame(tick);
+    }
+    playBtn.addEventListener("click", () => setPlaying(!playing));
+    $("restartBtn").addEventListener("click", () => {
+      T = 0;
+      setPlaying(true);
+    });
+    scrub.addEventListener("input", () => {
+      T = parseFloat(scrub.value);
+      render(T);
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.code === "Space" && e.target === document.body) {
+        e.preventDefault();
+        setPlaying(!playing);
+      }
+    });
+    setPlaying(playing);
+    render(T);
+    requestAnimationFrame(tick);
+
+    // Frame-accurate hooks for scripts/render.mjs.
+    window.__film = {
+      duration: FILM_DURATION,
+      narrationAt: NARRATION_AT,
+      width: W,
+      height: H,
+      seek(s) {
+        setPlaying(false);
+        T = s;
+        render(T);
+      },
+      settle: () => document.fonts.ready,
+      exportMode() {
+        document.body.classList.add("export");
+        frame.style.width = `${W}px`;
+        frame.style.height = `${H}px`;
+        stage.style.transform = "none";
+      },
+    };
+  })();
+</script>
