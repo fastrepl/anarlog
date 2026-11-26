@@ -31,6 +31,7 @@
     "targets": "all",
     "linux": {
       "deb": {
+        "desktopTemplate": "linux/desktop-entry.hbs",
         "depends": [
           "libwebkit2gtk-4.1-0",
           "libgtk-3-0",
