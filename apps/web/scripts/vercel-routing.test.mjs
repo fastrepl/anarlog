@@ -37,7 +37,7 @@ function routeFor(url, routes = vercelBuildConfig.routes) {
 }
 
 const TAURI_FEED = "https://cdn.crabnebula.app/update/fastrepl/hyprnote2";
-const GPUI_FEED = "https://cdn.crabnebula.app/update/fastrepl/anarlog-gpui";
+const GPUI_FEED = "https://cdn.crabnebula.app/update/fastrepl/anarlog";
 const PLATFORMS = [
   "darwin-aarch64",
   "darwin-x86_64",

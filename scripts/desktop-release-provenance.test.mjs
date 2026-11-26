@@ -1041,7 +1041,10 @@ test("GPUI stable publish workflow enforces bridge-gate cutover safety and relea
   }
 
   const workflowCode = workflow.replace(/^\s*#.*$/gm, "");
-  assert.match(workflow, /default:\s*["']?fastrepl\/anarlog-gpui["']?/);
+  assert.match(
+    workflow,
+    /default:\s*(?:"fastrepl\/anarlog"|'fastrepl\/anarlog'|fastrepl\/anarlog(?:\s|$))/,
+  );
   for (const forbidden of [
     /linux-package-bump/,
     /update-aur-pkgbuild/,
@@ -1097,7 +1100,7 @@ test("GPUI stable publish workflow enforces bridge-gate cutover safety and relea
         INPUT_VERSION: "1.4.0",
         INPUT_CANDIDATE_SHA: candidateSha,
         INPUT_DRY_RUN_ID: "123456",
-        INPUT_CN_APPLICATION: "fastrepl/anarlog-gpui",
+        INPUT_CN_APPLICATION: "fastrepl/anarlog",
         INPUT_INCLUDE_LINUX: "true",
         INPUT_INCLUDE_WINDOWS: "true",
         ...overrides,
@@ -1106,6 +1109,15 @@ test("GPUI stable publish workflow enforces bridge-gate cutover safety and relea
   };
 
   assert.equal(runParse().status, 0);
+  const defaultOutput = path.join(scratchDir, "github-output-default");
+  assert.equal(
+    runParse({ INPUT_CN_APPLICATION: "", GITHUB_OUTPUT: defaultOutput }).status,
+    0,
+  );
+  assert.match(
+    await readFile(defaultOutput, "utf8"),
+    /^cn_application=fastrepl\/anarlog$/m,
+  );
   for (const overrides of [
     { INPUT_CN_APPLICATION: "fastrepl/hyprnote2" },
     { INPUT_CN_APPLICATION: "FASTREPL/HYPRNOTE2" },
@@ -1210,7 +1222,7 @@ exit 1
         GITHUB_OUTPUT: githubOutput,
         CHANNEL: "stable",
         CN_API_KEY: "test-key",
-        CN_APPLICATION: "fastrepl/anarlog-gpui",
+        CN_APPLICATION: "fastrepl/anarlog",
         CN_CLI: cnStub,
         VERSION: "1.4.0",
         CN_SHOW_BEFORE: JSON.stringify(showBefore),

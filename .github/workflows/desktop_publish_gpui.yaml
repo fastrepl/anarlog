@@ -1,6 +1,6 @@
 # Publishes verified stable GPUI desktop artifacts built by desktop_cd.yaml
 # (app=gpui, channel=stable) to a dedicated CrabNebula app (default:
-# fastrepl/anarlog-gpui, --channel stable) while leaving fastrepl/hyprnote2
+# fastrepl/anarlog, --channel stable) while leaving fastrepl/hyprnote2
 # untouched as the Tauri bridge release.
 #
 # Cutover safety while the Vercel bridge version gate is active:
@@ -29,7 +29,7 @@ on:
         description: "Target CrabNebula application slug (never fastrepl/hyprnote2)"
         required: false
         type: string
-        default: "fastrepl/anarlog-gpui"
+        default: "fastrepl/anarlog"
       include_linux:
         description: "Publish Linux artifacts from the candidate"
         type: boolean
@@ -95,7 +95,7 @@ jobs:
             exit 1
           fi
 
-          CN_APPLICATION=$(printf '%s' "${INPUT_CN_APPLICATION:-fastrepl/anarlog-gpui}" | tr -d '[:space:]')
+          CN_APPLICATION=$(printf '%s' "${INPUT_CN_APPLICATION:-fastrepl/anarlog}" | tr -d '[:space:]')
           if [[ ! "$CN_APPLICATION" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
             echo "::error::CrabNebula application must be an org/app slug, got '$CN_APPLICATION'"
             exit 1
