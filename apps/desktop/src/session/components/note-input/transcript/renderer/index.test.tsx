@@ -214,12 +214,13 @@ describe("TranscriptViewer", () => {
 
   it.each([
     ["inactive sessions on open", false, true, "false"],
-    ["active sessions at the bottom", true, true, "true"],
-    ["active sessions near the bottom edge", true, false, "true"],
+    ["active sessions following the end", true, true, "true"],
+    ["active sessions after scrolling away", true, false, "false"],
   ])(
     "pins the transcript to the end for %s",
-    (_label, currentActive, isAtBottom, expected) => {
-      mocks.scrollDetection.isAtBottom = isAtBottom;
+    (_label, currentActive, autoScrollEnabled, expected) => {
+      mocks.scrollDetection.isAtBottom = false;
+      mocks.scrollDetection.autoScrollEnabled = autoScrollEnabled;
 
       render(
         <TranscriptViewer

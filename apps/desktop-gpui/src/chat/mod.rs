@@ -21,8 +21,7 @@ use std::{
 use chrono::Utc;
 use desktop_runtime::{CancellationToken, Result, RuntimeHandle, ServiceError, SessionId};
 use gpui::{
-    AppContext, ClipboardItem, Context, Entity, FocusHandle, ScrollHandle, Subscription, Task,
-    WeakEntity, Window,
+    AppContext, ClipboardItem, Context, Entity, FocusHandle, Subscription, Task, WeakEntity, Window,
 };
 use serde_json::Value;
 
@@ -32,6 +31,7 @@ use crate::{
         ai_view::{AiViewServices, ContextPurpose},
         model::{MAX_TEXT, failure},
     },
+    ui::scroll::BottomAnchor,
     workspace::{WorkspaceView, navigation::Route},
 };
 use composer::{Composer, ComposerEvent, ContextRef};
@@ -169,7 +169,7 @@ pub struct ChatView {
     voice_generation: u64,
     toast: Option<(voice::Tone, &'static str, u64)>,
     focus: FocusHandle,
-    scroll: ScrollHandle,
+    scroll: BottomAnchor,
     load: CancellationToken,
     _poll: Option<Task<()>>,
     _reviews: Task<()>,
@@ -253,7 +253,7 @@ impl ChatView {
             voice_generation: 0,
             toast: None,
             focus: cx.focus_handle(),
-            scroll: ScrollHandle::new(),
+            scroll: BottomAnchor::new(true),
             load: CancellationToken::new(),
             _poll: None,
             _reviews: review_task,
@@ -302,8 +302,9 @@ impl ChatView {
         if mode != self.mode {
             self.history_open = false;
             self.markdown.close();
-            // The thread follows its newest message across floating and right-panel layouts.
-            self.scroll.scroll_to_bottom();
+            if !self.mode.is_open() && mode.is_open() {
+                self.scroll.pin();
+            }
             if mode == ChatMode::FloatingOpen {
                 self.revealed_at = Some(std::time::Instant::now());
                 self.reveals += 1;
@@ -397,6 +398,7 @@ impl ChatView {
         self.group = None;
         self.entries.clear();
         self.history_open = false;
+        self.scroll.pin();
         self.switch_draft(uuid::Uuid::new_v4().to_string(), cx);
         cx.notify();
     }
@@ -409,6 +411,7 @@ impl ChatView {
         self.group = Some(group.clone());
         self.switch_draft(group.to_string(), cx);
         self.entries.clear();
+        self.scroll.pin();
         self.load_history(group, cx);
         cx.notify();
     }
@@ -771,7 +774,6 @@ impl ChatView {
                 self.phase = Phase::Ready;
                 self.entries
                     .push(Entry::new(ChatMessage::from_reply(&reply)));
-                self.scroll.scroll_to_bottom();
             }
             Err(ServiceError::Cancelled) => {
                 self.phase = Phase::Ready;
@@ -921,14 +923,10 @@ impl ChatView {
                     );
                     let tools = this.drain_tools(cx);
                     if !text.is_empty() || !reasoning.is_empty() || tools {
-                        let follow = view::at_bottom(&this.scroll);
                         this.stream_text.push_str(&text);
                         this.stream_reasoning.push_str(&reasoning);
                         if !text.is_empty() {
                             this.stream_blocks = markdown::parse(&this.stream_text);
-                        }
-                        if follow {
-                            this.scroll.scroll_to_bottom();
                         }
                         cx.notify();
                     }
@@ -1643,5 +1641,92 @@ mod tests {
             chat.new_chat(cx);
             assert!(chat.pending_refs(cx).is_empty());
         });
+    }
+
+    #[gpui::test]
+    fn chat_bottom_anchor_follows_stream_until_user_scrolls_up_then_repins_at_bottom(
+        cx: &mut TestAppContext,
+    ) {
+        let (_directory, runtime, model, _) = chat_with_model(cx);
+        cx.update(crate::ui::theme::UiFonts::init);
+        let runtime_view = runtime.clone();
+        let (chat, cx) =
+            cx.add_window_view(|_, cx| ChatView::new(runtime_view, WeakEntity::new_invalid(), cx));
+        cx.simulate_resize(gpui::size(gpui::px(360.), gpui::px(240.)));
+        chat.update(cx, |chat, cx| {
+            chat.mode = ChatMode::RightPanelOpen;
+            chat.entries = (0..18)
+                .map(|index| {
+                    Entry::new(ChatMessage {
+                        id: format!("m-{index}"),
+                        user: index % 2 == 0,
+                        parts: vec![Display::Text(format!(
+                            "Message {index} line one\nMessage {index} line two\nMessage {index} line three"
+                        ))],
+                        created_at: None,
+                        refs: Vec::new(),
+                    })
+                })
+                .collect();
+            cx.notify();
+        });
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        cx.run_until_parked();
+
+        send(cx, &chat, "slow stream");
+        wait(cx, |_| model.streaming("slow stream"));
+        // Let the 33ms poll tick draw the first streamed chunk while pinned to the bottom.
+        cx.executor().advance_clock(Duration::from_millis(40));
+        cx.run_until_parked();
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+
+        let scroll_center = chat.read_with(cx, |chat, _| {
+            assert!(chat.scroll.is_pinned());
+            assert!(chat.scroll.is_at_bottom());
+            assert!(chat.scroll.handle().max_offset().y > gpui::px(100.));
+            chat.scroll.handle().bounds().center()
+        });
+
+        // A small upward scroll detaches from the bottom anchor immediately.
+        cx.simulate_event(gpui::ScrollEvent {
+            position: scroll_center,
+            delta: gpui::ScrollDelta::Pixels(gpui::point(gpui::px(0.), gpui::px(24.))),
+            ..Default::default()
+        });
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+
+        let offset_while_reading = chat.read_with(cx, |chat, _| {
+            assert!(!chat.scroll.is_pinned());
+            assert!(!chat.scroll.is_at_bottom());
+            chat.scroll.handle().offset().y
+        });
+
+        // Further streamed text and finishing the reply must not yank the user back down.
+        model.release("slow stream");
+        idle(cx, &chat);
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+
+        let remaining_to_bottom = chat.read_with(cx, |chat, _| {
+            assert!(!chat.scroll.is_pinned());
+            assert_eq!(chat.scroll.handle().offset().y, offset_while_reading);
+            chat.scroll.distance_from_bottom()
+        });
+
+        // Scrolling back down to the bottom anchor re-pins for subsequent replies.
+        cx.simulate_event(gpui::ScrollEvent {
+            position: scroll_center,
+            delta: gpui::ScrollDelta::Pixels(gpui::point(
+                gpui::px(0.),
+                -remaining_to_bottom - gpui::px(40.),
+            )),
+            ..Default::default()
+        });
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+
+        chat.read_with(cx, |chat, _| {
+            assert!(chat.scroll.is_pinned());
+            assert!(chat.scroll.is_at_bottom());
+        });
+        futures::executor::block_on(runtime.shutdown()).unwrap();
     }
 }

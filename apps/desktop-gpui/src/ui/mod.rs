@@ -2,6 +2,7 @@ pub mod a11y;
 pub mod assets;
 pub mod caret;
 pub mod input;
+pub mod scroll;
 pub mod text;
 pub mod theme;
 

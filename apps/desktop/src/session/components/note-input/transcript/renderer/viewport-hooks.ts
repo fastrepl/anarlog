@@ -7,6 +7,14 @@ import {
   useState,
 } from "react";
 
+function supportsOverflowAnchor() {
+  return (
+    typeof CSS !== "undefined" &&
+    typeof CSS.supports === "function" &&
+    CSS.supports("overflow-anchor", "auto")
+  );
+}
+
 export async function preserveScrollPosition<T>(
   element: HTMLElement | null,
   action: () => Promise<T>,
@@ -119,7 +127,7 @@ export function useScrollDetection(
       const prevTop = lastScrollTopRef.current;
       lastScrollTopRef.current = currentTop;
 
-      const scrolledUp = currentTop < prevTop - 2;
+      const scrolledUp = currentTop < prevTop;
       const scrolledDown = currentTop > prevTop + 2;
       if (scrolledUp) {
         userScrolledAwayRef.current = true;
@@ -127,11 +135,19 @@ export function useScrollDetection(
         setScrollTarget("bottom");
       }
 
-      if (scrolledDown) {
+      const distanceToBottom =
+        element.scrollHeight - element.scrollTop - element.clientHeight;
+      const isAtExactBottom = distanceToBottom <= 1;
+
+      if (scrolledDown && !isAtExactBottom) {
         setScrollTarget("top");
       }
 
-      if (isNearBottom && !userScrolledAwayRef.current) {
+      if (isAtExactBottom && !scrolledUp) {
+        userScrolledAwayRef.current = false;
+        setAutoScrollEnabled(true);
+        setScrollTarget(null);
+      } else if (isNearBottom && !userScrolledAwayRef.current) {
         setAutoScrollEnabled(true);
       }
     };
@@ -245,13 +261,20 @@ export function useAutoScroll(
       });
     };
 
+    const usesOverflowAnchor = supportsOverflowAnchor();
+
     if (initialFlushRef.current) {
       initialFlushRef.current = false;
       schedule(true);
     } else if (enabled && !previousEnabledRef.current) {
       schedule(true);
-    } else {
-      schedule(enabled);
+    } else if (
+      enabled &&
+      (!usesOverflowAnchor ||
+        (element.scrollTop === 0 &&
+          element.scrollHeight > element.clientHeight))
+    ) {
+      schedule(true);
     }
     previousEnabledRef.current = enabled;
 
@@ -261,7 +284,15 @@ export function useAutoScroll(
         return;
       }
       lastHeightRef.current = nextHeight;
-      schedule(enabled);
+      if (!enabled) {
+        return;
+      }
+      if (
+        !usesOverflowAnchor ||
+        (element.scrollTop === 0 && element.scrollHeight > element.clientHeight)
+      ) {
+        schedule(true);
+      }
     });
 
     const targets = new Set<Element>([element]);

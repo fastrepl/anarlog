@@ -3,9 +3,9 @@ use std::time::Duration;
 use chrono::Utc;
 use gpui::{
     Animation, AnimationExt, AnyElement, App, BoxShadow, Context, Div, Entity, FontWeight, Hsla,
-    KeyDownEvent, MouseButton, Render, ScrollHandle, SharedString, Stateful, Svg, Transformation,
-    Window, WindowAppearance, anchored, canvas, deferred, div, percentage, point, prelude::*, px,
-    rgb, rgba, svg,
+    KeyDownEvent, MouseButton, Render, SharedString, Stateful, Svg, Transformation, Window,
+    WindowAppearance, anchored, canvas, deferred, div, percentage, point, prelude::*, px, rgb,
+    rgba, svg,
 };
 
 use super::{
@@ -273,10 +273,6 @@ pub fn overlay(
         }
         _ => None,
     }
-}
-
-pub(super) fn at_bottom(scroll: &ScrollHandle) -> bool {
-    -f32::from(scroll.offset().y) >= f32::from(scroll.max_offset().y) - 4.
 }
 
 /// Shipping's `isContextLengthError`.
@@ -1115,9 +1111,11 @@ impl ChatView {
                 );
             }
         }
+        content = content.child(div().id("chat-scroll-anchor").h(px(1.)).flex_shrink_0());
+        self.scroll.sync_render(true);
         let max_height = (f32::from(window.viewport_size().height) * 0.7).min(576.);
-        let scroll = self.scroll.clone();
-        let show_recent = !self.entries.is_empty() && !at_bottom(&self.scroll);
+        let show_recent =
+            !self.entries.is_empty() && !self.scroll.is_pinned() && !self.scroll.is_at_bottom();
         div()
             .id("chat-body")
             .relative()
@@ -1133,7 +1131,12 @@ impl ChatView {
                     .flex_col()
                     .min_h_0()
                     .overflow_y_scroll()
-                    .track_scroll(&self.scroll)
+                    .track_scroll(self.scroll.handle())
+                    .on_scroll(cx.listener(|this, event: &gpui::ScrollEvent, window, cx| {
+                        if this.scroll.on_scroll(event, window) {
+                            cx.notify();
+                        }
+                    }))
                     .when(right, |view| view.flex_1())
                     .when(!right, |view| view.max_h(px(max_height)))
                     .child(content),
@@ -1164,8 +1167,8 @@ impl ChatView {
                                 .cursor_pointer()
                                 .text_xs()
                                 .line_height(px(16.))
-                                .on_click(cx.listener(move |_, _, _, cx| {
-                                    scroll.scroll_to_bottom();
+                                .on_click(cx.listener(|this, _, _, cx| {
+                                    this.scroll.scroll_to_bottom();
                                     cx.notify();
                                 }))
                                 .child(icon("ArrowDown01Icon.svg", 12., colors.accent_foreground))

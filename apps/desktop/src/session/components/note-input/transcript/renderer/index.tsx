@@ -110,7 +110,6 @@ export function TranscriptViewer({
   const {
     isAtTop,
     isAtBottom,
-    isNearBottom,
     canScroll,
     autoScrollEnabled,
     scrollToTop,
@@ -145,7 +144,7 @@ export function TranscriptViewer({
 
   usePlaybackAutoScroll(containerRef, deferredCurrentMs, isPlaying);
   const shouldAutoScroll = currentActive && autoScrollEnabled;
-  const shouldScrollLastTranscriptToEnd = currentActive && isNearBottom;
+  const shouldScrollLastTranscriptToEnd = shouldAutoScroll;
   useAutoScroll(
     containerRef,
     [transcriptIds, liveSegments, shouldAutoScroll],
@@ -473,42 +472,53 @@ export function TranscriptViewer({
         <div
           ref={handleContainerRef}
           data-transcript-container
+          data-scroll-anchor-container
           data-transcript-select-mode={selectMode ? "true" : undefined}
           onClickCapture={handleSegmentSelection}
           onContextMenu={handleContextMenu}
           className={cn([
-            "flex min-h-0 min-w-0 flex-1 flex-col gap-8 overflow-x-clip overflow-y-auto",
+            "flex min-h-0 min-w-0 flex-1 flex-col overflow-x-clip overflow-y-auto",
             "scrollbar-hide",
-            "scroll-pb-[calc(8rem+env(safe-area-inset-bottom))]",
-            "pb-[calc(4rem+env(safe-area-inset-bottom))]",
           ])}
         >
-          {visibleTranscriptIds.map((transcriptId, index) => {
-            const isLastTranscript = index === visibleTranscriptIds.length - 1;
-            const isActiveTranscript = currentActive && isLastTranscript;
+          <div
+            className={cn([
+              "flex flex-col gap-8 pb-[calc(4rem+env(safe-area-inset-bottom))]",
+              "[&_section]:scroll-mb-[calc(8rem+env(safe-area-inset-bottom))]",
+              "[&_[data-transcript-editor]]:scroll-mb-[calc(8rem+env(safe-area-inset-bottom))]",
+              "[&_[data-line-current]]:scroll-mb-[calc(8rem+env(safe-area-inset-bottom))]",
+            ])}
+          >
+            {visibleTranscriptIds.map((transcriptId, index) => {
+              const isLastTranscript =
+                index === visibleTranscriptIds.length - 1;
+              const isActiveTranscript = currentActive && isLastTranscript;
 
-            return (
-              <div key={transcriptId} className="flex flex-col gap-8">
-                <RenderTranscript
-                  scrollElement={scrollElement}
-                  isLastTranscript={isLastTranscript}
-                  shouldScrollToEnd={shouldScrollLastTranscriptToEnd}
-                  transcriptId={transcriptId}
-                  currentActive={isActiveTranscript}
-                  captureGeneration={isActiveTranscript ? captureGeneration : 0}
-                  liveSegments={isActiveTranscript ? liveSegments : []}
-                  currentMs={deferredCurrentMs}
-                  seek={seek}
-                  startPlayback={start}
-                  audioExists={audioExists}
-                  editMode={editMode}
-                />
-                {!isLastTranscript && <TranscriptSeparator />}
-              </div>
-            );
-          })}
+              return (
+                <div key={transcriptId} className="flex flex-col gap-8">
+                  <RenderTranscript
+                    scrollElement={scrollElement}
+                    isLastTranscript={isLastTranscript}
+                    shouldScrollToEnd={shouldScrollLastTranscriptToEnd}
+                    transcriptId={transcriptId}
+                    currentActive={isActiveTranscript}
+                    captureGeneration={
+                      isActiveTranscript ? captureGeneration : 0
+                    }
+                    liveSegments={isActiveTranscript ? liveSegments : []}
+                    currentMs={deferredCurrentMs}
+                    seek={seek}
+                    startPlayback={start}
+                    audioExists={audioExists}
+                    editMode={editMode}
+                  />
+                  {!isLastTranscript && <TranscriptSeparator />}
+                </div>
+              );
+            })}
 
-          {footer}
+            {footer}
+          </div>
 
           <SelectionMenu
             containerRef={containerRef}
@@ -521,6 +531,7 @@ export function TranscriptViewer({
               onEditModeChange ? handleChangeSpeakerSelection : undefined
             }
           />
+          <div data-scroll-anchor aria-hidden="true" />
         </div>
 
         {multiSelection && (

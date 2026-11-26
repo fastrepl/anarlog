@@ -8,15 +8,14 @@ use anlg_listener_core::LiveTranscriptSegment;
 use anlg_transcript::{ChannelProfile, SegmentKey, SpeakerLabeler};
 use desktop_runtime::SessionId;
 use gpui::{
-    Context, Entity, EventEmitter, FontWeight, Hsla, MouseButton, Render, ScrollHandle,
+    Context, Entity, EventEmitter, FontWeight, Hsla, MouseButton, Render, ScrollEvent,
     SharedString, Size, Subscription, Window, canvas, div, fill, point, prelude::*, px, rgb, size,
     svg,
 };
 
 use super::live::{CaptureMode, LiveMeeting, LiveState};
 use super::widgets::dancing_bars;
-use crate::ui::a11y::Accessible;
-use crate::ui::theme::theme;
+use crate::ui::{a11y::Accessible, scroll::BottomAnchor, theme::theme};
 
 pub const INSET: f32 = 4.;
 pub const COMPACT_HEIGHT: f32 = 38.;
@@ -206,11 +205,10 @@ pub struct FloatingBar {
     expanded: bool,
     hovered: bool,
     stop_hovered: bool,
-    pinned: bool,
     labeler: SpeakerLabeler,
     bubbles: Vec<Bubble>,
     segments: Option<Arc<[Arc<LiveTranscriptSegment>]>>,
-    scroll: ScrollHandle,
+    scroll: BottomAnchor,
     _observe: Subscription,
 }
 
@@ -225,11 +223,10 @@ impl FloatingBar {
             expanded: false,
             hovered: false,
             stop_hovered: false,
-            pinned: true,
             labeler: SpeakerLabeler::new(),
             bubbles: Vec::new(),
             segments: None,
-            scroll: ScrollHandle::new(),
+            scroll: BottomAnchor::new(true),
             _observe: observe,
         };
         bar.refresh(cx);
@@ -242,7 +239,6 @@ impl FloatingBar {
         let expanded = expanded && shows_expand;
         if self.expanded != expanded {
             self.expanded = expanded;
-            self.pinned = true;
             self.scroll.scroll_to_bottom();
             cx.notify();
         }
@@ -257,7 +253,7 @@ impl FloatingBar {
             self.session = Some(live.session.clone());
             self.labeler = SpeakerLabeler::new();
             self.expanded = false;
-            self.pinned = true;
+            self.scroll.pin();
         }
         if self.expanded && !shows_expand(&live) {
             self.set_expanded(false, cx);
@@ -269,9 +265,6 @@ impl FloatingBar {
         if changed {
             self.bubbles = bubbles(&live.segments, &mut self.labeler);
             self.segments = Some(live.segments.clone());
-            if self.pinned {
-                self.scroll.scroll_to_bottom();
-            }
         }
         cx.notify();
     }
@@ -291,6 +284,7 @@ impl FloatingBar {
             rows.push(bubble_row(bubble, label, palette).into_any_element());
             previous = Some(bubble);
         }
+        self.scroll.sync_render(true);
         let has_content = !self.bubbles.is_empty();
         div()
             .size_full()
@@ -302,13 +296,9 @@ impl FloatingBar {
                     .size_full()
                     .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                     .overflow_y_scroll()
-                    .track_scroll(&self.scroll)
-                    .on_scroll(cx.listener(|this, _, _, cx| {
-                        let offset = this.scroll.offset().y;
-                        let max = this.scroll.max_offset().y;
-                        let pinned = max + offset < px(20.);
-                        if this.pinned != pinned {
-                            this.pinned = pinned;
+                    .track_scroll(self.scroll.handle())
+                    .on_scroll(cx.listener(|this, event: &ScrollEvent, window, cx| {
+                        if this.scroll.on_scroll(event, window) {
                             cx.notify();
                         }
                     }))
@@ -329,44 +319,56 @@ impl FloatingBar {
                                         .child(notice),
                                 )
                             })
-                            .child(div().h(px(EXPANDED_PADDING))),
+                            .child(div().h(px(EXPANDED_PADDING)))
+                            .child(
+                                div()
+                                    .id("floating-transcript-anchor")
+                                    .h(px(1.))
+                                    .flex_shrink_0(),
+                            ),
                     ),
             )
-            .when(!self.pinned && has_content, |view| {
-                view.child(
-                    div()
-                        .absolute()
-                        .bottom(px(EXPANDED_PADDING))
-                        .left_0()
-                        .right_0()
-                        .flex()
-                        .justify_center()
-                        .child(
-                            div()
-                                .id("floating-bottom")
-                                .a11y_button("Go to bottom")
-                                .flex()
-                                .items_center()
-                                .gap(px(6.))
-                                .px(px(12.))
-                                .py(px(7.))
-                                .bg(palette.chip)
-                                .border(px(0.5))
-                                .border_color(palette.chip_stroke)
-                                .text_color(palette.content)
-                                .text_size(px(11.))
-                                .font_weight(crate::ui::theme::MEDIUM)
-                                .cursor_pointer()
-                                .child(icon("meeting/ArrowDown02Icon.svg", 10., palette.content))
-                                .child("Go to bottom")
-                                .on_click(cx.listener(|this, _, _, cx| {
-                                    this.pinned = true;
-                                    this.scroll.scroll_to_bottom();
-                                    cx.notify();
-                                })),
-                        ),
-                )
-            })
+            .when(
+                !self.scroll.is_pinned() && !self.scroll.is_at_bottom() && has_content,
+                |view| {
+                    view.child(
+                        div()
+                            .absolute()
+                            .bottom(px(EXPANDED_PADDING))
+                            .left_0()
+                            .right_0()
+                            .flex()
+                            .justify_center()
+                            .child(
+                                div()
+                                    .id("floating-bottom")
+                                    .a11y_button("Go to bottom")
+                                    .flex()
+                                    .items_center()
+                                    .gap(px(6.))
+                                    .px(px(12.))
+                                    .py(px(7.))
+                                    .bg(palette.chip)
+                                    .border(px(0.5))
+                                    .border_color(palette.chip_stroke)
+                                    .text_color(palette.content)
+                                    .text_size(px(11.))
+                                    .font_weight(crate::ui::theme::MEDIUM)
+                                    .cursor_pointer()
+                                    .child(icon(
+                                        "meeting/ArrowDown02Icon.svg",
+                                        10.,
+                                        palette.content,
+                                    ))
+                                    .child("Go to bottom")
+                                    .on_click(cx.listener(|this, _, _, cx| {
+                                        this.scroll.scroll_to_bottom();
+                                        cx.notify();
+                                    })),
+                            ),
+                    )
+                },
+            )
     }
 }
 

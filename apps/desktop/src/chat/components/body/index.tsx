@@ -64,6 +64,7 @@ export function ChatBody({
     >
       <div
         ref={scrollRef}
+        data-scroll-anchor-container
         onKeyDown={handleKeyDown}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
@@ -78,7 +79,7 @@ export function ChatBody({
           ref={contentRef}
           className={cn([
             "flex flex-col",
-            isRightPanel && "min-h-full flex-1",
+            isRightPanel && "min-h-[calc(100%-1px)] shrink-0 grow",
             isRightPanel ? "px-3 py-5" : "px-5 py-3",
           ])}
         >
@@ -100,6 +101,7 @@ export function ChatBody({
             />
           )}
         </div>
+        <div data-scroll-anchor aria-hidden="true" />
       </div>
       {messages.length > 0 && showGoToRecent && !isAtBottom && (
         <div
