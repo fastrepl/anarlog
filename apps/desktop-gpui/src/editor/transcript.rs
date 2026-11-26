@@ -941,6 +941,7 @@ enum TabAction {
     Copy,
     ResumeListening,
     Retranscribe,
+    ClearTranscript,
     DeleteRecording,
 }
 
@@ -1973,10 +1974,14 @@ impl TranscriptView {
     fn tab_menu_items(&self, cx: &App) -> Vec<(TabAction, &'static str, bool)> {
         // Shipping offers listening and re-transcription only while the session is inactive
         // (listening also while a batch runs).
-        let inactive = self
-            .live
-            .as_ref()
-            .is_none_or(|live| live.read(cx).session(&self.session).is_none());
+        let capture_active = cx
+            .try_global::<MeetingServices>()
+            .is_some_and(|services| services.capture.is_active(&self.session));
+        let inactive = !capture_active
+            && self
+                .live
+                .as_ref()
+                .is_none_or(|live| live.read(cx).session(&self.session).is_none());
         let uploads = self.uploads.read(cx);
         let has_words = self
             .segments
@@ -1988,6 +1993,13 @@ impl TranscriptView {
         }
         if self.audio.is_some() && inactive && !uploads.running(&self.session) {
             items.push((TabAction::Retranscribe, "Re-transcribe", false));
+        }
+        if inactive && !uploads.running(&self.session) {
+            items.push((
+                TabAction::ClearTranscript,
+                "Clear transcript",
+                !has_words || self.deleting,
+            ));
         }
         if self.audio.is_some() {
             items.push((
@@ -2063,6 +2075,44 @@ impl TranscriptView {
             TabAction::Retranscribe => self.uploads.update(cx, |uploads, cx| {
                 uploads.retranscribe(&runtime, session, cx)
             }),
+            TabAction::ClearTranscript => {
+                let capture_active = cx
+                    .try_global::<MeetingServices>()
+                    .is_some_and(|services| services.capture.is_active(&session));
+                if self.deleting || capture_active {
+                    return;
+                }
+                match TranscriptStore(runtime).clear(session) {
+                    Ok(reply) => {
+                        self.deleting = true;
+                        self.picker = None;
+                        self.find = None;
+                        self.error = None;
+                        cx.spawn(async move |this, cx| {
+                            let result = reply.receive().await;
+                            let _ = this.update(cx, |this, cx| {
+                                this.deleting = false;
+                                match result {
+                                    Ok(()) => {
+                                        this.editors.clear();
+                                        this.clear_selection();
+                                        crate::application::toasts::success(
+                                            "Transcript cleared",
+                                            cx,
+                                        );
+                                    }
+                                    Err(error) => {
+                                        crate::application::toasts::error(error.to_string(), cx);
+                                    }
+                                }
+                                cx.notify();
+                            });
+                        })
+                        .detach();
+                    }
+                    Err(error) => crate::application::toasts::error(error.to_string(), cx),
+                }
+            }
             TabAction::DeleteRecording => self.uploads.update(cx, |uploads, cx| {
                 uploads.delete_recording(&runtime, session, cx)
             }),
@@ -2723,6 +2773,28 @@ mod tests {
             assert!(view.scroll.is_pinned());
             assert!(view.scroll.is_at_bottom());
         });
+        futures::executor::block_on(runtime.shutdown()).unwrap();
+    }
+
+    #[gpui::test]
+    fn tab_menu_offers_clear_transcript_when_idle(cx: &mut gpui::TestAppContext) {
+        let (_directory, runtime, view, cx, _) = editing(cx);
+        let clear_item = |cx: &mut gpui::VisualTestContext| {
+            view.read_with(cx, |view, cx| {
+                view.tab_menu_items(cx)
+                    .into_iter()
+                    .find(|(action, _, _)| *action == TabAction::ClearTranscript)
+                    .map(|(action, _, disabled)| (action, disabled))
+            })
+        };
+        assert_eq!(clear_item(cx), Some((TabAction::ClearTranscript, false)));
+        view.update(cx, |view, cx| {
+            view.tab_action(TabAction::ClearTranscript, cx)
+        });
+        settle(cx, &|cx| {
+            view.read_with(cx, |view, _| view.segments.is_empty() && !view.deleting)
+        });
+        assert_eq!(clear_item(cx), Some((TabAction::ClearTranscript, true)));
         futures::executor::block_on(runtime.shutdown()).unwrap();
     }
 }
