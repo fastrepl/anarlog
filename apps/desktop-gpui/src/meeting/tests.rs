@@ -1484,6 +1484,137 @@ async fn dont_save_startup_recovery_transcribes_every_chunk_page_before_deleting
 }
 
 #[tokio::test]
+async fn startup_recovery_accepts_shipping_float_started_at_markers() {
+    let fixture = Fixture::new().await;
+    let server = provider_fixture().await;
+    fixture
+        .setting("current_stt_provider", json!("deepgram"))
+        .await;
+    fixture.setting("current_stt_model", json!("nova-3")).await;
+    fixture.setting("spoken_languages", json!("[\"en\"]")).await;
+    fixture
+        .setting("ai_provider:stt:deepgram", json!({"base_url": server.url}))
+        .await;
+    let started_ms: i64 = 1_764_149_234_123;
+    fixture
+        .sql(
+            "UPDATE transcripts SET started_at_ms = ? WHERE id = ?",
+            vec![json!(started_ms), json!(fixture.transcript)],
+        )
+        .await;
+    let directory =
+        super::retention::session_directory(&fixture.directory, &fixture.session).unwrap();
+    let chunks = directory.join("audio-recovery");
+    std::fs::create_dir_all(&chunks).unwrap();
+    silent_chunk(&chunks.join(format!("{started_ms}-0-1000-0.mp3")));
+    // Shipping Tauri serializes `CaptureLifecycleMarker::started_at` and `version` via f64/JS
+    // numbers, which can persist as JSON floats (`1764149234123.0`) rather than integer tokens.
+    let marker = serde_json::json!({
+        "version": 1.0,
+        "sessionId": fixture.session,
+        "transcriptId": fixture.transcript,
+        "retainAudio": true,
+        "startedAt": 1_764_149_234_123.0_f64,
+        "inheritedCaptures": [
+            {"transcriptId": "inherited-prev", "startedAt": 1_764_149_200_000.0_f64}
+        ]
+    });
+    fixture
+        .setting(
+            &format!("capture_lifecycle_pending:{}", fixture.session.0),
+            marker,
+        )
+        .await;
+
+    let reports = super::recovery::recover_startup(
+        &fixture.runtime,
+        fixture.directory.clone(),
+        Activities::default(),
+        fixture.providers(&server.url).recovery_resolver(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(reports.len(), 1);
+    reports[0].result.as_ref().unwrap();
+
+    assert!(
+        fixture
+            .sql(
+                "SELECT id FROM app_settings WHERE id GLOB 'capture_lifecycle_pending:*'",
+                vec![],
+            )
+            .await
+            .is_empty()
+    );
+    let loaded = fixture
+        .store
+        .load(fixture.session.clone(), CancellationToken::new())
+        .unwrap()
+        .receive()
+        .await
+        .unwrap();
+    assert!(
+        loaded
+            .transcripts
+            .iter()
+            .any(|t| t.words.iter().any(|w| w.text.trim() == "résumé"))
+    );
+    fixture.close().await;
+}
+
+#[tokio::test]
+async fn startup_recovery_skips_malformed_marker_without_blocking_valid_captures() {
+    let fixture = Fixture::new().await;
+    let malformed_key = "capture_lifecycle_pending:0000-malformed-session";
+    fixture
+        .setting(
+            malformed_key,
+            json!({
+                "version": 1,
+                "sessionId": "0000-malformed-session",
+                "transcriptId": "bad-transcript",
+                "startedAt": "not-a-timestamp",
+            }),
+        )
+        .await;
+    fixture
+        .setting(
+            &format!("capture_lifecycle_pending:{}", fixture.session.0),
+            json!({
+                "version": 1,
+                "sessionId": fixture.session,
+                "transcriptId": fixture.transcript,
+                "retainAudio": true,
+                "startedAt": 1000,
+            }),
+        )
+        .await;
+    let resolver: super::recovery::RecoveryResolver =
+        Arc::new(|_, _| Box::pin(async { Err(super::model::failure("Unused offline resolver")) }));
+
+    let reports = super::recovery::recover_startup(
+        &fixture.runtime,
+        fixture.directory.clone(),
+        Activities::default(),
+        resolver,
+    )
+    .await
+    .unwrap();
+    assert_eq!(reports.len(), 1);
+    reports[0].result.as_ref().unwrap();
+
+    let remaining = fixture
+        .sql(
+            "SELECT id FROM app_settings WHERE id GLOB 'capture_lifecycle_pending:*'",
+            vec![],
+        )
+        .await;
+    assert_eq!(remaining.len(), 1);
+    assert_eq!(remaining[0]["id"], json!(malformed_key));
+    fixture.close().await;
+}
+
+#[tokio::test]
 async fn retained_startup_recovery_keeps_unreadable_partial_audio_until_discarded() {
     let fixture = Fixture::new().await;
     let directory =

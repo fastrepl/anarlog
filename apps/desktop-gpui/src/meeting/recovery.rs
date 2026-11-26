@@ -16,7 +16,7 @@ use tokio::sync::Mutex;
 use super::model::{Interval, MAX_TEXT, MAX_WORDS, Word, failure};
 use super::retention::{Activities, session_directory};
 use super::store::TranscriptStore;
-use super::store::{integer, statement, string};
+use super::store::{statement, string};
 
 pub type RecoveryResolver =
     Arc<dyn Fn(SessionId, PathBuf) -> BoxFuture<'static, Result<BatchParams>> + Send + Sync>;
@@ -28,6 +28,76 @@ pub struct InterruptedCapture {
     /// Whether the capture keeps its recording; discarding a "Don't save" capture deletes it.
     pub retained: bool,
     pub result: Result<()>,
+}
+
+struct ParsedMarker {
+    session: SessionId,
+    transcript: Arc<str>,
+    started: i64,
+    retained: bool,
+    earliest: i64,
+}
+
+fn finite_i64(value: f64) -> Option<i64> {
+    const MIN: f64 = i64::MIN as f64;
+    const MAX_EXCLUSIVE: f64 = 9_223_372_036_854_775_808.0;
+    let trunc = value.trunc();
+    (value.is_finite() && (MIN..MAX_EXCLUSIVE).contains(&trunc)).then_some(trunc as i64)
+}
+
+fn marker_version(marker: &serde_json::Value) -> Option<i64> {
+    marker["version"].as_i64().or_else(|| {
+        marker["version"]
+            .as_f64()
+            .filter(|value| value.is_finite() && value.fract() == 0.0)
+            .and_then(finite_i64)
+    })
+}
+
+fn marker_timestamp(value: &serde_json::Value) -> Option<i64> {
+    value
+        .as_i64()
+        .or_else(|| value.as_f64().and_then(finite_i64))
+}
+
+fn parse_marker_row(row: &serde_json::Value) -> Result<ParsedMarker> {
+    let marker: serde_json::Value =
+        serde_json::from_str(string(row, "value_json")?).map_err(failure)?;
+    let raw_session = string(&marker, "sessionId")?;
+    let raw_transcript = string(&marker, "transcriptId")?;
+    if raw_session.is_empty() || raw_transcript.is_empty() {
+        return Err(failure(
+            "Invalid interrupted capture marker; original marker preserved.",
+        ));
+    }
+    let session = SessionId(raw_session.to_owned().into());
+    let transcript: Arc<str> = raw_transcript.to_owned().into();
+    if string(row, "id")? != format!("capture_lifecycle_pending:{}", session.0)
+        || marker_version(&marker) != Some(1)
+    {
+        return Err(failure(
+            "Invalid interrupted capture marker; original marker preserved.",
+        ));
+    }
+    let started = marker_timestamp(&marker["startedAt"])
+        .ok_or_else(|| failure("Invalid startedAt; original record preserved."))?;
+    let retained = marker["retainAudio"].as_bool().unwrap_or(true);
+    // Shipping's markers can inherit earlier captures, whose chunks belong to their own
+    // transcripts; anything older is left over from finished captures.
+    let earliest = marker["inheritedCaptures"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|capture| marker_timestamp(&capture["startedAt"]))
+        .map(|at| at.saturating_sub(5_000))
+        .fold(started, i64::min);
+    Ok(ParsedMarker {
+        session,
+        transcript,
+        started,
+        retained,
+        earliest,
+    })
 }
 
 pub async fn recover_startup(
@@ -51,28 +121,23 @@ pub async fn recover_startup(
     }
     let mut reports = Vec::new();
     for row in rows {
-        let marker: serde_json::Value =
-            serde_json::from_str(string(&row, "value_json")?).map_err(failure)?;
-        let session = SessionId(string(&marker, "sessionId")?.to_owned().into());
-        let transcript: Arc<str> = string(&marker, "transcriptId")?.to_owned().into();
-        if string(&row, "id")? != format!("capture_lifecycle_pending:{}", session.0)
-            || integer(&marker, "version")? != 1
-        {
-            return Err(failure(
-                "Invalid interrupted capture marker; original marker preserved.",
-            ));
-        }
-        let started = integer(&marker, "startedAt")?;
-        let retained = marker["retainAudio"].as_bool().unwrap_or(true);
-        // Shipping's markers can inherit earlier captures, whose chunks belong to their own
-        // transcripts; anything older is left over from finished captures.
-        let earliest = marker["inheritedCaptures"]
-            .as_array()
-            .into_iter()
-            .flatten()
-            .filter_map(|capture| capture["startedAt"].as_i64())
-            .map(|at| at.saturating_sub(5_000))
-            .fold(started, i64::min);
+        let ParsedMarker {
+            session,
+            transcript,
+            started,
+            retained,
+            earliest,
+        } = match parse_marker_row(&row) {
+            Ok(parsed) => parsed,
+            Err(error) => {
+                tracing::warn!(
+                    id = row["id"].as_str().unwrap_or(""),
+                    %error,
+                    "skipping invalid interrupted capture marker; original record preserved"
+                );
+                continue;
+            }
+        };
         let result = async {
             let directory = session_directory(&vault, &session)?;
             let store = TranscriptStore(runtime.clone());
@@ -134,7 +199,7 @@ pub async fn discard(
     .await
     .map_err(failure)?
     .map_err(failure)?;
-    acknowledge_finalization(runtime, session, transcript).await
+    finalize_marker(runtime, session, transcript, false).await
 }
 
 /// The recorder's chunk directory, where it leaves a partial chunk it can't decode in place.
@@ -210,10 +275,19 @@ pub async fn acknowledge_finalization(
     session: SessionId,
     transcript: Arc<str>,
 ) -> Result<()> {
+    finalize_marker(runtime, session, transcript, true).await
+}
+
+async fn finalize_marker(
+    runtime: &RuntimeHandle,
+    session: SessionId,
+    transcript: Arc<str>,
+    require_transcript: bool,
+) -> Result<()> {
     runtime.submit(move |services| async move {
         services.executor.execute_transaction(vec![
             statement("UPDATE transcripts SET ended_at_ms = COALESCE(ended_at_ms, CAST(unixepoch('now') * 1000 AS INTEGER)) WHERE id = ? AND session_id = ? AND deleted_at IS NULL",
-                vec![json!(transcript), json!(session)], Some(1)),
+                vec![json!(transcript), json!(session)], require_transcript.then_some(1)),
             statement("DELETE FROM app_settings WHERE id = ? AND json_valid(value_json) AND json_extract(value_json, '$.transcriptId') = ?",
                 vec![json!(format!("capture_lifecycle_pending:{}", session.0)), json!(transcript)], Some(1)),
         ]).await.map_err(failure)?;
