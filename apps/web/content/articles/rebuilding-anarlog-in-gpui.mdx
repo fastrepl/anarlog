@@ -7,177 +7,119 @@ category: "Engineering"
 date: "2026-11-26"
 ---
 
-Anarlog `2.0.0` replaces our Tauri and system WebView desktop frontend with a single-process Rust application built on GPUI (`apps/desktop-gpui`).
+Anarlog 2.0 replaces Tauri and system WebViews with a single-process Rust UI built on GPUI (`apps/desktop-gpui`), keeping local SQLite as storage (Markdown is export only). Here is how shipping `1.4.35` compares against GPUI across fresh macOS, Linux, and Windows VMs plus the signed `1.4.36` vs `2.0.0` Apple Silicon production build.
 
-[Anarlog](https://anarlog.so) is an MIT-licensed, open-source, local-first AI meeting notetaker backed by local SQLite, with Markdown available as an export format rather than canonical storage. Because a meeting notetaker has to stay open all day alongside video calls, system audio capture, and optional local models, a multi-process browser runtime sitting at around 1 GiB of memory was the wrong foundation.
+## Launch, idle, and search
 
-Across an identical 5,000-note local SQLite fixture on fresh macOS, Linux, and Windows VMs, moving from shipping `1.4.35` (Tauri + system WebView) to GPUI cut cold launch times by `91.3%` to `94.4%` (`11.4x` to `17.7x` faster) and dropped idle memory by `83.8%` to `97.5%`. This post documents the full benchmark dataset, environment caveats (including a software-Vulkan resize CPU regression on Linux), two pre-release regressions the harness caught before `2.0.0` shipped, and binary measurements from the signed Apple Silicon production release.
+<BenchmarkChart
+  title="Cold launch (5,000-note list)"
+  unit="ms"
+  subtitle="Lower is better"
+  note="Cold launch CPU: macOS 11.14s -> 0.34s (-97.0%), Linux 11.11s -> 0.48s (-95.7%), Windows 17.44s -> 0.52s (-97.0%)."
+  rows={[
+    { label: "macOS", baseline: 4404.8, candidate: 248.7, baselineText: "4,404.8 ms", candidateText: "248.7 ms", delta: "-94.4% (17.7x)" },
+    { label: "Linux", baseline: 4404.7, candidate: 379.2, baselineText: "4,404.7 ms", candidateText: "379.2 ms", delta: "-91.4% (11.6x)" },
+    { label: "Windows", baseline: 5129.6, candidate: 448.6, baselineText: "5,129.6 ms", candidateText: "448.6 ms", delta: "-91.3% (11.4x)" }
+  ]}
+/>
 
-## Cross-platform summary (`1.4.35` Tauri vs GPUI)
+<BenchmarkChart
+  title="Idle memory (10 min window visible)"
+  unit="MiB"
+  subtitle="phys_footprint / PSS / Private WS"
+  note="Closed to tray (10 min): Windows dropped 406.2 -> 10.0 MiB (40.6x less, 8 WebView2 processes -> 1), macOS 961.3 -> 55.4 MiB, Linux 1,548.0 -> 251.0 MiB."
+  rows={[
+    { label: "macOS", baseline: 985.1, candidate: 52.2, baselineText: "985.1 MiB", candidateText: "52.2 MiB", delta: "-94.7% (18.9x)" },
+    { label: "Linux", baseline: 1794.3, candidate: 251.5, baselineText: "1,794.3 MiB", candidateText: "251.5 MiB", delta: "-86.0% (7.1x)" },
+    { label: "Windows", baseline: 412.6, candidate: 15.5, baselineText: "412.6 MiB", candidateText: "15.5 MiB", delta: "-96.3% (26.6x)" }
+  ]}
+/>
 
-The table below summarizes the headline latencies and steady-state idle footprints from the ANLG-320 fresh-VM audit. Detailed per-OS tables with CPU time, percentiles, and `20,000`-word editor benchmarks follow in the platform sections.
+<BenchmarkChart
+  title="Idle CPU (10 min window visible)"
+  unit="s"
+  subtitle="Total CPU seconds"
+  note="macOS 1.4.35 baseline reflects n=4 settled runs (n=5 lower bound 16.201s, <= -64.5%). Closed to tray CPU: macOS -67.6%, Linux -80.1%, Windows 38.875s -> 0.516s (-98.7%)."
+  rows={[
+    { label: "macOS", baseline: 16.684, candidate: 5.746, baselineText: "16.684 s", candidateText: "5.746 s", delta: "-65.6%" },
+    { label: "Linux", baseline: 16.439, candidate: 4.548, baselineText: "16.439 s", candidateText: "4.548 s", delta: "-72.3%" },
+    { label: "Windows", baseline: 38.75, candidate: 0.844, baselineText: "38.750 s", candidateText: "0.844 s", delta: "-97.8%" }
+  ]}
+/>
 
-| Metric | Platform | 1.4.35 (Tauri) | GPUI | Delta |
-| --- | --- | --- | --- | --- |
-| Cold launch (5,000-note library) | macOS VM | 4,404.8 ms | 248.7 ms | -94.4% (17.7x faster) |
-| Cold launch (5,000-note library) | Linux VM | 4,404.7 ms | 379.2 ms | -91.4% (11.6x faster) |
-| Cold launch (5,000-note library) | Windows VM | 5,129.6 ms | 448.6 ms | -91.3% (11.4x faster) |
-| Idle memory, visible (600s median) | macOS VM | 985.1 MiB | 52.2 MiB | -94.7% (18.9x less) |
-| Idle memory, visible (600s median) | Linux VM | 1,794.3 MiB | 251.5 MiB | -86.0% (7.1x less) |
-| Idle memory, visible (600s median) | Windows VM | 412.6 MiB | 15.5 MiB | -96.3% (26.6x less) |
-| Idle memory, closed to tray (600s median) | macOS VM | 961.3 MiB | 55.4 MiB | -94.2% |
-| Idle memory, closed to tray (600s median) | Linux VM | 1,548.0 MiB | 251.0 MiB | -83.8% |
-| Idle memory, closed to tray (600s median) | Windows VM | 406.2 MiB | 10.0 MiB | -97.5% (40.6x less) |
-| Search latency (last key to results) | macOS VM | 93.5 ms | 35.7 ms | -61.9% (2.6x faster) |
-| Search latency (last key to results) | Linux VM | 3,128.4 ms | 533.0 ms | -83.0% (5.9x faster) |
-| Search latency (typing onset to results) | Windows VM | 3,817.7 ms | 80.2 ms | -97.9% (47.6x faster) |
-| Note switching (median per open) | macOS VM (n=100) | 911.1 ms | 70.1 ms | -92.3% (13.0x faster) |
-| Note switching (median per open) | Linux VM (20 opens) | 509.2 ms | 147.4 ms | -71.1% (3.5x faster) |
-| Note switching (median per open) | Windows VM (n=100) | 1,209.8 ms | 250.3 ms | -79.3% (4.8x faster) |
+<BenchmarkChart
+  title="Search across 5,000 notes"
+  unit="ms"
+  subtitle="50 matches"
+  note="macOS and Linux measure last key to visible results; Windows measures typing onset to visible results."
+  rows={[
+    { label: "macOS", baseline: 93.5, candidate: 35.7, baselineText: "93.5 ms", candidateText: "35.7 ms", delta: "-61.9% (2.6x)" },
+    { label: "Linux", baseline: 3128.4, candidate: 533.0, baselineText: "3,128.4 ms", candidateText: "533.0 ms", delta: "-83.0% (5.9x)" },
+    { label: "Windows", baseline: 3817.7, candidate: 80.2, baselineText: "3,817.7 ms", candidateText: "80.2 ms", delta: "-97.9% (47.6x)" }
+  ]}
+/>
 
-## Methodology and test environments
+Memory numbers compare `1.4.35` against GPUI within each OS (`phys_footprint`, cgroup PSS, and Private Working Set are not comparable across OSes).
 
-The ANLG-320 fresh-VM audit ran on November 18-19, 2026 against two builds:
+## Editor, resize, and production bundle
 
-- **Baseline (`1.4.35`)**: Shipping signed Anarlog `1.4.35` using Tauri and each OS's system WebView.
-- **Candidate (`apps/desktop-gpui`)**: Optimized GPUI build compiled with Rust `1.98.1` (`PR #8235`, commit `83f2caa64e7674cc1511de7fbd1c277b26334f4e`, paired with Linux fixes `#8222`/`#8224` and Windows fix `#8226`).
+<BenchmarkChart
+  title="Note switching"
+  unit="ms"
+  subtitle="Median open latency"
+  rows={[
+    { label: "macOS (100x)", baseline: 911.1, candidate: 70.1, baselineText: "911.1 ms", candidateText: "70.1 ms", delta: "-92.3% (13.0x)" },
+    { label: "Linux (20x)", baseline: 509.2, candidate: 147.4, baselineText: "509.2 ms", candidateText: "147.4 ms", delta: "-71.1% (3.5x)" },
+    { label: "Windows (100x)", baseline: 1209.8, candidate: 250.3, baselineText: "1,209.8 ms", candidateText: "250.3 ms", delta: "-79.3% (4.8x)" }
+  ]}
+/>
 
-Every test used an identical pre-seeded local SQLite database:
+<BenchmarkChart
+  title="20,000-word note open"
+  unit="ms"
+  subtitle="End/open latency"
+  note="500-char typing CPU drops: macOS -70.0% to -75.6% (<=80.1 MiB), Linux -35.8% to -36.5% (270 vs 4,028-4,033 MiB), Windows -74.0% to -78.2% (<=37.7 vs 1,732.5 MiB)."
+  rows={[
+    { label: "macOS", baseline: 1505.7, candidate: 587.3, baselineText: "1,505.7 ms", candidateText: "587.3 ms", delta: "-61.0%" },
+    { label: "Linux", baseline: 2240.0, candidate: 180.4, baselineText: "2,240.0 ms", candidateText: "180.4 ms", delta: "-91.9%" },
+    { label: "Windows", baseline: 3026.2, candidate: 290.8, baselineText: "3,026.2 ms", candidateText: "290.8 ms", delta: "-90.4%" }
+  ]}
+/>
 
-- `5,000` regular notes (`300-1,500` words of TipTap JSON each)
-- `2,500` AI summaries
-- `1` stress-test note containing `20,000` words
-- `300` contacts, `50` folders, and `2,000` calendar events
+<BenchmarkChart
+  title="Continuous 5s window resize CPU"
+  unit="s"
+  subtitle="Incl. software-GPU caveat"
+  note="On the headless Linux KVM guest, software Vulkan (Mesa llvmpipe/lavapipe) spent 86.1% of samples rasterizing resize frames, while memory still fell -84.9% (1,709.7 -> 258.7 MiB)."
+  rows={[
+    { label: "macOS (Metal)", baseline: 9.704, candidate: 1.63, baselineText: "9.704 s", candidateText: "1.630 s", delta: "-83.2%" },
+    { label: "Linux (lavapipe)", baseline: 6.648, candidate: 9.844, baselineText: "6.648 s", candidateText: "9.844 s", delta: "+48.1% CPU", regression: true },
+    { label: "Windows (WARP)", baseline: 12.562, candidate: 1.234, baselineText: "12.562 s", candidateText: "1.234 s", delta: "-90.2%" }
+  ]}
+/>
 
-All runs used Light theme, `100%` zoom, a `1280x800` window, signed-out state, and cloud sync disabled. Each scenario ran `1` warmup iteration followed by `5` alternating runs between baseline and candidate, except where explicitly noted (`n=1` empty launch, `n=100` or `20` note switches, and the macOS visible-idle `n=4` / `n=5` CPU bound).
+<BenchmarkChart
+  title="Signed Apple Silicon bundle"
+  unit="MiB"
+  baselineLabel="1.4.36 Tauri"
+  candidateLabel="2.0.0 GPUI"
+  subtitle="Apple M5 Max, macOS 27.0.1"
+  note="Main executable links 70 vs 76 dylibs (WebKit/JavaScriptCore removed). Isolated 2.0.0 runtime: 256.5 ms warm first paint, 62.0 MiB footprint, 1 process."
+  rows={[
+    { label: "Signed .dmg", baseline: 203.9, candidate: 170.2, baselineText: "203.9 MiB", candidateText: "170.2 MiB", delta: "-16.5%" },
+    { label: "Unpacked .app", baseline: 478.7, candidate: 414.6, baselineText: "478.7 MiB", candidateText: "414.6 MiB", delta: "-13.4%" },
+    { label: "Main binary", baseline: 335.5, candidate: 271.4, baselineText: "335.5 MiB", candidateText: "271.4 MiB", delta: "-19.1%" }
+  ]}
+/>
 
-| Platform | VM and hardware | Graphics and WebView stack | Memory metric | Process model |
-| --- | --- | --- | --- | --- |
-| macOS VM | `macOS 26.6.2` (`25G83`), Apple M4 Pro Virtual (12 cores, 16 GiB RAM) | Apple Paravirtual Metal vs WKWebView | `proc_pid_rusage` `phys_footprint` | Tauri multi-process vs `1` GPUI process |
-| Linux VM | KVM x86-64, Ubuntu `22.04.5`/`24.04.5`, 8 vCPU Xeon, 31 GiB RAM | X11/KDE KWin, Mesa `25.2.8` `lavapipe` Vulkan vs WebKitGTK `2.52.6` (`WEBKIT_DISABLE_DMABUF_RENDERER=1`) | cgroup PSS (`/proc/<pid>/smaps_rollup`) | Tauri + WebKitGTK processes vs `1` GPUI process |
-| Windows VM | Windows Server `2022` x64 (`20348`), Xeon Platinum `8559C` (8 cores, 32 GiB RAM) | Microsoft Basic Render Driver D3D 11.1 vs WebView2 `157.0.4341.60` (`D3D10Warp.dll`) | Job Object Private Working Set | `7-8` WebView2 processes vs `1` GPUI process |
+## What the harness caught
 
-Two measurement rules matter when reading these tables:
+- **GPUI wheel-scroll stalls:** Early candidates took `101.37 s` across `1,014` Windows wheel events (vs `9.28 s` on `1.4.35`, where WebView2 skipped `70.14%` of frames as blank bands) and hit an ~`18 s` macOS `CAMetalDisplayLink` stall. Fixed before `2.0.0` in PR `#8236` (Windows down to `14.9 s`) and PR `#8242`.
+- **Tauri `1.4.35` save-on-quit race:** `0/5` full 500-char Linux edits survived process quit in `1.4.35` (vs `5/5` in GPUI) because exit beat the debounced SQLite flush. Fixed in PR `#8238` and shipped in `1.4.36`.
+- **Headless Linux software-Vulkan resize:** Continuous resizing under Mesa `lavapipe` added `+48.1%` CPU (chart above) while still cutting memory `-84.9%`.
 
-1. **Compare within an OS, not across OSes.** `phys_footprint`, cgroup PSS, and Private Working Set measure different slices of physical and shared memory. They are consistent for `1.4.35` vs GPUI on the same host, not directly comparable between macOS, Linux, and Windows.
-2. **Linux and Windows VMs used CPU software rendering.** Mesa `lavapipe` on Linux and Microsoft Basic Render Driver (`D3D10Warp.dll`) on Windows execute GPU commands on the CPU. That penalizes continuous full-window redraws in GPUI more than hardware GPUs would.
+## Fixture and scope
 
-## macOS VM results
+Fixture: `5,000` notes (`2,500` summaries, `1` `20,000`-word stress note), signed out, sync off, Light theme, `1280x800` window on a macOS `26.6.2` VM (12c M4 Pro Virtual), Ubuntu `22.04`/`24.04` KVM (8c Xeon), and Windows Server `2022` (8c Xeon). Live audio capture, STT, local LLM inference, and CloudSync add their own budgets when active.
 
-On `macOS 26.6.2` (`25G83`) with Apple Paravirtual Metal, GPUI reduced memory usage by `93.3%` to `95.4%` across note and idle workloads on the 5,000-note fixture and stayed at `52.2 MiB` to `55.4 MiB` during 10-minute idle runs.
-
-| Scenario | Metric | 1.4.35 (Tauri) | GPUI | Delta |
-| --- | --- | --- | --- | --- |
-| Cold launch (5,000-note list) | Latency (p95) | 4,404.8 ms (6,361.0 ms) | 248.7 ms (604.6 ms) | -94.4% (17.7x faster) |
-| Cold launch (5,000-note list) | CPU time | 11.136 s | 0.337 s | -97.0% |
-| Cold launch (5,000-note list) | `phys_footprint` | 1,327.4 MiB | 61.3 MiB | -95.4% |
-| Empty first-launch (n=1) | Latency / `phys_footprint` | 1,966.5 ms / 233.2 MiB | 231.3 ms / 51.9 MiB | -88.2% / -77.7% |
-| Idle visible (600s after 120s settle) | Median `phys_footprint` | 985.1 MiB | 52.2 MiB | -94.7% (18.9x less) |
-| Idle visible (600s after 120s settle) | CPU time | 16.684 s (n=4; 16.201 s n=5 lower-bound) | 5.746 s | `<= -64.5%` on n=5 (-65.6% vs 16.684 s) |
-| Idle closed to tray (600s) | Median `phys_footprint` (end) | 961.3 MiB (end 1,528.8 MiB) | 55.4 MiB | -94.2% |
-| Idle closed to tray (600s) | CPU time | 20.136 s | 6.531 s | -67.6% |
-| Search (last key to visible, 50 matches) | Latency | 93.5 ms | 35.7 ms | -61.9% (2.6x faster) |
-| Search (last key to visible, 50 matches) | CPU / Median footprint | 3.557 s / 1,365.8 MiB | 0.225 s / 63.3 MiB | -93.7% / -95.4% |
-| Note switching (n=100 opens) | Latency (p95) | 911.1 ms (1,043.9 ms) | 70.1 ms (85.6 ms) | -92.3% (13.0x faster) |
-| Note switching (n=100 opens) | CPU / Median footprint | 22.683 s / 1,320.2 MiB | 2.357 s / 73.4 MiB | -89.6% / -94.4% |
-| 20,000-word note open | Latency | 1,505.7 ms | 587.3 ms | -61.0% |
-| 20,000-word note open | CPU / Median footprint | 1.701 s / 1,302.4 MiB | 0.186 s / 69.2 MiB | -89.1% / -94.7% |
-| 20,000-word typing (500 chars, end) | CPU / `phys_footprint` | 76.091 s / 1,384.2 MiB | 22.815 s / 79.0 MiB | -70.0% / -94.3% |
-| 20,000-word typing (500 chars, mid) | CPU / `phys_footprint` | 93.434 s / 1,193.1 MiB | 22.766 s / 80.1 MiB | -75.6% / -93.3% |
-| 5s continuous resize | CPU / `phys_footprint` | 9.704 s / 1,349.7 MiB | 1.630 s / 333.0 MiB | -83.2% / -75.3% |
-
-Two details stand out in the macOS run. First, closing `1.4.35` to the menu bar tray did not release WKWebView memory; its median `phys_footprint` stayed at `961.3 MiB` and climbed to `1,528.8 MiB` by the end of the 600-second window, compared to `55.4 MiB` in GPUI. Second, GPUI's `phys_footprint` rose from its `52-80 MiB` range up to `333.0 MiB` during 5 seconds of continuous window resizing due to Metal surface allocations, though it still stayed `75.3%` below `1.4.35` (`1,349.7 MiB`) while using `83.2%` less CPU (`1.630 s` vs `9.704 s`).
-
-## Linux VM results and the software-Vulkan resize caveat
-
-On Linux under X11/KDE KWin, WebKitGTK struggled both with memory growth in large documents and with save durability on exit, while GPUI hit a clear CPU regression during continuous resizing under software Vulkan (`lavapipe`).
-
-| Scenario | Metric | 1.4.35 (Tauri) | GPUI | Delta |
-| --- | --- | --- | --- | --- |
-| Cold launch (5,000-note list) | Latency | 4,404.7 ms | 379.2 ms | -91.4% (11.6x faster) |
-| Cold launch (5,000-note list) | CPU / PSS | 11.110 s / 1,480.7 MiB | 0.478 s / 247.7 MiB | -95.7% / -83.3% |
-| Idle visible (600s) | Median PSS | 1,794.3 MiB | 251.5 MiB | -86.0% (7.1x less) |
-| Idle visible (600s) | CPU time | 16.439 s | 4.548 s | -72.3% |
-| Idle closed to tray (600s) | Median PSS / CPU | 1,548.0 MiB / 17.542 s | 251.0 MiB / 3.497 s | -83.8% / -80.1% |
-| Search (last key to visible) | Latency | 3,128.4 ms | 533.0 ms | -83.0% (5.9x faster) |
-| Search (last key to visible) | CPU / PSS | 9.479 s / 1,901.9 MiB | 0.342 s / 255.6 MiB | -96.4% / -86.6% |
-| Note switching (20 opens) | Latency | 509.2 ms | 147.4 ms | -71.1% (3.5x faster) |
-| Note switching (20 opens) | CPU / PSS | 30.393 s / 1,650.8 MiB | 22.679 s / 267.3 MiB | -25.4% / -83.8% |
-| 20,000-word note open (end / mid) | Latency | 2,240.0 ms / 2,257.0 ms | 180.4 ms / 178.4 ms | -91.9% / -92.1% |
-| 20,000-word typing (500 chars, end) | CPU / PSS | 89.964 s / 4,028.0 MiB | 57.783 s / 270.3 MiB | -35.8% / -93.3% |
-| 20,000-word typing (500 chars, mid) | CPU / PSS | 88.308 s / 4,033.2 MiB | 56.033 s / 270.0 MiB | -36.5% / -93.3% |
-| 20,000-word typing (500 chars) | Full edit verified after quit | 0/5 | 5/5 | Verified persistence |
-| 5s continuous resize | CPU time | 6.648 s | 9.844 s | +48.1% (regression) |
-| 5s continuous resize | PSS | 1,709.7 MiB | 258.7 MiB | -84.9% |
-
-Two Linux findings deserve closer inspection:
-
-- **Continuous resize CPU regression (`+48.1%`)**: GPUI consumed `9.844 s` of CPU over the 5-second resize test vs `6.648 s` for `1.4.35`, even though PSS dropped `84.9%` (`1,709.7 MiB` to `258.7 MiB`). Profiling showed why: `53.7%` of GPUI's CPU time went to Mesa `llvmpipe-*` JIT threads and another `32.4%` went to `libvulkan_lvp.so`. Without a hardware GPU in the headless VM, every resized frame was rasterized on the CPU by Mesa `lavapipe`. On desktop Linux systems with hardware Vulkan drivers, that rasterization work leaves the CPU.
-- **Large-note memory ballooning and data loss in `1.4.35`**: Typing 500 characters into the 20,000-word note pushed WebKitGTK's PSS past 4 GiB (`4,028.0 MiB` at end, `4,033.2 MiB` mid-document) vs `270.3 MiB` / `270.0 MiB` in GPUI. Worse, `1.4.35` failed post-quit SQLite verification in `0/5` runs on Linux, which led directly to the `1.4.36` fix described below.
-
-## Windows VM results
-
-On Windows Server `2022`, collapsing `7-8` WebView2 processes into `1` GPUI process produced the largest memory and idle-CPU reductions across the entire audit.
-
-| Scenario | Metric | 1.4.35 (Tauri) | GPUI | Delta |
-| --- | --- | --- | --- | --- |
-| Cold launch (5,000-note list) | Latency | 5,129.6 ms | 448.6 ms | -91.3% (11.4x faster) |
-| Cold launch (5,000-note list) | CPU / Private WS / Processes | 17.438 s / 926.2 MiB / 7 | 0.516 s / 29.1 MiB / 1 | -97.0% / -96.9% / -6 procs |
-| Idle visible (600s) | Median Private WS / Processes | 412.6 MiB / 8 | 15.5 MiB / 1 | -96.3% (26.6x less) |
-| Idle visible (600s) | CPU time | 38.750 s | 0.844 s | -97.8% |
-| Idle closed to tray (600s) | Median Private WS / Processes | 406.2 MiB / 8 | 10.0 MiB / 1 | -97.5% (40.6x less) |
-| Idle closed to tray (600s) | CPU time | 38.875 s | 0.516 s | -98.7% |
-| Search (typing onset to visible) | Latency | 3,817.7 ms | 80.2 ms | -97.9% (47.6x faster) |
-| Search (typing onset to visible) | CPU / Private WS | 8.438 s / 985.1 MiB | 0.078 s / 30.3 MiB | -99.1% / -96.9% |
-| Note switching (n=100 opens) | Latency | 1,209.8 ms | 250.3 ms | -79.3% (4.8x faster) |
-| Note switching (n=100 opens) | CPU / Private WS | 58.188 s / 1,444.3 MiB | 8.047 s / 34.2 MiB | -86.2% / -97.6% |
-| 20,000-word note open (end / mid) | Latency | 3,026.2 ms / 2,006.0 ms | 290.8 ms / 283.6 ms | -90.4% / -85.9% |
-| 20,000-word typing (500 chars, end) | CPU / Private WS | 135.609 s / 1,732.5 MiB | 29.516 s / 37.3 MiB | -78.2% / -97.8% |
-| 20,000-word typing (500 chars, mid) | CPU / Private WS | 135.516 s / 1,726.1 MiB | 35.219 s / 37.7 MiB | -74.0% / -97.8% |
-| 5s continuous resize | CPU / Private WS | 12.562 s / 867.2 MiB | 1.234 s / 45.5 MiB | -90.2% / -94.8% |
-
-Note that the Windows search benchmark measured from typing onset to visible results (covering input latency plus filtering across 5,000 notes), whereas macOS and Linux measured from the last keystroke to visible results. Even with Microsoft Basic Render Driver (`D3D10Warp.dll`) handling rendering in software, Windows GPUI used `10.0 MiB` of Private Working Set in the tray and `0.516 s` of CPU over 10 idle minutes, down from `406.2 MiB` and `38.875 s` across `8` WebView2 processes.
-
-## Pre-release regressions the harness caught
-
-Running automated cross-platform scenarios before tagging `2.0.0` surfaced two real bugs that would have shipped without the harness.
-
-### 1. GPUI wheel scroll stalls (`1,014` events)
-
-During the `1,014`-event wheel scroll test, the initial GPUI candidate took `101.37 s` to complete on Windows vs `9.28 s` on `1.4.35`, and `128.2 s` vs `89.9 s` on Linux. On macOS, Instruments traced an approximately `18 s` `CAMetalDisplayLink` stall during rapid scroll bursts.
-
-One subtlety in the Windows baseline made the raw timing misleading until we inspected the captured frames: `1.4.35` finished the event stream in `9.28 s` partly because `70.14%` of its captured frames showed blank white bands while WebView2 skipped painting, whereas GPUI rendered `0.00%` blank-band frames. Even accounting for complete frames, GPUI's scroll handling was doing far too much redundant layout and display-link work per wheel event.
-
-We fixed the underlying wheel-scroll pipeline in **PR `#8236`**, bringing the Windows `1,014`-event test down from `101.37 s` to `14.9 s`, and calibrated platform scroll steps in **PR `#8242`** (`100px` and `86px` wheel-notch increments) before `2.0.0` shipped.
-
-### 2. Save-on-quit data loss in shipping `1.4.35`
-
-When the harness reopened the SQLite database after each `20,000`-word typing run and checked whether all 500 typed characters survived process exit, shipping `1.4.35` failed `0/5` full edits on Linux and dropped characters on partial edits on macOS. GPUI passed `5/5` on Linux.
-
-In the Tauri app, closing the window or quitting immediately after rapid typing could terminate before the debounced ProseMirror-to-SQLite flush completed. We fixed the flush-on-quit path in **PR `#8238`** and shipped it to Tauri users in **`1.4.36`**, which also acts as the bridge release for the `2.0.0` updater cutover.
-
-## Signed production Apple Silicon artifacts (`1.4.36` vs `2.0.0`)
-
-VM tests show runtime behavior under controlled fixtures. To verify what actually ships to users, we inspected the signed production Apple Silicon `.dmg` installers and unpacked `.app` bundles for `1.4.36` (Tauri) and `2.0.0` (GPUI) on an Apple M5 Max (`48 GiB`, `macOS 27.0.1`), both code-signed by `Fastrepl, Inc. (6SLY7V277V)`.
-
-| Artifact / Metric | 1.4.36 (Tauri) | 2.0.0 (GPUI) | Delta |
-| --- | --- | --- | --- |
-| Signed `.dmg` size | 213,859,301 B (203.9 MiB) | 178,515,118 B (170.2 MiB) | -16.5% |
-| Unpacked `.app` size | 490,304 KiB / 501,984,504 B (478.7 MiB) | 424,628 KiB / 434,730,086 B (414.6 MiB) | -13.4% |
-| Main binary (`Contents/MacOS/anarlog`) | 351,841,040 B (335.5 MiB) | 284,586,624 B (271.4 MiB) | -19.1% |
-| Linked dynamic libraries | 76 (includes `WebKit.framework`) | 70 (0 `WebKit` or `JavaScriptCore`) | -6 dylibs |
-| `Resources` / `Frameworks` / `anarlog-cli` | 122,248 KiB / 628 KiB / 23,625,360 B | 122,248 KiB / 628 KiB / 23,625,360 B | Unchanged |
-
-The shipped `2.0.0` Apple Silicon `.dmg` (`SHA-256`: `3a50d4d4e96effba2d4b311ee7bf9d784f6f38c3acfb3f92cf65d1f1b9afc05b`) removes all `WebKit` and `JavaScriptCore` linkage from the main executable while keeping the CLI binary (`anarlog-cli`, `23,625,360` B), bundled resources (`122,248 KiB`), and frameworks (`628 KiB`) identical.
-
-Running the signed `2.0.0` `.app` directly in an isolated `--profile` across `n=5` launches on that Apple M5 Max measured:
-
-- **First window painted**: `256.5 ms` median (`247.7-261.6 ms` across warm runs; cold run 1 took `2,429.1 ms`).
-- **Memory**: `62.0 MiB` `phys_footprint` (`138.7 MiB` RSS, `234.0 MiB` peak).
-- **Processes and idle CPU**: `1` process (`0` WebKit helpers), `28` threads, and `0.16%` idle CPU.
-
-## Limits of these benchmarks and next steps
-
-These measurements isolate UI rendering, search, editor typing, and local SQLite persistence in a signed-out, sync-off configuration. They do not measure audio capture threads, live transcription throughput, local LLM inference, or encrypted CloudSync traffic, all of which add their own CPU and memory profiles when active. On Linux and Windows, VM software rasterization (`lavapipe` and Microsoft Basic Render Driver) also distorts resize and heavy-paint numbers relative to physical GPUs.
-
-The entire codebase, including `apps/desktop-gpui`, is MIT-licensed on [github.com/fastrepl/anarlog](https://github.com/fastrepl/anarlog). You can [download Anarlog](/download/) for desktop and keep your meeting records in local SQLite with full control over your models and exports.
+`apps/desktop-gpui` and Anarlog's community packages are MIT-licensed on [github.com/fastrepl/anarlog](https://github.com/fastrepl/anarlog) ([download Anarlog](/download/)).
