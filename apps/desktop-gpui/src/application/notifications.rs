@@ -457,6 +457,7 @@ impl ApplicationView {
                                 });
                                 this.schedule_preferences(snapshot.clone(), cx);
                                 this.notifications.preferences = Some(snapshot);
+                                this.sync_floating_bar(cx);
                             }
                             Err(error) => {
                                 this.notifications.preferences = None;

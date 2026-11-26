@@ -241,6 +241,28 @@ impl WindowIdentity {
     }
 }
 
+/// Borderless `NSWindowStyleMaskNonactivatingPanel` (`1 << 7`), omitting `NSWindowStyleMaskTitled`
+/// and `FullSizeContentView` so macOS renders no titled chrome or liquid-glass wrapper.
+#[cfg(any(target_os = "macos", test))]
+const FLOATING_PANEL_STYLE_MASK: usize = 1 << 7;
+/// `CanJoinAllSpaces | Stationary | FullScreenAuxiliary` (`FloatingBarManager.swift`).
+#[cfg(any(target_os = "macos", test))]
+const FLOATING_PANEL_COLLECTION_BEHAVIOR: usize = (1 << 0) | (1 << 4) | (1 << 8);
+
+/// Removes native titled panel chrome, backdrop, and shadow on macOS (`FloatingBarManager.swift`)
+/// and excludes the window from Windows screen capture (`WDA_EXCLUDEFROMCAPTURE`).
+///
+/// Apple deprecated `NSWindowSharingNone` and ScreenCaptureKit does not honor an AppKit window
+/// exclusion flag on modern macOS, so macOS screen shares can still capture floating panels.
+pub fn configure_floating_panel(window: &Window) {
+    #[cfg(target_os = "macos")]
+    macos::configure_floating_panel(window);
+    #[cfg(target_os = "windows")]
+    win32::exclude_from_capture(window);
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    let _ = window;
+}
+
 /// Hides only the main window like shipping's `AppWindow::Main.hide` (`orderOut:`), leaving
 /// note windows open; the next tray or Dock action brings it back.
 pub fn hide_main(window: &Window, cx: &App) -> Result<()> {
@@ -453,7 +475,8 @@ mod win32 {
     use windows::Win32::{
         Foundation::HWND,
         UI::WindowsAndMessaging::{
-            IsZoomed, SHOW_WINDOW_CMD, SW_MAXIMIZE, SW_RESTORE, ShowWindowAsync,
+            IsZoomed, SHOW_WINDOW_CMD, SW_MAXIMIZE, SW_RESTORE, SetWindowDisplayAffinity,
+            ShowWindowAsync, WDA_EXCLUDEFROMCAPTURE,
         },
     };
 
@@ -466,6 +489,16 @@ mod win32 {
             return Err(unavailable());
         };
         Ok(HWND(handle.hwnd.get() as *mut _))
+    }
+
+    pub fn exclude_from_capture(window: &Window) {
+        let Ok(native) = hwnd(window) else {
+            return;
+        };
+        // SAFETY: GPUI owns this open HWND on its UI thread.
+        if let Err(error) = unsafe { SetWindowDisplayAffinity(native, WDA_EXCLUDEFROMCAPTURE) } {
+            tracing::warn!(%error, "Could not exclude floating panel from screen capture");
+        }
     }
 
     pub fn show(window: &Window, command: SHOW_WINDOW_CMD) -> Result<()> {
@@ -490,8 +523,15 @@ mod win32 {
 #[cfg(target_os = "macos")]
 mod macos {
     use desktop_runtime::{Result, ServiceError};
-    use objc2::{msg_send, rc::Retained, runtime::AnyObject};
+    use objc2::{
+        class, msg_send,
+        rc::Retained,
+        runtime::{AnyObject, Bool},
+        sel,
+    };
     use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+
+    use super::{FLOATING_PANEL_COLLECTION_BEHAVIOR, FLOATING_PANEL_STYLE_MASK};
 
     pub fn ns_window(window: &gpui::Window) -> Result<Retained<AnyObject>> {
         let unavailable = || ServiceError::Unsupported("The native window is unavailable".into());
@@ -504,6 +544,41 @@ mod macos {
         unsafe {
             let native: *mut AnyObject = msg_send![view, window];
             Retained::retain(native).ok_or_else(unavailable)
+        }
+    }
+
+    pub fn configure_floating_panel(window: &gpui::Window) {
+        let Ok(panel) = ns_window(window) else {
+            return;
+        };
+        configure_native_floating_panel(&panel, true);
+    }
+
+    pub(super) fn configure_native_floating_panel(panel: &AnyObject, order_front: bool) {
+        // SAFETY: AppKit runs panel updates on the main thread on a live NSWindow/NSPanel.
+        // Changing `styleMask` strips `NSWindowStyleMaskTitled` and `FullSizeContentView` (which
+        // cause macOS 26 Tahoe to paint a rounded liquid-glass wrapper around transparent
+        // windows) and can reset window level and movability, so restore both.
+        unsafe {
+            let level: isize = msg_send![panel, level];
+            let movable: Bool = msg_send![panel, isMovable];
+            let _: () = msg_send![panel, setStyleMask: FLOATING_PANEL_STYLE_MASK];
+            let _: () = msg_send![panel, setLevel: level];
+            let _: () = msg_send![panel, setMovable: movable];
+            let _: () = msg_send![panel, setOpaque: Bool::NO];
+            let clear: *mut AnyObject = msg_send![class!(NSColor), clearColor];
+            let _: () = msg_send![panel, setBackgroundColor: clear];
+            let _: () = msg_send![panel, setHasShadow: Bool::NO];
+            let _: () = msg_send![panel, invalidateShadow];
+            let _: () = msg_send![panel, setHidesOnDeactivate: Bool::NO];
+            let _: () = msg_send![panel, setCollectionBehavior: FLOATING_PANEL_COLLECTION_BEHAVIOR];
+            let is_panel: Bool = msg_send![panel, respondsToSelector: sel!(setFloatingPanel:)];
+            if is_panel.as_bool() {
+                let _: () = msg_send![panel, setFloatingPanel: Bool::YES];
+            }
+            if order_front {
+                let _: () = msg_send![panel, orderFrontRegardless];
+            }
         }
     }
 
@@ -846,5 +921,200 @@ mod tests {
         assert_eq!(escape_nsis_arg(OsStr::new(r#"a / "b""#)), r#""a / \"b\"""#);
         assert_eq!(escape_nsis_arg(OsStr::new(r#"a"b"#)), r#"a\"b"#);
         assert_eq!(escape_nsis_arg(OsStr::new("")), r#""""#);
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn floating_panel_configuration_strips_titled_chrome_and_orders_front() {
+        use std::{ffi::c_void, sync::OnceLock};
+
+        use objc2::{
+            class, msg_send,
+            rc::Retained,
+            runtime::{AnyClass, AnyObject, Bool, ClassBuilder, Sel},
+            sel,
+        };
+
+        struct PanelProbe {
+            style_mask: usize,
+            level: isize,
+            movable: bool,
+            opaque: bool,
+            background_alpha: f64,
+            has_shadow: bool,
+            shadow_invalidated: bool,
+            hides_on_deactivate: bool,
+            collection_behavior: usize,
+            floating_panel: bool,
+            ordered_front_regardless: bool,
+        }
+
+        unsafe fn state(obj: *mut AnyObject) -> &'static mut PanelProbe {
+            unsafe {
+                let obj = &*obj;
+                let ptr = *obj
+                    .class()
+                    .instance_variable(c"probe")
+                    .expect("probe ivar")
+                    .load_ptr::<*mut c_void>(obj);
+                &mut *ptr.cast::<PanelProbe>()
+            }
+        }
+
+        extern "C" fn level(obj: *mut AnyObject, _: Sel) -> isize {
+            unsafe { state(obj).level }
+        }
+        extern "C" fn is_movable(obj: *mut AnyObject, _: Sel) -> Bool {
+            Bool::new(unsafe { state(obj).movable })
+        }
+        extern "C" fn set_style_mask(obj: *mut AnyObject, _: Sel, mask: usize) {
+            let probe = unsafe { state(obj) };
+            probe.style_mask = mask;
+            // Mirror AppKit resetting level and movability when styleMask changes.
+            probe.level = 0;
+            probe.movable = false;
+        }
+        extern "C" fn set_level(obj: *mut AnyObject, _: Sel, level: isize) {
+            unsafe { state(obj).level = level };
+        }
+        extern "C" fn set_movable(obj: *mut AnyObject, _: Sel, movable: Bool) {
+            unsafe { state(obj).movable = movable.as_bool() };
+        }
+        extern "C" fn set_opaque(obj: *mut AnyObject, _: Sel, opaque: Bool) {
+            unsafe { state(obj).opaque = opaque.as_bool() };
+        }
+        extern "C" fn set_background_color(obj: *mut AnyObject, _: Sel, color: *mut AnyObject) {
+            let alpha: f64 = unsafe { msg_send![color, alphaComponent] };
+            unsafe { state(obj).background_alpha = alpha };
+        }
+        extern "C" fn set_has_shadow(obj: *mut AnyObject, _: Sel, shadow: Bool) {
+            unsafe { state(obj).has_shadow = shadow.as_bool() };
+        }
+        extern "C" fn invalidate_shadow(obj: *mut AnyObject, _: Sel) {
+            unsafe { state(obj).shadow_invalidated = true };
+        }
+        extern "C" fn set_hides_on_deactivate(obj: *mut AnyObject, _: Sel, hides: Bool) {
+            unsafe { state(obj).hides_on_deactivate = hides.as_bool() };
+        }
+        extern "C" fn set_collection_behavior(obj: *mut AnyObject, _: Sel, behavior: usize) {
+            unsafe { state(obj).collection_behavior = behavior };
+        }
+        extern "C" fn set_floating_panel(obj: *mut AnyObject, _: Sel, floating: Bool) {
+            unsafe { state(obj).floating_panel = floating.as_bool() };
+        }
+        extern "C" fn order_front_regardless(obj: *mut AnyObject, _: Sel) {
+            unsafe { state(obj).ordered_front_regardless = true };
+        }
+
+        static PANEL_CLASS: OnceLock<usize> = OnceLock::new();
+        let class = *PANEL_CLASS.get_or_init(|| {
+            let mut decl = ClassBuilder::new(c"AnarlogFloatingPanelProbe", class!(NSObject))
+                .expect("unique Objective-C test class");
+            decl.add_ivar::<*mut c_void>(c"probe");
+            unsafe {
+                decl.add_method(
+                    sel!(level),
+                    level as extern "C" fn(*mut AnyObject, Sel) -> isize,
+                );
+                decl.add_method(
+                    sel!(isMovable),
+                    is_movable as extern "C" fn(*mut AnyObject, Sel) -> Bool,
+                );
+                decl.add_method(
+                    sel!(setStyleMask:),
+                    set_style_mask as extern "C" fn(*mut AnyObject, Sel, usize),
+                );
+                decl.add_method(
+                    sel!(setLevel:),
+                    set_level as extern "C" fn(*mut AnyObject, Sel, isize),
+                );
+                decl.add_method(
+                    sel!(setMovable:),
+                    set_movable as extern "C" fn(*mut AnyObject, Sel, Bool),
+                );
+                decl.add_method(
+                    sel!(setOpaque:),
+                    set_opaque as extern "C" fn(*mut AnyObject, Sel, Bool),
+                );
+                decl.add_method(
+                    sel!(setBackgroundColor:),
+                    set_background_color as extern "C" fn(*mut AnyObject, Sel, *mut AnyObject),
+                );
+                decl.add_method(
+                    sel!(setHasShadow:),
+                    set_has_shadow as extern "C" fn(*mut AnyObject, Sel, Bool),
+                );
+                decl.add_method(
+                    sel!(invalidateShadow),
+                    invalidate_shadow as extern "C" fn(*mut AnyObject, Sel),
+                );
+                decl.add_method(
+                    sel!(setHidesOnDeactivate:),
+                    set_hides_on_deactivate as extern "C" fn(*mut AnyObject, Sel, Bool),
+                );
+                decl.add_method(
+                    sel!(setCollectionBehavior:),
+                    set_collection_behavior as extern "C" fn(*mut AnyObject, Sel, usize),
+                );
+                decl.add_method(
+                    sel!(setFloatingPanel:),
+                    set_floating_panel as extern "C" fn(*mut AnyObject, Sel, Bool),
+                );
+                decl.add_method(
+                    sel!(orderFrontRegardless),
+                    order_front_regardless as extern "C" fn(*mut AnyObject, Sel),
+                );
+            }
+            decl.register() as *const AnyClass as usize
+        });
+
+        let mut probe = PanelProbe {
+            style_mask: (1 << 0) | (1 << 15) | (1 << 7),
+            level: 101,
+            movable: true,
+            opaque: true,
+            background_alpha: 1.0,
+            has_shadow: true,
+            shadow_invalidated: false,
+            hides_on_deactivate: true,
+            collection_behavior: 0,
+            floating_panel: false,
+            ordered_front_regardless: false,
+        };
+        let panel: Retained<AnyObject> = unsafe {
+            let class = &*(class as *const AnyClass);
+            let obj: Retained<AnyObject> = msg_send![class, new];
+            obj.class()
+                .instance_variable(c"probe")
+                .unwrap()
+                .load_ptr::<*mut c_void>(&obj)
+                .write((&raw mut probe).cast());
+            obj
+        };
+        macos::configure_native_floating_panel(&panel, true);
+        drop(panel);
+
+        assert_eq!(probe.style_mask, FLOATING_PANEL_STYLE_MASK);
+        assert_eq!(probe.level, 101);
+        assert!(probe.movable);
+        assert!(!probe.opaque);
+        assert_eq!(probe.background_alpha, 0.0);
+        assert!(!probe.has_shadow);
+        assert!(probe.shadow_invalidated);
+        assert!(!probe.hides_on_deactivate);
+        assert_eq!(
+            probe.collection_behavior,
+            FLOATING_PANEL_COLLECTION_BEHAVIOR
+        );
+        assert!(probe.floating_panel);
+        assert!(probe.ordered_front_regardless);
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    #[test]
+    fn floating_panel_style_mask_omits_titled_chrome() {
+        assert_eq!(FLOATING_PANEL_STYLE_MASK & 1, 0);
+        assert_eq!(FLOATING_PANEL_STYLE_MASK & (1 << 15), 0);
+        assert_ne!(FLOATING_PANEL_STYLE_MASK & (1 << 7), 0);
     }
 }

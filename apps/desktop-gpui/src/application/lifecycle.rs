@@ -433,7 +433,10 @@ impl ApplicationView {
         }
         self.main_window_hidden(cx);
         match crate::platform::windows::hide_main(window, cx) {
-            Ok(()) => {}
+            Ok(()) => {
+                self.main_window_active = false;
+                self.sync_floating_bar(cx);
+            }
             Err(ServiceError::Unsupported(_)) => self.request_quit(cx),
             Err(error) => self.status(&error.to_string(), cx),
         }
@@ -490,8 +493,12 @@ impl ApplicationView {
             TrayAction::CheckUpdate => self.check_for_updates(cx),
             TrayAction::Hide => {
                 self.main_window_hidden(cx);
-                if let Err(error) = crate::platform::windows::hide_main(window, cx) {
-                    self.status(&error.to_string(), cx);
+                match crate::platform::windows::hide_main(window, cx) {
+                    Ok(()) => {
+                        self.main_window_active = false;
+                        self.sync_floating_bar(cx);
+                    }
+                    Err(error) => self.status(&error.to_string(), cx),
                 }
             }
             TrayAction::QuitCompletely => self.confirm_quit_completely(window, cx),
@@ -3229,5 +3236,70 @@ mod tests {
                 .update(|cx| cx.update_window(main_window, |_, window, _| window.remove_window()));
             let _ = futures::executor::block_on(runtime.shutdown());
         }
+    }
+
+    #[gpui::test]
+    fn floating_bar_hides_while_main_window_is_active_and_reopens_on_deactivate(
+        cx: &mut gpui::TestAppContext,
+    ) {
+        let fixture = open_app_with_detached_note(cx);
+        let activate = |window: gpui::AnyWindowHandle, cx: &mut gpui::TestAppContext| {
+            let _ = cx.update(|cx| cx.update_window(window, |_, win, _| win.activate_window()));
+            cx.run_until_parked();
+        };
+
+        activate(fixture.main_window, cx);
+        cx.read(|cx| assert!(fixture.app_entity.read(cx).main_window_active));
+
+        cx.update(|cx| {
+            let live = fixture.app_entity.read(cx).meeting_host.live().clone();
+            live.update(cx, |state, cx| {
+                state.set(
+                    Some(crate::meeting::live::LiveMeeting::new(
+                        fixture.session_id.clone(),
+                        crate::meeting::live::SessionMode::Active,
+                    )),
+                    cx,
+                );
+            });
+        });
+        cx.run_until_parked();
+        cx.read(|cx| assert!(!fixture.app_entity.read(cx).meeting_host.floating_open()));
+
+        activate(fixture.detached_window, cx);
+        cx.read(|cx| {
+            let app = fixture.app_entity.read(cx);
+            assert!(!app.main_window_active);
+            assert!(app.meeting_host.floating_open());
+        });
+
+        activate(fixture.main_window, cx);
+        cx.read(|cx| {
+            let app = fixture.app_entity.read(cx);
+            assert!(app.main_window_active);
+            assert!(!app.meeting_host.floating_open());
+        });
+
+        cx.update(|cx| {
+            let workspace = fixture.app_entity.read(cx).workspace.clone();
+            workspace.update(cx, |_, cx| {
+                cx.emit(crate::workspace::WorkspaceAction::OpenFloatingPanel);
+            });
+        });
+        cx.run_until_parked();
+        cx.read(|cx| assert!(fixture.app_entity.read(cx).meeting_host.floating_open()));
+
+        activate(fixture.main_window, cx);
+        cx.read(|cx| {
+            let app = fixture.app_entity.read(cx);
+            assert!(app.main_window_active);
+            assert!(!app.meeting_host.floating_open());
+        });
+
+        let _ = cx.update(|cx| {
+            let _ = cx.update_window(fixture.detached_window, |_, win, _| win.remove_window());
+            cx.update_window(fixture.main_window, |_, win, _| win.remove_window())
+        });
+        let _ = futures::executor::block_on(fixture.runtime.shutdown());
     }
 }

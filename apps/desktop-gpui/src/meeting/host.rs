@@ -84,7 +84,12 @@ impl MeetingHost {
         }
     }
 
-    /// Shows the floating bar while a meeting is listening and closes it otherwise.
+    /// True while the floating bar window is open.
+    pub fn floating_open(&self) -> bool {
+        self.floating.is_some()
+    }
+
+    /// Shows the floating bar when enabled while a meeting is listening and closes it otherwise.
     pub fn sync_floating(
         &mut self,
         enabled: bool,
@@ -118,7 +123,10 @@ impl MeetingHost {
                     window_bounds: Some(WindowBounds::Windowed(bounds)),
                     titlebar: None,
                     focus: false,
-                    show: true,
+                    // On macOS, GPUI orders the window front during `open_window` before the root
+                    // builder strips `Titled`; keep it hidden until `configure_floating_panel`
+                    // applies the borderless panel configuration and orders it front.
+                    show: !cfg!(target_os = "macos"),
                     kind: WindowKind::PopUp,
                     is_movable: true,
                     is_resizable: false,
@@ -131,7 +139,8 @@ impl MeetingHost {
                 let services = services.clone();
                 let mut subscription = None;
                 let handle = cx
-                    .open_window(options, |_, cx| {
+                    .open_window(options, |window, cx| {
+                        crate::platform::windows::configure_floating_panel(window);
                         let bar = cx.new(|cx| FloatingBar::new(state, cx));
                         subscription = Some(cx.subscribe(&bar, move |_, event, cx| {
                             let FloatingEvent::Stop = event;
