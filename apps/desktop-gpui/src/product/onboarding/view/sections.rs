@@ -15,7 +15,7 @@ use super::OnboardingView;
 use crate::ui::a11y::Accessible;
 use crate::{
     product::{
-        controls::{HAND_FONT, dropdown, icon, menu_panel},
+        controls::{dropdown, icon, menu_panel},
         onboarding::{
             Access, Permission, Section, Step, TrialPhase, WORK_EMAIL_TRIAL_DAYS,
             login_completed_title, section,
@@ -201,8 +201,7 @@ fn offer_card(
                         .items_center()
                         .justify_center()
                         .child(
-                            text(44., 44.)
-                                .font_family(HAND_FONT)
+                            text(36., 40.)
                                 .font_weight(FontWeight::SEMIBOLD)
                                 .text_color(amber)
                                 .child(days.to_string()),
@@ -1400,8 +1399,7 @@ impl Render for OnboardingView {
                     .pt_4()
                     .pb_8()
                     .child(
-                        text(36., 36.)
-                            .font_family(HAND_FONT)
+                        text(30., 36.)
                             .font_weight(FontWeight::SEMIBOLD)
                             .text_color(colors.foreground)
                             .child("Welcome to Anarlog"),
