@@ -70,6 +70,12 @@ impl anlg_storage::StorageRuntime for ProfileStorage {
     }
 }
 
+struct PendingProduct {
+    route: ProductRoute,
+    workspace_route: Route,
+    settings_section: Option<String>,
+}
+
 pub struct ApplicationView {
     runtime: RuntimeHandle,
     window: gpui::AnyWindowHandle,
@@ -84,6 +90,8 @@ pub struct ApplicationView {
     automation: Entity<crate::meeting::automation::MeetingAutomation>,
     dictation: Option<Entity<crate::dictation::Dictation>>,
     product: Option<Entity<ProductPane>>,
+    pending_product: Option<PendingProduct>,
+    startup_error: Option<String>,
     trial_dialogs: Entity<crate::product::trial::TrialDialogs>,
     instruction: Entity<instruction::Instruction>,
     services: Option<MeetingServices>,
@@ -165,6 +173,13 @@ impl ApplicationView {
             }),
             cx.subscribe_in(&workspace, window, |this, _, event, window, cx| {
                 this.workspace_event(event, window, cx)
+            }),
+            cx.observe(&workspace, |this, workspace, cx| {
+                if let Some(pending) = &this.pending_product
+                    && workspace.read(cx).current_route() != pending.workspace_route
+                {
+                    this.pending_product = None;
+                }
             }),
             cx.subscribe(&workspace, |this, _, event, cx| match event {
                 WorkspaceAction::SidebarChanged => cx.notify(),
@@ -385,7 +400,7 @@ impl ApplicationView {
                 playback: Playback::spawn()?,
                 vault: audio_vault,
             };
-            effects.attach(services.clone());
+            effects.attach(&services);
             let capture = services.capture.clone();
             let ai = native
                 .providers
@@ -424,6 +439,26 @@ impl ApplicationView {
                     }
                     cloud_api::start(&native, cx);
                     this.native = Some(native);
+                    if let Some(pending) = this.pending_product.take()
+                        && this.workspace.read(cx).current_route() == pending.workspace_route
+                    {
+                        let window = this.window;
+                        let view = cx.entity().downgrade();
+                        let route = pending.route;
+                        let expected = pending.workspace_route;
+                        let section = pending.settings_section;
+                        cx.defer(move |cx| {
+                            let _ = cx.update_window(window, |_, window, cx| {
+                                let _ = view.update(cx, |this, cx| {
+                                    if this.product.is_none()
+                                        && this.workspace.read(cx).current_route() == expected
+                                    {
+                                        this.open_product_with_section(route, section, window, cx);
+                                    }
+                                });
+                            });
+                        });
+                    }
                     this.start_schedule(cx);
                     this.watch_preferences(cx);
                     this.start_lifecycle(cx);
@@ -439,7 +474,11 @@ impl ApplicationView {
                         this.offer_discard(capture, vault.clone(), cx);
                     }
                 }
-                Err(error) => this.status(&format!("Meeting startup failed: {error}"), cx),
+                Err(error) => {
+                    this.pending_product = None;
+                    this.startup_error = Some(error.to_string());
+                    this.status(&format!("Meeting startup failed: {error}"), cx);
+                }
             });
         })
         .detach();
@@ -467,6 +506,8 @@ impl ApplicationView {
             automation,
             dictation,
             product: None,
+            pending_product: None,
+            startup_error: None,
             trial_dialogs,
             instruction,
             services: None,
@@ -1292,6 +1333,7 @@ impl ApplicationView {
             );
             return;
         }
+        self.pending_product = None;
         let return_focus = self.workspace.read(cx).focus_handle(cx);
         let editor = cx.new(|cx| {
             let mut editor = EditorPane::new(
@@ -1441,6 +1483,7 @@ impl ApplicationView {
             self.status("Meeting services are still starting or recovery failed. Retry after resolving the startup error.", cx);
             return;
         };
+        self.pending_product = None;
         // Shipping records inside the note itself; only an explicit open shows the meeting pane.
         let reply = match &intent {
             MeetingIntent::Start { session_id } => Some(host::start(&services, session_id.clone())),
@@ -1495,10 +1538,34 @@ impl ApplicationView {
     }
 
     fn open_product(&mut self, route: ProductRoute, window: &mut Window, cx: &mut Context<Self>) {
+        self.open_product_with_section(route, None, window, cx);
+    }
+
+    fn open_product_with_section(
+        &mut self,
+        route: ProductRoute,
+        section: Option<String>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let Some(native) = &self.native else {
-            self.status("Native services are still starting.", cx);
+            if let Some(error) = &self.startup_error {
+                self.status(&format!("Native services failed to start: {error}"), cx);
+            } else {
+                let workspace_route = self.workspace.read(cx).current_route();
+                let settings_section = section.or_else(|| match (&route, &workspace_route) {
+                    (ProductRoute::Settings, Route::Settings(section)) => Some(section.to_string()),
+                    _ => None,
+                });
+                self.pending_product = Some(PendingProduct {
+                    route,
+                    workspace_route,
+                    settings_section,
+                });
+            }
             return;
         };
+        self.pending_product = None;
         let local = native.local.clone();
         let cloud = native.cloud.service.clone();
         let scope = cloud.as_ref().map(|c| c.scope()).unwrap_or_default();
@@ -1524,6 +1591,10 @@ impl ApplicationView {
             return;
         }
         let general_settings = matches!(route, ProductRoute::Settings);
+        let settings_section = section.or_else(|| match self.workspace.read(cx).current_route() {
+            Route::Settings(section) => Some(section.to_string()),
+            _ => None,
+        });
         let product = cx.new(|cx| {
             ProductPane::with_services(
                 LaneContext {
@@ -1537,9 +1608,7 @@ impl ApplicationView {
                 cx,
             )
         });
-        if general_settings
-            && let Route::Settings(section) = self.workspace.read(cx).current_route()
-        {
+        if general_settings && let Some(section) = settings_section {
             product.update(cx, |product, cx| product.navigate_section(&section, cx));
         }
         self.product_subscriptions = vec![
@@ -1598,6 +1667,7 @@ impl ApplicationView {
         {
             return;
         }
+        self.pending_product = None;
         self.product = None;
         self.product_subscriptions.clear();
         self.workspace.update(cx, |workspace, cx| {

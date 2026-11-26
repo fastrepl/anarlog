@@ -41,9 +41,7 @@ pub trait HostEffects: Send + Sync {
         &self,
         model: anlg_local_model::LocalModel,
         endpoint: String,
-        native: Option<models::NativeEngine>,
     ) -> BoxFuture<'static, Result<()>>;
-    fn stop_model(&self) -> BoxFuture<'static, Result<()>>;
 }
 
 #[derive(Clone)]
@@ -211,9 +209,38 @@ impl LocalServices {
                 actions.push(operation("export", "Export", Action::Export, None));
             }
             Surface::Models => {
+                let prefs = crate::meeting::config::preferences(&self.runtime).await?;
+                let stt_provider = prefs.text("current_stt_provider");
+                let stt_model = prefs.text("current_stt_model");
+                let llm_provider = prefs.text("current_llm_provider");
+                let llm_model = prefs.text("current_llm_model");
                 for model in models::ModelService::registry() {
                     let state = self.models.state(model.clone()).await?;
+                    if state.unavailable == Some(models::NOT_IN_BUILD) && !state.installed {
+                        continue;
+                    }
                     let id = model.cli_name();
+                    let in_process = matches!(
+                        &model,
+                        anlg_local_model::LocalModel::Soniqo(_)
+                            | anlg_local_model::LocalModel::AppleSpeech(_)
+                    );
+                    let selected = match &model {
+                        anlg_local_model::LocalModel::Soniqo(_) => {
+                            matches!(stt_provider.as_str(), "soniqo" | "anarlog" | "hyprnote")
+                                && stt_model == id
+                        }
+                        anlg_local_model::LocalModel::AppleSpeech(_) => {
+                            matches!(
+                                stt_provider.as_str(),
+                                "apple_speech" | "apple-speech" | "anarlog" | "hyprnote"
+                            ) && stt_model == id
+                        }
+                        anlg_local_model::LocalModel::GgufLlm(_) => {
+                            llm_provider == "local" && llm_model == id
+                        }
+                        _ => false,
+                    };
                     let progress = match &state.progress {
                         Some(anlg_model_downloader::DownloadStatus::Downloading(percent)) => {
                             format!(" · Downloading {percent}%")
@@ -236,7 +263,15 @@ impl LocalServices {
                             } else {
                                 "Not downloaded"
                             },
-                            if state.running { " · Running" } else { "" },
+                            if in_process && state.in_use {
+                                " · In use"
+                            } else if in_process && state.installed && selected {
+                                " · Active"
+                            } else if state.running {
+                                " · Running"
+                            } else {
+                                ""
+                            },
                             progress
                         ),
                     ));
@@ -244,7 +279,13 @@ impl LocalServices {
                     if state.running {
                         available.push(("stop", "Stop", Action::StopModel));
                     } else if state.installed {
-                        available.push(("start", "Start", Action::StartModel));
+                        if !in_process || !selected {
+                            available.push((
+                                if in_process { "use" } else { "start" },
+                                if in_process { "Use" } else { "Start" },
+                                Action::StartModel,
+                            ));
+                        }
                         available.push(("delete", "Delete", Action::DeleteModel));
                     } else {
                         available.push(("download", "Download", Action::DownloadModel));
@@ -261,11 +302,16 @@ impl LocalServices {
                             && op.action != Action::DeleteModel
                         {
                             op.disabled_reason = Some(reason.into());
-                        } else if matches!(&model,anlg_local_model::LocalModel::Soniqo(model) if !model.supports_live())
-                            && op.action == Action::StartModel
+                        } else if state.in_use
+                            && matches!(
+                                op.action,
+                                Action::DeleteModel | Action::CancelDownload | Action::StartModel
+                            )
                         {
-                            op.disabled_reason =
-                                Some("Batch model loads when transcribing an audio file".into());
+                            op.disabled_reason = Some(
+                                "Finish the active recording before changing or deleting this model"
+                                    .into(),
+                            );
                         }
                         actions.push(op);
                     }
@@ -527,29 +573,14 @@ impl LocalServices {
                     Action::CancelDownload => self.models.cancel(model).await?,
                     Action::DeleteModel => self.models.delete(model).await?,
                     Action::StartModel => {
-                        if !matches!(model, anlg_local_model::LocalModel::GgufLlm(_)) {
-                            self.host.stop_model().await?;
-                        }
                         self.models.stop_kind(&model).await?;
                         let endpoint = self.models.start(model.clone(), request.cancel).await?;
-                        let native = if matches!(model, anlg_local_model::LocalModel::GgufLlm(_)) {
-                            None
-                        } else {
-                            self.models.take_native_session().await
-                        };
-                        if let Err(error) =
-                            self.host.use_model(model.clone(), endpoint, native).await
-                        {
+                        if let Err(error) = self.host.use_model(model.clone(), endpoint).await {
                             self.models.stop_kind(&model).await?;
                             return Err(error);
                         }
                     }
-                    Action::StopModel => {
-                        if !matches!(model, anlg_local_model::LocalModel::GgufLlm(_)) {
-                            self.host.stop_model().await?;
-                        }
-                        self.models.stop_kind(&model).await?;
-                    }
+                    Action::StopModel => self.models.stop_kind(&model).await?,
                     _ => return Err(ServiceError::Conflict),
                 }
             }

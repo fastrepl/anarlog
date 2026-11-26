@@ -1579,15 +1579,15 @@ fn sharing(
         })
     };
     open(cx, window, Route::Session(critique()));
-    click(cx, window, 832., 23.);
+    click(cx, window, 860., 23.);
     capture(cx, window, out, "share-signed-out");
     type_text(cx, window, &["escape"]);
     cx.update(|cx| account::set(signed_in(Claims::default()), cx));
-    click(cx, window, 832., 23.);
+    click(cx, window, 860., 23.);
     capture(cx, window, out, "share-upgrade");
     type_text(cx, window, &["escape"]);
     cx.update(|cx| account::set(pro(), cx));
-    click(cx, window, 832., 23.);
+    click(cx, window, 860., 23.);
     capture(cx, window, out, "share-draft");
     type_text(cx, window, &["escape"]);
     let entry = |kind, id: &str, email: Option<&str>, capability| AccessEntry {
@@ -1629,7 +1629,7 @@ fn sharing(
             cx,
         )
     });
-    click(cx, window, 832., 23.);
+    click(cx, window, 860., 23.);
     capture(cx, window, out, "share-managed");
     type_text(cx, window, &["escape"]);
     cx.update(|cx| {

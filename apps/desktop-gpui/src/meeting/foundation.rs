@@ -21,6 +21,39 @@ impl ProviderAdapter for FoundationModel {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Availability {
+    Available,
+    Unavailable(String),
+}
+
+pub fn parse_availability(raw: &str) -> Availability {
+    let Ok(status) = serde_json::from_str::<serde_json::Value>(raw) else {
+        return Availability::Unavailable("Apple Intelligence is currently unavailable.".into());
+    };
+    if status["status"] == "available" {
+        return Availability::Available;
+    }
+    let reason = match status["reason"].as_str() {
+        Some("unsupported_os") => "Requires macOS 26 or later.",
+        Some("device_not_eligible") => "This Mac does not support Apple Intelligence.",
+        Some("apple_intelligence_not_enabled") => "Enable Apple Intelligence in System Settings.",
+        Some("model_not_ready") => "Apple Intelligence model is still downloading.",
+        _ => "Apple Intelligence is currently unavailable.",
+    };
+    Availability::Unavailable(reason.into())
+}
+
+#[cfg(not(target_os = "macos"))]
+pub async fn availability() -> Availability {
+    Availability::Unavailable("Requires macOS 26 with Apple Intelligence.".into())
+}
+
+#[cfg(target_os = "macos")]
+pub async fn availability() -> Availability {
+    platform::availability().await
+}
+
 #[cfg(not(target_os = "macos"))]
 async fn generate(_: Request) -> Result<String> {
     Err(desktop_runtime::ServiceError::Unsupported(
@@ -39,6 +72,7 @@ mod platform {
         ai::{Part, Request, Role},
         model::{MAX_TEXT, failure},
     };
+    use super::{Availability, parse_availability};
     use desktop_runtime::{Result, ServiceError};
     use serde_json::{Value, json};
     use std::time::Duration;
@@ -48,6 +82,17 @@ mod platform {
     swift!(fn _foundation_model_begin(request_id: &SRString) -> SRString);
     swift!(fn _foundation_model_cancel(request_id: &SRString) -> SRString);
     swift!(fn _foundation_model_generate(request_json: &SRString) -> SRString);
+
+    pub async fn availability() -> Availability {
+        tokio::task::spawn_blocking(|| {
+            let raw = unsafe { _foundation_model_availability() };
+            parse_availability(raw.as_str())
+        })
+        .await
+        .unwrap_or_else(|_| {
+            Availability::Unavailable("Apple Intelligence is currently unavailable.".into())
+        })
+    }
 
     struct Generation(String);
     impl Drop for Generation {
@@ -128,5 +173,40 @@ mod platform {
             _ = request.cancellation.cancelled() => Err(ServiceError::Cancelled),
             result = tokio::time::timeout(Duration::from_secs(300), generate) => result.map_err(|_| failure("Foundation Model generation timed out."))?.map_err(failure)?,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Availability, parse_availability};
+
+    #[test]
+    fn parse_availability_maps_native_status_reasons() {
+        assert_eq!(
+            parse_availability(r#"{"status":"available","reason":null}"#),
+            Availability::Available
+        );
+        assert_eq!(
+            parse_availability(r#"{"status":"unsupported","reason":"unsupported_os"}"#),
+            Availability::Unavailable("Requires macOS 26 or later.".into())
+        );
+        assert_eq!(
+            parse_availability(r#"{"status":"unavailable","reason":"device_not_eligible"}"#),
+            Availability::Unavailable("This Mac does not support Apple Intelligence.".into())
+        );
+        assert_eq!(
+            parse_availability(
+                r#"{"status":"unavailable","reason":"apple_intelligence_not_enabled"}"#
+            ),
+            Availability::Unavailable("Enable Apple Intelligence in System Settings.".into())
+        );
+        assert_eq!(
+            parse_availability(r#"{"status":"unavailable","reason":"model_not_ready"}"#),
+            Availability::Unavailable("Apple Intelligence model is still downloading.".into())
+        );
+        assert_eq!(
+            parse_availability("not-json"),
+            Availability::Unavailable("Apple Intelligence is currently unavailable.".into())
+        );
     }
 }

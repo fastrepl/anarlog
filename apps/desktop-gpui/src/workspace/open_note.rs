@@ -2500,7 +2500,50 @@ impl NoteView {
     }
 
     fn meeting_button(&self, colors: Theme, cx: &mut Context<Self>) -> impl IntoElement {
-        let share = self.meeting_over();
+        if self.meeting_over() {
+            let popover = self
+                .share
+                .as_ref()
+                .filter(|(session, ..)| {
+                    self.current.as_ref().map(|s| &s.summary.id) == Some(session)
+                })
+                .map(|(_, popover, _)| popover.clone());
+            let open = popover.is_some();
+            let tint = if open {
+                colors.foreground
+            } else {
+                colors.muted_foreground
+            };
+            return div()
+                .relative()
+                .flex_shrink_0()
+                .child(
+                    div()
+                        .id("record-note")
+                        .a11y_button("Share")
+                        .aria_expanded(open)
+                        .size(px(28.))
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .text_color(tint)
+                        .when(open, |view| view.bg(colors.accent))
+                        .hover(|view| view.bg(colors.accent).text_color(colors.foreground))
+                        .cursor_pointer()
+                        .on_click(cx.listener(|this, _, window, cx| this.toggle_share(window, cx)))
+                        .group("note-share")
+                        .child(
+                            icon("editor/Share08Icon.svg", 16., tint)
+                                .group_hover("note-share", |style| {
+                                    style.text_color(colors.foreground)
+                                }),
+                        ),
+                )
+                .when_some(popover, |view, popover| {
+                    view.child(sharing::anchor(popover))
+                })
+                .into_any_element();
+        }
         let recording = self.mode == SessionMode::Active;
         div()
             .id("record-note")
@@ -2521,42 +2564,17 @@ impl NoteView {
             .font_weight(crate::ui::theme::MEDIUM)
             .text_color(colors.foreground)
             .cursor_pointer()
-            .a11y_button(if share {
-                "Share"
-            } else if recording {
-                "Stop"
-            } else {
-                "Record"
-            })
-            .on_click(cx.listener(move |this, _, window, cx| {
-                if share {
-                    this.toggle_share(window, cx);
-                } else {
-                    this.toggle_recording(cx);
-                }
-            }))
+            .a11y_button(if recording { "Stop" } else { "Record" })
+            .on_click(cx.listener(|this, _, _, cx| this.toggle_recording(cx)))
             .map(|view| {
-                if share {
-                    let popover = self
-                        .share
-                        .as_ref()
-                        .filter(|(session, ..)| {
-                            self.current.as_ref().map(|s| &s.summary.id) == Some(session)
-                        })
-                        .map(|(_, popover, _)| popover.clone());
-                    view.relative()
-                        .child(icon("editor/Share08Icon.svg", 14., colors.foreground))
-                        .child("Share")
-                        .when_some(popover, |view, popover| {
-                            view.child(sharing::anchor(popover))
-                        })
-                } else if recording {
+                if recording {
                     view.child(icon("editor/SquareIcon.svg", 12., rgb(RECORD_RED).into()))
                         .child("Stop")
                 } else {
                     view.child(record_mark()).child("Record")
                 }
             })
+            .into_any_element()
     }
 
     fn header(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {

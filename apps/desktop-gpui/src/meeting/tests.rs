@@ -52,6 +52,7 @@ impl Fixture {
                 let url = url.clone();
                 Box::pin(async move { Ok(url) })
             }),
+            on_device: Arc::new(|| Box::pin(async { Default::default() })),
             secret: Arc::new(|_, _| Box::pin(async { Ok(Some("fixture-key".into())) })),
             secret_write: Arc::new(|_, _, _| Box::pin(async { Ok(()) })),
         }
@@ -2647,6 +2648,349 @@ fn playback_centers_both_recording_channels_without_clipping() {
     let centered = super::playback::Centered(source);
     assert_eq!(anlg_audio_utils::Source::channels(&centered).get(), 1);
     assert_eq!(centered.collect::<Vec<_>>(), vec![0.5, 0.5, 0.5, 1.]);
+}
+
+#[tokio::test]
+async fn on_device_and_cloud_stt_and_llm_providers_resolve_across_modes() {
+    let fixture = Fixture::new().await;
+    let server = provider_fixture().await;
+    fixture.setting("ai_language", json!("en")).await;
+    let paid = Arc::new(AtomicBool::new(true));
+    let has_secret = Arc::new(AtomicBool::new(true));
+    let local_calls: Arc<std::sync::Mutex<Vec<(String, bool)>>> = Arc::default();
+
+    let mut services = fixture.providers(&server.url);
+    {
+        let paid = paid.clone();
+        services.cloud = Arc::new(move || {
+            let is_paid = paid.load(Ordering::SeqCst);
+            Box::pin(async move {
+                Ok(super::config::CloudAccess {
+                    access_token: "paid-token".into(),
+                    user_id: "owner".into(),
+                    is_paid,
+                })
+            })
+        });
+    }
+    {
+        let local_calls = local_calls.clone();
+        services.local = Arc::new(move |request| {
+            local_calls
+                .lock()
+                .unwrap()
+                .push((request.model.clone(), request.batch));
+            let endpoint = if request.model == "apple-speech" {
+                anlg_transcribe_speechanalyzer::LOCAL_BASE_URL
+            } else {
+                anlg_transcribe_soniqo::LOCAL_BASE_URL
+            };
+            Box::pin(async move { Ok(endpoint.into()) })
+        });
+    }
+    {
+        let has_secret = has_secret.clone();
+        services.secret = Arc::new(move |_, _| {
+            let present = has_secret.load(Ordering::SeqCst);
+            Box::pin(async move { Ok(present.then(|| "byok-key".into())) })
+        });
+    }
+
+    // 1. Anarlog Pro Cloud STT
+    fixture
+        .setting("current_stt_provider", json!("anarlog"))
+        .await;
+    fixture.setting("current_stt_model", json!("cloud")).await;
+    let capture = services.capture(fixture.session.clone()).await.unwrap();
+    assert_eq!(capture.params.base_url, format!("{}/stt", server.url));
+    assert_eq!(capture.params.api_key, "paid-token");
+    assert_eq!(
+        capture.params.effective_transcription_mode(),
+        anlg_listener_core::TranscriptionMode::Live
+    );
+    let batch = services
+        .batch(fixture.session.clone(), PathBuf::from("meeting.wav"))
+        .await
+        .unwrap();
+    assert!(matches!(
+        batch.provider,
+        anlg_listener2_core::BatchProvider::Anarlog
+    ));
+
+    // 2. BYOK Cloud STT
+    fixture
+        .setting("current_stt_provider", json!("openai"))
+        .await;
+    fixture
+        .setting("current_stt_model", json!("gpt-live-transcribe"))
+        .await;
+    let openai = services.capture(fixture.session.clone()).await.unwrap();
+    assert_eq!(openai.params.base_url, "https://api.openai.com/v1");
+    assert_eq!(openai.params.api_key, "byok-key");
+    assert_eq!(
+        openai.params.effective_transcription_mode(),
+        anlg_listener_core::TranscriptionMode::Live
+    );
+    let openai_batch = services
+        .batch(fixture.session.clone(), PathBuf::from("meeting.wav"))
+        .await
+        .unwrap();
+    assert!(matches!(
+        openai_batch.provider,
+        anlg_listener2_core::BatchProvider::OpenAI
+    ));
+
+    // 3. On-device Soniqo streaming (both explicit provider and legacy "anarlog" provider)
+    let expected_soniqo_live = if anlg_transcribe_soniqo::SoniqoModel::ParakeetStreaming
+        .supports_live_on_current_platform()
+    {
+        anlg_listener_core::TranscriptionMode::Live
+    } else {
+        anlg_listener_core::TranscriptionMode::Batch
+    };
+    for provider in ["soniqo", "anarlog"] {
+        fixture
+            .setting("current_stt_provider", json!(provider))
+            .await;
+        fixture
+            .setting("current_stt_model", json!("soniqo-parakeet-streaming"))
+            .await;
+        let soniqo = services.capture(fixture.session.clone()).await.unwrap();
+        assert_eq!(
+            soniqo.params.base_url,
+            anlg_transcribe_soniqo::LOCAL_BASE_URL
+        );
+        assert_eq!(
+            soniqo.params.effective_transcription_mode(),
+            expected_soniqo_live
+        );
+        let soniqo_batch = services
+            .batch(fixture.session.clone(), PathBuf::from("meeting.wav"))
+            .await
+            .unwrap();
+        assert!(matches!(
+            soniqo_batch.provider,
+            anlg_listener2_core::BatchProvider::Soniqo
+        ));
+    }
+
+    // 4. On-device Soniqo batch (capture uses batch = false, forces Batch mode)
+    fixture
+        .setting("current_stt_provider", json!("soniqo"))
+        .await;
+    fixture
+        .setting("current_stt_model", json!("soniqo-parakeet-batch"))
+        .await;
+    let soniqo_batch_capture = services.capture(fixture.session.clone()).await.unwrap();
+    assert_eq!(
+        soniqo_batch_capture.params.base_url,
+        anlg_transcribe_soniqo::LOCAL_BASE_URL
+    );
+    assert_eq!(
+        soniqo_batch_capture.params.effective_transcription_mode(),
+        anlg_listener_core::TranscriptionMode::Batch
+    );
+    let soniqo_batch_recovery = services
+        .batch(fixture.session.clone(), PathBuf::from("meeting.wav"))
+        .await
+        .unwrap();
+    assert!(matches!(
+        soniqo_batch_recovery.provider,
+        anlg_listener2_core::BatchProvider::Soniqo
+    ));
+
+    // 5. On-device Apple Speech (explicit and legacy)
+    for provider in ["apple_speech", "anarlog"] {
+        fixture
+            .setting("current_stt_provider", json!(provider))
+            .await;
+        fixture
+            .setting("current_stt_model", json!("apple-speech"))
+            .await;
+        let apple = services.capture(fixture.session.clone()).await.unwrap();
+        assert_eq!(
+            apple.params.base_url,
+            anlg_transcribe_speechanalyzer::LOCAL_BASE_URL
+        );
+        let apple_batch = services
+            .batch(fixture.session.clone(), PathBuf::from("meeting.wav"))
+            .await
+            .unwrap();
+        assert!(matches!(
+            apple_batch.provider,
+            anlg_listener2_core::BatchProvider::AppleSpeech
+        ));
+    }
+    assert!(
+        local_calls
+            .lock()
+            .unwrap()
+            .contains(&("soniqo-parakeet-batch".to_owned(), false))
+    );
+
+    async fn read_completion(
+        resolver: &super::ai::ProviderResolver,
+        session: &SessionId,
+    ) -> String {
+        let adapter = resolver(session.clone()).await.unwrap();
+        let mut stream = adapter
+            .stream(Request {
+                session: session.clone(),
+                messages: vec![Message {
+                    id: "u1".into(),
+                    role: Role::User,
+                    parts: vec![Part::Text {
+                        text: "Summarize".into(),
+                    }],
+                }],
+                tools_allowed: false,
+                structured: None,
+                cancellation: CancellationToken::new(),
+            })
+            .await
+            .unwrap();
+        let mut streamed = String::new();
+        while let Some(event) = stream.next().await {
+            if let ProviderEvent::Text(text) = event.unwrap() {
+                streamed.push_str(&text);
+            }
+        }
+        streamed
+    }
+
+    // 6. Anarlog Pro Cloud LLM
+    fixture
+        .setting("current_llm_provider", json!("anarlog"))
+        .await;
+    fixture.setting("current_llm_model", json!("Auto")).await;
+    let resolver = services.ai_resolver();
+    assert_eq!(
+        read_completion(&resolver, &fixture.session).await,
+        "fixture résumé"
+    );
+    paid.store(false, Ordering::SeqCst);
+    assert!(resolver(fixture.session.clone()).await.is_err());
+
+    // 7. Local Ollama & LM Studio (no API key required)
+    has_secret.store(false, Ordering::SeqCst);
+    fixture
+        .setting("current_llm_provider", json!("lmstudio"))
+        .await;
+    fixture.setting("current_llm_model", json!("qwen2.5")).await;
+    let lmstudio_prefs = super::config::preferences(&fixture.runtime).await.unwrap();
+    let lmstudio = services
+        .connection(&lmstudio_prefs, super::config::ProviderKind::Llm, false)
+        .await
+        .unwrap();
+    assert_eq!(lmstudio.base_url, "http://127.0.0.1:1234/v1");
+
+    fixture
+        .setting("current_llm_provider", json!("ollama"))
+        .await;
+    fixture
+        .setting("current_llm_model", json!("llama3.2"))
+        .await;
+    let ollama_prefs = super::config::preferences(&fixture.runtime).await.unwrap();
+    let ollama = services
+        .connection(&ollama_prefs, super::config::ProviderKind::Llm, false)
+        .await
+        .unwrap();
+    assert_eq!(ollama.base_url, "http://127.0.0.1:11434/v1");
+    fixture
+        .setting("ai_provider:llm:ollama", json!({"base_url": server.url}))
+        .await;
+    assert_eq!(
+        read_completion(&resolver, &fixture.session).await,
+        "fixture résumé"
+    );
+
+    // 8. On-device Apple Intelligence resolves without cloud auth or API key
+    fixture
+        .setting("current_llm_provider", json!("apple_foundation"))
+        .await;
+    fixture
+        .setting("current_llm_model", json!("System Language Model"))
+        .await;
+    assert!(resolver(fixture.session.clone()).await.is_ok());
+
+    // 9. Real ModelService local resolver validates availability/install without opening a sidecar slot
+    let models_dir = tempfile::tempdir().unwrap();
+    let engines_dir = tempfile::tempdir().unwrap();
+    let model_service = Arc::new(crate::product::local::models::ModelService::new(
+        models_dir.path().to_owned(),
+        crate::product::local::models::EngineResources {
+            argmax: engines_dir.path().join("argmax"),
+            llama_server: engines_dir.path().join("llama-server"),
+            argmax_api_key: String::new(),
+        },
+    ));
+    let real_models = model_service.clone();
+    services.local = Arc::new(move |request| {
+        let models = real_models.clone();
+        Box::pin(async move {
+            let model = crate::product::local::models::ModelService::resolve(&request.model)?;
+            let cancel = CancellationToken::new();
+            if request.batch {
+                models.batch(model, cancel).await
+            } else {
+                models.start(model, cancel).await
+            }
+        })
+    });
+    for (provider, model_id, expected_url) in [
+        (
+            "soniqo",
+            "soniqo-parakeet-streaming",
+            anlg_transcribe_soniqo::LOCAL_BASE_URL,
+        ),
+        (
+            "soniqo",
+            "soniqo-parakeet-batch",
+            anlg_transcribe_soniqo::LOCAL_BASE_URL,
+        ),
+        (
+            "apple_speech",
+            "apple-speech",
+            anlg_transcribe_speechanalyzer::LOCAL_BASE_URL,
+        ),
+    ] {
+        fixture
+            .setting("current_stt_provider", json!(provider))
+            .await;
+        fixture.setting("current_stt_model", json!(model_id)).await;
+        let model = crate::product::local::models::ModelService::resolve(model_id).unwrap();
+        let state = model_service.state(model.clone()).await.unwrap();
+        if state.installed {
+            let config = services.capture(fixture.session.clone()).await.unwrap();
+            assert_eq!(config.params.base_url, expected_url);
+            let params = services
+                .batch(fixture.session.clone(), PathBuf::from("meeting.wav"))
+                .await
+                .unwrap();
+            assert_eq!(params.base_url, expected_url);
+        } else {
+            let Err(expected_error) = model_service
+                .batch(model.clone(), desktop_runtime::CancellationToken::new())
+                .await
+            else {
+                panic!("expected model service rejection for uninstalled {model_id}");
+            };
+            let expected_error = expected_error.to_string();
+            let Err(capture_error) = services.capture(fixture.session.clone()).await else {
+                panic!("expected local capture error for uninstalled {model_id}");
+            };
+            assert_eq!(capture_error.to_string(), expected_error);
+            let Err(batch_error) = services
+                .batch(fixture.session.clone(), PathBuf::from("meeting.wav"))
+                .await
+            else {
+                panic!("expected local batch error for uninstalled {model_id}");
+            };
+            assert_eq!(batch_error.to_string(), expected_error);
+        }
+        assert!(!model_service.state(model).await.unwrap().running);
+    }
+    fixture.close().await;
 }
 
 #[test]

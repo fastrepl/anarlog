@@ -17,7 +17,6 @@ use crate::{
     launch::Storage,
     meeting::{
         MeetingServices,
-        capture::Phase,
         config::{CloudAccess, ProviderServices},
     },
     platform::permissions::NativePermissions,
@@ -32,7 +31,7 @@ use crate::{
             calendar::{AccessToken, CalendarAuth, CalendarService},
             developers::DeveloperTools,
             failure,
-            models::{EngineResources, ModelService, NativeEngine},
+            models::{EngineResources, ModelService},
         },
         services::{Mutation, Outcome, Panel, ProductServices, Request, Surface},
     },
@@ -50,8 +49,7 @@ pub enum HostCommand {
 pub struct Effects {
     sender: mpsc::Sender<HostCommand>,
     runtime: RuntimeHandle,
-    capture: Mutex<Option<MeetingServices>>,
-    native: Arc<Mutex<Option<NativeEngine>>>,
+    capture: Mutex<Option<Arc<dyn Fn() -> bool + Send + Sync>>>,
 }
 
 impl Effects {
@@ -62,24 +60,27 @@ impl Effects {
                 sender,
                 runtime,
                 capture: Mutex::new(None),
-                native: Arc::default(),
             }),
             receiver,
         )
     }
 
-    pub fn attach(&self, services: MeetingServices) {
-        *self.capture.lock().unwrap_or_else(|e| e.into_inner()) = Some(services);
+    pub fn attach(&self, services: &MeetingServices) {
+        *self.capture.lock().unwrap_or_else(|e| e.into_inner()) =
+            Some(services.capture.active_probe());
+    }
+
+    pub fn is_capturing(&self) -> bool {
+        let Ok(capture) = self.capture.lock() else {
+            // Treat a poisoned lock conservatively as active so destructive model actions stay blocked.
+            return true;
+        };
+        capture.as_ref().is_some_and(|probe| probe())
     }
 
     fn idle(&self) -> Result<()> {
-        let services = self.capture.lock().map_err(failure)?.clone();
-        if services.is_some_and(|s| {
-            matches!(
-                s.capture.take_update(u64::MAX).phase,
-                Phase::Loading | Phase::Listening | Phase::Finalizing
-            )
-        }) {
+        drop(self.capture.lock().map_err(failure)?);
+        if self.is_capturing() {
             return Err(failure("Finish the recording before changing models"));
         }
         Ok(())
@@ -119,21 +120,20 @@ impl HostEffects for Effects {
         &self,
         model: anlg_local_model::LocalModel,
         _: String,
-        native: Option<NativeEngine>,
     ) -> BoxFuture<'static, Result<()>> {
         let idle = self.idle();
         let runtime = self.runtime.clone();
-        let current = self.native.clone();
         Box::pin(async move {
             idle?;
-            let kind = if matches!(model, anlg_local_model::LocalModel::GgufLlm(_)) {
-                "llm"
-            } else {
-                "stt"
+            let (kind, provider) = match &model {
+                anlg_local_model::LocalModel::Soniqo(_) => ("stt", "soniqo"),
+                anlg_local_model::LocalModel::AppleSpeech(_) => ("stt", "apple_speech"),
+                anlg_local_model::LocalModel::GgufLlm(_) => ("llm", "local"),
+                _ => ("stt", "anarlog"),
             };
-            let result = runtime.submit(move |services| async move {
+            runtime.submit(move |services| async move {
                 let statements = [
-                    (format!("current_{kind}_provider"), if kind == "llm" { "local" } else { "anarlog" }.to_owned()),
+                    (format!("current_{kind}_provider"), provider.to_owned()),
                     (format!("current_{kind}_model"), model.cli_name().to_owned()),
                 ].into_iter().map(|(key, value)| anlg_db_execute::TransactionStatement {
                     sql: "INSERT INTO app_settings (id,value_json,updated_at) VALUES (?,?,strftime('%Y-%m-%dT%H:%M:%fZ','now')) ON CONFLICT(id) DO UPDATE SET value_json=excluded.value_json,updated_at=excluded.updated_at".into(),
@@ -141,37 +141,7 @@ impl HostEffects for Effects {
                 }).collect();
                 services.executor.execute_transaction(statements).await.map_err(failure)?;
                 Ok(())
-            })?.receive().await;
-            if result.is_ok() {
-                if let Some(native) = native {
-                    let previous = current.lock().map_err(failure)?.replace(native);
-                    if let Some(previous) = previous {
-                        tokio::task::spawn_blocking(move || previous.stop())
-                            .await
-                            .map_err(failure)??;
-                    }
-                }
-            } else if let Some(native) = native {
-                tokio::task::spawn_blocking(move || native.stop())
-                    .await
-                    .map_err(failure)??;
-            }
-            result
-        })
-    }
-
-    fn stop_model(&self) -> BoxFuture<'static, Result<()>> {
-        let idle = self.idle();
-        let native = self.native.clone();
-        Box::pin(async move {
-            idle?;
-            let session = native.lock().map_err(failure)?.take();
-            if let Some(session) = session {
-                tokio::task::spawn_blocking(move || session.stop())
-                    .await
-                    .map_err(failure)??;
-            }
-            Ok(())
+            })?.receive().await
         })
     }
 }
@@ -293,16 +263,26 @@ impl NativeServices {
             .or_else(|| std::env::var_os("USERPROFILE"))
             .map(PathBuf::from)
             .ok_or_else(|| failure("No home directory configured"))?;
-        let models = Arc::new(ModelService::new(
-            profile.join("models"),
-            EngineResources {
-                argmax: executable("argmax"),
-                llama_server: executable("llama-server"),
-                argmax_api_key: std::env::var("ARGMAX_API_KEY").unwrap_or_default(),
-            },
-        ));
+        let capture_effects = Arc::downgrade(&effects);
+        let models = Arc::new(
+            ModelService::new(
+                profile.join("models"),
+                EngineResources {
+                    argmax: executable("argmax"),
+                    llama_server: executable("llama-server"),
+                    argmax_api_key: std::env::var("ARGMAX_API_KEY").unwrap_or_default(),
+                },
+            )
+            .with_capture_active(Arc::new(move || {
+                capture_effects
+                    .upgrade()
+                    .is_some_and(|effects| effects.is_capturing())
+            })),
+        );
         let model_runtime = runtime.clone();
         let model_service = models.clone();
+        let on_device_runtime = runtime.clone();
+        let on_device_models = models.clone();
         let provider_cloud = cloud.clone();
         let providers = ProviderServices {
             runtime: runtime.clone(),
@@ -338,21 +318,65 @@ impl NativeServices {
                         .await
                 })
             }),
+            on_device: Arc::new(move || {
+                let runtime = on_device_runtime.clone();
+                let models = on_device_models.clone();
+                Box::pin(async move {
+                    let result = async {
+                        runtime
+                            .service(move |_| async move {
+                                let soniqo_available =
+                                    anlg_local_model::SoniqoModel::ParakeetStreaming
+                                        .is_available_on_current_platform();
+                                let apple_speech_available = tokio::task::spawn_blocking(|| {
+                                    anlg_transcribe_speechanalyzer::AppleSpeechModel::Default
+                                        .is_available_on_current_platform()
+                                })
+                                .await
+                                .unwrap_or(false);
+                                let mut installed_stt_models = std::collections::BTreeSet::new();
+                                for model in ModelService::registry() {
+                                    if matches!(
+                                        model,
+                                        anlg_local_model::LocalModel::Soniqo(_)
+                                            | anlg_local_model::LocalModel::AppleSpeech(_)
+                                    ) && models
+                                        .state(model.clone())
+                                        .await
+                                        .is_ok_and(|state| state.installed)
+                                    {
+                                        installed_stt_models.insert(model.cli_name().to_owned());
+                                    }
+                                }
+                                let apple_foundation_unavailable =
+                                    match crate::meeting::foundation::availability().await {
+                                        crate::meeting::foundation::Availability::Available => None,
+                                        crate::meeting::foundation::Availability::Unavailable(
+                                            reason,
+                                        ) => Some(reason),
+                                    };
+                                Ok(crate::meeting::config::OnDeviceStatus {
+                                    soniqo_available,
+                                    apple_speech_available,
+                                    installed_stt_models,
+                                    apple_foundation_unavailable,
+                                })
+                            })?
+                            .receive()
+                            .await
+                    }
+                    .await;
+                    result.unwrap_or_default()
+                })
+            }),
             secret: crate::meeting::config::keyring_secrets(identifier.into()),
             secret_write: crate::meeting::subscription::keyring_writer(identifier.into()),
         };
         let stop_models = models.clone();
-        let stop_effects = effects.clone();
         runtime
             .register_shutdown(
                 desktop_runtime::ShutdownPhase::StopServices,
-                Box::new(move || {
-                    Box::pin(async move {
-                        let (native, engines) =
-                            tokio::join!(stop_effects.stop_model(), stop_models.stop());
-                        native.and(engines)
-                    })
-                }),
+                Box::new(move || Box::pin(async move { stop_models.stop().await })),
             )?
             .receive()
             .await?;

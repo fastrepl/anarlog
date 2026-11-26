@@ -2962,4 +2962,272 @@ mod tests {
         wait_until(cx, |_| marker.exists());
         let _ = futures::executor::block_on(fixture.runtime.shutdown());
     }
+
+    #[gpui::test]
+    fn settings_requested_before_native_ready_opens_section_unless_dismissed(
+        cx: &mut gpui::TestAppContext,
+    ) {
+        crate::platform::os::go_headless();
+        cx.executor().allow_parking();
+        cx.update(crate::ui::theme::UiFonts::init);
+
+        let start_app = |cx: &mut gpui::TestAppContext| {
+            let profile = tempfile::tempdir().unwrap();
+            let (runtime, ready) = crate::runtime_bridge::start(desktop_runtime::Profile {
+                database: profile.path().join("library.sqlite"),
+            })
+            .unwrap();
+            let mut state = runtime.state();
+            while matches!(
+                *state.borrow_and_update(),
+                desktop_runtime::RuntimeState::Starting
+            ) {
+                futures::executor::block_on(state.changed()).unwrap();
+            }
+            futures::executor::block_on(
+                runtime
+                    .submit(|services| async move {
+                        sqlx::query("INSERT INTO app_settings (id, value_json) VALUES (?, 'false')")
+                            .bind(crate::product::onboarding::NEEDED_KEY)
+                            .execute(services.db.pool())
+                            .await
+                            .map_err(|error| ServiceError::Failed(error.to_string().into()))?;
+                        let pinned = crate::workspace::pins::encode(&[
+                            crate::workspace::navigation::Route::settings("general"),
+                            crate::workspace::navigation::Route::Calendar,
+                        ])
+                        .map_err(|error| ServiceError::Failed(error.to_string().into()))?;
+                        sqlx::query(
+                            "INSERT INTO app_settings (id, value_json) VALUES ('gpui_pinned_tabs', ?)",
+                        )
+                        .bind(pinned)
+                        .execute(services.db.pool())
+                        .await
+                        .map(|_| ())
+                        .map_err(|error| ServiceError::Failed(error.to_string().into()))
+                    })
+                    .unwrap()
+                    .receive(),
+            )
+            .unwrap();
+            let rt = runtime.clone();
+            let root_path = profile.path().to_path_buf();
+            let window = cx.add_window(|window, cx| {
+                ApplicationView::new(
+                    rt,
+                    ready,
+                    crate::launch::Storage {
+                        channel: None,
+                        root: root_path.clone(),
+                        database_dir: root_path.clone(),
+                        pointer: Some(root_path.join("storage.json")),
+                    },
+                    window,
+                    cx,
+                )
+            });
+            let app = window.update(cx, |_, _, cx| cx.entity()).unwrap();
+            (profile, runtime, window, app)
+        };
+
+        // Case 1: requested Settings section opens once native startup finishes.
+        {
+            let _quit_guard = QUIT_TEST_LOCK
+                .lock()
+                .unwrap_or_else(|error| error.into_inner());
+            let (_profile, runtime, window, app) = start_app(cx);
+            let main_window: gpui::AnyWindowHandle = window.into();
+            cx.update(|cx| {
+                app.update(cx, |app, cx| {
+                    assert!(!app.native_ready());
+                    app.workspace.update(cx, |workspace, cx| {
+                        workspace.open_route(
+                            crate::workspace::navigation::Route::settings("transcription"),
+                            false,
+                            cx,
+                        );
+                    });
+                });
+            });
+            cx.read(|cx| {
+                let app = app.read(cx);
+                assert!(app.product.is_none());
+                assert!(app.pending_product.is_some());
+            });
+            wait_until(cx, |cx| {
+                cx.executor().advance_clock(Duration::from_millis(5));
+                cx.read(|cx| {
+                    let app = app.read(cx);
+                    app.pins_revision.is_some() && app.native_ready() && app.product.is_some()
+                })
+            });
+            cx.read(|cx| {
+                let app = app.read(cx);
+                let product = app.product.as_ref().unwrap().read(cx);
+                assert_eq!(product.active_section(), "transcription");
+                assert_eq!(
+                    app.workspace.read(cx).current_route(),
+                    crate::workspace::navigation::Route::settings("transcription")
+                );
+            });
+            let _ = cx
+                .update(|cx| cx.update_window(main_window, |_, window, _| window.remove_window()));
+            let _ = futures::executor::block_on(runtime.shutdown());
+        }
+
+        // Case 2: dismissing loading Settings with Escape cancels pending_product so it stays closed.
+        {
+            let _quit_guard = QUIT_TEST_LOCK
+                .lock()
+                .unwrap_or_else(|error| error.into_inner());
+            let (_profile, runtime, window, app) = start_app(cx);
+            let main_window: gpui::AnyWindowHandle = window.into();
+            cx.update(|cx| {
+                app.update(cx, |app, cx| {
+                    assert!(!app.native_ready());
+                    app.workspace.update(cx, |workspace, cx| {
+                        workspace.open_route(
+                            crate::workspace::navigation::Route::settings("transcription"),
+                            false,
+                            cx,
+                        );
+                    });
+                });
+            });
+            cx.read(|cx| {
+                assert!(app.read(cx).pending_product.is_some());
+            });
+            let _ = cx.update(|cx| {
+                cx.update_window(main_window, |_, window, cx| {
+                    let workspace = app.read(cx).workspace.clone();
+                    workspace.update(cx, |workspace, cx| {
+                        workspace.dismiss_overlay(
+                            &gpui::KeyDownEvent {
+                                keystroke: gpui::Keystroke::parse("escape").unwrap(),
+                                is_held: false,
+                                prefer_character_input: false,
+                            },
+                            window,
+                            cx,
+                        );
+                    });
+                })
+            });
+            cx.read(|cx| {
+                let app = app.read(cx);
+                assert!(!app.native_ready());
+                assert_eq!(
+                    app.workspace.read(cx).current_route(),
+                    crate::workspace::navigation::Route::Empty
+                );
+                assert!(app.pending_product.is_none());
+            });
+            wait_until(cx, |cx| {
+                cx.executor().advance_clock(Duration::from_millis(5));
+                cx.read(|cx| app.read(cx).native_ready())
+            });
+            cx.run_until_parked();
+            cx.read(|cx| {
+                assert!(app.read(cx).product.is_none());
+            });
+            let _ = cx
+                .update(|cx| cx.update_window(main_window, |_, window, _| window.remove_window()));
+            let _ = futures::executor::block_on(runtime.shutdown());
+        }
+
+        // Case 3: tray-origin Settings requested from Route::Empty cancels if the user navigates away.
+        {
+            let _quit_guard = QUIT_TEST_LOCK
+                .lock()
+                .unwrap_or_else(|error| error.into_inner());
+            let (_profile, runtime, window, app) = start_app(cx);
+            let main_window: gpui::AnyWindowHandle = window.into();
+            let _ = cx.update(|cx| {
+                cx.update_window(main_window, |_, window, cx| {
+                    app.update(cx, |app, cx| {
+                        assert!(!app.native_ready());
+                        app.open_product(crate::contracts::ProductRoute::Settings, window, cx);
+                        assert!(app.pending_product.is_some());
+                        app.workspace.update(cx, |workspace, cx| {
+                            workspace.open_route(
+                                crate::workspace::navigation::Route::Calendar,
+                                false,
+                                cx,
+                            );
+                        });
+                    });
+                })
+            });
+            cx.read(|cx| {
+                assert!(app.read(cx).pending_product.is_none());
+            });
+            wait_until(cx, |cx| {
+                cx.executor().advance_clock(Duration::from_millis(5));
+                cx.read(|cx| app.read(cx).native_ready())
+            });
+            cx.run_until_parked();
+            cx.read(|cx| {
+                assert!(app.read(cx).product.is_none());
+                assert_eq!(
+                    app.read(cx).workspace.read(cx).current_route(),
+                    crate::workspace::navigation::Route::Calendar
+                );
+            });
+            let _ = cx
+                .update(|cx| cx.update_window(main_window, |_, window, _| window.remove_window()));
+            let _ = futures::executor::block_on(runtime.shutdown());
+        }
+
+        // Case 4: startup release notes do not cancel or overwrite a queued Settings section.
+        {
+            let _quit_guard = QUIT_TEST_LOCK
+                .lock()
+                .unwrap_or_else(|error| error.into_inner());
+            let (_profile, runtime, window, app) = start_app(cx);
+            let main_window: gpui::AnyWindowHandle = window.into();
+            cx.update(|cx| {
+                app.update(cx, |app, cx| {
+                    assert!(!app.native_ready());
+                    app.workspace.update(cx, |workspace, cx| {
+                        workspace.open_route(
+                            crate::workspace::navigation::Route::settings("intelligence"),
+                            false,
+                            cx,
+                        );
+                    });
+                });
+            });
+            cx.read(|cx| {
+                assert!(app.read(cx).pending_product.is_some());
+            });
+            cx.update(|cx| {
+                app.update(cx, |app, cx| {
+                    crate::application::release_notes::open_changelog_route(app, cx);
+                });
+            });
+            cx.read(|cx| {
+                let app = app.read(cx);
+                assert_eq!(
+                    app.workspace.read(cx).current_route(),
+                    crate::workspace::navigation::Route::Changelog
+                );
+                assert!(app.pending_product.is_some());
+            });
+            wait_until(cx, |cx| {
+                cx.executor().advance_clock(Duration::from_millis(5));
+                cx.read(|cx| {
+                    let app = app.read(cx);
+                    app.native_ready() && app.product.is_some()
+                })
+            });
+            cx.read(|cx| {
+                let app = app.read(cx);
+                let product = app.product.as_ref().unwrap().read(cx);
+                assert_eq!(product.active_section(), "intelligence");
+            });
+            let _ = cx
+                .update(|cx| cx.update_window(main_window, |_, window, _| window.remove_window()));
+            let _ = futures::executor::block_on(runtime.shutdown());
+        }
+    }
 }
