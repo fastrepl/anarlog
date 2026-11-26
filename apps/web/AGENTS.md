@@ -41,8 +41,8 @@ Note: there is no `--color-brand` token. CTAs use `from-stone-600 to-stone-500`.
 
 ### Typography
 
-- **Body / UI text**: `font-sans` (Geist) — all body copy, labels, nav links
-- **Headings / buttons**: `font-mono` (Geist Mono) — h1/h2, button labels, code
+- **Headings, body & UI text**: `font-sans` (system sans) — h1/h2 display headings, body copy, labels, button labels, nav links (`--font-hand` and `--font-signature` alias system sans)
+- **Code / metadata**: `font-mono` (ui-monospace) — inline code, code blocks, technical metadata
 - **Editorial**: `font-serif` (Fraunces) — editorial emphasis, decorative moments
 - **Italic accent**: `font-serif2` (Instrument Serif) — italic editorial accents
 

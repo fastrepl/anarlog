@@ -95,7 +95,7 @@ export const Route = createFileRoute("/about")({
 
 function SectionHeading({ children }: { children: React.ReactNode }) {
   return (
-    <h2 className="font-hand text-3xl leading-none font-semibold text-[#181613]">
+    <h2 className="text-2xl leading-tight font-semibold tracking-tight text-[#181613]">
       {children}
     </h2>
   );
@@ -118,7 +118,7 @@ function AboutPage() {
           <Link to="/" aria-label="Anarlog home" className="inline-flex">
             <AnarlogLogo className="h-8 w-auto md:h-9" />
           </Link>
-          <h1 className="font-hand mt-12 text-4xl leading-none font-semibold text-[#181613] md:mt-16 md:text-5xl">
+          <h1 className="mt-12 text-3xl leading-tight font-semibold tracking-[-0.025em] text-[#181613] md:mt-16 md:text-4xl">
             About Anarlog
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[#4f4940]">

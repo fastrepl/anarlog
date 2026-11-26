@@ -304,7 +304,7 @@ export function CredibilityLogoMarquee() {
         className="pointer-events-none absolute -top-[4.4rem] left-1/2 z-20 h-20 w-[15rem] -translate-x-[160%] text-neutral-950 max-[899px]:hidden"
         aria-hidden="true"
       >
-        <p className="absolute top-0 left-0 w-max -rotate-[3deg] font-['Reenie_Beanie','Patrick_Hand',cursive] text-[25px] leading-none font-normal whitespace-nowrap lg:text-[28px]">
+        <p className="text-brand-dark absolute top-2 left-0 w-max font-sans text-xs leading-none font-medium tracking-[0.06em] whitespace-nowrap uppercase">
           people love us at
         </p>
         <ArrowRight
@@ -363,7 +363,7 @@ export function CredibilityLogoMarquee() {
       </div>
       <h2
         id="credibility-heading"
-        className="mt-1 font-['Reenie_Beanie','Patrick_Hand',cursive] text-[22px] leading-none font-normal text-neutral-950 min-[900px]:sr-only"
+        className="text-brand-dark mt-2 font-sans text-xs leading-none font-medium tracking-[0.06em] uppercase min-[900px]:sr-only"
       >
         people love us at
       </h2>
@@ -404,7 +404,7 @@ export function TestimonialsSection() {
   return (
     <section className="pt-8 pb-16 md:pt-10 md:pb-20">
       <div>
-        <h2 className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
+        <h2 className="text-brand-dark text-2xl leading-tight font-semibold tracking-tight md:text-3xl">
           What people say
         </h2>
         <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[#4f4940]">
@@ -414,7 +414,7 @@ export function TestimonialsSection() {
 
       <div className="relative left-1/2 mx-auto mt-8 h-[19rem] w-screen max-w-[980px] -translate-x-1/2 overflow-visible px-5 sm:h-[18rem]">
         <div className="absolute top-0 left-1/2 z-0 flex h-[15.5rem] w-[calc(100%-2.5rem)] max-w-[380px] -translate-x-1/2 flex-col items-center justify-center text-center sm:h-[13.5rem] sm:w-[380px] sm:translate-y-[34px]">
-          <p className="font-hand text-3xl leading-none font-semibold text-[#181613] sm:text-4xl">
+          <p className="text-2xl leading-tight font-semibold tracking-tight text-[#181613] sm:text-3xl">
             Try for yourself.
           </p>
           <div className="mt-6 flex items-center justify-center">

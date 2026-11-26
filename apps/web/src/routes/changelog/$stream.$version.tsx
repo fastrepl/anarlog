@@ -92,7 +92,7 @@ function Component() {
               </>
             )}
           </div>
-          <h1 className="font-hand text-fg mt-5 text-5xl leading-[1.02] font-semibold tracking-normal text-balance md:text-7xl">
+          <h1 className="text-fg mt-5 text-3xl leading-[1.08] font-semibold tracking-[-0.025em] text-balance md:text-5xl">
             Anarlog {changelogStreamLabel(entry.stream)} v{entry.version}
           </h1>
           <ChangelogAvailability entry={entry} />

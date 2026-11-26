@@ -58,14 +58,14 @@ function Component() {
         </header>
 
         <section className="pt-24 pb-16 md:pt-32">
-          <h1 className="font-hand text-6xl leading-[0.98] font-semibold tracking-normal text-balance text-black md:text-8xl">
+          <h1 className="text-4xl leading-[1.06] font-semibold tracking-[-0.03em] text-balance text-black md:text-6xl">
             Blog
           </h1>
           <Link
             to="/guides/transcription/"
             className="border-border-subtle hover:bg-surface-subtle mt-8 block rounded-lg border p-5"
           >
-            <h2 className="font-hand text-brand-dark text-3xl font-semibold tracking-normal">
+            <h2 className="text-brand-dark text-xl leading-snug font-semibold tracking-tight">
               Start with the transcription guides
             </h2>
             <p className="text-brand-dark mt-2 leading-7">
@@ -116,7 +116,7 @@ function Component() {
                 className="group block"
               >
                 <article className="grid gap-3 border-t border-[#eee8df] pt-6">
-                  <h2 className="font-hand text-3xl leading-[1.05] font-semibold tracking-normal text-balance text-[#756b5d] group-hover:text-[#4f4940]">
+                  <h2 className="text-2xl leading-snug font-semibold tracking-tight text-balance text-[#756b5d] group-hover:text-[#4f4940]">
                     {article.title}
                   </h2>
                   {article.meta_description && (

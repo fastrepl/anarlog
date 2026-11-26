@@ -37,7 +37,7 @@ export function LegalDocument({ doc }: { doc: Legal }) {
         </Link>
 
         <header className="mb-10">
-          <h1 className="font-hand text-5xl leading-none font-semibold text-[#181613]">
+          <h1 className="text-3xl leading-tight font-semibold tracking-[-0.025em] text-[#181613] md:text-4xl">
             {doc.title}
           </h1>
           {doc.summary ? (
@@ -61,7 +61,7 @@ export function LegalDocument({ doc }: { doc: Legal }) {
         <article
           className={cn([
             "prose prose-lg prose-stone max-w-none",
-            "prose-headings:font-hand prose-headings:font-semibold prose-headings:text-[#181613] prose-h2:text-4xl prose-h3:text-2xl",
+            "prose-headings:font-sans prose-headings:font-semibold prose-headings:tracking-tight prose-headings:text-[#181613] prose-h2:text-2xl prose-h3:text-xl",
             "prose-p:text-[#4f4940] prose-li:text-[#4f4940] prose-strong:text-[#181613]",
             "prose-a:text-[#181613] prose-a:underline hover:prose-a:text-[#4f4940]",
             "prose-blockquote:rounded-[3px] prose-blockquote:border prose-blockquote:border-[#eadfce] prose-blockquote:bg-[#fffaf0] prose-blockquote:px-6 prose-blockquote:py-1 prose-blockquote:font-normal prose-blockquote:not-italic prose-blockquote:text-[#363029] prose-blockquote:shadow-[0_18px_50px_rgba(68,54,36,0.08)]",

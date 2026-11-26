@@ -123,7 +123,7 @@ function Component() {
             threeColumn ? "pt-20 pb-14 md:pt-28" : "pt-24 pb-16 md:pt-32",
           ])}
         >
-          <h1 className="font-hand text-color text-6xl leading-[0.98] font-semibold tracking-normal text-balance md:text-8xl">
+          <h1 className="text-color text-4xl leading-[1.06] font-semibold tracking-[-0.03em] text-balance md:text-6xl">
             Download Anarlog
           </h1>
         </section>
@@ -136,7 +136,7 @@ function Component() {
             <div className="border-color-subtle grid border-t md:grid-cols-3">
               {downloadSections.map((section) => (
                 <div key={section.name} className={gridCellClassName}>
-                  <h3 className="font-hand flex items-center gap-2.5 text-3xl leading-none font-semibold tracking-normal">
+                  <h3 className="flex items-center gap-2.5 text-2xl leading-tight font-semibold tracking-tight">
                     <Icon
                       icon={platformIcons[section.name]}
                       className="text-2xl"
@@ -204,7 +204,7 @@ function Component() {
                 </div>
               ))}
               <div className={gridCellClassName}>
-                <h3 className="font-hand text-3xl leading-none font-semibold tracking-normal">
+                <h3 className="text-2xl leading-tight font-semibold tracking-tight">
                   Next?
                 </h3>
                 <NextDeviceButton />
@@ -264,7 +264,7 @@ function Component() {
                 <section key={section.name} aria-labelledby={headingId}>
                   <h2
                     id={headingId}
-                    className="font-hand mb-5 flex items-center gap-2.5 text-3xl leading-none font-semibold tracking-normal"
+                    className="mb-5 flex items-center gap-2.5 text-2xl leading-tight font-semibold tracking-tight"
                   >
                     <Icon
                       icon={platformIcons[section.name]}
@@ -370,7 +370,7 @@ function Component() {
             <section aria-labelledby="coming-soon-platforms">
               <h2
                 id="coming-soon-platforms"
-                className="font-hand mb-5 text-3xl leading-none font-semibold tracking-normal"
+                className="mb-5 text-2xl leading-tight font-semibold tracking-tight"
               >
                 Coming soon
               </h2>
@@ -393,7 +393,10 @@ function Component() {
           aria-labelledby="desktop-setup"
           className="border-color-subtle border-t pt-10 pb-6"
         >
-          <h2 id="desktop-setup" className="font-hand text-3xl font-semibold">
+          <h2
+            id="desktop-setup"
+            className="text-2xl leading-tight font-semibold tracking-tight"
+          >
             Choose and install your desktop build
           </h2>
           <p className="text-color mt-5 text-sm leading-7">
