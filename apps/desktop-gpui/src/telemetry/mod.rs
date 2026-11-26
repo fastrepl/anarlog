@@ -13,6 +13,9 @@ static TELEMETRY_ENABLED: AtomicBool = AtomicBool::new(false);
 
 pub fn set_telemetry_enabled(enabled: bool) {
     TELEMETRY_ENABLED.store(enabled, Ordering::SeqCst);
+    if enabled {
+        analytics::sync_identity();
+    }
 }
 
 pub fn set_crash_reporting_enabled(enabled: bool) {

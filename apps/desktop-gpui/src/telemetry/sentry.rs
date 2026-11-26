@@ -36,14 +36,18 @@ const SAFE_TAGS: &[&str] = &[
     "service.namespace",
 ];
 
+fn parse_dsn(raw: Option<&str>) -> Option<::sentry::types::Dsn> {
+    raw.map(str::trim)
+        .filter(|dsn| !dsn.is_empty())
+        .and_then(|dsn| dsn.parse::<::sentry::types::Dsn>().ok())
+}
+
 pub(super) fn init(channel: Option<Channel>) -> Option<::sentry::ClientInitGuard> {
     let channel = channel?;
     if std::env::var_os("ANARLOG_DISABLE_SENTRY").is_some() {
         return None;
     }
-    let dsn = option_env!("SENTRY_DSN")
-        .map(str::trim)
-        .filter(|dsn| !dsn.is_empty())?;
+    let dsn = parse_dsn(option_env!("SENTRY_DSN"))?;
     let release = format!("anarlog-desktop@{}", crate::platform::package::VERSION);
     let client = ::sentry::init((
         dsn,
@@ -414,5 +418,14 @@ mod tests {
             ..Default::default()
         };
         assert!(sanitize_sentry_event(event).is_none());
+    }
+
+    #[test]
+    fn parse_dsn_rejects_empty_and_malformed_values_without_panicking() {
+        assert!(parse_dsn(None).is_none());
+        assert!(parse_dsn(Some("")).is_none());
+        assert!(parse_dsn(Some("   ")).is_none());
+        assert!(parse_dsn(Some("not-a-dsn")).is_none());
+        assert!(parse_dsn(Some("https://public@example.ingest.sentry.io/123456")).is_some());
     }
 }

@@ -54,8 +54,9 @@ struct AnalyticsCore {
     groups: Mutex<HashMap<String, String>>,
     session: Mutex<SessionTracker>,
     last_identify: Mutex<Option<String>>,
+    pending_identity: Mutex<Option<(String, String, Option<i64>)>>,
     runtime: tokio::runtime::Handle,
-    enabled: fn() -> bool,
+    enabled: Box<dyn Fn() -> bool + Send + Sync>,
 }
 
 struct AnalyticsHolder {
@@ -85,7 +86,7 @@ pub(super) fn init(channel: Option<Channel>) {
     let core = AnalyticsCore::new(
         builder.build(),
         runtime.handle().clone(),
-        super::telemetry_enabled,
+        Box::new(super::telemetry_enabled),
     );
     let _ = ANALYTICS.set(AnalyticsHolder {
         _runtime: runtime,
@@ -97,7 +98,7 @@ impl AnalyticsCore {
     fn new(
         client: AnalyticsClient,
         runtime: tokio::runtime::Handle,
-        enabled: fn() -> bool,
+        enabled: Box<dyn Fn() -> bool + Send + Sync>,
     ) -> Self {
         Self {
             client,
@@ -105,6 +106,7 @@ impl AnalyticsCore {
             groups: Mutex::new(HashMap::new()),
             session: Mutex::new(SessionTracker::new(SystemTime::now())),
             last_identify: Mutex::new(None),
+            pending_identity: Mutex::new(None),
             runtime,
             enabled,
         }
@@ -180,12 +182,12 @@ impl AnalyticsCore {
         });
     }
 
-    fn track(&self, event: String, props: &[(&str, Value)]) {
+    fn track(&self, event: String, props: &[(&str, Value)]) -> bool {
         if !(self.enabled)() {
-            return;
+            return false;
         }
         let Ok(permit) = self.permits.clone().try_acquire_owned() else {
-            return;
+            return false;
         };
         let mut builder = AnalyticsPayload::builder(event);
         for (key, value) in props {
@@ -201,11 +203,20 @@ impl AnalyticsCore {
                 tracing::debug!(%error, "analytics event delivery failed");
             }
         });
+        true
     }
 
-    fn identify(&self, user_id: &str, plan: &str, trial_end: Option<i64>) {
-        if !(self.enabled)() || user_id.is_empty() {
-            return;
+    fn identify(&self, user_id: &str, plan: &str, trial_end: Option<i64>) -> bool {
+        if user_id.is_empty() {
+            return false;
+        }
+        *self
+            .pending_identity
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner()) =
+            Some((user_id.to_owned(), plan.to_owned(), trial_end));
+        if !(self.enabled)() {
+            return false;
         }
         let app_version = crate::platform::package::VERSION;
         let signature = format!("{user_id}:{plan}:{trial_end:?}:{app_version}");
@@ -215,10 +226,10 @@ impl AnalyticsCore {
                 .lock()
                 .unwrap_or_else(|poison| poison.into_inner());
             if last.as_deref() == Some(signature.as_str()) {
-                return;
+                return false;
             }
             let Ok(permit) = self.permits.clone().try_acquire_owned() else {
-                return;
+                return false;
             };
             *last = Some(signature);
             self.groups
@@ -256,7 +267,20 @@ impl AnalyticsCore {
                     tracing::debug!(%error, "analytics identify delivery failed");
                 }
             });
+            true
         }
+    }
+
+    fn sync_identity(&self) -> bool {
+        let pending = self
+            .pending_identity
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner())
+            .clone();
+        let Some((user_id, plan, trial_end)) = pending else {
+            return false;
+        };
+        self.identify(&user_id, &plan, trial_end)
     }
 
     fn clear_identity(&self) {
@@ -268,18 +292,28 @@ impl AnalyticsCore {
             .last_identify
             .lock()
             .unwrap_or_else(|poison| poison.into_inner()) = None;
+        *self
+            .pending_identity
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner()) = None;
     }
 }
 
 pub(super) fn track(event: impl Into<String>, props: &[(&str, Value)]) {
     if let Some(holder) = ANALYTICS.get() {
-        holder.core.track(event.into(), props);
+        let _ = holder.core.track(event.into(), props);
     }
 }
 
 pub(super) fn identify(user_id: &str, plan: &str, trial_end: Option<i64>) {
     if let Some(holder) = ANALYTICS.get() {
-        holder.core.identify(user_id, plan, trial_end);
+        let _ = holder.core.identify(user_id, plan, trial_end);
+    }
+}
+
+pub(super) fn sync_identity() {
+    if let Some(holder) = ANALYTICS.get() {
+        let _ = holder.core.sync_identity();
     }
 }
 
@@ -291,6 +325,8 @@ pub(super) fn clear_identity() {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::atomic::{AtomicBool, Ordering};
+
     use super::*;
 
     #[test]
@@ -305,16 +341,39 @@ mod tests {
 
     #[test]
     fn disabled_analytics_does_not_dispatch() {
-        let client = AnalyticsClientBuilder::default()
-            .with_posthog("phc_test_disabled")
-            .build();
+        let client = AnalyticsClientBuilder::default().build();
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
             .unwrap();
-        let core = AnalyticsCore::new(client, runtime.handle().clone(), || false);
-        core.track("app_opened".into(), &[]);
-        core.identify("user-1", "pro", None);
+        let enabled = Arc::new(AtomicBool::new(false));
+        let toggle = enabled.clone();
+        let core = AnalyticsCore::new(
+            client,
+            runtime.handle().clone(),
+            Box::new(move || toggle.load(Ordering::SeqCst)),
+        );
+        assert!(!core.track("app_opened".into(), &[]));
+        assert!(!core.identify("user-1", "pro", None));
+        assert!(core.groups.lock().unwrap().is_empty());
+        assert!(core.last_identify.lock().unwrap().is_none());
+        assert_eq!(core.permits.available_permits(), MAX_CONCURRENT_EVENTS);
+
+        enabled.store(true, Ordering::SeqCst);
+        assert!(core.sync_identity());
+        assert_eq!(
+            core.groups
+                .lock()
+                .unwrap()
+                .get("account")
+                .map(String::as_str),
+            Some("user-1")
+        );
+        assert!(core.last_identify.lock().unwrap().is_some());
+        assert!(!core.sync_identity());
+
+        core.clear_identity();
+        assert!(!core.sync_identity());
         assert!(core.groups.lock().unwrap().is_empty());
         assert!(core.last_identify.lock().unwrap().is_none());
     }
