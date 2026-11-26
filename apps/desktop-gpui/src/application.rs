@@ -73,6 +73,7 @@ impl anlg_storage::StorageRuntime for ProfileStorage {
 struct PendingProduct {
     route: ProductRoute,
     workspace_route: Route,
+    settings_section: Option<String>,
 }
 
 pub struct ApplicationView {
@@ -445,13 +446,14 @@ impl ApplicationView {
                         let view = cx.entity().downgrade();
                         let route = pending.route;
                         let expected = pending.workspace_route;
+                        let section = pending.settings_section;
                         cx.defer(move |cx| {
                             let _ = cx.update_window(window, |_, window, cx| {
                                 let _ = view.update(cx, |this, cx| {
                                     if this.product.is_none()
                                         && this.workspace.read(cx).current_route() == expected
                                     {
-                                        this.open_product(route, window, cx);
+                                        this.open_product_with_section(route, section, window, cx);
                                     }
                                 });
                             });
@@ -1536,13 +1538,29 @@ impl ApplicationView {
     }
 
     fn open_product(&mut self, route: ProductRoute, window: &mut Window, cx: &mut Context<Self>) {
+        self.open_product_with_section(route, None, window, cx);
+    }
+
+    fn open_product_with_section(
+        &mut self,
+        route: ProductRoute,
+        section: Option<String>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let Some(native) = &self.native else {
             if let Some(error) = &self.startup_error {
                 self.status(&format!("Native services failed to start: {error}"), cx);
             } else {
+                let workspace_route = self.workspace.read(cx).current_route();
+                let settings_section = section.or_else(|| match (&route, &workspace_route) {
+                    (ProductRoute::Settings, Route::Settings(section)) => Some(section.to_string()),
+                    _ => None,
+                });
                 self.pending_product = Some(PendingProduct {
                     route,
-                    workspace_route: self.workspace.read(cx).current_route(),
+                    workspace_route,
+                    settings_section,
                 });
             }
             return;
@@ -1573,6 +1591,10 @@ impl ApplicationView {
             return;
         }
         let general_settings = matches!(route, ProductRoute::Settings);
+        let settings_section = section.or_else(|| match self.workspace.read(cx).current_route() {
+            Route::Settings(section) => Some(section.to_string()),
+            _ => None,
+        });
         let product = cx.new(|cx| {
             ProductPane::with_services(
                 LaneContext {
@@ -1586,9 +1608,7 @@ impl ApplicationView {
                 cx,
             )
         });
-        if general_settings
-            && let Route::Settings(section) = self.workspace.read(cx).current_route()
-        {
+        if general_settings && let Some(section) = settings_section {
             product.update(cx, |product, cx| product.navigate_section(&section, cx));
         }
         self.product_subscriptions = vec![

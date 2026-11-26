@@ -3177,5 +3177,57 @@ mod tests {
                 .update(|cx| cx.update_window(main_window, |_, window, _| window.remove_window()));
             let _ = futures::executor::block_on(runtime.shutdown());
         }
+
+        // Case 4: startup release notes do not cancel or overwrite a queued Settings section.
+        {
+            let _quit_guard = QUIT_TEST_LOCK
+                .lock()
+                .unwrap_or_else(|error| error.into_inner());
+            let (_profile, runtime, window, app) = start_app(cx);
+            let main_window: gpui::AnyWindowHandle = window.into();
+            cx.update(|cx| {
+                app.update(cx, |app, cx| {
+                    assert!(!app.native_ready());
+                    app.workspace.update(cx, |workspace, cx| {
+                        workspace.open_route(
+                            crate::workspace::navigation::Route::settings("intelligence"),
+                            false,
+                            cx,
+                        );
+                    });
+                });
+            });
+            cx.read(|cx| {
+                assert!(app.read(cx).pending_product.is_some());
+            });
+            cx.update(|cx| {
+                app.update(cx, |app, cx| {
+                    crate::application::release_notes::open_changelog_route(app, cx);
+                });
+            });
+            cx.read(|cx| {
+                let app = app.read(cx);
+                assert_eq!(
+                    app.workspace.read(cx).current_route(),
+                    crate::workspace::navigation::Route::Changelog
+                );
+                assert!(app.pending_product.is_some());
+            });
+            wait_until(cx, |cx| {
+                cx.executor().advance_clock(Duration::from_millis(5));
+                cx.read(|cx| {
+                    let app = app.read(cx);
+                    app.native_ready() && app.product.is_some()
+                })
+            });
+            cx.read(|cx| {
+                let app = app.read(cx);
+                let product = app.product.as_ref().unwrap().read(cx);
+                assert_eq!(product.active_section(), "intelligence");
+            });
+            let _ = cx
+                .update(|cx| cx.update_window(main_window, |_, window, _| window.remove_window()));
+            let _ = futures::executor::block_on(runtime.shutdown());
+        }
     }
 }

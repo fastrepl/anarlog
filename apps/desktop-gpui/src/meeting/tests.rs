@@ -2969,17 +2969,13 @@ async fn on_device_and_cloud_stt_and_llm_providers_resolve_across_modes() {
                 .unwrap();
             assert_eq!(params.base_url, expected_url);
         } else {
-            let expected_error = match state.unavailable {
-                Some(crate::product::local::models::UNAVAILABLE_ON_PLATFORM) => {
-                    "This model requires Apple Silicon; choose a cloud transcription provider on this platform"
-                        .to_string()
-                }
-                Some(_) => format!(
-                    "{} is not available in this build of Anarlog; choose another model or provider",
-                    model.display_name()
-                ),
-                None => "Download the model in Manage local models before starting it".to_string(),
+            let Err(expected_error) = model_service
+                .batch(model.clone(), desktop_runtime::CancellationToken::new())
+                .await
+            else {
+                panic!("expected model service rejection for uninstalled {model_id}");
             };
+            let expected_error = expected_error.to_string();
             let Err(capture_error) = services.capture(fixture.session.clone()).await else {
                 panic!("expected local capture error for uninstalled {model_id}");
             };

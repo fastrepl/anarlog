@@ -57,6 +57,17 @@ async fn record(
     Ok(previous.as_ref().and_then(Value::as_str).map(str::to_owned))
 }
 
+pub(super) fn open_changelog_route(this: &mut ApplicationView, cx: &mut Context<ApplicationView>) {
+    let pending = this.pending_product.take();
+    this.workspace.update(cx, |workspace, cx| {
+        workspace.open_route(Route::Changelog, true, cx)
+    });
+    if let Some(mut pending) = pending {
+        pending.workspace_route = this.workspace.read(cx).current_route();
+        this.pending_product = Some(pending);
+    }
+}
+
 /// Call once the runtime is ready.
 pub(super) fn open_after_update(runtime: RuntimeHandle, cx: &mut Context<ApplicationView>) {
     let current = changelog::current_version();
@@ -73,16 +84,7 @@ pub(super) fn open_after_update(runtime: RuntimeHandle, cx: &mut Context<Applica
             }
         };
         if updated(previous.as_deref(), current) {
-            let _ = this.update(cx, |this, cx| {
-                let pending = this.pending_product.take();
-                this.workspace.update(cx, |workspace, cx| {
-                    workspace.open_route(Route::Changelog, true, cx)
-                });
-                if let Some(mut pending) = pending {
-                    pending.workspace_route = this.workspace.read(cx).current_route();
-                    this.pending_product = Some(pending);
-                }
-            });
+            let _ = this.update(cx, open_changelog_route);
         }
     })
     .detach();
