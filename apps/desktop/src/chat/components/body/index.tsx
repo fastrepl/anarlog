@@ -64,6 +64,7 @@ export function ChatBody({
     >
       <div
         ref={scrollRef}
+        data-scroll-anchor-container
         onKeyDown={handleKeyDown}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
@@ -79,26 +80,34 @@ export function ChatBody({
           className={cn([
             "flex flex-col",
             isRightPanel && "min-h-full flex-1",
-            isRightPanel ? "px-3 py-5" : "px-5 py-3",
+            isRightPanel ? "px-3 pt-5" : "px-5 pt-3",
           ])}
         >
-          {!isFloating && <div className="flex-1" />}
-          {messages.length === 0 ? (
-            <ChatBodyEmpty
-              isModelConfigured={isModelConfigured}
-              hasContext={hasContext}
-              isLiveMeeting={isLiveMeeting}
-              hasSummary={hasSummary}
-              onSendMessage={onSendMessage}
-            />
-          ) : (
-            <ChatBodyNonEmpty
-              messages={messages}
-              status={status}
-              error={error}
-              onReload={onReload}
-            />
-          )}
+          <div
+            className={cn([
+              "flex flex-1 flex-col",
+              isRightPanel ? "pb-5" : "pb-3",
+            ])}
+          >
+            {!isFloating && <div className="flex-1" />}
+            {messages.length === 0 ? (
+              <ChatBodyEmpty
+                isModelConfigured={isModelConfigured}
+                hasContext={hasContext}
+                isLiveMeeting={isLiveMeeting}
+                hasSummary={hasSummary}
+                onSendMessage={onSendMessage}
+              />
+            ) : (
+              <ChatBodyNonEmpty
+                messages={messages}
+                status={status}
+                error={error}
+                onReload={onReload}
+              />
+            )}
+          </div>
+          <div data-scroll-anchor aria-hidden="true" />
         </div>
       </div>
       {messages.length > 0 && showGoToRecent && !isAtBottom && (

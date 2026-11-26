@@ -137,4 +137,37 @@ describe("useChatAutoScroll", () => {
 
     expect(scrollArea.scrollTop).toBe(scrollTop);
   });
+
+  it("lets CSS overflow-anchor follow streamed growth once scrolled past top without rewriting scrollTop", () => {
+    const previousCss = globalThis.CSS;
+    globalThis.CSS = {
+      ...previousCss,
+      supports: (property: string, value?: string) =>
+        property === "overflow-anchor" && value === "auto",
+    } as typeof CSS;
+
+    try {
+      render(<TestAutoScroll />);
+      const scrollArea = screen.getByTestId("scroll-area");
+
+      // Starting at scrollTop === 0 while already overflowing pins once to engage the anchor.
+      expect(scrollArea.scrollTop).toBe(1000);
+
+      // Simulate native browser anchor keeping scrollTop at the bottom while chunks arrive.
+      scrollArea.scrollTop = 500;
+      fireEvent.scroll(scrollArea);
+      Object.defineProperty(scrollArea, "scrollHeight", {
+        configurable: true,
+        value: 1400,
+      });
+
+      act(() => {
+        resizeObservers.forEach((observer) => observer.trigger());
+      });
+
+      expect(scrollArea.scrollTop).toBe(500);
+    } finally {
+      globalThis.CSS = previousCss;
+    }
+  });
 });

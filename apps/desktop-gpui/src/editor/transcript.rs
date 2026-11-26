@@ -22,8 +22,8 @@ use desktop_runtime::{RuntimeHandle, SessionId};
 use gpui::{
     AnyElement, App, ClipboardItem, Context, Entity, EventEmitter, FocusHandle, Focusable,
     FontStyle, FontWeight, HighlightStyle, Hsla, InteractiveText, KeyDownEvent, MouseButton,
-    MouseDownEvent, Pixels, Point, Render, ScrollHandle, SharedString, StyledText, Subscription,
-    Task, Window, div, point, prelude::*, px, rgb, rgba, svg,
+    MouseDownEvent, Pixels, Point, Render, ScrollEvent, SharedString, StyledText, Subscription,
+    Task, Window, div, prelude::*, px, rgb, rgba, svg,
 };
 use serde_json::{Value, json};
 
@@ -41,6 +41,7 @@ use crate::{
     },
     ui::{
         input::{InputEvent, TextInput},
+        scroll::BottomAnchor,
         theme::{Theme, theme},
     },
     workspace::resource_list,
@@ -56,7 +57,9 @@ pub struct TranscriptView {
     audio: Option<PathBuf>,
     error: Option<String>,
     live: Option<Entity<LiveState>>,
-    scroll: ScrollHandle,
+    scroll: BottomAnchor,
+    was_live: bool,
+    user_scrolled_away: bool,
     /// Shipping's transcript edit mode (the pencil on the Transcript tab).
     edit_mode: bool,
     editors: HashMap<String, SegmentEditor>,
@@ -162,7 +165,8 @@ impl TranscriptView {
                             this.error = Some(error);
                         }
                         this.loaded = true;
-                        this.follow(cx);
+                        let is_live = this.live(cx).is_some();
+                        this.sync_live_anchor(is_live);
                         cx.notify();
                     })
                     .is_err()
@@ -177,7 +181,8 @@ impl TranscriptView {
         let live = LiveState::global(cx);
         let observe = live.as_ref().map(|live| {
             cx.observe(live, |this, _, cx| {
-                this.follow(cx);
+                let is_live = this.live(cx).is_some();
+                this.sync_live_anchor(is_live);
                 cx.notify();
             })
         });
@@ -192,7 +197,9 @@ impl TranscriptView {
             audio: None,
             error: None,
             live,
-            scroll: ScrollHandle::new(),
+            scroll: BottomAnchor::new(false),
+            was_live: false,
+            user_scrolled_away: false,
             edit_mode: false,
             editors: HashMap::new(),
             hovered: None,
@@ -422,15 +429,12 @@ impl TranscriptView {
             .filter(LiveMeeting::live)
     }
 
-    /// Shipping keeps a live transcript pinned to its end while the reader is near the bottom.
-    fn follow(&mut self, cx: &App) {
-        if self.live(cx).is_some() {
-            let offset = self.scroll.offset().y;
-            let max = self.scroll.max_offset().y;
-            if max + offset < px(120.) {
-                self.scroll.scroll_to_bottom();
-            }
+    /// Pins the bottom anchor once a session becomes live unless the reader has scrolled away.
+    fn sync_live_anchor(&mut self, is_live: bool) {
+        if is_live && !self.was_live && !self.user_scrolled_away {
+            self.scroll.pin();
         }
+        self.was_live = is_live;
     }
 }
 
@@ -1346,6 +1350,7 @@ impl TranscriptView {
     fn reveal_found(&mut self, cx: &App) {
         let active = self.find.as_ref().map_or(0, |find| find.2);
         if let Some((row, _)) = self.found(cx).get(active) {
+            self.user_scrolled_away = true;
             self.scroll
                 .scroll_to_item(row + usize::from(self.error.is_some()));
         }
@@ -1652,13 +1657,29 @@ impl Render for TranscriptView {
                             .into_any_element(),
                     );
                 }
+                let is_live = live.is_some();
+                self.sync_live_anchor(is_live);
+                self.scroll.sync_render(is_live);
                 frame
                     .child(
                         div()
                             .id("note-transcript-scroll")
                             .size_full()
                             .overflow_y_scroll()
-                            .track_scroll(&self.scroll)
+                            .track_scroll(self.scroll.handle())
+                            .on_scroll(cx.listener(|this, event: &ScrollEvent, window, cx| {
+                                let delta_y = event.delta.pixel_delta(window.line_height()).y;
+                                let changed = this.scroll.on_scroll(event, window);
+                                if delta_y > px(0.) && this.scroll.handle().max_offset().y > px(0.)
+                                {
+                                    this.user_scrolled_away = true;
+                                } else if this.scroll.is_pinned() {
+                                    this.user_scrolled_away = false;
+                                }
+                                if changed {
+                                    cx.notify();
+                                }
+                            }))
                             .px_1()
                             .pt_2()
                             .pb(px(80.))
@@ -1674,7 +1695,13 @@ impl Render for TranscriptView {
                             .children(children)
                             .when_some(paused, |view, message| {
                                 view.child(div().pt_8().child(paused_notice(colors, message)))
-                            }),
+                            })
+                            .child(
+                                div()
+                                    .id("note-transcript-scroll-anchor")
+                                    .h(px(1.))
+                                    .flex_shrink_0(),
+                            ),
                     )
                     .children(self.scroll_controls(colors, cx))
                     .children(self.selection_bar(&rows, live.is_none(), colors, cx))
@@ -2043,12 +2070,14 @@ impl TranscriptView {
 
     /// Shipping's scroll-to-top and scroll-to-bottom controls, shown once the transcript scrolls.
     fn scroll_controls(&self, colors: Theme, cx: &mut Context<Self>) -> Option<impl IntoElement> {
-        let max = self.scroll.max_offset().y;
+        let max = self.scroll.handle().max_offset().y;
         if max <= px(0.) {
             return None;
         }
-        let offset = -self.scroll.offset().y;
-        let (at_top, at_bottom) = (offset <= px(0.), offset >= max);
+        let offset = -self.scroll.handle().offset().y;
+        let at_top = offset <= px(0.);
+        let at_bottom =
+            (self.live(cx).is_some() && self.scroll.is_pinned()) || self.scroll.is_at_bottom();
         let button = |id: &'static str, path: &'static str, disabled: bool| {
             div()
                 .id(id)
@@ -2104,7 +2133,8 @@ impl TranscriptView {
                                 .a11y_disabled(at_top)
                                 .when(!at_top, |button| {
                                     button.on_click(cx.listener(|this, _, _, cx| {
-                                        this.scroll.set_offset(point(px(0.), px(0.)));
+                                        this.user_scrolled_away = true;
+                                        this.scroll.scroll_to_top();
                                         cx.notify();
                                     }))
                                 }),
@@ -2128,6 +2158,7 @@ impl TranscriptView {
                             .a11y_disabled(at_bottom)
                             .when(!at_bottom, |button| {
                                 button.on_click(cx.listener(|this, _, _, cx| {
+                                    this.user_scrolled_away = false;
                                     this.scroll.scroll_to_bottom();
                                     cx.notify();
                                 }))
@@ -2531,6 +2562,165 @@ mod tests {
             words.contains("there.") && !words.contains("world."),
             "{words}"
         );
+        futures::executor::block_on(runtime.shutdown()).unwrap();
+    }
+
+    fn live_segment(id: &str, start_ms: i64, text: &str) -> Arc<LiveTranscriptSegment> {
+        Arc::new(LiveTranscriptSegment {
+            id: id.into(),
+            key: SegmentKey {
+                channel: ChannelProfile::DirectMic,
+                speaker_index: Some(0),
+                speaker_human_id: None,
+            },
+            start_ms,
+            end_ms: start_ms + 500,
+            text: text.into(),
+            words: vec![SegmentWord {
+                id: None,
+                text: format!(" {text}"),
+                start_ms,
+                end_ms: start_ms + 500,
+                channel: ChannelProfile::DirectMic,
+                is_final: false,
+            }],
+        })
+    }
+
+    #[gpui::test]
+    fn live_transcript_bottom_anchor_releases_on_small_upward_scroll_and_repins_at_bottom(
+        cx: &mut gpui::TestAppContext,
+    ) {
+        cx.executor().allow_parking();
+        cx.update(crate::ui::theme::UiFonts::init);
+        let directory = tempfile::tempdir().unwrap();
+        let (runtime, ready) = RuntimeHandle::start(desktop_runtime::Profile {
+            database: directory.path().join("library.sqlite"),
+        })
+        .unwrap();
+        futures::executor::block_on(ready.receive()).unwrap();
+        sql(
+            &runtime,
+            "INSERT INTO sessions (id, title) VALUES ('s', 'Sync')",
+        );
+        let stored_words: Vec<_> = (0..18)
+            .map(|index| {
+                json!({
+                    "id": format!("w{index}"),
+                    "text": format!("Line {index} with plenty of spoken content."),
+                    "start_ms": index * 3_000,
+                    "end_ms": index * 3_000 + 400,
+                    "channel": index % 2,
+                })
+            })
+            .collect();
+        let insert = runtime
+            .submit({
+                let words = serde_json::to_string(&stored_words).unwrap();
+                move |services| async move {
+                    services
+                        .executor
+                        .execute(
+                            "INSERT INTO transcripts (id, session_id, started_at_ms, ended_at_ms, words_json)
+                             VALUES ('t', 's', 0, 60000, ?)"
+                                .into(),
+                            vec![json!(words)],
+                        )
+                        .await
+                        .map_err(|error| {
+                            desktop_runtime::ServiceError::Failed(error.to_string().into())
+                        })
+                }
+            })
+            .unwrap();
+        futures::executor::block_on(insert.receive()).unwrap();
+
+        let live = cx.update(LiveState::install);
+        let runtime_view = runtime.clone();
+        let (view, cx) = cx
+            .add_window_view(|_, cx| TranscriptView::new(runtime_view, SessionId("s".into()), cx));
+        cx.simulate_resize(gpui::size(px(360.), px(220.)));
+        settle(cx, &|cx| {
+            view.read_with(cx, |view, _| !view.segments.is_empty())
+        });
+
+        // Inactive transcript opens at the top, not pinned to the bottom.
+        view.read_with(cx, |view, _| {
+            assert_eq!(view.scroll.handle().offset().y, px(0.));
+            assert!(!view.scroll.is_pinned());
+            assert!(view.scroll.handle().max_offset().y > px(150.));
+        });
+
+        // Activating live capture pins to the bottom as live segments arrive.
+        let mut meeting = LiveMeeting::new(SessionId("s".into()), SessionMode::Active);
+        meeting.segments = Arc::from([live_segment("live-1", 70_000, "First live sentence.")]);
+        live.update(cx, |state, cx| state.set(Some(meeting.clone()), cx));
+        settle(cx, &|cx| {
+            view.read_with(cx, |view, _| {
+                view.scroll.is_pinned() && view.scroll.is_at_bottom()
+            })
+        });
+
+        let center = view.read_with(cx, |view, _| view.scroll.handle().bounds().center());
+
+        // Even a 20px upward scroll (well below the old 120px gravity well) detaches immediately.
+        cx.simulate_event(ScrollEvent {
+            position: center,
+            delta: gpui::ScrollDelta::Pixels(gpui::point(px(0.), px(20.))),
+            ..Default::default()
+        });
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+
+        let offset_while_reading = view.read_with(cx, |view, _| {
+            assert!(!view.scroll.is_pinned());
+            assert!(view.user_scrolled_away);
+            view.scroll.handle().offset().y
+        });
+
+        // Subsequent live segments must not drag the reader back to the bottom.
+        meeting.segments = Arc::from([
+            live_segment("live-1", 70_000, "First live sentence."),
+            live_segment("live-2", 75_000, "Second live sentence arrives."),
+            live_segment("live-3", 80_000, "Third live sentence arrives."),
+        ]);
+        live.update(cx, |state, cx| state.set(Some(meeting.clone()), cx));
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        cx.run_until_parked();
+
+        let remaining = view.read_with(cx, |view, _| {
+            assert!(!view.scroll.is_pinned());
+            assert_eq!(view.scroll.handle().offset().y, offset_while_reading);
+            view.scroll.distance_from_bottom()
+        });
+
+        // Scrolling back to the bottom re-pins and follows subsequent chunks.
+        cx.simulate_event(ScrollEvent {
+            position: center,
+            delta: gpui::ScrollDelta::Pixels(gpui::point(px(0.), -remaining - px(40.))),
+            ..Default::default()
+        });
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+
+        view.read_with(cx, |view, _| {
+            assert!(view.scroll.is_pinned());
+            assert!(!view.user_scrolled_away);
+            assert!(view.scroll.is_at_bottom());
+        });
+
+        meeting.segments = Arc::from([
+            live_segment("live-1", 70_000, "First live sentence."),
+            live_segment("live-2", 75_000, "Second live sentence arrives."),
+            live_segment("live-3", 80_000, "Third live sentence arrives."),
+            live_segment("live-4", 85_000, "Fourth live sentence follows."),
+        ]);
+        live.update(cx, |state, cx| state.set(Some(meeting), cx));
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        cx.run_until_parked();
+
+        view.read_with(cx, |view, _| {
+            assert!(view.scroll.is_pinned());
+            assert!(view.scroll.is_at_bottom());
+        });
         futures::executor::block_on(runtime.shutdown()).unwrap();
     }
 }

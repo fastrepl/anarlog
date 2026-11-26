@@ -213,13 +213,21 @@ describe("TranscriptViewer", () => {
   });
 
   it.each([
-    ["inactive sessions on open", false, true, "false"],
-    ["active sessions at the bottom", true, true, "true"],
-    ["active sessions near the bottom edge", true, false, "true"],
+    ["inactive sessions on open", false, true, true, "false"],
+    ["active sessions at the bottom", true, true, true, "true"],
+    ["active sessions near the bottom edge", true, false, true, "true"],
+    [
+      "active sessions after scrolling up near the bottom",
+      true,
+      false,
+      false,
+      "false",
+    ],
   ])(
     "pins the transcript to the end for %s",
-    (_label, currentActive, isAtBottom, expected) => {
+    (_label, currentActive, isAtBottom, autoScrollEnabled, expected) => {
       mocks.scrollDetection.isAtBottom = isAtBottom;
+      mocks.scrollDetection.autoScrollEnabled = autoScrollEnabled;
 
       render(
         <TranscriptViewer
@@ -235,6 +243,13 @@ describe("TranscriptViewer", () => {
           .getByTestId("render-transcript")
           .getAttribute("data-should-scroll-to-end"),
       ).toBe(expected);
+      const container = document.querySelector("[data-transcript-container]");
+      expect(container?.hasAttribute("data-scroll-anchor-container")).toBe(
+        true,
+      );
+      expect(
+        container?.lastElementChild?.hasAttribute("data-scroll-anchor"),
+      ).toBe(true);
     },
   );
 

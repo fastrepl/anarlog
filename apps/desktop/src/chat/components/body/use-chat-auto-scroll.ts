@@ -22,9 +22,18 @@ const SCROLL_KEYS = new Set([
   " ",
 ]);
 
+function supportsOverflowAnchor() {
+  return (
+    typeof CSS !== "undefined" &&
+    typeof CSS.supports === "function" &&
+    CSS.supports("overflow-anchor", "auto")
+  );
+}
+
 export function useChatAutoScroll(status: ChatStatus) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const contentRef = useRef<HTMLDivElement | null>(null);
+  const initializedRef = useRef(false);
   const shouldAutoScrollRef = useRef(true);
   const previousIsGeneratingRef = useRef(false);
   const previousScrollTopRef = useRef(0);
@@ -67,7 +76,7 @@ export function useChatAutoScroll(status: ChatStatus) {
       return;
     }
 
-    if (nextIsAtBottom) {
+    if (isPinnedAtBottom) {
       shouldAutoScrollRef.current = true;
       pendingUserScrollIntentRef.current = false;
       setShowGoToRecent(false);
@@ -116,15 +125,37 @@ export function useChatAutoScroll(status: ChatStatus) {
   };
 
   useLayoutEffect(() => {
-    if (isGenerating && !previousIsGeneratingRef.current) {
+    const startedGenerating = isGenerating && !previousIsGeneratingRef.current;
+    previousIsGeneratingRef.current = isGenerating;
+
+    if (startedGenerating) {
+      initializedRef.current = true;
       shouldAutoScrollRef.current = true;
       pendingUserScrollIntentRef.current = false;
       setShowGoToRecent(false);
+      scrollToBottom();
+      return;
     }
 
-    previousIsGeneratingRef.current = isGenerating;
+    const element = scrollRef.current;
+    if (!initializedRef.current) {
+      initializedRef.current = true;
+      if (element && shouldAutoScrollRef.current) {
+        scrollToBottom();
+      }
+      return;
+    }
 
-    if (shouldAutoScrollRef.current) {
+    if (!element || !shouldAutoScrollRef.current) {
+      return;
+    }
+
+    // CSS scroll anchoring is suppressed while scrollTop === 0; pin once on overflow
+    // so the browser keeps the 1px anchor pinned afterwards without rewriting scrollTop.
+    if (
+      !supportsOverflowAnchor() ||
+      (element.scrollTop === 0 && element.scrollHeight > element.clientHeight)
+    ) {
       scrollToBottom();
     }
   });
@@ -135,7 +166,15 @@ export function useChatAutoScroll(status: ChatStatus) {
     }
 
     const observer = new ResizeObserver(() => {
-      if (shouldAutoScrollRef.current) {
+      const element = scrollRef.current;
+      if (!element || !shouldAutoScrollRef.current) {
+        return;
+      }
+
+      if (
+        !supportsOverflowAnchor() ||
+        (element.scrollTop === 0 && element.scrollHeight > element.clientHeight)
+      ) {
         scrollToBottom();
       }
     });

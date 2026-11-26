@@ -48,6 +48,14 @@ import { SpeakerLabelManager } from "~/stt/segment/shared";
 import { isTranscriptWordSeekable } from "~/stt/timing";
 import { useResolvedSpeakerSegments } from "~/stt/useResolvedSpeakerSegments";
 
+function supportsOverflowAnchor() {
+  return (
+    typeof CSS !== "undefined" &&
+    typeof CSS.supports === "function" &&
+    CSS.supports("overflow-anchor", "auto")
+  );
+}
+
 export function RenderTranscript({
   scrollElement,
   isLastTranscript,
@@ -343,6 +351,9 @@ const SegmentsList = memo(
 
     useLayoutEffect(() => {
       if (!scrollElement || !shouldScrollToEnd) {
+        return;
+      }
+      if (supportsOverflowAnchor() && scrollElement.scrollTop > 0) {
         return;
       }
       const raf = requestAnimationFrame(() => {
