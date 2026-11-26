@@ -74,9 +74,14 @@ pub(super) fn open_after_update(runtime: RuntimeHandle, cx: &mut Context<Applica
         };
         if updated(previous.as_deref(), current) {
             let _ = this.update(cx, |this, cx| {
+                let pending = this.pending_product.take();
                 this.workspace.update(cx, |workspace, cx| {
                     workspace.open_route(Route::Changelog, true, cx)
-                })
+                });
+                if let Some(mut pending) = pending {
+                    pending.workspace_route = this.workspace.read(cx).current_route();
+                    this.pending_product = Some(pending);
+                }
             });
         }
     })

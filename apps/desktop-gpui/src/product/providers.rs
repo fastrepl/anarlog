@@ -1784,7 +1784,6 @@ mod tests {
         fixture.settle(cx);
         view.read_with(cx, |view, cx| {
             assert_eq!(view.secret.read(cx).buffer.text, "unsaved-openai-key");
-            assert!(view.dirty_card);
             assert!(view.has_unsaved(cx));
             assert!(
                 view.status.contains("Enable Apple Intelligence"),

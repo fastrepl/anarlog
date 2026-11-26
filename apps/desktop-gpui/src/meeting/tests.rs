@@ -2969,32 +2969,28 @@ async fn on_device_and_cloud_stt_and_llm_providers_resolve_across_modes() {
                 .unwrap();
             assert_eq!(params.base_url, expected_url);
         } else {
-            let not_downloaded = "Download the model in Manage local models before starting it";
+            let expected_error = match state.unavailable {
+                Some(crate::product::local::models::UNAVAILABLE_ON_PLATFORM) => {
+                    "This model requires Apple Silicon; choose a cloud transcription provider on this platform"
+                        .to_string()
+                }
+                Some(_) => format!(
+                    "{} is not available in this build of Anarlog; choose another model or provider",
+                    model.display_name()
+                ),
+                None => "Download the model in Manage local models before starting it".to_string(),
+            };
             let Err(capture_error) = services.capture(fixture.session.clone()).await else {
                 panic!("expected local capture error for uninstalled {model_id}");
             };
-            let capture_error = capture_error.to_string();
-            assert!(
-                capture_error == not_downloaded
-                    || state
-                        .unavailable
-                        .is_some_and(|reason| capture_error == reason),
-                "unexpected capture error for {model_id}: {capture_error}"
-            );
+            assert_eq!(capture_error.to_string(), expected_error);
             let Err(batch_error) = services
                 .batch(fixture.session.clone(), PathBuf::from("meeting.wav"))
                 .await
             else {
                 panic!("expected local batch error for uninstalled {model_id}");
             };
-            let batch_error = batch_error.to_string();
-            assert!(
-                batch_error == not_downloaded
-                    || state
-                        .unavailable
-                        .is_some_and(|reason| batch_error == reason),
-                "unexpected batch error for {model_id}: {batch_error}"
-            );
+            assert_eq!(batch_error.to_string(), expected_error);
         }
         assert!(!model_service.state(model).await.unwrap().running);
     }
