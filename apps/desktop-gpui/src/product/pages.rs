@@ -96,15 +96,6 @@ impl PreferencesView {
                         &colors,
                         cx,
                     ))
-                    .child(div().flex().child(controls::outline_button(
-                        "release-notes",
-                        "Show release notes",
-                        true,
-                        &colors,
-                        Some(Box::new(cx.listener(|_, _, _, cx| {
-                            cx.emit(super::OpenSettingsPage("changelog"))
-                        }))),
-                    )))
                     .when(macos, |view| {
                         view.child(self.switch_row(
                             "show_app_in_dock",
