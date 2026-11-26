@@ -32,6 +32,98 @@ Allow: /download
 Disallow: /product/
 Disallow: /press-kit
 
+# Explicit AI search and citation crawlers
+User-agent: OAI-SearchBot
+Allow: /
+Disallow: /_view/app/
+Disallow: /app/
+Disallow: /admin/
+Disallow: /auth
+Disallow: /_view/callback/
+Disallow: /api/
+Allow: /api/assets/
+Allow: /api/og/
+Disallow: /product/
+Disallow: /press-kit
+
+User-agent: ChatGPT-User
+Allow: /
+Disallow: /_view/app/
+Disallow: /app/
+Disallow: /admin/
+Disallow: /auth
+Disallow: /_view/callback/
+Disallow: /api/
+Allow: /api/assets/
+Allow: /api/og/
+Disallow: /product/
+Disallow: /press-kit
+
+User-agent: GPTBot
+Allow: /
+Disallow: /_view/app/
+Disallow: /app/
+Disallow: /admin/
+Disallow: /auth
+Disallow: /_view/callback/
+Disallow: /api/
+Allow: /api/assets/
+Allow: /api/og/
+Disallow: /product/
+Disallow: /press-kit
+
+User-agent: Claude-SearchBot
+Allow: /
+Disallow: /_view/app/
+Disallow: /app/
+Disallow: /admin/
+Disallow: /auth
+Disallow: /_view/callback/
+Disallow: /api/
+Allow: /api/assets/
+Allow: /api/og/
+Disallow: /product/
+Disallow: /press-kit
+
+User-agent: Claude-User
+Allow: /
+Disallow: /_view/app/
+Disallow: /app/
+Disallow: /admin/
+Disallow: /auth
+Disallow: /_view/callback/
+Disallow: /api/
+Allow: /api/assets/
+Allow: /api/og/
+Disallow: /product/
+Disallow: /press-kit
+
+User-agent: PerplexityBot
+Allow: /
+Disallow: /_view/app/
+Disallow: /app/
+Disallow: /admin/
+Disallow: /auth
+Disallow: /_view/callback/
+Disallow: /api/
+Allow: /api/assets/
+Allow: /api/og/
+Disallow: /product/
+Disallow: /press-kit
+
+User-agent: Perplexity-User
+Allow: /
+Disallow: /_view/app/
+Disallow: /app/
+Disallow: /admin/
+Disallow: /auth
+Disallow: /_view/callback/
+Disallow: /api/
+Allow: /api/assets/
+Allow: /api/og/
+Disallow: /product/
+Disallow: /press-kit
+
 # AI-specific content reference
 # AI crawlers can find detailed content at /llms.txt
 

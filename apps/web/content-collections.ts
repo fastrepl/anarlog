@@ -6,6 +6,8 @@ import rehypeSlug from "rehype-slug";
 import remarkGfm from "remark-gfm";
 import { z } from "zod";
 
+import { type BlogHeading, rehypeExtractH2Headings } from "./src/lib/blog-toc";
+
 const articleSchema = z.object({
   display_title: z.string().optional(),
   meta_title: z.string().default(""),
@@ -32,21 +34,40 @@ const articles = defineCollection({
   exclude: "AGENTS.md",
   schema: articleSchema,
   transform: async (document, context) => {
-    const mdx = await compileMDX(context, document, {
-      remarkPlugins: [remarkGfm, mdxMermaid],
-      rehypePlugins: [
-        rehypeSlug,
-        [
-          rehypeAutolinkHeadings,
+    const { mdx, headings } = await context.cache(
+      {
+        key: "article-mdx-with-h2-headings-v1",
+        content: document.content,
+        _meta: document._meta,
+      },
+      async () => {
+        const extractedHeadings: BlogHeading[] = [];
+        const compiledMdx = await compileMDX(
           {
-            behavior: "wrap",
-            properties: {
-              className: ["anchor"],
-            },
+            cache: async (input, compute) => compute(input),
           },
-        ],
-      ],
-    });
+          document,
+          {
+            remarkPlugins: [remarkGfm, mdxMermaid],
+            rehypePlugins: [
+              rehypeSlug,
+              () => rehypeExtractH2Headings(extractedHeadings),
+              [
+                rehypeAutolinkHeadings,
+                {
+                  behavior: "wrap",
+                  properties: {
+                    className: ["anchor"],
+                  },
+                },
+              ],
+            ],
+          },
+        );
+
+        return { mdx: compiledMdx, headings: extractedHeadings };
+      },
+    );
 
     const slug = document._meta.path.replace(/\.mdx$/, "");
 
@@ -57,6 +78,7 @@ const articles = defineCollection({
     return {
       ...document,
       mdx,
+      headings,
       slug,
       author,
       title,
