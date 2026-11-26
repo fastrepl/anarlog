@@ -1484,6 +1484,449 @@ async fn dont_save_startup_recovery_transcribes_every_chunk_page_before_deleting
 }
 
 #[tokio::test]
+async fn startup_recovery_accepts_shipping_float_started_at_markers() {
+    let fixture = Fixture::new().await;
+    let server = provider_fixture().await;
+    fixture
+        .setting("current_stt_provider", json!("deepgram"))
+        .await;
+    fixture.setting("current_stt_model", json!("nova-3")).await;
+    fixture.setting("spoken_languages", json!("[\"en\"]")).await;
+    fixture
+        .setting("ai_provider:stt:deepgram", json!({"base_url": server.url}))
+        .await;
+    let started_ms: i64 = 1_764_149_234_123;
+    fixture
+        .sql(
+            "UPDATE transcripts SET started_at_ms = ? WHERE id = ?",
+            vec![json!(started_ms), json!(fixture.transcript)],
+        )
+        .await;
+    let directory =
+        super::retention::session_directory(&fixture.directory, &fixture.session).unwrap();
+    let chunks = directory.join("audio-recovery");
+    std::fs::create_dir_all(&chunks).unwrap();
+    silent_chunk(&chunks.join(format!("{started_ms}-0-1000-0.mp3")));
+    // Shipping Tauri serializes `CaptureLifecycleMarker::started_at` and `version` via f64/JS
+    // numbers, which can persist as JSON floats (`1764149234123.0`) rather than integer tokens.
+    let marker = serde_json::json!({
+        "version": 1.0,
+        "sessionId": fixture.session,
+        "transcriptId": fixture.transcript,
+        "retainAudio": true,
+        "startedAt": 1_764_149_234_123.0_f64,
+        "inheritedCaptures": [
+            {"transcriptId": "inherited-prev", "startedAt": 1_764_149_200_000.0_f64}
+        ]
+    });
+    fixture
+        .setting(
+            &format!("capture_lifecycle_pending:{}", fixture.session.0),
+            marker,
+        )
+        .await;
+
+    let reports = super::recovery::recover_startup(
+        &fixture.runtime,
+        fixture.directory.clone(),
+        Activities::default(),
+        fixture.providers(&server.url).recovery_resolver(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(reports.len(), 1);
+    reports[0].result.as_ref().unwrap();
+
+    assert!(
+        fixture
+            .sql(
+                "SELECT id FROM app_settings WHERE id GLOB 'capture_lifecycle_pending:*'",
+                vec![],
+            )
+            .await
+            .is_empty()
+    );
+    let loaded = fixture
+        .store
+        .load(fixture.session.clone(), CancellationToken::new())
+        .unwrap()
+        .receive()
+        .await
+        .unwrap();
+    assert!(
+        loaded
+            .transcripts
+            .iter()
+            .any(|t| t.words.iter().any(|w| w.text.trim() == "résumé"))
+    );
+    fixture.close().await;
+}
+
+#[tokio::test]
+async fn startup_recovery_skips_malformed_marker_without_blocking_valid_captures() {
+    let fixture = Fixture::new().await;
+    let malformed_key = "capture_lifecycle_pending:0000-malformed-session";
+    fixture
+        .setting(
+            malformed_key,
+            json!({
+                "version": 1,
+                "sessionId": "0000-malformed-session",
+                "transcriptId": "bad-transcript",
+                "startedAt": "not-a-timestamp",
+            }),
+        )
+        .await;
+    fixture
+        .setting(
+            &format!("capture_lifecycle_pending:{}", fixture.session.0),
+            json!({
+                "version": 1,
+                "sessionId": fixture.session,
+                "transcriptId": fixture.transcript,
+                "retainAudio": true,
+                "startedAt": 1000,
+            }),
+        )
+        .await;
+    let resolver: super::recovery::RecoveryResolver =
+        Arc::new(|_, _| Box::pin(async { Err(super::model::failure("Unused offline resolver")) }));
+
+    let reports = super::recovery::recover_startup(
+        &fixture.runtime,
+        fixture.directory.clone(),
+        Activities::default(),
+        resolver,
+    )
+    .await
+    .unwrap();
+    assert_eq!(reports.len(), 1);
+    reports[0].result.as_ref().unwrap();
+
+    let remaining = fixture
+        .sql(
+            "SELECT id FROM app_settings WHERE id GLOB 'capture_lifecycle_pending:*'",
+            vec![],
+        )
+        .await;
+    assert_eq!(remaining.len(), 1);
+    assert_eq!(remaining[0]["id"], json!(malformed_key));
+    fixture.close().await;
+}
+
+#[tokio::test]
+async fn startup_recovery_creates_missing_legacy_transcript_for_speech_chunk_and_rejects_tombstoned()
+ {
+    let fixture = Fixture::new().await;
+    let server = provider_fixture().await;
+    fixture
+        .setting("current_stt_provider", json!("deepgram"))
+        .await;
+    fixture.setting("current_stt_model", json!("nova-3")).await;
+    fixture.setting("spoken_languages", json!("[\"en\"]")).await;
+    fixture
+        .setting("ai_provider:stt:deepgram", json!({"base_url": server.url}))
+        .await;
+
+    let directory =
+        super::retention::session_directory(&fixture.directory, &fixture.session).unwrap();
+    let chunks = directory.join("audio-recovery");
+    std::fs::create_dir_all(&chunks).unwrap();
+    std::fs::write(directory.join(".delete-audio-on-stop"), b"").unwrap();
+
+    let missing_transcript: Arc<str> = uuid::Uuid::new_v4().to_string().into();
+    let started_ms: i64 = 1_764_149_234_123;
+    silent_chunk(&chunks.join(format!("{started_ms}-0-1000-0.mp3")));
+    let key = format!("capture_lifecycle_pending:{}", fixture.session.0);
+    fixture
+        .setting(
+            &key,
+            json!({
+                "version": 1.0,
+                "sessionId": fixture.session,
+                "transcriptId": missing_transcript,
+                "retainAudio": false,
+                "startedAt": started_ms as f64,
+                "createdAt": "2026-11-26T00:00:00.000Z",
+                "provider": "deepgram",
+                "model": "nova-3",
+                "memo": "Recovered memo",
+            }),
+        )
+        .await;
+
+    let reports = super::recovery::recover_startup(
+        &fixture.runtime,
+        fixture.directory.clone(),
+        Activities::default(),
+        fixture.providers(&server.url).recovery_resolver(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(reports.len(), 1);
+    reports[0].result.as_ref().unwrap();
+
+    let created = fixture
+        .sql(
+            "SELECT ended_at_ms, provider, model, memo, created_at FROM transcripts WHERE id = ? AND session_id = ? AND deleted_at IS NULL",
+            vec![json!(missing_transcript), json!(fixture.session)],
+        )
+        .await;
+    assert_eq!(created.len(), 1);
+    assert!(created[0]["ended_at_ms"].as_i64().is_some());
+    assert_eq!(created[0]["provider"], json!("deepgram"));
+    assert_eq!(created[0]["model"], json!("nova-3"));
+    assert_eq!(created[0]["memo"], json!("Recovered memo"));
+    assert_eq!(created[0]["created_at"], json!("2026-11-26T00:00:00.000Z"));
+    let loaded = fixture
+        .store
+        .load(fixture.session.clone(), CancellationToken::new())
+        .unwrap()
+        .receive()
+        .await
+        .unwrap();
+    assert!(
+        loaded.transcripts.iter().any(
+            |t| t.id == missing_transcript && t.words.iter().any(|w| w.text.trim() == "résumé")
+        )
+    );
+    assert!(!chunks.exists());
+    assert!(
+        fixture
+            .sql(
+                "SELECT id FROM app_settings WHERE id GLOB 'capture_lifecycle_pending:*'",
+                vec![]
+            )
+            .await
+            .is_empty()
+    );
+
+    // Tombstoned transcript rows must not be resurrected, and discard cleans up without a row.
+    let deleted_transcript: Arc<str> = uuid::Uuid::new_v4().to_string().into();
+    fixture
+        .sql(
+            "INSERT INTO transcripts (id, session_id, started_at_ms, deleted_at) VALUES (?, ?, ?, '2026-11-26T01:00:00.000Z')",
+            vec![json!(deleted_transcript), json!(fixture.session), json!(started_ms)],
+        )
+        .await;
+    std::fs::create_dir_all(&chunks).unwrap();
+    silent_chunk(&chunks.join(format!("{started_ms}-0-1000-0.mp3")));
+    fixture
+        .setting(
+            &key,
+            json!({
+                "version": 1,
+                "sessionId": fixture.session,
+                "transcriptId": deleted_transcript,
+                "retainAudio": false,
+                "startedAt": started_ms,
+            }),
+        )
+        .await;
+    let tombstoned_reports = super::recovery::recover_startup(
+        &fixture.runtime,
+        fixture.directory.clone(),
+        Activities::default(),
+        fixture.providers(&server.url).recovery_resolver(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(tombstoned_reports.len(), 1);
+    assert!(tombstoned_reports[0].result.is_err());
+
+    let absent_transcript: Arc<str> = uuid::Uuid::new_v4().to_string().into();
+    fixture
+        .setting(
+            &key,
+            json!({
+                "version": 1,
+                "sessionId": fixture.session,
+                "transcriptId": absent_transcript,
+                "retainAudio": false,
+                "startedAt": started_ms,
+            }),
+        )
+        .await;
+    super::recovery::discard(
+        &fixture.runtime,
+        &fixture.directory,
+        fixture.session.clone(),
+        absent_transcript,
+        false,
+    )
+    .await
+    .unwrap();
+    assert!(!chunks.exists());
+    assert!(
+        fixture
+            .sql(
+                "SELECT id FROM app_settings WHERE id GLOB 'capture_lifecycle_pending:*'",
+                vec![]
+            )
+            .await
+            .is_empty()
+    );
+    fixture.close().await;
+}
+
+#[tokio::test]
+async fn startup_recovery_routes_inherited_chunks_and_does_not_block_newer_capture() {
+    let fixture = Fixture::new().await;
+    let server = provider_fixture().await;
+    fixture
+        .setting("current_stt_provider", json!("deepgram"))
+        .await;
+    fixture.setting("current_stt_model", json!("nova-3")).await;
+    fixture.setting("spoken_languages", json!("[\"en\"]")).await;
+    fixture
+        .setting("ai_provider:stt:deepgram", json!({"base_url": server.url}))
+        .await;
+
+    let directory =
+        super::retention::session_directory(&fixture.directory, &fixture.session).unwrap();
+    let chunks = directory.join("audio-recovery");
+    std::fs::create_dir_all(&chunks).unwrap();
+
+    let inherited_started: i64 = 1_764_149_100_000;
+    let primary_started: i64 = 1_764_149_200_000;
+    let deleted_inherited: Arc<str> = uuid::Uuid::new_v4().to_string().into();
+    fixture
+        .sql(
+            "INSERT INTO transcripts (id, session_id, started_at_ms, deleted_at) VALUES (?, ?, ?, '2026-11-26T01:00:00.000Z')",
+            vec![json!(deleted_inherited), json!(fixture.session), json!(inherited_started)],
+        )
+        .await;
+    fixture
+        .sql(
+            "UPDATE transcripts SET started_at_ms = ? WHERE id = ?",
+            vec![json!(primary_started), json!(fixture.transcript)],
+        )
+        .await;
+
+    let inherited_chunk = chunks.join(format!("{inherited_started}-0-1000-0.mp3"));
+    let primary_chunk = chunks.join(format!("{primary_started}-0-1000-0.mp3"));
+    silent_chunk(&inherited_chunk);
+    silent_chunk(&primary_chunk);
+    let key = format!("capture_lifecycle_pending:{}", fixture.session.0);
+    fixture
+        .setting(
+            &key,
+            json!({
+                "version": 1.0,
+                "sessionId": fixture.session,
+                "transcriptId": fixture.transcript,
+                "retainAudio": true,
+                "startedAt": primary_started as f64,
+                "inheritedCaptures": [
+                    {
+                        "transcriptId": deleted_inherited,
+                        "startedAt": inherited_started as f64,
+                    }
+                ],
+            }),
+        )
+        .await;
+
+    // Inherited repair failure must not prevent the newer recording's chunk from recovering.
+    let partial_reports = super::recovery::recover_startup(
+        &fixture.runtime,
+        fixture.directory.clone(),
+        Activities::default(),
+        fixture.providers(&server.url).recovery_resolver(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(partial_reports.len(), 1);
+    assert!(partial_reports[0].result.is_err());
+    assert!(inherited_chunk.exists());
+    assert!(!primary_chunk.exists());
+    let primary_snapshot = fixture
+        .store
+        .snapshot(fixture.transcript.clone())
+        .unwrap()
+        .receive()
+        .await
+        .unwrap();
+    assert!(
+        primary_snapshot
+            .words
+            .iter()
+            .any(|word| word.text.trim() == "résumé")
+    );
+    assert_eq!(
+        fixture
+            .sql(
+                "SELECT id FROM app_settings WHERE id GLOB 'capture_lifecycle_pending:*'",
+                vec![]
+            )
+            .await
+            .len(),
+        1
+    );
+
+    // When both inherited and newer targets are valid, both transcripts recover and finalize.
+    let valid_inherited: Arc<str> = uuid::Uuid::new_v4().to_string().into();
+    let second_primary_chunk = chunks.join(format!("{primary_started}-1000-2000-1000.mp3"));
+    silent_chunk(&second_primary_chunk);
+    fixture
+        .setting(
+            &key,
+            json!({
+                "version": 1.0,
+                "sessionId": fixture.session,
+                "transcriptId": fixture.transcript,
+                "retainAudio": true,
+                "startedAt": primary_started as f64,
+                "inheritedCaptures": [
+                    {
+                        "transcriptId": valid_inherited,
+                        "startedAt": inherited_started as f64,
+                        "provider": "deepgram",
+                        "model": "nova-3",
+                    }
+                ],
+            }),
+        )
+        .await;
+
+    let reports = super::recovery::recover_startup(
+        &fixture.runtime,
+        fixture.directory.clone(),
+        Activities::default(),
+        fixture.providers(&server.url).recovery_resolver(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(reports.len(), 1);
+    reports[0].result.as_ref().unwrap();
+    assert!(!inherited_chunk.exists());
+    assert!(!second_primary_chunk.exists());
+    let inherited_snapshot = fixture
+        .store
+        .snapshot(valid_inherited)
+        .unwrap()
+        .receive()
+        .await
+        .unwrap();
+    assert!(
+        inherited_snapshot
+            .words
+            .iter()
+            .any(|word| word.text.trim() == "résumé")
+    );
+    assert!(
+        fixture
+            .sql(
+                "SELECT id FROM app_settings WHERE id GLOB 'capture_lifecycle_pending:*'",
+                vec![]
+            )
+            .await
+            .is_empty()
+    );
+    fixture.close().await;
+}
+
+#[tokio::test]
 async fn retained_startup_recovery_keeps_unreadable_partial_audio_until_discarded() {
     let fixture = Fixture::new().await;
     let directory =
@@ -2204,4 +2647,104 @@ fn playback_centers_both_recording_channels_without_clipping() {
     let centered = super::playback::Centered(source);
     assert_eq!(anlg_audio_utils::Source::channels(&centered).get(), 1);
     assert_eq!(centered.collect::<Vec<_>>(), vec![0.5, 0.5, 0.5, 1.]);
+}
+
+#[test]
+fn resolve_chunk_target_prefers_started_capture_before_tolerance() {
+    let chunk = anlg_listener_core::actors::recorder::RecoveryAudioChunk {
+        id: "10001-0-1000-0.mp3".into(),
+        path: "10001-0-1000-0.mp3".into(),
+        capture_started_at: 10_001,
+        start_ms: 0,
+        end_ms: 1000,
+        audio_start_ms: 0,
+    };
+    let primary = super::recovery::CaptureTarget {
+        transcript: "primary".into(),
+        started: 20_000,
+        provider: String::new(),
+        model: String::new(),
+        memo: String::new(),
+        created_at: None,
+    };
+    let inherited = vec![
+        super::recovery::CaptureTarget {
+            transcript: "older".into(),
+            started: 10_000,
+            provider: String::new(),
+            model: String::new(),
+            memo: String::new(),
+            created_at: None,
+        },
+        super::recovery::CaptureTarget {
+            transcript: "newer".into(),
+            started: 10_004,
+            provider: String::new(),
+            model: String::new(),
+            memo: String::new(),
+            created_at: None,
+        },
+    ];
+    let target = super::recovery::resolve_chunk_target(&chunk, &primary, &inherited).unwrap();
+    assert_eq!(target.transcript.as_ref(), "older");
+}
+
+#[tokio::test]
+async fn startup_recovery_finalizes_already_repaired_inherited_transcript_on_retry() {
+    let fixture = Fixture::new().await;
+    let inherited_id: Arc<str> = uuid::Uuid::new_v4().to_string().into();
+    let other_missing_inherited: Arc<str> = uuid::Uuid::new_v4().to_string().into();
+    fixture
+        .sql(
+            "INSERT INTO transcripts (id, session_id, owner_user_id, workspace_id, source, provider, model, started_at_ms, memo, created_at) SELECT ?, id, owner_user_id, workspace_id, 'live_capture', '', '', 1000, '', '2026-11-26T00:00:00Z' FROM sessions WHERE id = ?",
+            vec![json!(inherited_id), json!(fixture.session)],
+        )
+        .await;
+    let key = format!("capture_lifecycle_pending:{}", fixture.session.0);
+    fixture
+        .setting(
+            &key,
+            json!({
+                "version": 1,
+                "sessionId": fixture.session,
+                "transcriptId": fixture.transcript,
+                "retainAudio": true,
+                "startedAt": 2000,
+                "inheritedCaptures": [
+                    { "transcriptId": inherited_id, "startedAt": 1000 },
+                    { "transcriptId": other_missing_inherited, "startedAt": 1500 },
+                ],
+            }),
+        )
+        .await;
+    let resolver: super::recovery::RecoveryResolver =
+        Arc::new(|_, _| Box::pin(async { Err(super::model::failure("unused")) }));
+    let reports = super::recovery::recover_startup(
+        &fixture.runtime,
+        fixture.directory.clone(),
+        Activities::default(),
+        resolver,
+    )
+    .await
+    .unwrap();
+    assert_eq!(reports.len(), 1);
+    reports[0].result.as_ref().unwrap();
+    let rows = fixture
+        .sql(
+            "SELECT ended_at_ms FROM transcripts WHERE id = ?",
+            vec![json!(inherited_id)],
+        )
+        .await;
+    assert_eq!(rows.len(), 1);
+    assert!(!rows[0]["ended_at_ms"].is_null());
+    assert!(
+        fixture
+            .sql(
+                "SELECT id FROM transcripts WHERE id = ?",
+                vec![json!(other_missing_inherited)],
+            )
+            .await
+            .is_empty()
+    );
+    fixture.close().await;
 }
