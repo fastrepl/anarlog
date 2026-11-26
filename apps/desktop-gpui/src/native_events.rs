@@ -359,25 +359,17 @@ impl NativeEvents {
         let sender = self.sender.clone();
         let (dictation, dictation_events) = crate::dictation::shortcut::channel();
         let dictation_route = crate::dictation::shortcut::router(dictation.clone());
-        let base = vec![
-            Shortcut {
-                id: "show".into(),
-                accelerator: "CommandOrControl+Shift+KeyH".into(),
-                active_during_capture_only: false,
-            },
-            Shortcut {
-                id: "record".into(),
-                accelerator: "CommandOrControl+Shift+KeyR".into(),
-                active_during_capture_only: false,
-            },
-        ];
+        let base = vec![Shortcut {
+            id: "record".into(),
+            accelerator: "CommandOrControl+Shift+KeyR".into(),
+            active_during_capture_only: false,
+        }];
         let shortcuts: Result<NativeShortcuts> = NativeShortcuts::new(move |id, pressed| {
             if dictation_route(&id, pressed) {
                 return;
             }
             if pressed {
                 let action = match id.as_ref() {
-                    "show" => NativeEvent::Action(TrayAction::Open),
                     "record" => NativeEvent::Action(TrayAction::StartMeeting),
                     _ => return,
                 };
