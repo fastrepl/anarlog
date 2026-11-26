@@ -261,11 +261,6 @@ impl LocalServices {
                             && op.action != Action::DeleteModel
                         {
                             op.disabled_reason = Some(reason.into());
-                        } else if matches!(&model,anlg_local_model::LocalModel::Soniqo(model) if !model.supports_live())
-                            && op.action == Action::StartModel
-                        {
-                            op.disabled_reason =
-                                Some("Batch model loads when transcribing an audio file".into());
                         }
                         actions.push(op);
                     }

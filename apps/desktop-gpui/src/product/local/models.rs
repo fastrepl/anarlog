@@ -309,6 +309,15 @@ impl ModelService {
         if !self.state(model.clone()).await?.installed {
             return Err(failure("Download the model before starting it"));
         }
+        // A batch-only Soniqo model never opens a live session. The listener resolves such
+        // a capture to batch transcription of the saved audio, and the model loads in
+        // process when that run starts, so returning the local endpoint here just marks
+        // this model as the active transcription choice.
+        if let LocalModel::Soniqo(native) = &model
+            && !native.supports_live()
+        {
+            return Ok(anlg_transcribe_soniqo::LOCAL_BASE_URL.into());
+        }
         let mut running = self.running.lock().await;
         let running = &mut running[model_slot(&model)];
         if let Some(current) = running.as_ref() {
