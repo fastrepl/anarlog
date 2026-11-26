@@ -376,16 +376,25 @@ impl ApplicationView {
             let activities = capture.activities.clone();
             let recovery_runtime = startup_runtime.clone();
             let resolver = native.providers.recovery_resolver();
-            let reports = startup_runtime
-                .service(move |_| async move {
-                    recovery::recover_startup(&recovery_runtime, vault, activities, resolver).await
-                })?
-                .receive()
-                .await?;
-            let interrupted = reports
-                .into_iter()
-                .filter(|report| report.result.is_err())
-                .collect::<Vec<_>>();
+            let recovery_result = match startup_runtime.service(move |_| async move {
+                recovery::recover_startup(&recovery_runtime, vault, activities, resolver).await
+            }) {
+                Ok(reply) => reply.receive().await,
+                Err(error) => Err(error),
+            };
+            let (interrupted, recovery_error) = match recovery_result {
+                Ok(reports) => (
+                    reports
+                        .into_iter()
+                        .filter(|report| report.result.is_err())
+                        .collect::<Vec<_>>(),
+                    None,
+                ),
+                Err(error) => {
+                    tracing::error!(%error, "interrupted capture recovery failed on startup");
+                    (Vec::new(), Some(error))
+                }
+            };
             let services = MeetingServices {
                 capture,
                 playback: Playback::spawn()?,
@@ -396,12 +405,12 @@ impl ApplicationView {
             let ai = native
                 .providers
                 .ai_services(Arc::new(move |session| capture.is_active(session)))?;
-            Ok((services, native, ai, interrupted))
+            Ok((services, native, ai, interrupted, recovery_error))
         });
         cx.spawn(async move |this, cx| {
             let result = startup.await;
             let _ = this.update(cx, |this, cx| match result {
-                Ok((services, native, ai, interrupted)) => {
+                Ok((services, native, ai, interrupted, recovery_error)) => {
                     cx.set_global(services.clone());
                     cx.set_global(ai);
                     cx.set_global(native.providers.clone());
@@ -458,6 +467,12 @@ impl ApplicationView {
                     this.start_lifecycle(cx);
                     this.watch_updates(cx);
                     this.open_onboarding_if_needed(cx);
+                    if let Some(error) = recovery_error {
+                        this.status(
+                            &format!("Interrupted recording recovery failed: {error}"),
+                            cx,
+                        );
+                    }
                     for capture in interrupted {
                         this.offer_discard(capture, vault.clone(), cx);
                     }
