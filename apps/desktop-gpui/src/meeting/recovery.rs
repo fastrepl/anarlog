@@ -36,13 +36,13 @@ enum TranscriptPresence {
     Missing,
 }
 
-struct CaptureTarget {
-    transcript: Arc<str>,
-    started: i64,
-    provider: String,
-    model: String,
-    memo: String,
-    created_at: Option<String>,
+pub(super) struct CaptureTarget {
+    pub(super) transcript: Arc<str>,
+    pub(super) started: i64,
+    pub(super) provider: String,
+    pub(super) model: String,
+    pub(super) memo: String,
+    pub(super) created_at: Option<String>,
 }
 
 struct ParsedMarker {
@@ -236,7 +236,7 @@ async fn ensure_transcript_ready(
     store.fold(target.transcript.clone())?.receive().await
 }
 
-fn resolve_chunk_target<'a>(
+pub(super) fn resolve_chunk_target<'a>(
     chunk: &RecoveryAudioChunk,
     primary: &'a CaptureTarget,
     inherited: &'a [CaptureTarget],
@@ -247,8 +247,14 @@ fn resolve_chunk_target<'a>(
     }
     inherited
         .iter()
-        .filter(|capture| capture_started >= capture.started.saturating_sub(5_000))
+        .filter(|capture| capture_started >= capture.started)
         .max_by_key(|capture| capture.started)
+        .or_else(|| {
+            inherited
+                .iter()
+                .filter(|capture| capture_started >= capture.started.saturating_sub(5_000))
+                .min_by_key(|capture| capture.started)
+        })
 }
 
 pub async fn recover_startup(
@@ -390,8 +396,11 @@ pub async fn recover_startup(
             }
             let extra_transcripts: Vec<Arc<str>> = prepared
                 .iter()
-                .filter(|id| *id != &primary.transcript)
                 .cloned()
+                .chain(inherited.iter().map(|target| target.transcript.clone()))
+                .filter(|id| id != &primary.transcript)
+                .collect::<HashSet<_>>()
+                .into_iter()
                 .collect();
             if !extra_transcripts.is_empty() {
                 let session = session.clone();

@@ -2648,3 +2648,103 @@ fn playback_centers_both_recording_channels_without_clipping() {
     assert_eq!(anlg_audio_utils::Source::channels(&centered).get(), 1);
     assert_eq!(centered.collect::<Vec<_>>(), vec![0.5, 0.5, 0.5, 1.]);
 }
+
+#[test]
+fn resolve_chunk_target_prefers_started_capture_before_tolerance() {
+    let chunk = anlg_listener_core::actors::recorder::RecoveryAudioChunk {
+        id: "10001-0-1000-0.mp3".into(),
+        path: "10001-0-1000-0.mp3".into(),
+        capture_started_at: 10_001,
+        start_ms: 0,
+        end_ms: 1000,
+        audio_start_ms: 0,
+    };
+    let primary = super::recovery::CaptureTarget {
+        transcript: "primary".into(),
+        started: 20_000,
+        provider: String::new(),
+        model: String::new(),
+        memo: String::new(),
+        created_at: None,
+    };
+    let inherited = vec![
+        super::recovery::CaptureTarget {
+            transcript: "older".into(),
+            started: 10_000,
+            provider: String::new(),
+            model: String::new(),
+            memo: String::new(),
+            created_at: None,
+        },
+        super::recovery::CaptureTarget {
+            transcript: "newer".into(),
+            started: 10_004,
+            provider: String::new(),
+            model: String::new(),
+            memo: String::new(),
+            created_at: None,
+        },
+    ];
+    let target = super::recovery::resolve_chunk_target(&chunk, &primary, &inherited).unwrap();
+    assert_eq!(target.transcript.as_ref(), "older");
+}
+
+#[tokio::test]
+async fn startup_recovery_finalizes_already_repaired_inherited_transcript_on_retry() {
+    let fixture = Fixture::new().await;
+    let inherited_id: Arc<str> = uuid::Uuid::new_v4().to_string().into();
+    let other_missing_inherited: Arc<str> = uuid::Uuid::new_v4().to_string().into();
+    fixture
+        .sql(
+            "INSERT INTO transcripts (id, session_id, owner_user_id, workspace_id, source, provider, model, started_at_ms, memo, created_at) SELECT ?, id, owner_user_id, workspace_id, 'live_capture', '', '', 1000, '', '2026-11-26T00:00:00Z' FROM sessions WHERE id = ?",
+            vec![json!(inherited_id), json!(fixture.session)],
+        )
+        .await;
+    let key = format!("capture_lifecycle_pending:{}", fixture.session.0);
+    fixture
+        .setting(
+            &key,
+            json!({
+                "version": 1,
+                "sessionId": fixture.session,
+                "transcriptId": fixture.transcript,
+                "retainAudio": true,
+                "startedAt": 2000,
+                "inheritedCaptures": [
+                    { "transcriptId": inherited_id, "startedAt": 1000 },
+                    { "transcriptId": other_missing_inherited, "startedAt": 1500 },
+                ],
+            }),
+        )
+        .await;
+    let resolver: super::recovery::RecoveryResolver =
+        Arc::new(|_, _| Box::pin(async { Err(super::model::failure("unused")) }));
+    let reports = super::recovery::recover_startup(
+        &fixture.runtime,
+        fixture.directory.clone(),
+        Activities::default(),
+        resolver,
+    )
+    .await
+    .unwrap();
+    assert_eq!(reports.len(), 1);
+    reports[0].result.as_ref().unwrap();
+    let rows = fixture
+        .sql(
+            "SELECT ended_at_ms FROM transcripts WHERE id = ?",
+            vec![json!(inherited_id)],
+        )
+        .await;
+    assert_eq!(rows.len(), 1);
+    assert!(!rows[0]["ended_at_ms"].is_null());
+    assert!(
+        fixture
+            .sql(
+                "SELECT id FROM transcripts WHERE id = ?",
+                vec![json!(other_missing_inherited)],
+            )
+            .await
+            .is_empty()
+    );
+    fixture.close().await;
+}
