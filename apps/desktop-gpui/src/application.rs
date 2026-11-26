@@ -348,13 +348,13 @@ impl ApplicationView {
             let activities = capture.activities.clone();
             let recovery_runtime = startup_runtime.clone();
             let resolver = native.providers.recovery_resolver();
-            let (interrupted, recovery_error) = match startup_runtime
-                .service(move |_| async move {
-                    recovery::recover_startup(&recovery_runtime, vault, activities, resolver).await
-                })?
-                .receive()
-                .await
-            {
+            let recovery_result = match startup_runtime.service(move |_| async move {
+                recovery::recover_startup(&recovery_runtime, vault, activities, resolver).await
+            }) {
+                Ok(reply) => reply.receive().await,
+                Err(error) => Err(error),
+            };
+            let (interrupted, recovery_error) = match recovery_result {
                 Ok(reports) => (
                     reports
                         .into_iter()
