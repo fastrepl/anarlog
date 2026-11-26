@@ -201,14 +201,14 @@ impl Action {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Field {
     pub id: Arc<str>,
     pub label: Arc<str>,
     pub value: Arc<str>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Operation {
     pub id: Arc<str>,
     pub label: Arc<str>,
@@ -218,14 +218,14 @@ pub struct Operation {
     pub confirmation: Option<Arc<str>>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Row {
     pub id: Arc<str>,
     pub title: Arc<str>,
     pub detail: Arc<str>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Panel {
     pub scope: Scope,
     pub status: Arc<str>,
