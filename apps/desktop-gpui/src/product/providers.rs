@@ -603,10 +603,14 @@ impl ProviderView {
     }
 
     fn restore(&mut self, cx: &mut Context<Self>) {
+        self.restore_choice(cx);
+        self.restore_card(cx);
+    }
+
+    fn restore_choice(&mut self, cx: &mut Context<Self>) {
         let model = self.current("model");
         self.draft = None;
         self.model.update(cx, |input, cx| input.set_text(model, cx));
-        self.restore_card(cx);
         self.dirty_choice = false;
     }
 
@@ -740,17 +744,17 @@ impl ProviderView {
         &self,
         provider: &str,
         cx: &gpui::App,
-    ) -> Vec<(&'static str, &'static str, Option<&'static str>)> {
+    ) -> Vec<(&'static str, &'static str, Option<SharedString>)> {
         match self.kind {
             ProviderKind::Stt => provider_catalog::stt_models(provider)
                 .iter()
                 .map(|id| {
                     let disabled_reason = if *id == "cloud" && !super::account::is_paid(cx) {
-                        Some("Upgrade to use")
+                        Some(SharedString::from("Upgrade to use"))
                     } else if is_local_stt_provider(self.kind, provider)
                         && !self.is_local_model_installed(id)
                     {
-                        Some("Download in Manage local models")
+                        Some(SharedString::from("Download in Manage local models"))
                     } else {
                         None
                     };
@@ -764,7 +768,10 @@ impl ProviderView {
             ProviderKind::Llm if provider == "apple_foundation" => vec![(
                 provider_catalog::APPLE_FOUNDATION_MODEL,
                 provider_catalog::APPLE_FOUNDATION_MODEL,
-                None,
+                self.on_device
+                    .as_ref()
+                    .and_then(|status| status.apple_foundation_unavailable.clone())
+                    .map(SharedString::from),
             )],
             ProviderKind::Llm => Vec::new(),
         }
@@ -810,7 +817,7 @@ impl ProviderView {
             && let Some(reason) = self.provider_unavailable_reason(self.kind, info)
         {
             self.status = reason;
-            self.restore(cx);
+            self.restore_choice(cx);
             cx.notify();
             return;
         }
@@ -818,7 +825,7 @@ impl ProviderView {
             && !self.is_local_model_installed(model.trim())
         {
             self.status = "Download this model in Manage local models before selecting it.".into();
-            self.restore(cx);
+            self.restore_choice(cx);
             cx.notify();
             return;
         }
@@ -1220,7 +1227,7 @@ impl ProviderView {
                         controls::menu_item(
                             SharedString::from(format!("model-{model}")),
                             label,
-                            disabled_reason.map(Into::into),
+                            disabled_reason,
                             Some(model) == selected.map(|(id, _)| id),
                             colors,
                         )
@@ -1741,6 +1748,49 @@ mod tests {
         view.read_with(cx, |view, cx| {
             assert_eq!(view.secret.read(cx).buffer.text, "typed-key");
             assert!(view.has_unsaved(cx));
+        });
+        fixture.shutdown();
+    }
+
+    #[gpui::test]
+    fn rejected_model_choice_keeps_unsaved_provider_card_drafts(cx: &mut TestAppContext) {
+        let fixture = fixture(cx);
+        fixture.set_on_device(
+            crate::meeting::config::OnDeviceStatus {
+                soniqo_available: true,
+                apple_speech_available: true,
+                installed_stt_models: Default::default(),
+                apple_foundation_unavailable: Some(
+                    "Enable Apple Intelligence in System Settings.".into(),
+                ),
+            },
+            cx,
+        );
+        let view = fixture.view.clone();
+        view.update(cx, |view, cx| {
+            view.select_kind(ProviderKind::Llm, cx);
+            view.expanded = Some("openai");
+            view.secret.update(cx, |input, cx| {
+                input.set_text("unsaved-openai-key".into(), cx);
+                cx.emit(InputEvent::Changed);
+            });
+            view.dirty_card = true;
+            view.draft = Some("apple_foundation");
+            view.model.update(cx, |input, cx| {
+                input.set_text(provider_catalog::APPLE_FOUNDATION_MODEL.into(), cx);
+            });
+            view.save_choice(cx);
+        });
+        fixture.settle(cx);
+        view.read_with(cx, |view, cx| {
+            assert_eq!(view.secret.read(cx).buffer.text, "unsaved-openai-key");
+            assert!(view.dirty_card);
+            assert!(view.has_unsaved(cx));
+            assert!(
+                view.status.contains("Enable Apple Intelligence"),
+                "{}",
+                view.status
+            );
         });
         fixture.shutdown();
     }

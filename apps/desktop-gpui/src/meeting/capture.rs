@@ -647,6 +647,20 @@ impl CaptureService {
         Ok(receive)
     }
 
+    pub fn active_probe(&self) -> Arc<dyn Fn() -> bool + Send + Sync> {
+        let state = self.state.clone();
+        Arc::new(move || {
+            let Ok(state) = state.lock() else {
+                // Treat a poisoned lock conservatively as active so destructive model actions stay blocked.
+                return true;
+            };
+            matches!(
+                state.phase,
+                Phase::Loading | Phase::Listening | Phase::Finalizing
+            )
+        })
+    }
+
     pub fn is_active(&self, session: &SessionId) -> bool {
         let state = self
             .state

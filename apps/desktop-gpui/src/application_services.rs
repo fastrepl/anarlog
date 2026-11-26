@@ -17,7 +17,6 @@ use crate::{
     launch::Storage,
     meeting::{
         MeetingServices,
-        capture::Phase,
         config::{CloudAccess, ProviderServices},
     },
     platform::permissions::NativePermissions,
@@ -50,7 +49,7 @@ pub enum HostCommand {
 pub struct Effects {
     sender: mpsc::Sender<HostCommand>,
     runtime: RuntimeHandle,
-    capture: Mutex<Option<MeetingServices>>,
+    capture: Mutex<Option<Arc<dyn Fn() -> bool + Send + Sync>>>,
 }
 
 impl Effects {
@@ -66,8 +65,9 @@ impl Effects {
         )
     }
 
-    pub fn attach(&self, services: MeetingServices) {
-        *self.capture.lock().unwrap_or_else(|e| e.into_inner()) = Some(services);
+    pub fn attach(&self, services: &MeetingServices) {
+        *self.capture.lock().unwrap_or_else(|e| e.into_inner()) =
+            Some(services.capture.active_probe());
     }
 
     pub fn is_capturing(&self) -> bool {
@@ -75,12 +75,7 @@ impl Effects {
             // Treat a poisoned lock conservatively as active so destructive model actions stay blocked.
             return true;
         };
-        capture.as_ref().is_some_and(|s| {
-            matches!(
-                s.capture.take_update(u64::MAX).phase,
-                Phase::Loading | Phase::Listening | Phase::Finalizing
-            )
-        })
+        capture.as_ref().is_some_and(|probe| probe())
     }
 
     fn idle(&self) -> Result<()> {
@@ -268,7 +263,7 @@ impl NativeServices {
             .or_else(|| std::env::var_os("USERPROFILE"))
             .map(PathBuf::from)
             .ok_or_else(|| failure("No home directory configured"))?;
-        let capture_effects = effects.clone();
+        let capture_effects = Arc::downgrade(&effects);
         let models = Arc::new(
             ModelService::new(
                 profile.join("models"),
@@ -278,7 +273,11 @@ impl NativeServices {
                     argmax_api_key: std::env::var("ARGMAX_API_KEY").unwrap_or_default(),
                 },
             )
-            .with_capture_active(Arc::new(move || capture_effects.is_capturing())),
+            .with_capture_active(Arc::new(move || {
+                capture_effects
+                    .upgrade()
+                    .is_some_and(|effects| effects.is_capturing())
+            })),
         );
         let model_runtime = runtime.clone();
         let model_service = models.clone();

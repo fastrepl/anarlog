@@ -2958,32 +2958,44 @@ async fn on_device_and_cloud_stt_and_llm_providers_resolve_across_modes() {
             .setting("current_stt_provider", json!(provider))
             .await;
         fixture.setting("current_stt_model", json!(model_id)).await;
-        match services.capture(fixture.session.clone()).await {
-            Ok(config) => assert_eq!(config.params.base_url, expected_url),
-            Err(error) => {
-                let message = error.to_string();
-                assert!(
-                    !message.contains("realtime transcription")
-                        && !message.contains("Unknown or unsupported model"),
-                    "unexpected local capture error for {model_id}: {message}"
-                );
-            }
-        }
-        match services
-            .batch(fixture.session.clone(), PathBuf::from("meeting.wav"))
-            .await
-        {
-            Ok(params) => assert_eq!(params.base_url, expected_url),
-            Err(error) => {
-                let message = error.to_string();
-                assert!(
-                    !message.contains("realtime transcription")
-                        && !message.contains("Unknown or unsupported model"),
-                    "unexpected local batch error for {model_id}: {message}"
-                );
-            }
-        }
         let model = crate::product::local::models::ModelService::resolve(model_id).unwrap();
+        let state = model_service.state(model.clone()).await.unwrap();
+        if state.installed {
+            let config = services.capture(fixture.session.clone()).await.unwrap();
+            assert_eq!(config.params.base_url, expected_url);
+            let params = services
+                .batch(fixture.session.clone(), PathBuf::from("meeting.wav"))
+                .await
+                .unwrap();
+            assert_eq!(params.base_url, expected_url);
+        } else {
+            let not_downloaded = "Download the model in Manage local models before starting it";
+            let Err(capture_error) = services.capture(fixture.session.clone()).await else {
+                panic!("expected local capture error for uninstalled {model_id}");
+            };
+            let capture_error = capture_error.to_string();
+            assert!(
+                capture_error == not_downloaded
+                    || state
+                        .unavailable
+                        .is_some_and(|reason| capture_error == reason),
+                "unexpected capture error for {model_id}: {capture_error}"
+            );
+            let Err(batch_error) = services
+                .batch(fixture.session.clone(), PathBuf::from("meeting.wav"))
+                .await
+            else {
+                panic!("expected local batch error for uninstalled {model_id}");
+            };
+            let batch_error = batch_error.to_string();
+            assert!(
+                batch_error == not_downloaded
+                    || state
+                        .unavailable
+                        .is_some_and(|reason| batch_error == reason),
+                "unexpected batch error for {model_id}: {batch_error}"
+            );
+        }
         assert!(!model_service.state(model).await.unwrap().running);
     }
     fixture.close().await;

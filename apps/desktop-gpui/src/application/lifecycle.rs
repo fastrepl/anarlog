@@ -2991,8 +2991,20 @@ mod tests {
                             .bind(crate::product::onboarding::NEEDED_KEY)
                             .execute(services.db.pool())
                             .await
-                            .map(|_| ())
-                            .map_err(|error| ServiceError::Failed(error.to_string().into()))
+                            .map_err(|error| ServiceError::Failed(error.to_string().into()))?;
+                        let pinned = crate::workspace::pins::encode(&[
+                            crate::workspace::navigation::Route::settings("general"),
+                            crate::workspace::navigation::Route::Calendar,
+                        ])
+                        .map_err(|error| ServiceError::Failed(error.to_string().into()))?;
+                        sqlx::query(
+                            "INSERT INTO app_settings (id, value_json) VALUES ('gpui_pinned_tabs', ?)",
+                        )
+                        .bind(pinned)
+                        .execute(services.db.pool())
+                        .await
+                        .map(|_| ())
+                        .map_err(|error| ServiceError::Failed(error.to_string().into()))
                     })
                     .unwrap()
                     .receive(),
@@ -3046,12 +3058,17 @@ mod tests {
                 cx.executor().advance_clock(Duration::from_millis(5));
                 cx.read(|cx| {
                     let app = app.read(cx);
-                    app.native_ready() && app.product.is_some()
+                    app.pins_revision.is_some() && app.native_ready() && app.product.is_some()
                 })
             });
             cx.read(|cx| {
-                let product = app.read(cx).product.as_ref().unwrap().read(cx);
+                let app = app.read(cx);
+                let product = app.product.as_ref().unwrap().read(cx);
                 assert_eq!(product.active_section(), "transcription");
+                assert_eq!(
+                    app.workspace.read(cx).current_route(),
+                    crate::workspace::navigation::Route::settings("transcription")
+                );
             });
             let _ = cx
                 .update(|cx| cx.update_window(main_window, |_, window, _| window.remove_window()));
@@ -3112,6 +3129,49 @@ mod tests {
             cx.run_until_parked();
             cx.read(|cx| {
                 assert!(app.read(cx).product.is_none());
+            });
+            let _ = cx
+                .update(|cx| cx.update_window(main_window, |_, window, _| window.remove_window()));
+            let _ = futures::executor::block_on(runtime.shutdown());
+        }
+
+        // Case 3: tray-origin Settings requested from Route::Empty cancels if the user navigates away.
+        {
+            let _quit_guard = QUIT_TEST_LOCK
+                .lock()
+                .unwrap_or_else(|error| error.into_inner());
+            let (_profile, runtime, window, app) = start_app(cx);
+            let main_window: gpui::AnyWindowHandle = window.into();
+            let _ = cx.update(|cx| {
+                cx.update_window(main_window, |_, window, cx| {
+                    app.update(cx, |app, cx| {
+                        assert!(!app.native_ready());
+                        app.open_product(crate::contracts::ProductRoute::Settings, window, cx);
+                        assert!(app.pending_product.is_some());
+                        app.workspace.update(cx, |workspace, cx| {
+                            workspace.open_route(
+                                crate::workspace::navigation::Route::Calendar,
+                                false,
+                                cx,
+                            );
+                        });
+                    });
+                })
+            });
+            cx.read(|cx| {
+                assert!(app.read(cx).pending_product.is_none());
+            });
+            wait_until(cx, |cx| {
+                cx.executor().advance_clock(Duration::from_millis(5));
+                cx.read(|cx| app.read(cx).native_ready())
+            });
+            cx.run_until_parked();
+            cx.read(|cx| {
+                assert!(app.read(cx).product.is_none());
+                assert_eq!(
+                    app.read(cx).workspace.read(cx).current_route(),
+                    crate::workspace::navigation::Route::Calendar
+                );
             });
             let _ = cx
                 .update(|cx| cx.update_window(main_window, |_, window, _| window.remove_window()));
