@@ -763,7 +763,7 @@ impl ProviderView {
         self.remembered
             .get(&(self.kind, provider.to_owned()))
             .filter(|(model, from_catalog)| {
-                !*from_catalog
+                (!*from_catalog && !is_local_stt_provider(self.kind, provider))
                     || allow_unlisted
                     || models
                         .iter()
@@ -2499,6 +2499,11 @@ mod tests {
         fixture.settle(cx);
 
         fixture.view.update(cx, |view, cx| {
+            let has_stale = |view: &ProviderView, cx: &gpui::App| {
+                view.models("openai", cx)
+                    .iter()
+                    .any(|(id, ..)| id == "stale-model")
+            };
             let row_one = json!({
                 "type": "llm",
                 "base_url": "https://one.example/v1",
@@ -2526,16 +2531,11 @@ mod tests {
                 },
             );
 
-            // Forced refresh for the exact same configuration keeps existing models visible.
+            // Forced refresh for the exact same configuration keeps existing models visible in the picker.
             view.ensure_models("openai".into(), true, cx);
-            let slot = view
-                .fetched_models
-                .get(&(ProviderKind::Llm, "openai".into()))
-                .unwrap();
-            assert!(slot.loading);
-            assert_eq!(slot.models.len(), 1);
+            assert!(has_stale(view, cx));
 
-            // Changing the base URL hides the previous endpoint's models while loading.
+            // Changing the base URL hides the previous endpoint's models from the picker while loading.
             let row_two = json!({
                 "type": "llm",
                 "base_url": "https://two.example/v1",
@@ -2550,14 +2550,70 @@ mod tests {
                     .insert("ai_provider:llm:openai".into(), row_two);
             }
             view.ensure_models("openai".into(), false, cx);
-            let slot = view
-                .fetched_models
-                .get(&(ProviderKind::Llm, "openai".into()))
-                .unwrap();
-            assert!(slot.loading);
-            assert!(!slot.loaded);
-            assert!(slot.models.is_empty());
+            assert!(!has_stale(view, cx));
         });
+        fixture.shutdown();
+    }
+
+    #[gpui::test]
+    fn deleted_restored_soniqo_model_falls_back_to_installed_model(cx: &mut TestAppContext) {
+        let fixture = fixture(cx);
+        fixture.set_on_device(
+            crate::meeting::config::OnDeviceStatus {
+                soniqo_available: true,
+                apple_speech_available: true,
+                installed_stt_models: [
+                    "soniqo-parakeet-streaming".to_owned(),
+                    "soniqo-parakeet-batch".to_owned(),
+                ]
+                .into_iter()
+                .collect(),
+                apple_foundation_unavailable: None,
+            },
+            cx,
+        );
+        // Restore Soniqo from persisted settings so it lacks catalog provenance.
+        futures::executor::block_on(
+            fixture
+                .runtime
+                .submit(|services| async move {
+                    services
+                        .executor
+                        .execute_transaction(vec![TransactionStatement {
+                            sql: "INSERT OR REPLACE INTO app_settings (id, value_json)
+                                  VALUES ('current_stt_provider', '\"soniqo\"'),
+                                         ('current_stt_model', '\"soniqo-parakeet-streaming\"')"
+                                .into(),
+                            params: vec![],
+                            expected_rows_affected: None,
+                        }])
+                        .await
+                        .map_err(failure)?;
+                    Ok(())
+                })
+                .unwrap()
+                .receive(),
+        )
+        .unwrap();
+        fixture.view.update(cx, |view, cx| view.refresh(cx));
+        fixture.settle(cx);
+
+        fixture.pick("deepgram", cx);
+        fixture.set_on_device(
+            crate::meeting::config::OnDeviceStatus {
+                soniqo_available: true,
+                apple_speech_available: true,
+                installed_stt_models: ["soniqo-parakeet-batch".to_owned()].into_iter().collect(),
+                apple_foundation_unavailable: None,
+            },
+            cx,
+        );
+        fixture.pick("soniqo", cx);
+        assert_eq!(fixture.setting("current_stt_provider").unwrap(), "soniqo");
+        assert_eq!(
+            fixture.setting("current_stt_model").unwrap(),
+            "soniqo-parakeet-batch"
+        );
         fixture.shutdown();
     }
 
