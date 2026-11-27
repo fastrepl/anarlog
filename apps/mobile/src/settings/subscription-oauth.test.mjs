@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createRequire } from "node:module";
 import { test } from "node:test";
 
 import {
@@ -7,6 +8,13 @@ import {
   refreshSubscriptionCredential,
   startSubscriptionConnect,
 } from "./subscription-oauth.ts";
+
+const rnRequire = createRequire(
+  createRequire(import.meta.url).resolve("react-native/package.json"),
+);
+globalThis.AbortController = rnRequire(
+  "abort-controller/dist/abort-controller",
+).AbortController;
 
 test("Claude authorization binds the pasted code to its PKCE session and preserves a refresh token when rotation omits it", async () => {
   const fetcher = async (url, init) => {

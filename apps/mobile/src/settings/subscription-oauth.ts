@@ -1,3 +1,4 @@
+import { throwIfAborted } from "../lib/abort.ts";
 import {
   CHATGPT_DEVICE_URL,
   listChatgptModels,
@@ -140,7 +141,7 @@ export async function startSubscriptionConnect(
   signal?: AbortSignal,
   pkce?: { verifier: string; challenge: string; state: string },
 ): Promise<SubscriptionSession> {
-  signal?.throwIfAborted();
+  throwIfAborted(signal);
   if (provider === "claude") {
     if (!pkce) throw new Error("Start Claude sign-in again.");
     const params = new URLSearchParams({
@@ -316,7 +317,7 @@ export async function pollSubscriptionConnect(
   fetcher: typeof fetch,
   signal?: AbortSignal,
 ): Promise<SubscriptionCredential | null> {
-  signal?.throwIfAborted();
+  throwIfAborted(signal);
   if (Date.now() >= session.expires)
     throw new Error("This sign-in code expired. Start again.");
   if (Date.now() < session.notBefore) return null;
