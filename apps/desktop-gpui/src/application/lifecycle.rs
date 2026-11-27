@@ -3280,17 +3280,21 @@ mod tests {
             });
         });
         cx.run_until_parked();
-        let expanded_bounds = cx.update(|cx| {
+        let (expanded_bounds, expected_display_id) = cx.update(|cx| {
             let expanded = fixture
                 .app_entity
                 .read(cx)
                 .meeting_host
                 .floating_expanded(cx);
             assert_eq!(expanded, Some(true));
-            fixture
+            let bounds = fixture
                 .app_entity
                 .update(cx, |app, cx| app.meeting_host.floating_bounds(cx))
-                .expect("floating bounds while open")
+                .expect("floating bounds while open");
+            let display_id = fixture
+                .app_entity
+                .update(cx, |app, cx| app.meeting_host.floating_display_id(cx));
+            (bounds, display_id)
         });
 
         activate(fixture.main_window, cx);
@@ -3316,7 +3320,41 @@ mod tests {
             let bounds = fixture
                 .app_entity
                 .update(cx, |app, cx| app.meeting_host.floating_bounds(cx));
+            let display_id = fixture
+                .app_entity
+                .update(cx, |app, cx| app.meeting_host.floating_display_id(cx));
             assert_eq!(bounds, Some(expanded_bounds));
+            assert_eq!(display_id, expected_display_id);
+        });
+
+        activate(fixture.main_window, cx);
+        cx.update(|cx| {
+            let session = fixture.session_id.clone();
+            fixture.app_entity.update(cx, |app, _| {
+                app.meeting_host.save_floating_for_test(
+                    session,
+                    Some(gpui::DisplayId::new(u64::MAX)),
+                    gpui::point(gpui::px(9999.), gpui::px(9999.)),
+                    true,
+                );
+            });
+        });
+
+        activate(fixture.detached_window, cx);
+        cx.update(|cx| {
+            let bounds = fixture
+                .app_entity
+                .update(cx, |app, cx| app.meeting_host.floating_bounds(cx))
+                .expect("reopened on default display");
+            assert_ne!(bounds.origin, gpui::point(gpui::px(9999.), gpui::px(9999.)));
+            assert_eq!(
+                fixture
+                    .app_entity
+                    .read(cx)
+                    .meeting_host
+                    .floating_expanded(cx),
+                Some(true)
+            );
         });
 
         activate(fixture.main_window, cx);
@@ -3333,21 +3371,7 @@ mod tests {
             });
         });
         cx.run_until_parked();
-        cx.update(|cx| {
-            let (open, expanded) = {
-                let app = fixture.app_entity.read(cx);
-                (
-                    app.meeting_host.floating_open(),
-                    app.meeting_host.floating_expanded(cx),
-                )
-            };
-            assert!(open);
-            assert_eq!(expanded, Some(true));
-            let bounds = fixture
-                .app_entity
-                .update(cx, |app, cx| app.meeting_host.floating_bounds(cx));
-            assert_eq!(bounds, Some(expanded_bounds));
-        });
+        cx.read(|cx| assert!(fixture.app_entity.read(cx).meeting_host.floating_open()));
 
         activate(fixture.main_window, cx);
         cx.read(|cx| {

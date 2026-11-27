@@ -4,8 +4,8 @@
 
 use desktop_runtime::{Result, ServiceError, SessionId};
 use gpui::{
-    App, AppContext, Bounds, Entity, Pixels, Point, Subscription, WindowBackgroundAppearance,
-    WindowBounds, WindowHandle, WindowKind, WindowOptions, point, px,
+    App, AppContext, Bounds, DisplayId, Entity, Pixels, Point, Subscription,
+    WindowBackgroundAppearance, WindowBounds, WindowHandle, WindowKind, WindowOptions, point, px,
 };
 use tokio::sync::oneshot;
 
@@ -18,6 +18,7 @@ type Reply = oneshot::Receiver<Result<()>>;
 
 struct SavedFloating {
     session: SessionId,
+    display_id: Option<DisplayId>,
     origin: Point<Pixels>,
     expanded: bool,
 }
@@ -112,6 +113,32 @@ impl MeetingHost {
     }
 
     #[cfg(test)]
+    pub(crate) fn floating_display_id(&self, cx: &mut App) -> Option<DisplayId> {
+        self.floating.as_ref().and_then(|(handle, _)| {
+            handle
+                .update(cx, |_, window, cx| window.display(cx).map(|d| d.id()))
+                .ok()
+                .flatten()
+        })
+    }
+
+    #[cfg(test)]
+    pub(crate) fn save_floating_for_test(
+        &mut self,
+        session: SessionId,
+        display_id: Option<DisplayId>,
+        origin: Point<Pixels>,
+        expanded: bool,
+    ) {
+        self.saved_floating = Some(SavedFloating {
+            session,
+            display_id,
+            origin,
+            expanded,
+        });
+    }
+
+    #[cfg(test)]
     pub(crate) fn set_floating_expanded(&self, expanded: bool, cx: &mut App) {
         if let Some((handle, _)) = &self.floating {
             let _ = handle.update(cx, |bar, _, cx| bar.set_expanded(expanded, cx));
@@ -152,24 +179,35 @@ impl MeetingHost {
                     saved.as_ref().is_some_and(|saved| saved.expanded) && shows_expand(live);
                 let size =
                     crate::zoom::window_size(container_size(expanded, shows_expand(live)), cx);
-                let bounds = saved
-                    .map(|saved| Bounds::new(saved.origin, size))
-                    .unwrap_or_else(|| match cx.primary_display() {
-                        // Bottom center of the visible screen, 8px above its edge.
-                        Some(display) => {
-                            let visible = display.visible_bounds();
-                            Bounds::new(
-                                point(
-                                    visible.center().x - size.width / 2.,
-                                    visible.bottom() - size.height - px(8.),
-                                ),
-                                size,
-                            )
-                        }
-                        None => Bounds::centered(None, size, cx),
-                    });
+                let saved_placement = saved.filter(|saved| {
+                    saved
+                        .display_id
+                        .is_none_or(|id| cx.find_display(id).is_some())
+                });
+                let (bounds, display_id) = match saved_placement {
+                    Some(saved) => (Bounds::new(saved.origin, size), saved.display_id),
+                    None => {
+                        let primary = cx.primary_display();
+                        let bounds = match &primary {
+                            // Bottom center of the visible screen, 8px above its edge.
+                            Some(display) => {
+                                let visible = display.visible_bounds();
+                                Bounds::new(
+                                    point(
+                                        visible.center().x - size.width / 2.,
+                                        visible.bottom() - size.height - px(8.),
+                                    ),
+                                    size,
+                                )
+                            }
+                            None => Bounds::centered(None, size, cx),
+                        };
+                        (bounds, primary.map(|display| display.id()))
+                    }
+                };
                 let options = WindowOptions {
                     window_bounds: Some(WindowBounds::Windowed(bounds)),
+                    display_id,
                     titlebar: None,
                     focus: false,
                     // On macOS, GPUI orders the window front during `open_window` before the root
@@ -215,16 +253,20 @@ impl MeetingHost {
             (Some(_), None, _) => {
                 if let Some((handle, _)) = self.floating.take() {
                     let saved = handle
-                        .update(cx, |bar, window, _| {
+                        .update(cx, |bar, window, cx| {
+                            let display_id = window.display(cx).map(|display| display.id());
                             let origin = window.bounds().origin;
                             let expanded = bar.expanded();
                             window.remove_window();
-                            (origin, expanded)
+                            (display_id, origin, expanded)
                         })
                         .ok();
-                    if let (Some(live), Some((origin, expanded))) = (live.as_ref(), saved) {
+                    if let (Some(live), Some((display_id, origin, expanded))) =
+                        (live.as_ref(), saved)
+                    {
                         self.saved_floating = Some(SavedFloating {
                             session: live.session.clone(),
+                            display_id,
                             origin,
                             expanded,
                         });
