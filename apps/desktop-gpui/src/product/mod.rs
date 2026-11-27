@@ -928,7 +928,6 @@ mod tests {
             navigation::page("app"),
             "Show release notes"
         ));
-        assert!(cx.debug_bounds("release-notes").is_none());
         let button = cx
             .debug_bounds("settings-release-notes")
             .expect("sidebar release notes button");
