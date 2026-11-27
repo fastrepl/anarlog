@@ -1303,6 +1303,11 @@ export type MessageRef = {
     threadId: string;
 };
 
+export type ModelsResponse = {
+    data: Array<SelectableModel>;
+    object: string;
+};
+
 export type NotificationMethod = 'email' | 'unknown';
 
 export type NotificationSettings = {
@@ -1640,6 +1645,14 @@ export type ScheduledAttachmentBackupDeletion = {
     deleteRequestId: string;
     objectKey: string;
     versionRef: string;
+};
+
+export type SelectableModel = {
+    id: string;
+    input_modalities: Array<string>;
+    label: string;
+    object: string;
+    owned_by: string;
 };
 
 export type SendMessageResponse = {
@@ -2596,6 +2609,29 @@ export type LlmChatCompletionsResponses = {
      */
     200: unknown;
 };
+
+export type LlmListModelsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/llm/models';
+};
+
+export type LlmListModelsErrors = {
+    /**
+     * Unauthorized
+     */
+    401: unknown;
+};
+
+export type LlmListModelsResponses = {
+    /**
+     * Available hosted LLM models
+     */
+    200: ModelsResponse;
+};
+
+export type LlmListModelsResponse = LlmListModelsResponses[keyof LlmListModelsResponses];
 
 export type GoogleGetAttachmentData = {
     body: GoogleGetAttachmentRequest;

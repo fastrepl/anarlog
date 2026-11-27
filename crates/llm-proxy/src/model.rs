@@ -28,6 +28,131 @@ pub const SELECTABLE_MODELS: &[&str] = &[
     "~z-ai/glm-flash-latest",
 ];
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, ToSchema)]
+pub struct SelectableModel {
+    pub id: &'static str,
+    pub label: &'static str,
+    pub input_modalities: &'static [&'static str],
+    pub object: &'static str,
+    pub owned_by: &'static str,
+}
+
+/// Hosted Anarlog Pro selectable models in display order, starting with `"Auto"`.
+pub const ANARLOG_MODELS: &[SelectableModel] = &[
+    SelectableModel {
+        id: "Auto",
+        label: "Pro (Cloud)",
+        input_modalities: &["text", "image"],
+        object: "model",
+        owned_by: "anarlog",
+    },
+    SelectableModel {
+        id: MODEL_LATEST_SONNET,
+        label: "Claude Sonnet",
+        input_modalities: &["text", "image"],
+        object: "model",
+        owned_by: "anthropic",
+    },
+    SelectableModel {
+        id: "~anthropic/claude-opus-latest",
+        label: "Claude Opus",
+        input_modalities: &["text", "image"],
+        object: "model",
+        owned_by: "anthropic",
+    },
+    SelectableModel {
+        id: "~anthropic/claude-haiku-latest",
+        label: "Claude Haiku",
+        input_modalities: &["text", "image"],
+        object: "model",
+        owned_by: "anthropic",
+    },
+    SelectableModel {
+        id: "~openai/gpt-sol-latest",
+        label: "GPT Sol",
+        input_modalities: &["text", "image"],
+        object: "model",
+        owned_by: "openai",
+    },
+    SelectableModel {
+        id: "~openai/gpt-astra-latest",
+        label: "GPT Astra",
+        input_modalities: &["text", "image"],
+        object: "model",
+        owned_by: "openai",
+    },
+    SelectableModel {
+        id: "~openai/gpt-terra-latest",
+        label: "GPT Terra",
+        input_modalities: &["text", "image"],
+        object: "model",
+        owned_by: "openai",
+    },
+    SelectableModel {
+        id: "~openai/gpt-luna-latest",
+        label: "GPT Luna",
+        input_modalities: &["text", "image"],
+        object: "model",
+        owned_by: "openai",
+    },
+    SelectableModel {
+        id: "~google/gemini-pro-latest",
+        label: "Gemini Pro",
+        input_modalities: &["text", "image"],
+        object: "model",
+        owned_by: "google",
+    },
+    SelectableModel {
+        id: "~google/gemini-flash-latest",
+        label: "Gemini Flash",
+        input_modalities: &["text", "image"],
+        object: "model",
+        owned_by: "google",
+    },
+    SelectableModel {
+        id: "~x-ai/grok-latest",
+        label: "Grok",
+        input_modalities: &["text", "image"],
+        object: "model",
+        owned_by: "x-ai",
+    },
+    SelectableModel {
+        id: "~moonshotai/kimi-latest",
+        label: "Kimi",
+        input_modalities: &["text", "image"],
+        object: "model",
+        owned_by: "moonshotai",
+    },
+    SelectableModel {
+        id: "~deepseek/deepseek-pro-latest",
+        label: "DeepSeek Pro",
+        input_modalities: &["text"],
+        object: "model",
+        owned_by: "deepseek",
+    },
+    SelectableModel {
+        id: "~deepseek/deepseek-flash-latest",
+        label: "DeepSeek Flash",
+        input_modalities: &["text", "image"],
+        object: "model",
+        owned_by: "deepseek",
+    },
+    SelectableModel {
+        id: "~z-ai/glm-latest",
+        label: "GLM",
+        input_modalities: &["text"],
+        object: "model",
+        owned_by: "z-ai",
+    },
+    SelectableModel {
+        id: "~z-ai/glm-flash-latest",
+        label: "GLM Flash",
+        input_modalities: &["text", "image"],
+        object: "model",
+        owned_by: "z-ai",
+    },
+];
+
 #[derive(
     Debug,
     Clone,

@@ -13,15 +13,30 @@ use axum::{
     extract::{FromRequestParts, State},
     http::{StatusCode, request::Parts},
     response::{IntoResponse, Response},
-    routing::post,
+    routing::{get, post},
 };
 use backon::{ExponentialBuilder, Retryable};
 use reqwest::Client;
+use serde::Serialize;
+use utoipa::ToSchema;
 
 use crate::analytics::{AnalyticsReporter, GenerationEvent};
 use crate::config::LlmProxyConfig;
-use crate::model::{CharTask, ModelContext};
+use crate::model::{ANARLOG_MODELS, CharTask, ModelContext, SelectableModel};
 use crate::types::{ChatCompletionRequest, ToolChoice, has_audio_content};
+
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct ModelsResponse {
+    pub object: &'static str,
+    pub data: Vec<SelectableModel>,
+}
+
+async fn models_handler() -> Json<ModelsResponse> {
+    Json(ModelsResponse {
+        object: "list",
+        data: ANARLOG_MODELS.to_vec(),
+    })
+}
 
 fn provider_endpoint(base_url: &str) -> (Option<String>, Option<u16>) {
     let Ok(url) = reqwest::Url::parse(base_url) else {
@@ -146,6 +161,7 @@ pub fn router(config: LlmProxyConfig) -> Router {
     Router::new()
         .route("/", post(completions_handler))
         .route("/chat/completions", post(completions_handler))
+        .route("/models", get(models_handler))
         .with_state(state)
 }
 
@@ -414,5 +430,52 @@ async fn completions_handler(
         handle_stream_response(state, response, start_time, analytics_ctx).await
     } else {
         handle_non_stream_response(state, response, start_time, analytics_ctx).await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use axum::{
+        body::Body,
+        http::{Request, StatusCode},
+    };
+    use tower::ServiceExt;
+
+    use crate::{LlmProxyConfig, SELECTABLE_MODELS};
+
+    use super::{ModelsResponse, router};
+
+    #[tokio::test]
+    async fn models_endpoint_lists_auto_and_selectable_models() {
+        let app = router(LlmProxyConfig::new("test-key"));
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/models")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let payload: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(payload["object"], "list");
+
+        let data = payload["data"].as_array().unwrap();
+        assert_eq!(data.len(), SELECTABLE_MODELS.len() + 1);
+        assert_eq!(data[0]["id"], "Auto");
+        assert_eq!(data[0]["label"], "Pro (Cloud)");
+        assert_eq!(
+            data[1..]
+                .iter()
+                .map(|item| item["id"].as_str().unwrap())
+                .collect::<Vec<_>>(),
+            SELECTABLE_MODELS
+        );
+        let _typecheck: fn() -> Option<ModelsResponse> = || None;
     }
 }
