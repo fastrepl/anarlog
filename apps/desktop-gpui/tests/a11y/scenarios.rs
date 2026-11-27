@@ -444,6 +444,29 @@ fn contacts_list_people_and_open_a_named_profile() {
         .filter(|row| row.selected().is_some())
         .collect::<Vec<_>>();
     assert!(!rows.is_empty(), "{}", tree.outline());
+    let pin_actions: Vec<_> = tree
+        .root()
+        .items(Role::Button)
+        .into_iter()
+        .filter(|button| button.label() == "Pin contact")
+        .collect();
+    assert!(!pin_actions.is_empty(), "{}", tree.outline());
+    let unpin_before = tree
+        .root()
+        .items(Role::Button)
+        .into_iter()
+        .filter(|button| button.label() == "Unpin contact")
+        .count();
+    app.press(pin_actions[0].id);
+    let after_pin = app.tree();
+    let unpin_after = after_pin
+        .root()
+        .items(Role::Button)
+        .into_iter()
+        .filter(|button| button.label() == "Unpin contact")
+        .count();
+    assert_eq!(unpin_after, unpin_before + 1, "{}", after_pin.outline());
+
     let first = rows[0].id;
     app.press(first);
     let tree = app.tree();

@@ -59,6 +59,8 @@ pub struct ContactsList {
     show_sort: bool,
     new_person: Option<(Entity<TextInput>, Subscription)>,
     menu: Option<Menu>,
+    hovered: Option<(Kind, SharedString)>,
+    pressing_pin: Option<(Kind, SharedString)>,
     scroll: ScrollHandle,
     _subscriptions: Vec<Subscription>,
 }
@@ -80,6 +82,8 @@ impl ContactsList {
             show_sort: false,
             new_person: None,
             menu: None,
+            hovered: None,
+            pressing_pin: None,
             scroll: ScrollHandle::new(),
             _subscriptions: vec![subscription],
         }
@@ -192,7 +196,24 @@ impl ContactsList {
             Kind::Organization => Selection::Organization(id.clone()),
         };
         let pin_id = id.clone();
+        let a11y_pin_id = id.clone();
+        let press_id = id.clone();
+        let release_id = id.clone();
+        let release_out_id = id.clone();
+        let hover_id = id.clone();
+        let text_selector_id = id.clone();
+        let pin_selector_id = id.clone();
         let menu_id = id.clone();
+        let is_hovered = self.hovered.as_ref() == Some(&(kind, id.clone()));
+        let is_pressing_pin = self.pressing_pin.as_ref() == Some(&(kind, id.clone()));
+        let show_pin = pinned || is_hovered || is_pressing_pin;
+        let pin_label: SharedString = match (kind, pinned) {
+            (Kind::Human, true) => "Unpin contact",
+            (Kind::Human, false) => "Pin contact",
+            (Kind::Organization, true) => "Unpin organization",
+            (Kind::Organization, false) => "Pin organization",
+        }
+        .into();
         let pin_color = if pinned {
             rgb(BLUE_600).into()
         } else {
@@ -208,6 +229,7 @@ impl ContactsList {
                 active,
             )
             .group(group.clone())
+            .relative()
             .w_full()
             .px_3()
             .py_2()
@@ -223,6 +245,18 @@ impl ContactsList {
                     row.hover(move |style| style.bg(colors.accent.opacity(0.5)))
                 }
             })
+            .on_hover(cx.listener(move |this, hovered: &bool, _, cx| {
+                if *hovered {
+                    let next = Some((kind, hover_id.clone()));
+                    if this.hovered != next {
+                        this.hovered = next;
+                        cx.notify();
+                    }
+                } else if this.hovered.as_ref() == Some(&(kind, hover_id.clone())) {
+                    this.hovered = None;
+                    cx.notify();
+                }
+            }))
             .on_click(cx.listener(move |this, _, _, cx| this.select(selection.clone(), cx)))
             .when(!read_only, |row| {
                 row.on_mouse_down(
@@ -242,16 +276,13 @@ impl ContactsList {
             .child(avatar)
             .child(
                 div()
+                    .debug_selector(move || format!("contact-text-{text_selector_id}"))
                     .flex_1()
                     .min_w_0()
                     .child(
                         div()
                             .font_weight(crate::ui::theme::MEDIUM)
-                            .map(|name| match kind {
-                                // Shipping's person name is a flex row, so it clips without an ellipsis.
-                                Kind::Human => name.overflow_hidden().whitespace_nowrap(),
-                                Kind::Organization => name.truncate(),
-                            })
+                            .truncate()
                             .child(title),
                     )
                     .when_some(subtitle, |view, subtitle| {
@@ -263,51 +294,107 @@ impl ContactsList {
                         )
                     }),
             )
-            .child(
-                div()
-                    .id(SharedString::from(format!("pin-{id}")))
-                    .a11y_button(match (kind, pinned) {
-                        (Kind::Human, true) => "Unpin contact",
-                        (Kind::Human, false) => "Pin contact",
-                        (Kind::Organization, true) => "Unpin organization",
-                        (Kind::Organization, false) => "Pin organization",
-                    })
-                    .a11y_disabled(read_only)
-                    .group(SharedString::from(format!("pin-{id}")))
-                    .flex_shrink_0()
-                    .p_1()
-                    .when(!pinned, |pin| {
-                        pin.opacity(0.)
-                            .group_hover(group.clone(), |style| style.opacity(1.))
-                    })
-                    .when(!read_only, |pin| {
-                        pin.cursor_pointer()
-                            .on_click(cx.listener(move |this, _, _, cx| {
-                                cx.stop_propagation();
-                                let id = pin_id.clone();
-                                this.contacts(cx, |contacts, cx| contacts.toggle_pin(kind, id, cx));
-                            }))
-                    })
-                    .child(
-                        svg()
-                            .path(if pinned {
-                                "contacts/PinIconBold.svg"
-                            } else {
-                                "workspace/PinIcon.svg"
+            .map(|row| {
+                if show_pin {
+                    row.child(
+                        div()
+                            .id(SharedString::from(format!("pin-{id}")))
+                            .debug_selector(move || format!("contact-pin-{pin_selector_id}"))
+                            .a11y_button(pin_label.clone())
+                            .a11y_disabled(read_only)
+                            .group(SharedString::from(format!("pin-{id}")))
+                            .flex_shrink_0()
+                            .p_1()
+                            .when(!read_only, |pin| {
+                                pin.cursor_pointer()
+                                    .on_mouse_down(
+                                        MouseButton::Left,
+                                        cx.listener(move |this, _, _, cx| {
+                                            cx.stop_propagation();
+                                            let next = Some((kind, press_id.clone()));
+                                            if this.pressing_pin != next {
+                                                this.pressing_pin = next;
+                                                cx.notify();
+                                            }
+                                        }),
+                                    )
+                                    .on_click(cx.listener(move |this, _, _, cx| {
+                                        cx.stop_propagation();
+                                        if this.pressing_pin.as_ref()
+                                            == Some(&(kind, pin_id.clone()))
+                                        {
+                                            this.pressing_pin = None;
+                                        }
+                                        let id = pin_id.clone();
+                                        this.contacts(cx, |contacts, cx| {
+                                            contacts.toggle_pin(kind, id, cx)
+                                        });
+                                    }))
+                                    .on_mouse_up(
+                                        MouseButton::Left,
+                                        cx.listener(move |this, _, _, cx| {
+                                            if this.pressing_pin.as_ref()
+                                                == Some(&(kind, release_id.clone()))
+                                            {
+                                                this.pressing_pin = None;
+                                                cx.notify();
+                                            }
+                                        }),
+                                    )
+                                    .on_mouse_up_out(
+                                        MouseButton::Left,
+                                        cx.listener(move |this, _, _, cx| {
+                                            if this.pressing_pin.as_ref()
+                                                == Some(&(kind, release_out_id.clone()))
+                                            {
+                                                this.pressing_pin = None;
+                                                cx.notify();
+                                            }
+                                        }),
+                                    )
                             })
-                            .size(px(14.))
-                            .text_color(pin_color)
-                            .when(!read_only, |icon| {
-                                icon.group_hover(format!("pin-{id}"), move |style| {
-                                    style.text_color(if pinned {
-                                        gpui::Hsla::from(rgb(BLUE_700))
+                            .child(
+                                svg()
+                                    .path(if pinned {
+                                        "contacts/PinIconBold.svg"
                                     } else {
-                                        colors.muted_foreground
+                                        "workspace/PinIcon.svg"
                                     })
+                                    .size(px(14.))
+                                    .text_color(pin_color)
+                                    .when(!read_only, |icon| {
+                                        icon.group_hover(format!("pin-{id}"), move |style| {
+                                            style.text_color(if pinned {
+                                                gpui::Hsla::from(rgb(BLUE_700))
+                                            } else {
+                                                colors.muted_foreground
+                                            })
+                                        })
+                                    }),
+                            ),
+                    )
+                } else {
+                    row.child(
+                        div()
+                            .id(SharedString::from(format!("pin-{id}")))
+                            .absolute()
+                            .right_0()
+                            .top_0()
+                            .size_0()
+                            .overflow_hidden()
+                            .a11y_button(pin_label)
+                            .a11y_disabled(read_only)
+                            .when(!read_only, |pin| {
+                                pin.a11y_press(cx, move |this, _, cx| {
+                                    let id = a11y_pin_id.clone();
+                                    this.contacts(cx, |contacts, cx| {
+                                        contacts.toggle_pin(kind, id, cx)
+                                    });
                                 })
                             }),
-                    ),
-            )
+                    )
+                }
+            })
     }
 
     fn person(
@@ -740,5 +827,118 @@ impl Render for ContactsList {
             .when_some(self.menu.clone(), |view, menu| {
                 view.child(self.context_menu(menu, colors, cx))
             })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use desktop_runtime::{Profile, RuntimeHandle, ServiceError};
+    use gpui::{Modifiers, MouseButton, point};
+
+    use super::*;
+
+    #[gpui::test]
+    fn hovering_and_clicking_pin_with_pointer_drift_pins_without_selecting_row(
+        cx: &mut gpui::TestAppContext,
+    ) {
+        cx.executor().allow_parking();
+        cx.update(crate::ui::theme::UiFonts::init);
+        let directory = tempfile::tempdir().unwrap();
+        let (runtime, ready) = RuntimeHandle::start(Profile {
+            database: directory.path().join("library.sqlite"),
+        })
+        .unwrap();
+        futures::executor::block_on(ready.receive()).unwrap();
+        futures::executor::block_on(
+            runtime
+                .submit(|services| async move {
+                    sqlx::raw_sql(
+                        "INSERT INTO humans (id, name, pinned, pin_order) VALUES
+                            ('p1', 'Pinned Long Contact Name', 1, 1),
+                            ('p2', 'Unpinned Long Contact Name', 0, NULL);",
+                    )
+                    .execute(services.db.pool())
+                    .await
+                    .map_err(|error| ServiceError::Failed(error.to_string().into()))
+                    .map(|_| ())
+                })
+                .unwrap()
+                .receive(),
+        )
+        .unwrap();
+
+        let contacts = cx.new(|cx| Contacts::new(runtime.clone(), cx));
+        contacts.update(cx, |contacts, cx| contacts.activate(cx));
+        let list = contacts.read_with(cx, |contacts, _| contacts.list());
+        struct ListRoot(Entity<ContactsList>);
+        impl Render for ListRoot {
+            fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+                self.0.clone()
+            }
+        }
+        let (_, cx) = cx.add_window_view(|_, _| ListRoot(list.clone()));
+        cx.simulate_resize(gpui::size(px(220.), px(320.)));
+        for _ in 0..80 {
+            cx.update(|window, cx| window.draw(cx).clear(cx));
+            cx.run_until_parked();
+            if contacts.read_with(cx, |contacts, _| contacts.data.humans.len() == 2) {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        cx.run_until_parked();
+
+        let p2_text = cx.debug_bounds("contact-text-p2").unwrap();
+        assert!(cx.debug_bounds("contact-pin-p1").is_some());
+        assert!(cx.debug_bounds("contact-pin-p2").is_none());
+
+        cx.simulate_mouse_move(p2_text.center(), None, Modifiers::none());
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        cx.run_until_parked();
+        let pin_bounds = cx
+            .debug_bounds("contact-pin-p2")
+            .expect("pin button mounted on hover");
+
+        // Pressing Pin, drifting slightly inside the button across a redraw, then releasing pins the contact without selecting the row.
+        cx.simulate_mouse_down(pin_bounds.center(), MouseButton::Left, Modifiers::none());
+        let drifted = pin_bounds.center() + point(px(2.), px(0.));
+        cx.simulate_mouse_move(drifted, MouseButton::Left, Modifiers::none());
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        cx.run_until_parked();
+        assert!(cx.debug_bounds("contact-pin-p2").is_some());
+
+        cx.simulate_mouse_up(drifted, MouseButton::Left, Modifiers::none());
+        for _ in 0..80 {
+            cx.update(|window, cx| window.draw(cx).clear(cx));
+            cx.run_until_parked();
+            let pinned = contacts.read_with(cx, |contacts, _| {
+                contacts
+                    .data
+                    .humans
+                    .iter()
+                    .find(|human| human.id == "p2")
+                    .is_some_and(|human| human.pinned)
+            });
+            if pinned {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+
+        assert!(contacts.read_with(cx, |contacts, _| {
+            contacts.selected.is_none()
+                && contacts
+                    .data
+                    .humans
+                    .iter()
+                    .find(|human| human.id == "p2")
+                    .is_some_and(|human| human.pinned)
+        }));
+
+        drop(contacts);
+        futures::executor::block_on(runtime.shutdown()).unwrap();
     }
 }
