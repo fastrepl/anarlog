@@ -1,6 +1,9 @@
 import { compileMDX } from "@content-collections/mdx";
+import { MDXContent } from "@content-collections/mdx/react";
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import rehypeSlug from "rehype-slug";
 import remarkGfm from "remark-gfm";
 
@@ -144,9 +147,13 @@ test("compiles mixed Markdown and JSX h2 headings alongside legacy anchors", asy
     },
     { id: "jsx-details", text: "How JSX h2 sections resolve?" },
   ]);
-  assert.match(compiled, /id:\s*"legacy-overview"/);
-  assert.match(compiled, /id:\s*"what-changed-in-the-overview"/);
-  assert.match(compiled, /id:\s*"jsx-details"/);
+  const html = renderToStaticMarkup(
+    createElement(MDXContent, { code: compiled }),
+  );
+
+  assert.match(html, /<span\b[^>]*\bid="legacy-overview"/);
+  assert.match(html, /<h2\b[^>]*\bid="what-changed-in-the-overview"/);
+  assert.match(html, /<h2\b[^>]*\bid="jsx-details"/);
 });
 
 test("renders table of contents only when at least three h2 headings exist", () => {

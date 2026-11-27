@@ -3,12 +3,6 @@ export type BlogHeading = {
   text: string;
 };
 
-type MdxJsxAttribute = {
-  type?: unknown;
-  name?: unknown;
-  value?: unknown;
-};
-
 type HastNode = {
   type?: unknown;
   tagName?: unknown;
@@ -56,16 +50,18 @@ function getH2Id(node: HastNode): string | null {
       return "";
     }
 
-    const idAttr = node.attributes.find(
-      (attr): attr is MdxJsxAttribute =>
-        typeof attr === "object" &&
-        attr !== null &&
-        (attr as MdxJsxAttribute).type === "mdxJsxAttribute" &&
-        (attr as MdxJsxAttribute).name === "id" &&
-        typeof (attr as MdxJsxAttribute).value === "string",
-    );
+    for (const attr of node.attributes) {
+      if (
+        isObject(attr) &&
+        attr.type === "mdxJsxAttribute" &&
+        attr.name === "id" &&
+        typeof attr.value === "string"
+      ) {
+        return attr.value.trim();
+      }
+    }
 
-    return typeof idAttr?.value === "string" ? idAttr.value.trim() : "";
+    return "";
   }
 
   return null;
