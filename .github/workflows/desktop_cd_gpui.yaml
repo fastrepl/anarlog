@@ -81,7 +81,7 @@ jobs:
       TARGET: ${{ matrix.target }}
       BUNDLE_DIR: apps/desktop-gpui/target/packaging.noindex/${{ matrix.target }}/release/bundle
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.candidate_sha }}
           persist-credentials: false
@@ -259,7 +259,7 @@ jobs:
             "${artifacts[0]}" \
             "${artifacts[0]}.sig" \
             apps/desktop/src-tauri/tauri.conf.json
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: anarlog-gpui-${{ inputs.channel }}-macos-${{ matrix.artifact_name }}
           path: |
@@ -299,7 +299,7 @@ jobs:
       TARGET: ${{ matrix.target }}
       BUNDLE_DIR: apps/desktop-gpui/target/packaging.noindex/${{ matrix.target }}/release/bundle
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.candidate_sha }}
           persist-credentials: false
@@ -558,7 +558,7 @@ jobs:
                   ;;
               esac
             '
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: anarlog-gpui-${{ inputs.channel }}-linux-${{ matrix.artifact_name }}
           path: |
@@ -578,7 +578,7 @@ jobs:
       BUNDLE_DIR: apps/desktop-gpui/target/packaging.noindex/x86_64-pc-windows-msvc/release/bundle
       CLI_SIDECAR: apps/desktop/src-tauri/resources/cli/anarlog-cli-x86_64-pc-windows-msvc.exe
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.candidate_sha }}
           persist-credentials: false
@@ -821,7 +821,7 @@ jobs:
           $hash = (Get-FileHash -Algorithm SHA256 $installer.FullName).Hash.ToLowerInvariant()
           "$hash  $($installer.Name)" |
             Out-File "$($installer.FullName).sha256" -Encoding ascii -NoNewline
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: anarlog-gpui-${{ inputs.channel }}-windows-x64
           path: ${{ env.BUNDLE_DIR }}/nsis/*-setup.exe*
@@ -834,7 +834,7 @@ jobs:
     if: ${{ !cancelled() && needs.macos.result == 'success' && (!inputs.include_linux || needs.linux.result == 'success') && (!inputs.include_windows || needs.windows.result == 'success') }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: anarlog-gpui-${{ inputs.channel }}-*
           path: artifacts
@@ -877,7 +877,7 @@ jobs:
             exit 1
           fi
           cat provenance/manifest.json
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: desktop-gpui-provenance-${{ inputs.channel }}-${{ inputs.version }}-${{ inputs.candidate_sha }}
           path: provenance/manifest.json
