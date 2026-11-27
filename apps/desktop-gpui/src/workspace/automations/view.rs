@@ -3253,7 +3253,7 @@ fn dropdown(menu: impl IntoElement) -> Div {
         .child(deferred(anchored().snap_to_window_with_margin(px(8.)).child(menu)).with_priority(1))
 }
 
-/// `SettingsPageTitle`: `text-[28px] leading-tight font-semibold tracking-tight`.
+/// Matches `SettingsPageTitle`'s 28px semibold sans hierarchy.
 fn page_title(title: &'static str) -> Div {
     div()
         .text_size(px(28.))
