@@ -68,6 +68,8 @@ registerHooks({
 
 const { retryPendingTranscriptions, transcribeSession } =
   await import("./transcribe.ts");
+const { beginMobileCapture, endMobileCapture } =
+  await import("../audio/capture-lifecycle.ts");
 
 test("live-only recordings stop automatic retries but can be recovered manually with another provider", async () => {
   await transcribeSession(fixture.sessionId);
@@ -117,4 +119,20 @@ test("temporary request failures remain eligible for automatic retry", async () 
   assert.equal(fixture.requests, requests + 2);
   assert.equal(fixture.pending, false);
   assert.ok(fixture.summaries.includes(fixture.sessionId));
+});
+
+test("batch retry cannot replace transcripts while a resumed capture is still being saved", async () => {
+  fixture.sessionId = "resuming";
+  fixture.pending = true;
+  const requests = fixture.requests;
+  beginMobileCapture(fixture.sessionId);
+  try {
+    await retryPendingTranscriptions();
+    assert.equal(fixture.requests, requests);
+    assert.equal(fixture.pending, true);
+  } finally {
+    endMobileCapture(fixture.sessionId);
+  }
+  await transcribeSession(fixture.sessionId);
+  assert.equal(fixture.pending, false);
 });

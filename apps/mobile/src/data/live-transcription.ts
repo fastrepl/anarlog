@@ -143,7 +143,8 @@ export class SessionLiveTranscription {
   private hintsById = new Map<string, LiveSpeakerHint>();
   private segmentWordIds = new Map<string, string[]>();
   private inserted = false;
-  private readonly startedAtMs = Date.now();
+  private readonly startedAtMs: number;
+  private readonly resuming: boolean;
   private writeChain = Promise.resolve();
   private stopping = false;
   private stopPromise: Promise<boolean> | null = null;
@@ -162,9 +163,12 @@ export class SessionLiveTranscription {
     sampleRate: number,
     channels: number,
     onUpdate: SessionLiveTranscription["onUpdate"],
+    capture?: { startedAtMs: number; resuming: boolean },
   ) {
     this.sessionId = sessionId;
     this.onUpdate = onUpdate;
+    this.startedAtMs = capture?.startedAtMs ?? Date.now();
+    this.resuming = capture?.resuming ?? false;
     this.connectPromise = this.connect(sampleRate, channels);
   }
 
@@ -412,11 +416,15 @@ export class SessionLiveTranscription {
       .then(async () => {
         const now = nowIso();
         if (!this.inserted) {
-          const [, inserted = 0, stateInserted = 0] = await executeTransaction([
-            {
-              sql: TRANSCRIPT_TOMBSTONE_SQL,
-              params: [now, now, this.sessionId],
-            },
+          const results = await executeTransaction([
+            ...(!this.resuming
+              ? [
+                  {
+                    sql: TRANSCRIPT_TOMBSTONE_SQL,
+                    params: [now, now, this.sessionId],
+                  },
+                ]
+              : []),
             {
               sql: LIVE_TRANSCRIPT_INSERT_SQL,
               params: [
@@ -437,6 +445,7 @@ export class SessionLiveTranscription {
               params: [now, this.transcriptId],
             },
           ]);
+          const [inserted = 0, stateInserted = 0] = results.slice(-2);
           if (inserted !== 1 || stateInserted !== 1) {
             throw new Error("Live transcript could not be initialized");
           }
@@ -573,7 +582,8 @@ export class SessionLiveTranscription {
           params: [
             JSON.stringify(words),
             JSON.stringify(hints),
-            Date.now(),
+            this.startedAtMs +
+              words.reduce((end, word) => Math.max(end, word.end_ms), 0),
             nowIso(),
             this.transcriptId,
           ],

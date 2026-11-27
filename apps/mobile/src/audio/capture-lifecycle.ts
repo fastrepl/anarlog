@@ -42,6 +42,10 @@ export function getMobileCaptureActive(): boolean {
   return activeSessions.size > 0;
 }
 
+export function isMobileSessionCaptureActive(sessionId: string): boolean {
+  return activeSessions.has(sessionId);
+}
+
 export async function stopMobileCapture(): Promise<boolean> {
   const registeredStop = stopHandlers.values().next().value;
   if (registeredStop) {
