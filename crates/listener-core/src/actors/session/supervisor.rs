@@ -806,6 +806,7 @@ mod tests {
                 participant_human_ids: vec![],
                 self_human_id: None,
                 speaker_assignments: vec![],
+                capture_started_at_ms: None,
             },
             app_dir: std::env::temp_dir(),
             started_at_instant: Instant::now(),

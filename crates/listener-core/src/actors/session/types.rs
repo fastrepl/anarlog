@@ -37,6 +37,12 @@ pub struct SessionParams {
     /// live segments name speakers the same way the settled render does.
     #[serde(default)]
     pub speaker_assignments: Vec<IdentityAssignment>,
+    /// The capture start time the lifecycle marker records, in Unix milliseconds. The recorder
+    /// stamps recovery chunks with this exact value so recovery can match a chunk to its attempt
+    /// even when the wall clock moves between attempts. `None` falls back to the recorder's own
+    /// clock sample for callers that do not set it.
+    #[serde(default)]
+    pub capture_started_at_ms: Option<u64>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -181,6 +187,7 @@ mod tests {
             participant_human_ids: vec![],
             self_human_id: None,
             speaker_assignments: vec![],
+            capture_started_at_ms: None,
         }
     }
 

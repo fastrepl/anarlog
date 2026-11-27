@@ -1257,6 +1257,11 @@ impl ApplicationView {
             &capture.title
         };
         let runtime = self.runtime.clone();
+        let activities = self
+            .services
+            .as_ref()
+            .map(|services| services.capture.activities.clone())
+            .unwrap_or_default();
         let (session, transcript, retained) =
             (capture.session, capture.transcript, capture.retained);
         toasts::show(
@@ -1270,10 +1275,17 @@ impl ApplicationView {
             .sticky()
             .action("Discard", move |_, cx| {
                 let work = runtime.clone();
-                let (vault, session, transcript) =
-                    (vault.clone(), session.clone(), transcript.clone());
+                let (vault, session, transcript, activities) = (
+                    vault.clone(),
+                    session.clone(),
+                    transcript.clone(),
+                    activities.clone(),
+                );
                 let reply = runtime.service(move |_| async move {
-                    recovery::discard(&work, &vault, session, transcript, retained).await
+                    recovery::discard(
+                        &work, &vault, session, transcript, retained, activities,
+                    )
+                    .await
                 });
                 cx.spawn(async move |cx| {
                     if let Err(error) = async { reply?.receive().await }.await {
