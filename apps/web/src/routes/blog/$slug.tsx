@@ -10,6 +10,7 @@ import { SiteFooter } from "@/components/site-footer";
 import { formatBlogDate } from "@/lib/blog-date";
 import { getRelatedArticles, isTranscriptionArticle } from "@/lib/blog-related";
 import { prepareBlogTable } from "@/lib/blog-table";
+import { type BlogHeading, shouldRenderBlogToc } from "@/lib/blog-toc";
 import {
   getBlogOgImageUrl,
   getBlogPostingJsonLd,
@@ -108,6 +109,8 @@ function Component() {
     ? article.author.join(", ")
     : article.author;
   const tldr = article.meta_description.trim();
+  const headings: ReadonlyArray<BlogHeading> = article.headings ?? [];
+  const showToc = shouldRenderBlogToc(headings);
 
   return (
     <main className="min-h-screen bg-white text-[#181613]">
@@ -161,6 +164,35 @@ function Component() {
               {tldr}
             </p>
           </aside>
+        )}
+
+        {showToc && (
+          <nav
+            aria-label="Table of contents"
+            className="mb-10 border border-[var(--color-border-subtle)] bg-[var(--color-surface-subtle)] px-5 py-4"
+          >
+            <p className="text-xs font-semibold tracking-[0.08em] text-[var(--grey-700)] uppercase">
+              On this page
+            </p>
+            <ol className="mt-3 space-y-1.5 text-sm leading-6 text-[var(--color-fg)]">
+              {headings.map((heading, index) => (
+                <li key={heading.id} className="flex items-baseline gap-2.5">
+                  <span
+                    aria-hidden="true"
+                    className="w-5 shrink-0 text-xs text-[var(--grey-700)] tabular-nums"
+                  >
+                    {index + 1}.
+                  </span>
+                  <a
+                    href={`#${heading.id}`}
+                    className="text-[var(--color-fg)] hover:underline"
+                  >
+                    {heading.text}
+                  </a>
+                </li>
+              ))}
+            </ol>
+          </nav>
         )}
 
         <article className="blog-prose prose prose-stone prose-headings:font-sans prose-headings:font-semibold prose-headings:tracking-tight prose-headings:text-[#756b5d] prose-p:text-[#363029] prose-a:text-[#181613] prose-a:underline hover:prose-a:text-[#4f4940] prose-strong:text-[#181613] prose-li:text-[#363029] prose-img:rounded-md max-w-none">
