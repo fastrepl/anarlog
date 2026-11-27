@@ -92,7 +92,7 @@ describe("providerFetch", () => {
     "https://localhost.example.com/v1/models",
     "https://127.0.0.1.example.com/v1/models",
   ])(
-    "preserves remote provider headers while adding attribution: %s",
+    "uses Anarlog without adding Origin for remote provider requests: %s",
     async (url) => {
       const init = { headers: { Authorization: "Bearer remote-key" } };
       await providerFetch(url, init);
@@ -102,6 +102,7 @@ describe("providerFetch", () => {
         "Bearer remote-key",
       );
       expect(new Headers(sent?.headers).get("User-Agent")).toBe("Anarlog");
+      expect(new Headers(sent?.headers).get("Origin")).toBeNull();
       expect(init.headers).toEqual({ Authorization: "Bearer remote-key" });
     },
   );

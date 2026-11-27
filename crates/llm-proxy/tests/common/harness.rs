@@ -68,6 +68,7 @@ impl TestHarness {
             .and(path("/"))
             .and(header("Authorization", "Bearer test-api-key"))
             .and(header("Content-Type", "application/json"))
+            .and(header("User-Agent", "Anarlog"))
             .respond_with(
                 ResponseTemplate::new(200)
                     .set_body_json(&response)
@@ -87,6 +88,7 @@ impl TestHarness {
         Mock::given(method("POST"))
             .and(path("/"))
             .and(header("Authorization", "Bearer test-api-key"))
+            .and(header("User-Agent", "Anarlog"))
             .respond_with(
                 ResponseTemplate::new(200)
                     .set_body_string(&stream_response)
@@ -101,6 +103,7 @@ impl TestHarness {
         Mock::given(method("POST"))
             .and(path("/"))
             .and(header("Authorization", "Bearer test-api-key"))
+            .and(header("User-Agent", "Anarlog"))
             .respond_with(
                 ResponseTemplate::new(status)
                     .set_body_json(&response)
