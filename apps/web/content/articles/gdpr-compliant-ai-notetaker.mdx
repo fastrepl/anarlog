@@ -45,7 +45,7 @@ Every major video platform and cloud notetaker makes a different set of tradeoff
 | **Granola** | United States | Transcripts and notes stored in AWS US; audio deleted after transcription | Anonymized data used for training by default on Basic and Business; org-wide opt-out requires Enterprise | Hosted Granola workspace; Basic hides history older than 30 days |
 | **Otter** | United States | AWS US cloud storage and processing; calendar auto-join bot or app upload | Privacy policy permits training on de-identified audio and transcripts; third-party labeling partners | Hosted Otter cloud workspace; subject to *In re Otter.AI Privacy Litigation* |
 | **Jamie** | Germany (EU) | EEA, Switzerland, and UK (Frankfurt) storage and processing; raw audio deleted after transcription unless Speaker Clips enabled | Customer content excluded from model training; closed-source vendor pipeline | Closed-source proprietary SaaS workspace; no local SQLite, on-device stack, or BYOK gateway |
-| **Anarlog (Local / EU BYOK)** | United States (Fastrepl); MIT client runs locally | Local SQLite on device; zero cloud contact when on-device STT/LLM selected and CloudSync/telemetry locked off | User or IT chooses on-device models, EU/internal BYOK gateways, or optional US-hosted Anarlog Cloud (no training by Fastrepl) | Local `app.db` SQLite database plus portable Markdown, PDF, CLI, and MCP exports |
+| **Anarlog (Local / EU BYOK)** | United States (Fastrepl); MIT client runs locally | Local SQLite on device; zero cloud contact requires on-device STT/LLM, CloudSync/telemetry locked off, and opt-in account cloud features (note sharing, Cloud API & Connectors, and chat web search) left disabled | User or IT chooses on-device models, EU/internal BYOK gateways, or optional US-hosted Anarlog Cloud (no training by Fastrepl) | Local `app.db` SQLite database plus portable Markdown, PDF, CLI, and MCP exports |
 
 ### Microsoft Teams, Copilot, and the EU Data Boundary
 
@@ -93,13 +93,13 @@ Cloud-first meeting platforms fail that test on three counts:
 2. **Built-in behavioral metrics.** Talk-time ratios, speaker timelines, attendance reports, engagement scores, sentiment flags, and Purview audit logs are classic performance-monitoring signals under section 87(1) No. 6 BetrVG.
 3. **Opaque telemetry and updates.** Closed-source desktop clients and SaaS backends send usage analytics, crash dumps, and feature flags that a Works Council's technical expert cannot inspect.
 
-A local-first architecture narrows that risk profile dramatically. When canonical transcripts and notes live strictly inside an individual employee's local SQLite file, with CloudSync, telemetry, and crash reporting locked off at startup via MDM, there is no central server repository of employee speech, no org-wide talk-time dashboard, and no admin eDiscovery index over local notes.
+A local-first architecture narrows that risk profile dramatically. When canonical transcripts and notes live strictly inside an individual employee's local SQLite file, with CloudSync, telemetry, and crash reporting locked off at startup via MDM and opt-in account cloud features (note sharing and Cloud API & Connectors) left disabled, there is no central server repository of employee speech, no org-wide talk-time dashboard, and no admin eDiscovery index over local notes.
 
 Be realistic with employee representatives: company-managed software installed on corporate laptops can still require consultation under section 87(1) No. 6 BetrVG, and any shared team workspace or cloud connector reintroduces centralized visibility. Shipping an MIT-auditable client locked down to local storage turns a multi-month surveillance dispute into a straightforward endpoint tool review.
 
 ## Does bot-free or local capture bypass GDPR and recording consent laws?
 
-No. Removing a visible bot from the Zoom or Teams participant roster solves social friction and blocks third-party bots from harvesting your calls, while leaving every legal notice and recording consent duty intact.
+No. Removing a visible bot from the Zoom or Teams participant roster avoids adding your own meeting bot to calls and avoids sending your audio to a third-party bot vendor, while leaving every legal notice and recording consent duty intact. Choosing a bot-free local app does not change Zoom or Teams lobby rules for bots invited by other participants.
 
 In Germany, [section 201 StGB](https://www.gesetze-im-internet.de/stgb/__201.html) (*Verletzung der Vertraulichkeit des Wortes*) makes it a criminal offense punishable by up to three years in prison or a fine to record the non-public spoken word of another person without authorization, or to use or share an unauthorized recording with a third party. Parallel criminal and civil wiretap protections apply across Europe (such as Article 226-1 of the French Penal Code and section 120 of the Austrian StGB) and in US all-party-consent states.
 
@@ -130,7 +130,7 @@ Anarlog's [Models and providers documentation](https://docs.anarlog.so/models-an
 
 - **Fully on-device (zero cloud egress):** Built-in transcription on Apple Silicon supports **Soniqo Parakeet Streaming** (live transcription across 25 European languages), **Soniqo Parakeet Batch** (after-recording speaker-labeled transcription across 25 European languages), **Apple Speech** (macOS 26), and **On-device file** using a local whisper.cpp `.bin` model. Pair that with local summaries and chat over **Ollama**, **LM Studio**, **Unsloth**, or experimental **Apple Intelligence** (macOS 26+). If a configured local model or server is unreachable, Anarlog raises a connection error with zero silent fallback to the cloud. (Follow the [offline setup guide](https://docs.anarlog.so/offline) before sensitive meetings, and leave AI chat web search unused because chat web search queries a hosted endpoint, currently Exa.)
 - **BYOK and EU or corporate AI gateways:** When teams want larger hosted models or cross-platform Windows/Linux speech endpoints, Anarlog sends requests directly from the desktop client to the configured HTTPS base URL. API keys stay inside the operating system's secure credential store and never sync across devices. Teams can point requests straight to [Mistral's EU endpoint](/blog/mistral-data-retention-policy/), [Azure OpenAI deployed in an EU geography](/blog/azure-open-ai-data-retention-policy/), Gladia, Speechmatics, or an internal OpenAI-compatible or Deepgram-compatible gateway such as LiteLLM or Bifrost running in your own EU VPC.
-- **Transparent disclosure on optional Anarlog Cloud and E2EE CloudSync:** Fastrepl-operated cloud services (accounts, optional CloudSync ciphertext, shared note links, Cloud API & Connectors, and managed cloud AI gateways) currently run in the United States, and Fastrepl does not offer a certified EU cloud SKU today. Optional CloudSync encrypts meeting content on-device using keys derived from a recovery key held in the OS keychain that never reaches Fastrepl, yet sync metadata and ciphertext still touch US servers. Any European organization requiring zero US cloud contact locks CloudSync, telemetry, and crash reporting off completely.
+- **Transparent disclosure on optional Anarlog Cloud and E2EE CloudSync:** Fastrepl-operated cloud services (accounts, optional CloudSync ciphertext, shared note links, Cloud API & Connectors, and managed cloud AI gateways) currently run in the United States, and Fastrepl does not offer a certified EU cloud SKU today. Optional CloudSync encrypts meeting content on-device using keys derived from a recovery key held in the OS keychain that never reaches Fastrepl, yet sync metadata and ciphertext still touch US servers. For zero US cloud contact, `managed_settings.json` locks `cloud_sync_enabled`, `telemetry_consent`, and `crash_reporting_consent` off, while opt-in account features such as shared note links and Cloud API & Connectors do not currently have a separate `managed_settings.json` toggle and must remain disabled (or be avoided by not signing into an Anarlog Cloud account).
 
 ### 3. Fail-closed MDM lockdown (`managed_settings.json`)
 
@@ -139,7 +139,7 @@ For IT and DPO sign-off, policy toggles inside a UI are too weak because any emp
 - **SQLite trigger enforcement:** Locked keys are written at startup and protected by database triggers so users cannot modify, rename, or delete those settings in the app.
 - **Fail-closed validation:** If `managed_settings.json` is unreadable, malformed JSON, larger than 64 KiB, specifies a `schema_version` other than `1`, contains unknown keys, or carries invalid values, Anarlog refuses to launch instead of degrading to unlocked defaults.
 
-Below is a valid `managed_settings.json` policy using only keys shipped on the current release branch. It locks off PostHog telemetry, Sentry crash reporting, CloudSync, automatic updates, and LLM Intelligence, stops saving raw audio files, and routes transcription solely to an internal European HTTPS gateway (keeping `api_key` empty because managed policy files reject plaintext credentials):
+Below is a valid `managed_settings.json` policy using only keys shipped on the current release branch. It locks off PostHog telemetry, Sentry crash reporting, CloudSync, automatic updates, and LLM Intelligence, and routes transcription solely to an internal European HTTPS gateway (keeping `api_key` empty because managed policy files reject plaintext credentials):
 
 ```json
 {
@@ -152,7 +152,6 @@ Below is a valid `managed_settings.json` policy using only keys shipped on the c
     "intelligence_disabled": true,
     "current_llm_provider": "",
     "current_llm_model": "",
-    "save_recordings": false,
     "current_stt_provider": "custom",
     "current_stt_model": "nova-3",
     "stt:custom": {
@@ -164,7 +163,7 @@ Below is a valid `managed_settings.json` policy using only keys shipped on the c
 }
 ```
 
-Separately, for individual desktop users who keep recordings enabled, **Settings -> Meetings** provides retention choices under **Audio file retention**: `Don't save`, `1 day`, `3 days`, `1 week`, `1 month`, or `Forever`. Choosing `Don't save` removes recording audio once capture finishes.
+Separately, desktop users configure recording retention under **Settings -> Meetings -> Audio file retention** (`Don't save`, `1 day`, `3 days`, `1 week`, `1 month`, or `Forever`), where choosing `Don't save` removes recording audio once capture finishes. Note that while `managed_settings.json` accepts `"save_recordings": false`, a previously saved `Audio file retention` preference on an existing desktop installation takes precedence over `save_recordings: false`, so IT should verify existing endpoints rather than relying on that key alone to stop saving recordings.
 
 ### 4. MIT auditability, honest certification status, and pricing
 
@@ -212,11 +211,11 @@ Bot-free capture avoids placing a disruptive guest participant into calls, yet i
 
 ### Can you run a GDPR-aligned AI notetaker completely locally without cloud transfers?
 
-Yes, provided both transcription and summarization run locally and optional network features stay disabled. In Anarlog, Apple Silicon users can pair on-device Soniqo Parakeet or whisper.cpp `.bin` transcription with local LLM inference through Ollama, LM Studio, Unsloth, or macOS 26 Apple Intelligence, storing all sessions and notes in local SQLite. Leave CloudSync, sharing, telemetry, crash reporting, and chat web search disabled (or lock them off with `managed_settings.json`) so meeting content never leaves the device.
+Yes, provided both transcription and summarization run locally and optional network features stay disabled. In Anarlog, Apple Silicon users can pair on-device Soniqo Parakeet or whisper.cpp `.bin` transcription with local LLM inference through Ollama, LM Studio, Unsloth, or macOS 26 Apple Intelligence, storing all sessions and notes in local SQLite. Use `managed_settings.json` to lock `cloud_sync_enabled`, `telemetry_consent`, and `crash_reporting_consent` off, and leave opt-in features not controlled by `managed_settings.json` (note sharing, Cloud API & Connectors, and chat web search) disabled (or do not sign into an Anarlog Cloud account for account-based cloud features) so meeting content never leaves the device.
 
 ### How does Anarlog handle EU data residency, CloudSync, and enterprise DPAs?
 
-Anarlog's canonical notes and transcripts live in local SQLite on your device by default, and users or IT teams can route AI requests straight to EU-hosted endpoints (such as Mistral's EU endpoint, EU Azure OpenAI, or an internal corporate gateway) without touching Fastrepl servers. Fastrepl-operated cloud features (accounts, optional E2EE CloudSync ciphertext, shared links, Cloud API & Connectors, and managed cloud AI) currently run in the United States, and Fastrepl does not offer a certified EU cloud SKU today. Organizations can lock those cloud paths off via MDM, or request an Enterprise evaluation with a DPA incorporating EU Standard Contractual Clauses through [Anarlog Enterprise](/enterprise/) and review architectural disclosures on the [security page](/security/).
+Anarlog's canonical notes and transcripts live in local SQLite on your device by default, and users or IT teams can route AI requests straight to EU-hosted endpoints (such as Mistral's EU endpoint, EU Azure OpenAI, or an internal corporate gateway) without touching Fastrepl servers. Fastrepl-operated cloud features (accounts, optional E2EE CloudSync ciphertext, shared links, Cloud API & Connectors, and managed cloud AI) currently run in the United States, and Fastrepl does not offer a certified EU cloud SKU today. Organizations can lock CloudSync, telemetry, and crash reporting off via MDM (while keeping opt-in account features like note sharing and Cloud API & Connectors disabled), or request an Enterprise evaluation with a DPA incorporating EU Standard Contractual Clauses through [Anarlog Enterprise](/enterprise/) and review architectural disclosures on the [security page](/security/).
 
 Ready to test a meeting workflow where transcripts stay on your hardware and your DPO can read the source code? [Download Anarlog](/download/) on macOS, Windows, or Linux, or review the [local AI meeting notes guide](/blog/local-ai-meeting-notes/) before your next security review.
 
