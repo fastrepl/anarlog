@@ -5,12 +5,14 @@ use std::time::{Duration, Instant};
 use futures_util::{SinkExt, StreamExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio_tungstenite::tungstenite::Message;
-use tokio_tungstenite::tungstenite::handshake::server::{Request, Response};
+use tokio_tungstenite::tungstenite::handshake::server::{ErrorResponse, Request, Response};
 use tokio_tungstenite::tungstenite::protocol::CloseFrame;
 use tokio_tungstenite::tungstenite::protocol::frame::coding::CloseCode;
 use tokio_tungstenite::{WebSocketStream, accept_hdr_async};
 
 use super::recording::{MessageKind, WsMessage, WsRecording};
+
+const REQUIRED_USER_AGENT: &str = "Anarlog";
 
 #[derive(Debug, Clone)]
 pub struct MockUpstreamConfig {
@@ -72,6 +74,7 @@ impl MockUpstreamServer {
         let (stream, _) = self.listener.accept().await?;
         let captured_requests = self.captured_requests.clone();
         let ws_stream = accept_hdr_async(stream, move |req: &Request, resp: Response| {
+            reject_missing_user_agent(req)?;
             if let Ok(mut requests) = captured_requests.lock() {
                 requests.push(req.uri().to_string());
             }
@@ -93,6 +96,21 @@ impl MockUpstreamServer {
         )
         .await
     }
+}
+
+fn reject_missing_user_agent(req: &Request) -> Result<(), ErrorResponse> {
+    if req
+        .headers()
+        .get("user-agent")
+        .is_some_and(|value| value == REQUIRED_USER_AGENT)
+    {
+        return Ok(());
+    }
+
+    Err(Response::builder()
+        .status(403)
+        .body(Some("missing or unexpected User-Agent".to_string()))
+        .expect("valid WebSocket rejection response"))
 }
 
 async fn replay_recording(
@@ -348,6 +366,7 @@ pub async fn start_mock_server_group_with_config(
                         let config = config.clone();
                         tokio::spawn(async move {
                             let ws_stream = accept_hdr_async(stream, move |req: &Request, resp: Response| {
+                                reject_missing_user_agent(req)?;
                                 if let Ok(mut requests) = captured_requests.lock() {
                                     requests.push(req.uri().to_string());
                                 }
@@ -427,6 +446,7 @@ pub async fn start_split_mock_server_with_config(
                         let spk_probe = spk_probe.clone();
                         tokio::spawn(async move {
                             let ws_stream = accept_hdr_async(stream, move |req: &Request, resp: Response| {
+                                reject_missing_user_agent(req)?;
                                 if let Ok(mut requests) = captured_requests.lock() {
                                     requests.push(req.uri().to_string());
                                 }

@@ -36,6 +36,7 @@ describe("providerFetch", () => {
       expect(new Headers(sent?.headers).get("Authorization")).toBe(
         "Bearer local-key",
       );
+      expect(new Headers(sent?.headers).get("User-Agent")).toBe("Anarlog");
       expect(sent?.signal).toBe(controller.signal);
       expect(sent?.redirect).toBe("error");
       expect(init.headers).toEqual({ Authorization: "Bearer local-key" });
@@ -54,6 +55,7 @@ describe("providerFetch", () => {
     expect(new Headers(init?.headers).get("Authorization")).toBe(
       "Bearer original-key",
     );
+    expect(new Headers(init?.headers).get("User-Agent")).toBe("Anarlog");
     expect(new Headers(init?.headers).get("Origin")).toBe("");
     expect(await request.clone().text()).toBe('{"model":"mtplx"}');
 
@@ -65,14 +67,23 @@ describe("providerFetch", () => {
         "Authorization",
       ),
     ).toBe("Bearer replacement-key");
+    expect(
+      new Headers(vi.mocked(tauriFetch).mock.calls[1][1]?.headers).get(
+        "User-Agent",
+      ),
+    ).toBe("Anarlog");
   });
 
-  it("preserves an explicitly configured provider origin", async () => {
+  it("preserves provider headers while adding Anarlog attribution", async () => {
     const url = new URL("http://localhost:11434/v1/chat/completions");
     const init = { headers: { Origin: "http://localhost:11434" } };
     await providerFetch(url, init);
-    expect(tauriFetch).toHaveBeenCalledWith(url, init);
-    expect(vi.mocked(tauriFetch).mock.calls[0][1]).toBe(init);
+    const headers = new Headers(
+      vi.mocked(tauriFetch).mock.calls[0][1]?.headers,
+    );
+    expect(headers.get("Origin")).toBe("http://localhost:11434");
+    expect(headers.get("User-Agent")).toBe("Anarlog");
+    expect(init.headers).toEqual({ Origin: "http://localhost:11434" });
   });
 
   it.each([
@@ -80,11 +91,31 @@ describe("providerFetch", () => {
     "http://192.168.1.10:8000/v1/models",
     "https://localhost.example.com/v1/models",
     "https://127.0.0.1.example.com/v1/models",
-  ])("leaves other endpoints unchanged: %s", async (url) => {
-    const init = { headers: { Authorization: "Bearer remote-key" } };
-    await providerFetch(url, init);
-    expect(vi.mocked(tauriFetch).mock.calls[0]).toEqual([url, init]);
-    expect(vi.mocked(tauriFetch).mock.calls[0][1]).toBe(init);
+  ])(
+    "uses Anarlog without adding Origin for remote provider requests: %s",
+    async (url) => {
+      const init = { headers: { Authorization: "Bearer remote-key" } };
+      await providerFetch(url, init);
+      const [input, sent] = vi.mocked(tauriFetch).mock.calls[0];
+      expect(input).toBe(url);
+      expect(new Headers(sent?.headers).get("Authorization")).toBe(
+        "Bearer remote-key",
+      );
+      expect(new Headers(sent?.headers).get("User-Agent")).toBe("Anarlog");
+      expect(new Headers(sent?.headers).get("Origin")).toBeNull();
+      expect(init.headers).toEqual({ Authorization: "Bearer remote-key" });
+    },
+  );
+
+  it("keeps an existing User-Agent and appends Anarlog once", async () => {
+    await providerFetch("https://api.example.com/v1/chat/completions", {
+      headers: { "User-Agent": "ProviderSDK/1.0" },
+    });
+    expect(
+      new Headers(vi.mocked(tauriFetch).mock.calls[0][1]?.headers).get(
+        "User-Agent",
+      ),
+    ).toBe("ProviderSDK/1.0 Anarlog");
   });
 
   it.each(["custom", "openai"])(

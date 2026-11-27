@@ -162,7 +162,10 @@ fn make_state(config: SttProxyConfig, session_gate: SessionGate) -> AppState {
         config,
         selector,
         router,
-        client: reqwest::Client::new(),
+        client: reqwest::Client::builder()
+            .user_agent("Anarlog")
+            .build()
+            .expect("valid Anarlog user agent"),
         session_gate,
         batch_requests: BATCH_REQUEST_SLOTS.clone(),
     }
