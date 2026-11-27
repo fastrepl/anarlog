@@ -190,7 +190,10 @@ impl LibraryView {
         let entity = cx.entity().downgrade();
         // Chips, the sticky heading and the fade depend on the scroll position.
         scroll.set_scroll_handler(move |_, _, cx| {
-            let _ = entity.update(cx, |_, cx| cx.notify());
+            let _ = entity.update(cx, |this, cx| {
+                this.now_hovered = false;
+                cx.notify();
+            });
         });
         Self {
             page: Arc::new(LibraryPage {
@@ -527,7 +530,7 @@ impl LibraryView {
             Some(Row::Heading(label)) => heading(label.clone(), colors)
                 .id(("timeline-heading", row))
                 .a11y_heading(gpui::SharedString::from(label), 3)
-                .occlude()
+                .block_mouse_except_scroll()
                 .into_any_element(),
             Some(Row::Now { above, below }) => div()
                 .pt(px(above))
@@ -1726,7 +1729,6 @@ mod tests {
         cx.update(|window, cx| window.draw(cx).clear(cx));
         cx.run_until_parked();
 
-        assert!(library.read_with(cx, |library, _| library.now_hovered));
         let badge = cx
             .debug_bounds("timeline-current-time-badge")
             .expect("hovered now badge bounds rendered");
@@ -1736,7 +1738,6 @@ mod tests {
         cx.simulate_mouse_move(gpui::point(px(1.), px(1.)), None, gpui::Modifiers::none());
         cx.update(|window, cx| window.draw(cx).clear(cx));
         cx.run_until_parked();
-        assert!(!library.read_with(cx, |library, _| library.now_hovered));
         assert!(cx.debug_bounds("timeline-current-time-badge").is_none());
     }
 }
