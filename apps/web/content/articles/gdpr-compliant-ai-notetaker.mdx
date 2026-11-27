@@ -1,0 +1,228 @@
+---
+meta_title: "GDPR-Compliant AI Notetakers: CLOUD Act, Works Councils, and Local Control (2026)"
+display_title: "How to Choose a GDPR-Compliant AI Notetaker Without Big Tech Lock-In"
+meta_description: "Why EU data residency inside US clouds does not neutralize the CLOUD Act, how Microsoft, Google, Zoom, and SaaS notetakers handle meeting data, and how local-first architecture changes the review."
+author:
+  - "John Jeong"
+featured: false
+category: "Guides"
+date: "2026-11-27"
+---
+
+European security and privacy teams evaluating an AI meeting notetaker keep getting handed the same sales slide: a checkbox labeled "EU data residency." Meanwhile, raw meeting audio, full transcripts, action items, and internal strategy discussions sit inside vendor-controlled clouds governed by US corporate jurisdiction, global engineering access, and multi-vendor AI routing.
+
+That mismatch is why DPOs, CISOs, and German Works Councils reject so many cloud meeting tools during review. Data residency on a marketing page describes where a storage bucket sits, not who holds the legal obligation to hand over its contents or which subprocessor receives your speech when an inference cluster fills up.
+
+This guide examines the primary statutes, vendor privacy disclosures, pricing tiers, and courtroom records as checked on November 27, 2026. I co-founded [Anarlog](/), an MIT-licensed, local-first AI meeting notetaker built by Fastrepl, so my bias toward local data ownership is explicit throughout. Nothing here is legal advice; apply these architectural checks alongside your DPO, legal counsel, and employee representatives.
+
+## Why does "EU data residency" inside Big Tech clouds fail the GDPR test?
+
+Putting a disk volume in Frankfurt or Dublin does not remove a US cloud vendor from US statutory jurisdiction. The conflict comes straight from comparing the text of the US CLOUD Act against Chapter V of the GDPR.
+
+Under [18 U.S.C. section 2713](https://www.law.cornell.edu/uscode/text/18/2713) (enacted through the CLOUD Act), a provider of electronic communication or remote computing services subject to US jurisdiction must preserve, back up, or disclose communications and customer records within its "possession, custody, or control, regardless of whether such communication, record, or other information is located within or outside of the United States." Physical server coordinates inside the European Economic Area do not sever corporate control by a US parent company.
+
+[GDPR (Regulation (EU) 2016/679)](https://eur-lex.europa.eu/eli/reg/2016/679/oj/eng) pulls in the opposite direction:
+
+- **Article 48** states that any judgment of a court or decision of an administrative authority of a third country requiring a controller or processor to transfer or disclose personal data is only recognized or enforceable if based on an international agreement, such as a mutual legal assistance treaty (MLAT).
+- **Chapter V (Articles 44-49)** restricts [international transfers of personal data](https://www.edpb.europa.eu/sme/be-compliant/international-data-transfers_en) outside the EEA unless equivalent safeguards hold in practice, not merely on paper.
+- **Article 5(1)(c)** mandates data minimization, meaning organizations should collect and retain only what is necessary for the purpose. Dumping every spoken word from every internal call into an indefinite vendor cloud archive runs directly counter to that principle.
+- **Article 25** requires data protection by design and by default, while **Article 35** requires a Data Protection Impact Assessment (DPIA) before deploying high-risk technologies or systematic monitoring.
+
+On June 10, 2025, that statutory collision became part of the public record before the French Senate. Testifying under oath before the Senate inquiry commission on public procurement (*Commission d'enquete sur les couts et les modalites effectifs de la commande publique*), Anton Carniaux, Director of Public and Legal Affairs at Microsoft France, was asked directly by Rapporteur Dany Wattebled whether he could guarantee under oath that French citizen data entrusted to Microsoft would never be transmitted under a US government order without explicit French authorization. Per the [official French Senate commission record](https://www.senat.fr/compte-rendu-commissions/20250609/ce_commande_publique.html), Carniaux replied: "Non, je ne peux pas le garantir" ("No, I cannot guarantee it"), while noting that such a transmission had not yet occurred.
+
+That sworn admission exposes the flaw in buying "EU residency" from a US-headquartered cloud provider. As long as cleartext transcripts and encryption keys reside on infrastructure controlled by a vendor subject to 18 U.S.C. section 2713, compliance rests on contractual promises that foreign compulsion statutes can override. Keeping the canonical transcript off third-party servers altogether removes the asset those orders target.
+
+## How do Microsoft Copilot, Google Meet, Zoom AI, and cloud notetakers actually handle EU meeting data?
+
+Every major video platform and cloud notetaker makes a different set of tradeoffs across jurisdiction, storage vs. inference routing, model training defaults, and lock-in. The table below summarizes their documented behavior before looking at each vendor's primary terms.
+
+| Tool | Parent jurisdiction | Default storage and processing | AI model and training control | Canonical record and lock-in |
+| --- | --- | --- | --- | --- |
+| **Microsoft Copilot / Teams Premium** | United States | EU Data Boundary available; Copilot Flex Routing outside EUDB on by default for new tenants (post-March 25, 2026); global DevOps remote access; Bing queries separate | Tenant data excluded from foundation model training; Anthropic models excluded from EUDB; Purview retains prompts | Distributed across OneDrive, SharePoint, Exchange Online, Loop, and Purview |
+| **Google Workspace / Gemini in Meet** | United States | Fundamental Data Regions cover storage at rest only; regional processing requires Enterprise Plus, Frontline Plus, or Enterprise Essentials Plus | Workspace prompts excluded from training; advanced Data Regions blocking of global paths can break Gemini/Meet features | Google Docs saved in organizer Drive; native capture limited to Google Meet and Meet in-person mode |
+| **Zoom AI / ZoomMate / My Notes** | United States | Multi-vendor routing across Zoom and third-party models; third-party ZDR has trust-and-safety exceptions | Zoom states communications-like content is excluded from training | Transcripts, summaries, and recordings stay in Zoom's hosted workspace |
+| **Fireflies** | United States | US AWS and GCP by default; Enterprise Private Storage EU bucket still processes data in the US per Fireflies docs | Vendor-managed training policies; auto-delete gated to Enterprise and applies only to future calls | Hosted Fireflies SaaS workspace; audio/transcripts tied to vendor platform |
+| **Granola** | United States | Transcripts and notes stored in AWS US; audio deleted after transcription | Anonymized data used for training by default on Basic and Business; org-wide opt-out requires Enterprise | Hosted Granola workspace; Basic hides history older than 30 days |
+| **Otter** | United States | AWS US cloud storage and processing; calendar auto-join bot or app upload | Privacy policy permits training on de-identified audio and transcripts; third-party labeling partners | Hosted Otter cloud workspace; subject to *In re Otter.AI Privacy Litigation* |
+| **Jamie** | Germany (EU) | EEA, Switzerland, and UK (Frankfurt) storage and processing; raw audio deleted after transcription unless Speaker Clips enabled | Customer content excluded from model training; closed-source vendor pipeline | Closed-source proprietary SaaS workspace; no local SQLite, on-device stack, or BYOK gateway |
+| **Anarlog (Local / EU BYOK)** | United States (Fastrepl); MIT client runs locally | Local SQLite on device; zero cloud contact when on-device STT/LLM selected and CloudSync/telemetry locked off | User or IT chooses on-device models, EU/internal BYOK gateways, or optional US-hosted Anarlog Cloud (no training by Fastrepl) | Local `app.db` SQLite database plus portable Markdown, PDF, CLI, and MCP exports |
+
+### Microsoft Teams, Copilot, and the EU Data Boundary
+
+Microsoft pitches the [EU Data Boundary (EUDB)](https://learn.microsoft.com/en-us/privacy/eudb/eu-data-boundary-learn) as a sovereign shield for European Teams tenants. Reading Microsoft Learn's own technical footnotes shows four documented gaps in that boundary for meeting AI:
+
+1. **Flex Routing leaves the EUDB by default on new tenants.** Microsoft's [Flex routing documentation](https://learn.microsoft.com/en-us/copilot/manage/copilot-flex-routing) explains that LLM inferencing for EU and EFTA tenants can execute outside the EU Data Boundary during peak demand. For eligible tenants created after March 25, 2026, Flex routing ships enabled by default unless an administrator explicitly disables it in the Microsoft 365 admin center.
+2. **Bing web grounding and third-party models sit outside EUDB guarantees.** Microsoft's [Copilot privacy protections guide](https://learn.microsoft.com/en-us/copilot/plan/privacy-and-protections) states that web grounding generates queries sent to the Bing search service outside core M365 commitments. Meanwhile, Microsoft's [Microsoft 365 Copilot privacy documentation](https://learn.microsoft.com/en-us/copilot/plan/microsoft-365-copilot-privacy) explicitly notes that Anthropic models offered as a subprocessor are excluded from the EU Data Boundary.
+3. **Global DevOps remote access stays active.** Microsoft's [continuing data transfers documentation](https://learn.microsoft.com/en-us/privacy/eudb/eu-data-boundary-transfers-for-all-services) states that Microsoft engineering and DevOps personnel located outside the EU Data Boundary can remotely access EUDB systems and customer data for operations, security, and troubleshooting.
+4. **Meeting data scatters across M365 repositories.** Per Microsoft's [Intelligent Recap privacy guide](https://learn.microsoft.com/en-us/microsoftteams/privacy/intelligent-recap), recordings and video markers land in OneDrive or SharePoint, transcript copies go to Exchange Online and OneDrive, and [Facilitator notes](https://support.microsoft.com/en-us/teams/copilot/facilitator-in-microsoft-teams-meetings) write to Microsoft Loop pages. Even when you run Copilot in "Only during the meeting" mode without persistent transcription, Microsoft Purview can retain prompts and responses.
+
+Pricing adds another layer of lock-in: [Microsoft 365 Copilot for Enterprise](https://www.microsoft.com/en-us/copilot/pricing/enterprise) costs $30.00 per user/month billed annually on top of a qualifying Microsoft 365 subscription, while Teams Premium adds $10.00 per user/month annually for features tracked in Microsoft's [enhanced Teams experience guide](https://learn.microsoft.com/en-us/microsoftteams/enhanced-teams-experience). For a broader breakdown of Teams capture paths, see our [Teams AI notetaker comparison](/blog/best-ai-notetaker-for-microsoft-teams/).
+
+### Google Workspace and Gemini in Meet
+
+Google divides [Workspace Data Regions](https://knowledge.workspace.google.com/admin/compliance/data-covered-by-data-regions) by license tier. Business Standard, Business Plus, Enterprise Standard, Enterprise Essentials, and Frontline Starter/Standard include only **Fundamental Data Regions**, which cover data at rest. Controlling **data processing** in your chosen region requires upgrading to **Enterprise Plus**, **Frontline Plus**, or **Enterprise Essentials Plus**.
+
+Even on Enterprise Plus, Google's [regional data location guide](https://knowledge.workspace.google.com/admin/compliance/choose-a-geographic-location-for-your-data) and [advanced Data Regions documentation](https://knowledge.workspace.google.com/admin/compliance/set-up-advanced-settings-for-data-regions) state that several generative AI and Workspace features depend on global processing. Turning off non-regionalized global services via advanced Data Regions settings can disable or break Gemini features across Meet, Docs, and Drive.
+
+Two structural limits remain: Google LLC is a US corporation subject to 18 U.S.C. section 2713, and [Google Meet's "Take notes for me"](https://support.google.com/meet/answer/14754931) only captures Google Meet calls and Meet's in-person capture flow, saving every note as a Google Doc in Drive. Cross-platform calls on Zoom or Teams receive zero native coverage. See our [Google Meet Gemini notes guide](/blog/google-gemini-meeting-notes/) for the full permission and Drive sharing behavior.
+
+### Zoom AI, My Notes, and ZoomMate
+
+Zoom retired the standalone "AI Companion" label in favor of built-in Workplace meeting AI, standalone [My Notes](https://zoom.us/pricing/my-notes) ($10/user/month monthly or $8.33/user/month billed annually; also included in Workplace Pro at $16.99/user/month monthly or $14.16/user/month annually), and the agentic [ZoomMate](https://zoom.us/pricing/aic) add-on ($20/user/month monthly or $16.67/user/month annually).
+
+Per Zoom's [AI data-handling article](https://support.zoom.com/hc/en/article?id=zm_kb&sysparm_article=KB0057861), Zoom routes prompts across its own models and third-party model providers. Zoom commits not to train on communications-like customer content, and its third-party zero-data-retention agreements include limited trust-and-safety exceptions. For DPOs, third-party model zero retention does not delete summaries, transcripts, or recordings stored inside your Zoom account, and Zoom Communications, Inc. remains a US-headquartered provider subject to the CLOUD Act. For details on Zoom's licensing and retention model, read our [Zoom AI review](/blog/zoom-ai-companion-review/).
+
+### Cloud-first SaaS notetakers: Fireflies, Granola, Otter, and Jamie
+
+Standalone cloud notetakers split cleanly into US-hosted tools with opaque defaults and one EU-hosted SaaS alternative that still centralizes data on vendor servers:
+
+- **Fireflies:** According to Fireflies' [data storage and transfer guide](https://guide.fireflies.ai/articles/9596505232-learn-about-data-storage-and-transfer), standard workspaces store and process meeting data in US AWS and GCP regions. Even on Enterprise Private Storage with an EU bucket or Bring Your Own Storage, Fireflies states explicitly: "Note: Your data will be stored in the EU, but processed in the US." Meanwhile, [auto-delete](https://guide.fireflies.ai/articles/7870593373-learn-about-the-auto-delete-meeting-feature) is an Enterprise-tier control that applies only to future meetings, leaving older recordings intact. Read our full breakdown in [where Fireflies stores your data](/blog/where-does-fireflies-store-data/).
+- **Granola:** Granola captures system audio without a bot, then uploads audio to transcribe and stores transcripts and enhanced notes in AWS in the United States per its [security FAQ](https://docs.granola.ai/help-center/consent-security-privacy/security-privacy-data-faqs). Under [Granola's model training policy](https://docs.granola.ai/help-center/consent-security-privacy/model-training), anonymized meeting data is used to improve Granola's models by default on Basic and Business plans, while org-wide opt-out requires Enterprise (and Granola notes it cannot guarantee anonymized data already ingested before opt-out was unused). On July 30, 2026, [*Chamberlain v. Granola, Inc.*](https://storage.courtlistener.com/recap/gov.uscourts.cand.475308/gov.uscourts.cand.475308.1.0.pdf) (N.D. Cal.) challenged Granola's defaults, alleging silent capture without participant notice because in-meeting notifications and watermarks ship off by default. See [Is Granola AI safe?](/blog/is-granola-ai-safe/).
+- **Otter:** Otter hosts user workspaces in US AWS infrastructure and supports both calendar auto-join bots and desktop capture that uploads to Otter's cloud. [Otter's privacy policy](https://otter.ai/privacy-policy) explicitly states that Otter trains its proprietary AI on de-identified audio recordings and transcriptions ("which may contain Personal Information") and shares data with cloud, AI, and third-party data-labeling providers, while its [security FAQ](https://otter.ai/privacy-security) notes human review occurs when users opt in via quality ratings. Otter is defending consolidated federal claims in *In re Otter.AI Privacy Litigation* (N.D. Cal.), where core ECPA, CIPA, and Illinois BIPA claims survived Otter's motion to dismiss in August 2026. Read [Is Otter AI safe?](/blog/is-otter-ai-safe/).
+- **Jamie:** Operated by German company wespond UG, [Jamie](https://www.meetjamie.ai/security) takes European data residency seriously. Storage and processing stay within the EEA, Switzerland, and the UK (with primary hosting in Frankfurt), raw audio is streamed and deleted after transcription unless optional Speaker Clips are enabled, Jamie holds ISO 27001 certification, publishes an EU [DPA](https://trust.meetjamie.ai/dpa) and [privacy policy](https://www.meetjamie.ai/privacy-policy), and commits never to train models on customer data. For teams willing to trust a managed EU SaaS workspace, Jamie avoids default US transfers. Yet Jamie remains a closed-source proprietary cloud application: transcripts and summaries still sit on Jamie's servers, there is no local SQLite source of truth on the employee's laptop, no on-device speech or LLM pipeline, no BYOK or internal corporate AI gateway support, and no MIT-licensed code your security team can audit. See [Jamie AI alternatives](/blog/jamie-ai-alternatives/) for a fuller comparison.
+
+## Why do Works Councils (Betriebsrat) block cloud meeting AI tools?
+
+In Germany, deploying an AI notetaker fails before a DPO even finishes the Chapter V review if the Works Council (*Betriebsrat*) invokes [section 87(1) No. 6 BetrVG](https://www.gesetze-im-internet.de/betrvg/__87.html) (*Betriebsverfassungsgesetz*). That provision gives the Works Council a mandatory co-determination right (*Mitbestimmung*) over the introduction and use of any technical device "designed to monitor the behavior or performance of employees."
+
+Settled German Federal Labour Court (*Bundesarbeitsgericht*, BAG) precedent interprets "designed to" (*dazu bestimmt*) objectively: if a technical system is **objectively capable** of tracking employee behavior or performance, co-determination is triggered regardless of whether management promises not to inspect the logs.
+
+Cloud-first meeting platforms fail that test on three counts:
+
+1. **Centralized, searchable employee speech archives.** Storing transcripts across OneDrive, SharePoint, Exchange Online, Google Drive, or a vendor SaaS tenant creates an employer-accessible database of everything staff say in meetings.
+2. **Built-in behavioral metrics.** Talk-time ratios, speaker timelines, attendance reports, engagement scores, sentiment flags, and Purview audit logs are classic performance-monitoring signals under section 87(1) No. 6 BetrVG.
+3. **Opaque telemetry and updates.** Closed-source desktop clients and SaaS backends send usage analytics, crash dumps, and feature flags that a Works Council's technical expert cannot inspect.
+
+A local-first architecture narrows that risk profile dramatically. When canonical transcripts and notes live strictly inside an individual employee's local SQLite file, with CloudSync, telemetry, and crash reporting locked off at startup via MDM, there is no central server repository of employee speech, no org-wide talk-time dashboard, and no admin eDiscovery index over local notes.
+
+Be realistic with employee representatives: company-managed software installed on corporate laptops can still require consultation under section 87(1) No. 6 BetrVG, and any shared team workspace or cloud connector reintroduces centralized visibility. Shipping an MIT-auditable client locked down to local storage turns a multi-month surveillance dispute into a straightforward endpoint tool review.
+
+## Does bot-free or local capture bypass GDPR and recording consent laws?
+
+No. Removing a visible bot from the Zoom or Teams participant roster solves social friction and blocks third-party bots from harvesting your calls, while leaving every legal notice and recording consent duty intact.
+
+In Germany, [section 201 StGB](https://www.gesetze-im-internet.de/stgb/__201.html) (*Verletzung der Vertraulichkeit des Wortes*) makes it a criminal offense punishable by up to three years in prison or a fine to record the non-public spoken word of another person without authorization, or to use or share an unauthorized recording with a third party. Parallel criminal and civil wiretap protections apply across Europe (such as Article 226-1 of the French Penal Code and section 120 of the Austrian StGB) and in US all-party-consent states.
+
+Under the GDPR, capturing identifiable human speech or attributing statements in a local transcript is still processing personal data, even if zero packets leave your MacBook. You still need:
+
+- A valid lawful basis under **Article 6 GDPR** (noting EDPB guidance that employee "consent" is rarely freely given because of the employer-employee power imbalance, making legitimate interest or works agreement terms critical).
+- Transparent **Article 13/14 notice** before capture starts, telling participants who is transcribing, why, where data stays, and how to participate without recording.
+
+*Chamberlain v. Granola, Inc.* illustrates what happens when a vendor markets bot-free capture as invisible while shipping disclosure prompts disabled by default. Whether you use a cloud app or a local SQLite notetaker, make disclosure an explicit habit: announce transcription at the start of the call, add notice to calendar invitations, and turn recording off whenever a participant objects. See [Is AI note-taking legal?](/blog/is-ai-notetaking-legal/) for the broader consent framework.
+
+## How does a local-first, sovereign meeting AI architecture work in practice?
+
+Instead of trying to wrap legal disclaimers around a US cloud database, a sovereign notetaker separates three things Big Tech bundles together: audio capture, speech/LLM inference, and where the canonical record lives.
+
+![Anarlog Settings -> Intelligence with configurable AI providers](anarlog/blog/library/products/anarlog/desktop/2026-09-23-settings-intelligence-providers.png)
+
+*Anarlog decouples Transcription and Intelligence in Settings so security teams control each processing path independently.*
+
+[Anarlog](/) implements that separation in code you can inspect directly on [GitHub](https://github.com/fastrepl/anarlog):
+
+### 1. Local SQLite as the canonical source of truth
+
+Anarlog captures microphone and system audio locally across Microsoft Teams, Google Meet, Zoom, phone calls, and in-person meetings without inserting a bot into the call. Sessions, notes, transcripts, and meeting metadata stay in a local SQLite database (`app.db`) inside the user's application data folder (`~/Library/Application Support/anarlog/` on macOS, `%APPDATA%\anarlog\` on Windows, `~/.local/share/anarlog/` on Linux). Audio recordings and attachments stay as separate local files, while Markdown, PDF, Rich Text, the local CLI, and MCP act as portable interfaces rather than locking your history inside a vendor workspace.
+
+### 2. Three explicit AI and network boundaries
+
+Anarlog's [Models and providers documentation](https://docs.anarlog.so/models-and-providers) and [Data, privacy, and retention guide](https://docs.anarlog.so/data-and-privacy) separate local execution from optional cloud paths:
+
+- **Fully on-device (zero cloud egress):** Built-in transcription on Apple Silicon supports **Soniqo Parakeet Streaming** (live transcription across 25 European languages), **Soniqo Parakeet Batch** (after-recording speaker-labeled transcription across 25 European languages), **Apple Speech** (macOS 26), and **On-device file** using a local whisper.cpp `.bin` model. Pair that with local summaries and chat over **Ollama**, **LM Studio**, **Unsloth**, or experimental **Apple Intelligence** (macOS 26+). If a configured local model or server is unreachable, Anarlog raises a connection error with zero silent fallback to the cloud. (Follow the [offline setup guide](https://docs.anarlog.so/offline) before sensitive meetings, and leave AI chat web search unused because chat web search queries a hosted endpoint, currently Exa.)
+- **BYOK and EU or corporate AI gateways:** When teams want larger hosted models or cross-platform Windows/Linux speech endpoints, Anarlog sends requests directly from the desktop client to the configured HTTPS base URL. API keys stay inside the operating system's secure credential store and never sync across devices. Teams can point requests straight to [Mistral's EU endpoint](/blog/mistral-data-retention-policy/), [Azure OpenAI deployed in an EU geography](/blog/azure-open-ai-data-retention-policy/), Gladia, Speechmatics, or an internal OpenAI-compatible or Deepgram-compatible gateway such as LiteLLM or Bifrost running in your own EU VPC.
+- **Transparent disclosure on optional Anarlog Cloud and E2EE CloudSync:** Fastrepl-operated cloud services (accounts, optional CloudSync ciphertext, shared note links, Cloud API & Connectors, and managed cloud AI gateways) currently run in the United States, and Fastrepl does not offer a certified EU cloud SKU today. Optional CloudSync encrypts meeting content on-device using keys derived from a recovery key held in the OS keychain that never reaches Fastrepl, yet sync metadata and ciphertext still touch US servers. Any European organization requiring zero US cloud contact locks CloudSync, telemetry, and crash reporting off completely.
+
+### 3. Fail-closed MDM lockdown (`managed_settings.json`)
+
+For IT and DPO sign-off, policy toggles inside a UI are too weak because any employee can flip them back on. Anarlog's [Managed deployment and MDM documentation](https://docs.anarlog.so/enterprise/managed-deployment) ships a deterministic policy file (`managed_settings.json`) deployed beside `app.db`:
+
+- **SQLite trigger enforcement:** Locked keys are written at startup and protected by database triggers so users cannot modify, rename, or delete those settings in the app.
+- **Fail-closed validation:** If `managed_settings.json` is unreadable, malformed JSON, larger than 64 KiB, specifies a `schema_version` other than `1`, contains unknown keys, or carries invalid values, Anarlog refuses to launch instead of degrading to unlocked defaults.
+
+Below is a valid `managed_settings.json` policy using only keys shipped on the current release branch. It locks off PostHog telemetry, Sentry crash reporting, CloudSync, automatic updates, and LLM Intelligence, stops saving raw audio files, and routes transcription solely to an internal European HTTPS gateway (keeping `api_key` empty because managed policy files reject plaintext credentials):
+
+```json
+{
+  "schema_version": 1,
+  "settings": {
+    "telemetry_consent": false,
+    "crash_reporting_consent": false,
+    "cloud_sync_enabled": false,
+    "automatic_updates": false,
+    "intelligence_disabled": true,
+    "current_llm_provider": "",
+    "current_llm_model": "",
+    "save_recordings": false,
+    "current_stt_provider": "custom",
+    "current_stt_model": "nova-3",
+    "stt:custom": {
+      "type": "stt",
+      "base_url": "https://stt.internal.company.eu/v1",
+      "api_key": ""
+    }
+  }
+}
+```
+
+Separately, for individual desktop users who keep recordings enabled, **Settings -> Meetings** provides retention choices under **Audio file retention**: `Don't save`, `1 day`, `3 days`, `1 week`, `1 month`, or `Forever`. Choosing `Don't save` removes recording audio once capture finishes.
+
+### 4. MIT auditability, honest certification status, and pricing
+
+![Anarlog local meeting summary view](anarlog/blog/library/products/anarlog/desktop/2026-08-20-meeting-summary.jpg)
+
+*Anarlog keeps structured summaries, transcripts, and notes together in local SQLite.*
+
+Compliance buyers deserve straight facts rather than badge theater (for a parallel breakdown of badge claims vs. data flow, see our [HIPAA notetaker guide](/blog/hipaa-compliant-ai-notetaker/)):
+
+- **Certifications:** Per [Anarlog's security page](https://anarlog.so/security), Fastrepl does not claim SOC 2 Type II, ISO 27001, or HIPAA/BAA certifications today. Those programs are planned for Fastrepl-operated cloud services once operational evidence is complete. Security reviewers verify the local path directly via the MIT-licensed repository and published architecture documentation.
+- **Pricing:** [Anarlog Free](/pricing/) ($0) includes unlimited on-device transcription, BYOK endpoints, local SQLite storage, portable exports, and local CLI/MCP access. Pro ($14/person/month or $140/person/year) adds managed cloud transcription, cloud AI, and optional E2EE CloudSync. [Anarlog Enterprise](/enterprise/) offers custom pricing with domain SSO/SCIM, org-wide policies, customer-hosted capture and data plane options for enterprise partner rollouts, and a Data Processing Addendum with EU Standard Contractual Clauses on request.
+
+## What should your DPO and security team check before approving an AI notetaker?
+
+Run every candidate tool through this 10-point Article 35 DPIA and engineering checklist before permitting production calls:
+
+1. **Parent jurisdiction vs. GDPR Article 48:** Is the vendor or its corporate parent subject to 18 U.S.C. section 2713, and what happens if a third-country order compels disclosure of EU-hosted customer content?
+2. **Storage vs. processing split:** Does EU residency cover both stored transcripts and live transcription/LLM inference, or do requests route to the US like Fireflies Private Storage or Microsoft Copilot Flex Routing?
+3. **Full subprocessor chain:** Which third-party STT vendors, LLM APIs, web-search endpoints, and analytics tools receive audio, transcripts, or prompts?
+4. **Model training defaults:** Does the base tier train on "anonymized" transcripts by default, or require an Enterprise contract to disable training organization-wide?
+5. **Canonical record ownership:** Do notes live on corporate endpoints under your control (local SQLite plus portable exports), or remain trapped inside a proprietary SaaS workspace?
+6. **Fail-closed MDM control:** Can IT enforce zero telemetry, zero cloud sync, and approved AI endpoints via read-only config files that refuse to run if tampered with?
+7. **Works Council (section 87(1) No. 6 BetrVG) surface:** Does the tool create centralized employer search, talk-time percentages, sentiment scores, or attendance tracking that triggers an immediate Works Council block?
+8. **Audio and transcript deletion:** Does the vendor distinguish third-party API zero retention from keeping copies indefinitely inside the app workspace?
+9. **Participant notice and section 201 StGB compliance:** How do hosts notify internal and external attendees before capture starts, and can participants opt out cleanly?
+10. **Endpoint security baseline:** If transcripts stay on laptops, are FileVault/BitLocker full-disk encryption, screen locks, MDM policies, and encrypted corporate backups enforced across the fleet?
+
+## Frequently asked questions
+
+### Does EU data residency make a US cloud AI notetaker GDPR compliant?
+
+No. Hosting servers in Frankfurt or Dublin addresses physical storage location, not extraterritorial disclosure duties under the US CLOUD Act (18 U.S.C. section 2713) or conflicting rules in GDPR Article 48. As Microsoft France's legal director testified under oath before the French Senate on June 10, 2025, a US-parented cloud provider cannot guarantee that EU-hosted customer data will never be transmitted under a US government order. Compliance teams also have to verify where LLM inference executes, which subprocessors receive transcripts, and whether data minimization under Article 5(1)(c) is met.
+
+### Is Microsoft Copilot inside the EU Data Boundary safe from US CLOUD Act requests?
+
+No. Aside from Microsoft Corporation remaining subject to US jurisdiction under 18 U.S.C. section 2713, Microsoft's own documentation lists active exceptions inside the EU Data Boundary: Copilot Flex Routing permits LLM inferencing outside the EUDB during peak demand (and ships enabled by default for eligible tenants created after March 25, 2026), web grounding sends queries to Bing outside core M365 commitments, Anthropic subprocessors sit outside the EUDB, and global Microsoft DevOps teams maintain controlled remote access to EUDB systems.
+
+### Can a German Works Council (Betriebsrat) block an AI meeting notetaker?
+
+Yes. Under section 87(1) No. 6 BetrVG, the Works Council holds a mandatory co-determination right over technical systems objectively capable of monitoring employee behavior or performance. Cloud meeting tools that build centralized employer-searchable transcript archives, track talk-time ratios, or log attendance routinely trigger Works Council vetoes until a formal *Betriebsvereinbarung* is negotiated. Removing central cloud archives and locking down telemetry via local-first MDM removes most surveillance capabilities from the architecture, though software deployment consultation with the Works Council still applies.
+
+### Is a bot-free AI notetaker legal under GDPR and German section 201 StGB?
+
+Bot-free capture avoids placing a disruptive guest participant into calls, yet it does not waive recording laws or GDPR obligations. Recording a confidential spoken conversation without participant authorization violates German section 201 StGB (punishable by up to three years' imprisonment or a fine), and capturing identifiable voices remains personal-data processing requiring a GDPR Article 6 lawful basis and Article 13 notice. Disclose transcription explicitly before every call, document notice in calendar invites, and disable capture when someone objects.
+
+### Can you run a GDPR-aligned AI notetaker completely locally without cloud transfers?
+
+Yes, provided both transcription and summarization run locally and optional network features stay disabled. In Anarlog, Apple Silicon users can pair on-device Soniqo Parakeet or whisper.cpp `.bin` transcription with local LLM inference through Ollama, LM Studio, Unsloth, or macOS 26 Apple Intelligence, storing all sessions and notes in local SQLite. Leave CloudSync, sharing, telemetry, crash reporting, and chat web search disabled (or lock them off with `managed_settings.json`) so meeting content never leaves the device.
+
+### How does Anarlog handle EU data residency, CloudSync, and enterprise DPAs?
+
+Anarlog's canonical notes and transcripts live in local SQLite on your device by default, and users or IT teams can route AI requests straight to EU-hosted endpoints (such as Mistral's EU endpoint, EU Azure OpenAI, or an internal corporate gateway) without touching Fastrepl servers. Fastrepl-operated cloud features (accounts, optional E2EE CloudSync ciphertext, shared links, Cloud API & Connectors, and managed cloud AI) currently run in the United States, and Fastrepl does not offer a certified EU cloud SKU today. Organizations can lock those cloud paths off via MDM, or request an Enterprise evaluation with a DPA incorporating EU Standard Contractual Clauses through [Anarlog Enterprise](/enterprise/) and review architectural disclosures on the [security page](/security/).
+
+Ready to test a meeting workflow where transcripts stay on your hardware and your DPO can read the source code? [Download Anarlog](/download/) on macOS, Windows, or Linux, or review the [local AI meeting notes guide](/blog/local-ai-meeting-notes/) before your next security review.
+
+<CtaCard
+  href="/download/"
+  title="Keep meeting transcripts in local SQLite, not a US cloud"
+  description="Download Anarlog (MIT-licensed) for bot-free capture, on-device Soniqo/Ollama models or EU BYOK gateways, and fail-closed MDM controls."
+  cta="Download Anarlog"
+/>
