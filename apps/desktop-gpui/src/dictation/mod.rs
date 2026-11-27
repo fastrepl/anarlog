@@ -744,6 +744,7 @@ impl Dictation {
                     cx,
                 );
                 let opened = cx.open_window(options, |window, cx| {
+                    crate::platform::windows::configure_floating_panel(window);
                     window::keep_focus_elsewhere(window);
                     cx.new(|_| DictationBar::new(panel))
                 });

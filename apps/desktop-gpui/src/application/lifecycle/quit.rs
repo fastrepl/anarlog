@@ -114,7 +114,7 @@ impl QuitOverlay {
             window_bounds: Some(WindowBounds::Windowed(Bounds::new(origin, size))),
             titlebar: None,
             focus: false,
-            show: true,
+            show: !cfg!(target_os = "macos"),
             kind: WindowKind::PopUp,
             is_movable: false,
             is_resizable: false,
@@ -124,7 +124,8 @@ impl QuitOverlay {
             ..Default::default()
         };
         self.0 = cx
-            .open_window(options, |_, cx| {
+            .open_window(options, |window, cx| {
+                crate::platform::windows::configure_floating_panel(window);
                 cx.new(|_| QuitOverlayView {
                     closing: false,
                     shown: 0,

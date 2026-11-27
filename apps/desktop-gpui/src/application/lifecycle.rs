@@ -433,7 +433,10 @@ impl ApplicationView {
         }
         self.main_window_hidden(cx);
         match crate::platform::windows::hide_main(window, cx) {
-            Ok(()) => {}
+            Ok(()) => {
+                self.main_window_active = false;
+                self.sync_floating_bar(cx);
+            }
             Err(ServiceError::Unsupported(_)) => self.request_quit(cx),
             Err(error) => self.status(&error.to_string(), cx),
         }
@@ -490,8 +493,12 @@ impl ApplicationView {
             TrayAction::CheckUpdate => self.check_for_updates(cx),
             TrayAction::Hide => {
                 self.main_window_hidden(cx);
-                if let Err(error) = crate::platform::windows::hide_main(window, cx) {
-                    self.status(&error.to_string(), cx);
+                match crate::platform::windows::hide_main(window, cx) {
+                    Ok(()) => {
+                        self.main_window_active = false;
+                        self.sync_floating_bar(cx);
+                    }
+                    Err(error) => self.status(&error.to_string(), cx),
                 }
             }
             TrayAction::QuitCompletely => self.confirm_quit_completely(window, cx),
@@ -3229,5 +3236,154 @@ mod tests {
                 .update(|cx| cx.update_window(main_window, |_, window, _| window.remove_window()));
             let _ = futures::executor::block_on(runtime.shutdown());
         }
+    }
+
+    #[gpui::test]
+    fn floating_bar_hides_while_main_window_is_active_and_reopens_on_deactivate(
+        cx: &mut gpui::TestAppContext,
+    ) {
+        let fixture = open_app_with_detached_note(cx);
+        let activate = |window: gpui::AnyWindowHandle, cx: &mut gpui::TestAppContext| {
+            let _ = cx.update(|cx| cx.update_window(window, |_, win, _| win.activate_window()));
+            cx.run_until_parked();
+        };
+
+        activate(fixture.main_window, cx);
+        cx.read(|cx| assert!(fixture.app_entity.read(cx).main_window_active));
+
+        cx.update(|cx| {
+            let live = fixture.app_entity.read(cx).meeting_host.live().clone();
+            live.update(cx, |state, cx| {
+                state.set(
+                    Some(crate::meeting::live::LiveMeeting::new(
+                        fixture.session_id.clone(),
+                        crate::meeting::live::SessionMode::Active,
+                    )),
+                    cx,
+                );
+            });
+        });
+        cx.run_until_parked();
+        cx.read(|cx| assert!(!fixture.app_entity.read(cx).meeting_host.floating_open()));
+
+        activate(fixture.detached_window, cx);
+        cx.read(|cx| {
+            let app = fixture.app_entity.read(cx);
+            assert!(!app.main_window_active);
+            assert!(app.meeting_host.floating_open());
+            assert_eq!(app.meeting_host.floating_expanded(cx), Some(false));
+        });
+
+        cx.update(|cx| {
+            fixture.app_entity.update(cx, |app, cx| {
+                app.meeting_host.set_floating_expanded(true, cx)
+            });
+        });
+        cx.run_until_parked();
+        let (expanded_bounds, expected_display_id) = cx.update(|cx| {
+            let expanded = fixture
+                .app_entity
+                .read(cx)
+                .meeting_host
+                .floating_expanded(cx);
+            assert_eq!(expanded, Some(true));
+            let bounds = fixture
+                .app_entity
+                .update(cx, |app, cx| app.meeting_host.floating_bounds(cx))
+                .expect("floating bounds while open");
+            let display_id = fixture
+                .app_entity
+                .update(cx, |app, cx| app.meeting_host.floating_display_id(cx));
+            (bounds, display_id)
+        });
+
+        activate(fixture.main_window, cx);
+        cx.read(|cx| {
+            let app = fixture.app_entity.read(cx);
+            assert!(app.main_window_active);
+            assert!(!app.meeting_host.floating_open());
+        });
+
+        activate(fixture.detached_window, cx);
+        cx.update(|cx| {
+            let (main_active, open, expanded) = {
+                let app = fixture.app_entity.read(cx);
+                (
+                    app.main_window_active,
+                    app.meeting_host.floating_open(),
+                    app.meeting_host.floating_expanded(cx),
+                )
+            };
+            assert!(!main_active);
+            assert!(open);
+            assert_eq!(expanded, Some(true));
+            let bounds = fixture
+                .app_entity
+                .update(cx, |app, cx| app.meeting_host.floating_bounds(cx));
+            let display_id = fixture
+                .app_entity
+                .update(cx, |app, cx| app.meeting_host.floating_display_id(cx));
+            assert_eq!(bounds, Some(expanded_bounds));
+            assert_eq!(display_id, expected_display_id);
+        });
+
+        activate(fixture.main_window, cx);
+        cx.update(|cx| {
+            let session = fixture.session_id.clone();
+            fixture.app_entity.update(cx, |app, _| {
+                app.meeting_host.save_floating_for_test(
+                    session,
+                    Some(gpui::DisplayId::new(u64::MAX)),
+                    gpui::point(gpui::px(9999.), gpui::px(9999.)),
+                    true,
+                );
+            });
+        });
+
+        activate(fixture.detached_window, cx);
+        cx.update(|cx| {
+            let bounds = fixture
+                .app_entity
+                .update(cx, |app, cx| app.meeting_host.floating_bounds(cx))
+                .expect("reopened on default display");
+            assert_ne!(bounds.origin, gpui::point(gpui::px(9999.), gpui::px(9999.)));
+            assert_eq!(
+                fixture
+                    .app_entity
+                    .read(cx)
+                    .meeting_host
+                    .floating_expanded(cx),
+                Some(true)
+            );
+        });
+
+        activate(fixture.main_window, cx);
+        cx.read(|cx| {
+            let app = fixture.app_entity.read(cx);
+            assert!(app.main_window_active);
+            assert!(!app.meeting_host.floating_open());
+        });
+
+        cx.update(|cx| {
+            let workspace = fixture.app_entity.read(cx).workspace.clone();
+            workspace.update(cx, |_, cx| {
+                cx.emit(crate::workspace::WorkspaceAction::OpenFloatingPanel);
+            });
+        });
+        cx.run_until_parked();
+        cx.read(|cx| assert!(fixture.app_entity.read(cx).meeting_host.floating_open()));
+
+        activate(fixture.main_window, cx);
+        cx.read(|cx| {
+            let app = fixture.app_entity.read(cx);
+            assert!(app.main_window_active);
+            assert!(!app.meeting_host.floating_open());
+        });
+
+        let _ = cx.update(|cx| {
+            let _ = cx.update_window(fixture.detached_window, |_, win, _| win.remove_window());
+            cx.update_window(fixture.main_window, |_, win, _| win.remove_window())
+        });
+        let _ = futures::executor::block_on(fixture.runtime.shutdown());
     }
 }

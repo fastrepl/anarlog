@@ -30,7 +30,7 @@ pub fn options(size: Size<Pixels>, cx: &App) -> WindowOptions {
         display_id: display.map(|display| display.id()),
         titlebar: None,
         focus: false,
-        show: true,
+        show: !cfg!(target_os = "macos"),
         kind: WindowKind::PopUp,
         is_movable: true,
         is_resizable: false,

@@ -87,6 +87,8 @@ pub struct ApplicationView {
     editor: Option<Entity<EditorPane>>,
     meeting: Option<Entity<MeetingPane>>,
     meeting_host: MeetingHost,
+    main_window_active: bool,
+    floating_pinned_session: Option<SessionId>,
     automation: Entity<crate::meeting::automation::MeetingAutomation>,
     dictation: Option<Entity<crate::dictation::Dictation>>,
     product: Option<Entity<ProductPane>>,
@@ -165,6 +167,16 @@ impl ApplicationView {
         });
         let mut subscriptions = vec![
             cx.observe(&live, |this, _, cx| this.live_changed(cx)),
+            cx.observe_window_activation(window, |this, window, cx| {
+                let active = window.is_window_active();
+                if this.main_window_active != active {
+                    this.main_window_active = active;
+                    if active {
+                        this.floating_pinned_session = None;
+                    }
+                    this.sync_floating_bar(cx);
+                }
+            }),
             cx.on_focus_lost(window, |this, window, cx| {
                 if this.product.is_none() && !this.closing && !this.writers_paused {
                     cx.focus_view(&this.workspace, window);
@@ -187,7 +199,17 @@ impl ApplicationView {
                 WorkspaceAction::NewNoteWindow => this.open_note_window(None, cx),
                 WorkspaceAction::OpenNoteWindow(id) => this.open_note_window(Some(id.clone()), cx),
                 WorkspaceAction::PinnedChanged(routes) => this.save_pins(routes.clone(), cx),
-                WorkspaceAction::OpenFloatingPanel => this.meeting_host.show_floating(cx),
+                WorkspaceAction::OpenFloatingPanel => {
+                    this.floating_pinned_session = this
+                        .meeting_host
+                        .live()
+                        .read(cx)
+                        .current()
+                        .filter(|live| live.mode == crate::meeting::live::SessionMode::Active)
+                        .map(|live| live.session.clone());
+                    this.sync_floating_bar(cx);
+                    this.meeting_host.show_floating(cx);
+                }
             }),
             // Plan-gated surfaces read the account while rendering.
             cx.observe_global::<crate::product::account::Account>(|_, cx| cx.notify()),
@@ -503,6 +525,8 @@ impl ApplicationView {
             editor: None,
             meeting: None,
             meeting_host,
+            main_window_active: window.is_window_active(),
+            floating_pinned_session: None,
             automation,
             dictation,
             product: None,
@@ -1456,6 +1480,29 @@ impl ApplicationView {
         cx.notify();
     }
 
+    pub(super) fn sync_floating_bar(&mut self, cx: &mut Context<Self>) {
+        let active_session = self
+            .meeting_host
+            .live()
+            .read(cx)
+            .current()
+            .filter(|live| live.mode == crate::meeting::live::SessionMode::Active)
+            .map(|live| &live.session);
+        if active_session != self.floating_pinned_session.as_ref() {
+            self.floating_pinned_session = None;
+        }
+        let enabled = self.notifications.floating_bar_enabled()
+            && (!self.main_window_active
+                || (active_session.is_some()
+                    && active_session == self.floating_pinned_session.as_ref()));
+        if let Err(error) = self
+            .meeting_host
+            .sync_floating(enabled, self.services.as_ref(), cx)
+        {
+            self.status(&error.to_string(), cx);
+        }
+    }
+
     /// Live recording markers and the floating bar follow the live meeting.
     fn live_changed(&mut self, cx: &mut Context<Self>) {
         for (session, active) in self.meeting_host.recording_changes(cx) {
@@ -1463,13 +1510,7 @@ impl ApplicationView {
                 workspace.set_recording(session, active, cx)
             });
         }
-        let enabled = self.notifications.floating_bar_enabled();
-        if let Err(error) = self
-            .meeting_host
-            .sync_floating(enabled, self.services.as_ref(), cx)
-        {
-            self.status(&error.to_string(), cx);
-        }
+        self.sync_floating_bar(cx);
     }
 
     fn open_meeting(&mut self, intent: MeetingIntent, window: &mut Window, cx: &mut Context<Self>) {

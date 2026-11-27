@@ -233,6 +233,11 @@ impl FloatingBar {
         bar
     }
 
+    /// Whether the live transcript drawer is currently expanded.
+    pub fn expanded(&self) -> bool {
+        self.expanded
+    }
+
     /// Opens or collapses the live transcript, as the expand control does.
     pub fn set_expanded(&mut self, expanded: bool, cx: &mut Context<Self>) {
         let shows_expand = self.live.read(cx).current().is_some_and(shows_expand);

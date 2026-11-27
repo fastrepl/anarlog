@@ -4,8 +4,8 @@
 
 use desktop_runtime::{Result, ServiceError, SessionId};
 use gpui::{
-    App, AppContext, Bounds, Entity, Subscription, WindowBackgroundAppearance, WindowBounds,
-    WindowHandle, WindowKind, WindowOptions, point, px,
+    App, AppContext, Bounds, DisplayId, Entity, Pixels, Point, Subscription,
+    WindowBackgroundAppearance, WindowBounds, WindowHandle, WindowKind, WindowOptions, point, px,
 };
 use tokio::sync::oneshot;
 
@@ -15,6 +15,13 @@ use super::live::{LiveState, SessionMode};
 use super::playback;
 
 type Reply = oneshot::Receiver<Result<()>>;
+
+struct SavedFloating {
+    session: SessionId,
+    display_id: Option<DisplayId>,
+    origin: Point<Pixels>,
+    expanded: bool,
+}
 
 /// Starts capture for a session, pausing playback first like shipping's listener.
 pub fn start(services: &MeetingServices, session: SessionId) -> Result<Reply> {
@@ -35,6 +42,7 @@ pub struct MeetingHost {
     live: Entity<LiveState>,
     recording: Option<SessionId>,
     floating: Option<(WindowHandle<FloatingBar>, Subscription)>,
+    saved_floating: Option<SavedFloating>,
 }
 
 impl MeetingHost {
@@ -43,6 +51,7 @@ impl MeetingHost {
             live: LiveState::install(cx),
             recording: None,
             floating: None,
+            saved_floating: None,
         }
     }
 
@@ -84,7 +93,59 @@ impl MeetingHost {
         }
     }
 
-    /// Shows the floating bar while a meeting is listening and closes it otherwise.
+    /// True while the floating bar window is open.
+    pub fn floating_open(&self) -> bool {
+        self.floating.is_some()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn floating_expanded(&self, cx: &App) -> Option<bool> {
+        self.floating
+            .as_ref()
+            .and_then(|(handle, _)| handle.read_with(cx, |bar, _| bar.expanded()).ok())
+    }
+
+    #[cfg(test)]
+    pub(crate) fn floating_bounds(&self, cx: &mut App) -> Option<Bounds<Pixels>> {
+        self.floating
+            .as_ref()
+            .and_then(|(handle, _)| handle.update(cx, |_, window, _| window.bounds()).ok())
+    }
+
+    #[cfg(test)]
+    pub(crate) fn floating_display_id(&self, cx: &mut App) -> Option<DisplayId> {
+        self.floating.as_ref().and_then(|(handle, _)| {
+            handle
+                .update(cx, |_, window, cx| window.display(cx).map(|d| d.id()))
+                .ok()
+                .flatten()
+        })
+    }
+
+    #[cfg(test)]
+    pub(crate) fn save_floating_for_test(
+        &mut self,
+        session: SessionId,
+        display_id: Option<DisplayId>,
+        origin: Point<Pixels>,
+        expanded: bool,
+    ) {
+        self.saved_floating = Some(SavedFloating {
+            session,
+            display_id,
+            origin,
+            expanded,
+        });
+    }
+
+    #[cfg(test)]
+    pub(crate) fn set_floating_expanded(&self, expanded: bool, cx: &mut App) {
+        if let Some((handle, _)) = &self.floating {
+            let _ = handle.update(cx, |bar, _, cx| bar.set_expanded(expanded, cx));
+        }
+    }
+
+    /// Shows the floating bar when enabled while a meeting is listening and closes it otherwise.
     pub fn sync_floating(
         &mut self,
         enabled: bool,
@@ -97,28 +158,62 @@ impl MeetingHost {
             .current()
             .filter(|live| live.mode == SessionMode::Active)
             .cloned();
-        match (&self.floating, live.filter(|_| enabled), services) {
+        if self.saved_floating.as_ref().is_some_and(|saved| {
+            live.as_ref()
+                .is_none_or(|live| live.session != saved.session)
+        }) {
+            self.saved_floating = None;
+        }
+        let target = if enabled && services.is_some() {
+            live.as_ref()
+        } else {
+            None
+        };
+        match (&self.floating, target, services) {
             (None, Some(live), Some(services)) => {
-                let size = crate::zoom::window_size(container_size(false, shows_expand(&live)), cx);
-                let bounds = match cx.primary_display() {
-                    // Bottom center of the visible screen, 8px above its edge.
-                    Some(display) => {
-                        let visible = display.visible_bounds();
-                        Bounds::new(
-                            point(
-                                visible.center().x - size.width / 2.,
-                                visible.bottom() - size.height - px(8.),
-                            ),
-                            size,
-                        )
+                let saved = self
+                    .saved_floating
+                    .take()
+                    .filter(|saved| saved.session == live.session);
+                let expanded =
+                    saved.as_ref().is_some_and(|saved| saved.expanded) && shows_expand(live);
+                let size =
+                    crate::zoom::window_size(container_size(expanded, shows_expand(live)), cx);
+                let saved_placement = saved.filter(|saved| {
+                    saved
+                        .display_id
+                        .is_none_or(|id| cx.find_display(id).is_some())
+                });
+                let (bounds, display_id) = match saved_placement {
+                    Some(saved) => (Bounds::new(saved.origin, size), saved.display_id),
+                    None => {
+                        let primary = cx.primary_display();
+                        let bounds = match &primary {
+                            // Bottom center of the visible screen, 8px above its edge.
+                            Some(display) => {
+                                let visible = display.visible_bounds();
+                                Bounds::new(
+                                    point(
+                                        visible.center().x - size.width / 2.,
+                                        visible.bottom() - size.height - px(8.),
+                                    ),
+                                    size,
+                                )
+                            }
+                            None => Bounds::centered(None, size, cx),
+                        };
+                        (bounds, primary.map(|display| display.id()))
                     }
-                    None => Bounds::centered(None, size, cx),
                 };
                 let options = WindowOptions {
                     window_bounds: Some(WindowBounds::Windowed(bounds)),
+                    display_id,
                     titlebar: None,
                     focus: false,
-                    show: true,
+                    // On macOS, GPUI orders the window front during `open_window` before the root
+                    // builder strips `Titled`; keep it hidden until `configure_floating_panel`
+                    // applies the borderless panel configuration and orders it front.
+                    show: !cfg!(target_os = "macos"),
                     kind: WindowKind::PopUp,
                     is_movable: true,
                     is_resizable: false,
@@ -131,8 +226,12 @@ impl MeetingHost {
                 let services = services.clone();
                 let mut subscription = None;
                 let handle = cx
-                    .open_window(options, |_, cx| {
+                    .open_window(options, |window, cx| {
+                        crate::platform::windows::configure_floating_panel(window);
                         let bar = cx.new(|cx| FloatingBar::new(state, cx));
+                        if expanded {
+                            bar.update(cx, |bar, cx| bar.set_expanded(true, cx));
+                        }
                         subscription = Some(cx.subscribe(&bar, move |_, event, cx| {
                             let FloatingEvent::Stop = event;
                             let reply = stop(&services);
@@ -151,9 +250,29 @@ impl MeetingHost {
                     self.floating = Some((handle, subscription));
                 }
             }
-            (Some(_), None, _) | (Some(_), _, None) => {
+            (Some(_), None, _) => {
                 if let Some((handle, _)) = self.floating.take() {
-                    let _ = handle.update(cx, |_, window, _| window.remove_window());
+                    let saved = handle
+                        .update(cx, |bar, window, cx| {
+                            let display_id = window.display(cx).map(|display| display.id());
+                            let origin = window.bounds().origin;
+                            let expanded = bar.expanded();
+                            window.remove_window();
+                            (display_id, origin, expanded)
+                        })
+                        .ok();
+                    if let (Some(live), Some((display_id, origin, expanded))) =
+                        (live.as_ref(), saved)
+                    {
+                        self.saved_floating = Some(SavedFloating {
+                            session: live.session.clone(),
+                            display_id,
+                            origin,
+                            expanded,
+                        });
+                    } else {
+                        self.saved_floating = None;
+                    }
                 }
             }
             _ => {}
