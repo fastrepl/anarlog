@@ -92,6 +92,10 @@ impl WebSocketProxy {
             .clone()
             .into_client_request()
             .map_err(|e| crate::ProxyError::InvalidRequest(e.to_string()))?;
+        req.headers_mut().insert(
+            "user-agent",
+            axum::http::HeaderValue::from_static("Anarlog"),
+        );
         anlg_observability::inject_current_trace_context(req.headers_mut());
 
         let connect_start = Instant::now();

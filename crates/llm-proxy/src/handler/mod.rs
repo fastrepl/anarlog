@@ -140,7 +140,10 @@ pub(crate) struct AppState {
 pub fn router(config: LlmProxyConfig) -> Router {
     let state = AppState {
         config,
-        client: Client::new(),
+        client: Client::builder()
+            .user_agent("Anarlog")
+            .build()
+            .expect("valid Anarlog user agent"),
     };
 
     Router::new()
@@ -152,7 +155,10 @@ pub fn router(config: LlmProxyConfig) -> Router {
 pub fn chat_completions_router(config: LlmProxyConfig) -> Router {
     let state = AppState {
         config,
-        client: Client::new(),
+        client: Client::builder()
+            .user_agent("Anarlog")
+            .build()
+            .expect("valid Anarlog user agent"),
     };
 
     Router::new()

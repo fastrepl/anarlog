@@ -54,6 +54,7 @@ impl Client {
     fn with_request_headers(&self, builder: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
         builder
             .header("Authorization", format!("Bearer {}", self.api_key))
+            .header("User-Agent", "Anarlog")
             .header("HTTP-Referer", APP_REFERER)
             .header("X-Title", APP_TITLE)
             .header("X-OpenRouter-Categories", APP_CATEGORIES)
