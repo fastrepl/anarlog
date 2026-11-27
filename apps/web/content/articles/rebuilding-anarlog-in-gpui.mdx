@@ -104,7 +104,7 @@ Memory numbers compare `1.4.35` against GPUI within each OS (`phys_footprint`, c
   baselineLabel="1.4.36 Tauri"
   candidateLabel="2.0.0 GPUI"
   subtitle="Apple M5 Max, macOS 27.0.1"
-  note="Main executable links 70 vs 76 dylibs (WebKit/JavaScriptCore removed). Isolated 2.0.0 runtime: 256.5 ms warm first paint, 62.0 MiB footprint, 1 process."
+  note="Main executable links 70 vs 76 dylibs (WebKit/JavaScriptCore removed). Isolated 2.0.0 runtime: 256.5 ms median first paint (5 launches incl. cold), 62.0 MiB footprint, 1 process."
   rows={[
     { label: "Signed .dmg", baseline: 203.9, candidate: 170.2, baselineText: "203.9 MiB", candidateText: "170.2 MiB", delta: "-16.5%" },
     { label: "Unpacked .app", baseline: 478.7, candidate: 414.6, baselineText: "478.7 MiB", candidateText: "414.6 MiB", delta: "-13.4%" },

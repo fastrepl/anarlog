@@ -128,37 +128,33 @@ function BenchmarkChart({
     regression?: boolean;
   }>;
 }) {
-  const maxVal = Math.max(
-    ...rows.flatMap((row) => [row.baseline, row.candidate]),
-    1,
-  );
-  const barStyle = (val: number) => ({
-    width: `${Math.max((val / maxVal) * 100, val > 0 ? 1.5 : 0)}%`,
-    minWidth: val > 0 ? "6px" : "0px",
+  const barStyle = (val: number, rowMax: number) => ({
+    width: `${(val / Math.max(rowMax, 1)) * 100}%`,
+    minWidth: val > 0 ? "2px" : "0px",
   });
 
   return (
-    <figure className="not-prose my-7 rounded-sm border border-[#e5dfd5] bg-[#faf7f1] p-4 text-[#181613] md:p-5">
-      <figcaption className="flex flex-wrap items-baseline justify-between gap-2 border-b border-[#e5dfd5] pb-2.5">
+    <figure className="not-prose my-7 rounded-sm border border-[var(--color-border-subtle)] bg-[var(--color-surface-subtle)] p-4 text-[var(--color-fg)] md:p-5">
+      <figcaption className="flex flex-wrap items-baseline justify-between gap-2 border-b border-[var(--color-border-subtle)] pb-2.5">
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-          <span className="text-sm font-semibold tracking-tight text-[#181613]">
+          <span className="text-sm font-semibold tracking-tight text-[var(--color-fg)]">
             {title}
           </span>
-          <span className="font-mono text-xs text-[#756b5d]">
+          <span className="font-sans text-xs text-[var(--color-fg-secondary)]">
             {subtitle ? `${subtitle} (${unit})` : unit}
           </span>
         </div>
-        <div className="flex flex-wrap items-center gap-3 font-mono text-xs text-[#756b5d]">
+        <div className="flex flex-wrap items-center gap-3 font-sans text-xs text-[var(--color-fg-secondary)]">
           <span className="inline-flex items-center gap-1.5">
             <span
-              className="inline-block h-2.5 w-2.5 shrink-0 bg-[#c8372d]"
+              className="inline-block h-2.5 w-2.5 shrink-0 bg-red-600"
               aria-hidden="true"
             />
             {baselineLabel}
           </span>
           <span className="inline-flex items-center gap-1.5">
             <span
-              className="inline-block h-2.5 w-2.5 shrink-0 bg-[#0f7b53]"
+              className="inline-block h-2.5 w-2.5 shrink-0 bg-emerald-700"
               aria-hidden="true"
             />
             {candidateLabel}
@@ -168,20 +164,21 @@ function BenchmarkChart({
 
       <div className="mt-3.5 space-y-3.5">
         {rows.map((row) => {
+          const rowMax = Math.max(row.baseline, row.candidate, 1);
           const baselineText = row.baselineText ?? `${row.baseline} ${unit}`;
           const candidateText = row.candidateText ?? `${row.candidate} ${unit}`;
           return (
             <div key={row.label} className="space-y-1.5">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-sm font-medium text-[#181613]">
+                <span className="text-sm font-medium text-[var(--color-fg)]">
                   {row.label}
                 </span>
                 <span
                   className={cn([
-                    "inline-flex items-center border px-1.5 py-0.5 font-mono text-xs font-medium tabular-nums",
+                    "inline-flex items-center border px-1.5 py-0.5 font-sans text-xs font-medium tabular-nums",
                     row.regression
-                      ? "border-[#c8372d]/40 bg-[#f6dfdd] text-[#c8372d]"
-                      : "border-[#0f7b53]/40 bg-[#dceee5] text-[#0f7b53]",
+                      ? "border-red-300 bg-red-50 text-red-700"
+                      : "border-emerald-300 bg-emerald-50 text-emerald-800",
                   ])}
                 >
                   {row.delta}
@@ -190,28 +187,28 @@ function BenchmarkChart({
 
               <div className="space-y-1">
                 <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2.5">
-                  <div className="h-2.5 w-full bg-[#eee7db]">
+                  <div className="h-2.5 w-full bg-[var(--color-border-subtle)]">
                     <div
-                      className="h-full bg-[#c8372d]"
-                      style={barStyle(row.baseline)}
+                      className="h-full bg-red-600"
+                      style={barStyle(row.baseline, rowMax)}
                       aria-hidden="true"
                     />
                   </div>
-                  <span className="min-w-[6.5rem] text-right font-mono text-xs font-medium text-[#756b5d] tabular-nums">
+                  <span className="min-w-[6.5rem] text-right font-mono text-xs font-medium text-[var(--color-fg-secondary)] tabular-nums">
                     <span className="sr-only">{baselineLabel}: </span>
                     {baselineText}
                   </span>
                 </div>
 
                 <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2.5">
-                  <div className="h-2.5 w-full bg-[#eee7db]">
+                  <div className="h-2.5 w-full bg-[var(--color-border-subtle)]">
                     <div
-                      className="h-full bg-[#0f7b53]"
-                      style={barStyle(row.candidate)}
+                      className="h-full bg-emerald-700"
+                      style={barStyle(row.candidate, rowMax)}
                       aria-hidden="true"
                     />
                   </div>
-                  <span className="min-w-[6.5rem] text-right font-mono text-xs font-medium text-[#181613] tabular-nums">
+                  <span className="min-w-[6.5rem] text-right font-mono text-xs font-medium text-[var(--color-fg)] tabular-nums">
                     <span className="sr-only">{candidateLabel}: </span>
                     {candidateText}
                   </span>
@@ -223,7 +220,7 @@ function BenchmarkChart({
       </div>
 
       {note && (
-        <p className="mt-3 border-t border-[#e5dfd5] pt-2.5 font-mono text-xs leading-relaxed text-[#756b5d]">
+        <p className="mt-3 border-t border-[var(--color-border-subtle)] pt-2.5 font-sans text-xs leading-relaxed text-[var(--color-fg-secondary)]">
           {note}
         </p>
       )}
