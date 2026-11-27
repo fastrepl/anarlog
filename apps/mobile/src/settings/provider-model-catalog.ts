@@ -8,7 +8,11 @@ const TRANSCRIPTION_MODELS: Record<string, readonly string[]> = {
     "nova-3-general",
     "nova-3-medical",
   ],
-  assemblyai: ["universal-3-5-pro", "universal-3-5-pro-realtime"],
+  assemblyai: [
+    "universal-3-5-pro",
+    "universal-3-6-pro-realtime",
+    "universal-3-5-pro-realtime",
+  ],
   openai: [
     "gpt-live-transcribe",
     "gpt-transcribe",
@@ -17,6 +21,7 @@ const TRANSCRIPTION_MODELS: Record<string, readonly string[]> = {
   ],
   openrouter: [
     "openai/gpt-transcribe",
+    "assemblyai/universal-3-6-pro",
     "mistralai/voxtral-mini-transcribe",
     "openai/whisper-large-v3-turbo",
     "openai/whisper-large-v3",

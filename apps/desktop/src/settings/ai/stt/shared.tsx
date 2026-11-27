@@ -55,6 +55,7 @@ type Provider = {
 };
 
 const OPENROUTER_MODEL_LABELS: Record<string, string> = {
+  "assemblyai/universal-3-6-pro": "Universal 3.6 Pro",
   "fish-audio/transcribe-1": "Transcribe 1",
   "x-ai/grok-stt-1.0": "Grok STT 1.0",
   "deepgram/nova-3": "Nova 3",
@@ -100,6 +101,10 @@ const displayModelId = (model: string): string => {
 
   if (model === "flux-general-en") {
     return "Flux General English";
+  }
+
+  if (model === "universal-3-6-pro-realtime") {
+    return "Universal 3.6 Pro Realtime";
   }
 
   if (model === "universal-3-5-pro-realtime") {
@@ -464,7 +469,11 @@ const _PROVIDERS = [
     badge: null,
     icon: <ProviderLobeIcon icon={AssemblyAI} />,
     baseUrl: "https://api.assemblyai.com",
-    models: ["universal-3-5-pro", "universal-3-5-pro-realtime"],
+    models: [
+      "universal-3-5-pro",
+      "universal-3-6-pro-realtime",
+      "universal-3-5-pro-realtime",
+    ],
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
     links: {
       models: {
@@ -511,6 +520,7 @@ const _PROVIDERS = [
     baseUrl: "https://openrouter.ai/api/v1",
     models: [
       "openai/gpt-transcribe",
+      "assemblyai/universal-3-6-pro",
       "mistralai/voxtral-mini-transcribe",
       "openai/whisper-large-v3-turbo",
       "openai/whisper-large-v3",
