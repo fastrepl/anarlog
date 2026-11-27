@@ -1,5 +1,5 @@
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex, mpsc};
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError, mpsc};
 use std::time::{Duration, Instant};
 
 use crate::{DetectEvent, InstalledApp};
@@ -91,12 +91,17 @@ impl DetectorState {
 
 pub(super) struct SharedContext {
     pub(super) callback: Arc<Mutex<crate::DetectCallback>>,
-    pub(super) current_device: Arc<Mutex<Option<cidre::core_audio::Device>>>,
+    pub(super) input_devices: Arc<Mutex<Vec<cidre::core_audio::Device>>>,
+    refresh_lock: Arc<Mutex<()>>,
+    // Held across CoreAudio add/remove calls, so device callbacks must never take it.
+    sync_lock: Arc<Mutex<()>>,
     pub(super) state: Arc<Mutex<DetectorState>>,
     pub(super) polling_active: Arc<AtomicBool>,
     polling_fallback_active: Arc<AtomicBool>,
     polling_fallback_required: Arc<AtomicBool>,
+    device_list_stale: Arc<AtomicBool>,
     device_listener_context_retention_required: Arc<AtomicBool>,
+    device_listener_context_leaked: Arc<AtomicBool>,
     listener_callbacks_active: Arc<AtomicBool>,
     worker_signal: Option<mpsc::SyncSender<WorkerSignal>>,
 }
@@ -120,12 +125,16 @@ impl SharedContext {
     ) -> Self {
         Self {
             callback: Arc::new(Mutex::new(callback)),
-            current_device: Arc::new(Mutex::new(None)),
+            input_devices: Arc::new(Mutex::new(Vec::new())),
+            refresh_lock: Arc::new(Mutex::new(())),
+            sync_lock: Arc::new(Mutex::new(())),
             state: Arc::new(Mutex::new(DetectorState::new())),
             polling_active: Arc::new(AtomicBool::new(false)),
             polling_fallback_active: Arc::new(AtomicBool::new(false)),
             polling_fallback_required: Arc::new(AtomicBool::new(false)),
+            device_list_stale: Arc::new(AtomicBool::new(false)),
             device_listener_context_retention_required: Arc::new(AtomicBool::new(false)),
+            device_listener_context_leaked: Arc::new(AtomicBool::new(false)),
             listener_callbacks_active: Arc::new(AtomicBool::new(true)),
             worker_signal,
         }
@@ -134,17 +143,40 @@ impl SharedContext {
     pub(super) fn clone_shared(&self) -> Self {
         Self {
             callback: self.callback.clone(),
-            current_device: self.current_device.clone(),
+            input_devices: self.input_devices.clone(),
+            refresh_lock: self.refresh_lock.clone(),
+            sync_lock: self.sync_lock.clone(),
             state: self.state.clone(),
             polling_active: self.polling_active.clone(),
             polling_fallback_active: self.polling_fallback_active.clone(),
             polling_fallback_required: self.polling_fallback_required.clone(),
+            device_list_stale: self.device_list_stale.clone(),
             device_listener_context_retention_required: self
                 .device_listener_context_retention_required
                 .clone(),
+            device_listener_context_leaked: self.device_listener_context_leaked.clone(),
             listener_callbacks_active: self.listener_callbacks_active.clone(),
             worker_signal: self.worker_signal.clone(),
         }
+    }
+
+    pub(super) fn lock_refresh(&self) -> MutexGuard<'_, ()> {
+        self.refresh_lock
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+    }
+
+    pub(super) fn lock_sync(&self) -> MutexGuard<'_, ()> {
+        self.sync_lock
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+    }
+
+    pub(super) fn input_devices_snapshot(&self) -> Vec<cidre::core_audio::Device> {
+        self.input_devices
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
     }
 
     fn wake_worker(&self) {
@@ -160,6 +192,7 @@ impl SharedContext {
         self.polling_fallback_active.store(false, Ordering::SeqCst);
         self.polling_fallback_required
             .store(false, Ordering::SeqCst);
+        self.device_list_stale.store(false, Ordering::SeqCst);
     }
 
     pub(super) fn listener_callbacks_active(&self) -> bool {
@@ -176,8 +209,19 @@ impl SharedContext {
         self.enable_polling_fallback();
     }
 
+    pub(super) fn set_device_list_stale(&self, stale: bool) {
+        self.device_list_stale.store(stale, Ordering::SeqCst);
+        if stale {
+            self.enable_polling_fallback();
+        }
+    }
+
+    pub(super) fn device_list_stale(&self) -> bool {
+        self.device_list_stale.load(Ordering::SeqCst)
+    }
+
     pub(super) fn disable_polling_fallback(&self) {
-        if !self.polling_fallback_required.load(Ordering::SeqCst) {
+        if !self.polling_fallback_required.load(Ordering::SeqCst) && !self.device_list_stale() {
             self.polling_fallback_active.store(false, Ordering::SeqCst);
             self.wake_worker();
         }
@@ -200,6 +244,17 @@ impl SharedContext {
     pub(super) fn device_listener_context_retention_required(&self) -> bool {
         self.device_listener_context_retention_required
             .load(Ordering::SeqCst)
+    }
+
+    // A removed device may still have a notification queued, so its context is leaked, not
+    // freed. Restarts stay enabled: this context is never reactivated.
+    pub(super) fn leak_device_listener_context(&self) {
+        self.device_listener_context_leaked
+            .store(true, Ordering::SeqCst);
+    }
+
+    pub(super) fn device_listener_context_leaked(&self) -> bool {
+        self.device_listener_context_leaked.load(Ordering::SeqCst)
     }
 
     pub(super) fn emit(&self, event: DetectEvent) {
