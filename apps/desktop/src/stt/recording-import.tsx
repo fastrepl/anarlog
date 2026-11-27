@@ -15,6 +15,7 @@ import { catalogLocalSessionAudio } from "~/session/attachments";
 import { useSession } from "~/session/queries";
 import { useAiProvidersState } from "~/settings/providers";
 import { useSettingsReady } from "~/settings/queries";
+import { useLatestRef } from "~/shared/hooks/useLatestRef";
 import { useRunBatch } from "~/stt/useRunBatch";
 
 const workerId = crypto.randomUUID();
@@ -116,13 +117,16 @@ const runningImports = new Set<string>();
 
 function RunImport({ job }: { job: ImportJob }) {
   const runBatch = useRunBatch(job.meeting_id);
+  // The STT connection loads after this component mounts. Read the latest
+  // runBatch when transcription starts, not the first render's closure.
+  const runBatchRef = useLatestRef(runBatch);
   useMountEffect(() => {
     // Defer acquisition until after React's mount/cleanup probe. Once started,
     // processing outlives this component so navigation does not fail the job.
     const start = setTimeout(() => {
       if (runningImports.has(job.id)) return;
       runningImports.add(job.id);
-      void processImport(job, runBatch)
+      void processImport(job, (...args) => runBatchRef.current(...args))
         .catch(console.error)
         .finally(() => runningImports.delete(job.id));
     }, 0);
