@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, VecDeque};
+use std::collections::{BTreeMap, HashSet, VecDeque};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -13,13 +13,15 @@ use anlg_storage::StorageRuntime;
 use desktop_runtime::{Result, RuntimeHandle, ServiceError, SessionId};
 use futures::future::BoxFuture;
 use ractor::{Actor, ActorRef};
-use serde_json::json;
+use serde_json::{Value, json};
 use tokio::sync::{mpsc, oneshot};
 
 use super::model::{Retention, failure};
 use super::persistence::{Persistence, PersistenceGroup};
 use super::recovery::{
-    Recovery, RecoveryResolver, chunk_interval, delete_transcribed, page, release,
+    CaptureTarget, Recovery, RecoveryResolver, chunk_interval, delete_transcribed,
+    ensure_transcript_ready, parse_target, release, remove_delete_on_stop, resolve_chunk_target,
+    target_marker,
 };
 use super::retention::{Activities, Activity, session_directory};
 use super::store::{TranscriptStore, statement, string};
@@ -80,6 +82,10 @@ struct RepairContext {
     resolver: Option<RecoveryResolver>,
     directory: PathBuf,
     started: u64,
+    /// Older chunks below this belong to finished captures, not to a pending target.
+    earliest: u64,
+    /// Earlier pending captures in this note; their chunks route to their own transcripts.
+    inherited: Vec<CaptureTarget>,
     job: Arc<tokio::sync::Mutex<()>>,
 }
 
@@ -790,7 +796,17 @@ async fn start(
     })
     .await
     .map_err(failure)??;
-    let started = prepare(runtime, &session, transcript.clone(), &config, audio_offset).await?;
+    let (started, inherited) =
+        prepare(runtime, &session, transcript.clone(), &config, audio_offset).await?;
+    // The recorder stamps recovery chunks with the marker's start time so recovery can match a
+    // chunk to its attempt even when the wall clock moves between attempts.
+    config.params.capture_started_at_ms = Some(started);
+    let earliest = inherited
+        .iter()
+        .map(|target| target.started.saturating_sub(5_000).max(0) as u64)
+        .min()
+        .unwrap_or(started)
+        .min(started);
     let group = shared
         .lock()
         .map_err(failure)?
@@ -811,6 +827,8 @@ async fn start(
             resolver: config.recovery,
             directory,
             started,
+            earliest,
+            inherited,
             job: Arc::new(tokio::sync::Mutex::new(())),
         });
         state.changes.clear();
@@ -871,7 +889,7 @@ pub(super) async fn prepare(
     transcript: Arc<str>,
     config: &CaptureConfig,
     audio_offset: u64,
-) -> Result<u64> {
+) -> Result<(u64, Vec<CaptureTarget>)> {
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_err(failure)?
@@ -884,20 +902,58 @@ pub(super) async fn prepare(
     runtime.submit(move |services| async move {
         let rows = services.executor.execute("SELECT owner_user_id, created_at FROM sessions WHERE id = ? AND deleted_at IS NULL AND (locked = 0 OR id IN (SELECT value FROM json_each(?)))".into(), vec![json!(session), super::access::param()]).await.map_err(failure)?;
         let row = rows.first().ok_or(ServiceError::Conflict)?;
-        let marker = json!({
+        let owner = string(row, "owner_user_id")?;
+        let pending = services.executor.execute(
+            "SELECT value_json FROM app_settings WHERE id = ?".into(),
+            vec![json!(format!("capture_lifecycle_pending:{}", session.0))],
+        ).await.map_err(failure)?;
+        let mut inherited_entries = Vec::new();
+        if let Some(pending) = pending.first() {
+            let raw = string(pending, "value_json")?;
+            let previous: Value = serde_json::from_str(raw).map_err(|_| {
+                failure("An earlier recording's recovery marker is unreadable; recover or discard it before recording again.")
+            })?;
+            let mut candidates = vec![previous.clone()];
+            if let Some(inherited) = previous["inheritedCaptures"].as_array() {
+                candidates.extend(inherited.iter().cloned());
+            }
+            let mut seen = std::collections::HashSet::new();
+            for candidate in candidates {
+                let mut target = parse_target(&candidate).ok_or_else(|| {
+                    failure("An earlier recording's recovery marker is unreadable; recover or discard it before recording again.")
+                })?;
+                if target.transcript == transcript {
+                    continue;
+                }
+                if !seen.insert(target.transcript.clone()) {
+                    continue;
+                }
+                if target.owner_user_id.is_empty() {
+                    target.owner_user_id = owner.to_owned();
+                }
+                inherited_entries.push((target_marker(&target), target));
+            }
+            inherited_entries.sort_by_key(|(_, target)| target.started);
+        }
+        let (inherited_markers, inherited): (Vec<_>, Vec<_>) =
+            inherited_entries.into_iter().unzip();
+        let mut marker = json!({
             "version": 1, "chunkedAudio": true, "retainAudio": retained, "phase": "capturing",
             "sessionId": session, "transcriptId": transcript, "startedAt": now,
             "createdAt": string(row, "created_at")?, "audioOffsetMs": audio_offset,
-            "preserveExistingTranscript": true, "ownerUserId": string(row, "owner_user_id")?,
+            "preserveExistingTranscript": true, "ownerUserId": owner,
             "memo": memo, "provider": provider, "model": model,
         });
+        if !inherited_markers.is_empty() {
+            marker["inheritedCaptures"] = json!(inherited_markers);
+        }
         services.executor.execute_transaction(vec![
             statement("INSERT INTO transcripts (id, session_id, owner_user_id, workspace_id, source, provider, model, started_at_ms, memo) SELECT ?, id, owner_user_id, workspace_id, 'live_capture', ?, ?, ?, ? FROM sessions WHERE id = ? AND deleted_at IS NULL AND (locked = 0 OR id IN (SELECT value FROM json_each(?)))",
                 vec![json!(transcript), json!(provider), json!(model), json!(now), json!(memo), json!(session), super::access::param()], Some(1)),
             statement("INSERT INTO app_settings (id, value_json, updated_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now')) ON CONFLICT(id) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at",
                 vec![json!(format!("capture_lifecycle_pending:{}", session.0)), json!(marker.to_string())], Some(1)),
         ]).await.map_err(failure)?;
-        Ok(now as u64)
+        Ok((now as u64, inherited))
     })?.receive().await
 }
 
@@ -993,6 +1049,25 @@ async fn finish(
         let state = shared.lock().unwrap_or_else(|poison| poison.into_inner());
         (state.incomplete, state.repair.clone())
     };
+    let unresolved = match (recovery.as_ref(), transcript.as_ref()) {
+        (Some(repair), Some(transcript)) => inherited_chunks_remain(repair, transcript).await?,
+        _ => false,
+    };
+    let inherited: Vec<Arc<str>> = recovery
+        .as_ref()
+        .map(|repair| {
+            repair
+                .inherited
+                .iter()
+                .map(|target| target.transcript.clone())
+                .collect()
+        })
+        .unwrap_or_default();
+    // An earlier retained attempt owns the shared archive; a "Don't save" retry must not delete
+    // it. Only the retry's own recovery chunks go (released above).
+    let inherited_retained = recovery
+        .as_ref()
+        .is_some_and(|repair| repair.inherited.iter().any(|target| target.retained));
     if let Some(repair) = &recovery {
         repair.recovery.stop().await;
     }
@@ -1002,32 +1077,85 @@ async fn finish(
         ));
     }
     release_chunks(shared, true).await?;
-    // "Don't save" counts as saved only once its audio is gone.
+    // "Don't save" counts as saved only once its audio is gone. Earlier pending audio keeps the
+    // shared archive until startup recovery finishes it.
     if !retained
-        && let Some(repair) = recovery
-        && !delete_transcribed(repair.directory).await?
+        && !unresolved
+        && !inherited_retained
+        && let Some(repair) = recovery.as_ref()
+        && !delete_transcribed(repair.directory.clone()).await?
     {
         return Err(failure(
             "Don’t save audio is still waiting for transcription; it is kept for recovery.",
         ));
     }
+    // A "Don't save" retry over a retained archive must not leave the recorder's deletion marker
+    // behind, or startup cleanup would delete the earlier recording on the next launch.
+    if inherited_retained
+        && let Some(repair) = recovery.as_ref()
+        && remove_delete_on_stop(repair.directory.clone()).await?
+    {
+        // The marker is gone; the retained archive survives startup cleanup.
+    }
     if let Some(transcript) = transcript {
         runtime.submit(move |services| async move {
-            services.executor.execute_transaction(vec![
-                statement("UPDATE transcripts SET ended_at_ms = CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER) WHERE id = ?", vec![json!(transcript)], Some(1)),
-                statement("DELETE FROM app_settings WHERE id = ? AND json_valid(value_json) AND json_extract(value_json, '$.transcriptId') = ?",
-                    vec![json!(format!("capture_lifecycle_pending:{session_id}")), json!(transcript)], Some(1)),
-            ]).await.map_err(failure)?;
+            let delete_target = transcript.clone();
+            let mut statements = vec![statement(
+                "UPDATE transcripts SET ended_at_ms = CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER) WHERE id = ?",
+                vec![json!(transcript)],
+                Some(1),
+            )];
+            if !unresolved {
+                statements.push(statement(
+                    "DELETE FROM app_settings WHERE id = ? AND json_valid(value_json) AND json_extract(value_json, '$.transcriptId') = ?",
+                    vec![json!(format!("capture_lifecycle_pending:{session_id}")), json!(delete_target)],
+                    Some(1),
+                ));
+                for inherited in inherited {
+                    statements.push(statement(
+                        "UPDATE transcripts SET ended_at_ms = COALESCE(ended_at_ms, CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)) WHERE id = ? AND session_id = ? AND deleted_at IS NULL",
+                        vec![json!(inherited), json!(&session_id)],
+                        None,
+                    ));
+                }
+            }
+            services.executor.execute_transaction(statements).await.map_err(failure)?;
             Ok(())
         })?.receive().await?;
     }
     let mut state = shared.lock().unwrap_or_else(|poison| poison.into_inner());
     state.phase = Phase::Idle;
     state.activity = None;
-    state.status = "Recording saved".into();
+    state.status = if unresolved {
+        "Recording saved; earlier audio is still waiting for recovery".into()
+    } else {
+        "Recording saved".into()
+    };
     state.persistence = None;
     state.revision += 1;
     Ok(())
+}
+
+async fn inherited_chunks_remain(repair: &RepairContext, transcript: &Arc<str>) -> Result<bool> {
+    if repair.inherited.is_empty() {
+        return Ok(false);
+    }
+    let primary = CaptureTarget {
+        transcript: transcript.clone(),
+        started: repair.started as i64,
+        provider: String::new(),
+        model: String::new(),
+        memo: String::new(),
+        created_at: None,
+        owner_user_id: String::new(),
+        retained: true,
+    };
+    let chunks = Recovery::chunks(repair.directory.clone()).await?;
+    Ok(chunks.iter().any(|chunk| {
+        chunk.capture_started_at >= repair.earliest
+            && resolve_chunk_target(chunk, &primary, &repair.inherited)
+                .is_some_and(|target| target.transcript.as_ref() != transcript.as_ref())
+    }))
 }
 
 async fn repair_once(runtime: &RuntimeHandle, shared: &Arc<Mutex<State>>) -> Result<()> {
@@ -1044,7 +1172,11 @@ async fn repair_once(runtime: &RuntimeHandle, shared: &Arc<Mutex<State>>) -> Res
                 repair.recovery.incident();
             }
         }
-        if !state.incomplete && !state.batch {
+        let inherited = state
+            .repair
+            .as_ref()
+            .is_some_and(|repair| !repair.inherited.is_empty());
+        if !state.incomplete && !state.batch && !inherited {
             return Ok(());
         }
         let (Some(repair), Some(session), Some(transcript), Some(persistence)) = (
@@ -1058,9 +1190,13 @@ async fn repair_once(runtime: &RuntimeHandle, shared: &Arc<Mutex<State>>) -> Res
             ));
         };
         let Some(resolver) = repair.resolver.clone() else {
-            return Err(failure(
-                "Transcript is incomplete and this provider has no batch recovery adapter.",
-            ));
+            return Err(if state.incomplete || state.batch {
+                failure("Transcript is incomplete and this provider has no batch recovery adapter.")
+            } else {
+                failure(
+                    "An earlier interrupted recording needs batch recovery, but this provider has no batch adapter.",
+                )
+            });
         };
         (
             repair,
@@ -1072,36 +1208,92 @@ async fn repair_once(runtime: &RuntimeHandle, shared: &Arc<Mutex<State>>) -> Res
         )
     };
     let _job = repair.job.lock().await;
-    {
+    let (incomplete, batch) = {
         let state = shared.lock().unwrap_or_else(|poison| poison.into_inner());
-        if !state.incomplete && !state.batch {
-            return Ok(());
-        }
+        (state.incomplete, state.batch)
+    };
+    if !incomplete && !batch && repair.inherited.is_empty() {
+        return Ok(());
     }
     let generation = repair.recovery.generation();
     let store = TranscriptStore(runtime.clone());
+    let primary = CaptureTarget {
+        transcript: transcript.clone(),
+        started: repair.started as i64,
+        provider: String::new(),
+        model: String::new(),
+        memo: String::new(),
+        created_at: None,
+        owner_user_id: String::new(),
+        retained: true,
+    };
     let mut recovered_through = 0;
+    let mut failed = HashSet::new();
+    let mut cursor: Option<(u64, u64)> = None;
     loop {
-        let chunks = page(&repair.directory, repair.started).await?;
+        // Advance a cursor past every examined chunk so a full page of failed inherited chunks
+        // cannot block the current capture's later chunks. Failed files stay unacknowledged.
+        let chunks = Recovery::chunks_after(repair.directory.clone(), cursor).await?;
         if chunks.is_empty() {
             break;
         }
+        let mut progressed = false;
         for chunk in chunks {
-            let gap = chunk_interval(&chunk, repair.started as i64);
+            cursor = Some((chunk.capture_started_at, chunk.start_ms));
+            if failed.contains(&chunk.id) {
+                continue;
+            }
+            let Some(target) = resolve_chunk_target(&chunk, &primary, &repair.inherited) else {
+                failed.insert(chunk.id);
+                continue;
+            };
+            let current = target.transcript == transcript;
+            if current && !incomplete && !batch {
+                continue;
+            }
+            if current {
+                persistence.flush().await?;
+            } else if ensure_transcript_ready(runtime, &store, &session, target)
+                .await
+                .is_err()
+            {
+                failed.insert(chunk.id);
+                continue;
+            }
+            let chunk_id = chunk.id.clone();
+            let gap = chunk_interval(&chunk, target.started);
             let end = gap.end.max(0) as u64;
-            persistence.flush().await?;
-            repair
+            match repair
                 .recovery
                 .repair(
                     &store,
                     session.clone(),
-                    transcript.clone(),
+                    target.transcript.clone(),
                     chunk,
                     vec![gap],
                     &resolver,
                 )
-                .await?;
-            recovered_through = recovered_through.max(end);
+                .await
+            {
+                Ok(()) => {
+                    if current {
+                        recovered_through = recovered_through.max(end);
+                    }
+                    progressed = true;
+                }
+                Err(error) if current => return Err(error),
+                Err(_) => {
+                    failed.insert(chunk_id);
+                }
+            }
+        }
+        if !progressed && failed.len() >= 128 {
+            // Every chunk on this page failed; the cursor already advanced past them, so the next
+            // iteration reads the following page instead of looping on the same one.
+            continue;
+        }
+        if !progressed {
+            break;
         }
     }
     let mut state = shared.lock().unwrap_or_else(|poison| poison.into_inner());
@@ -1117,29 +1309,90 @@ async fn repair_once(runtime: &RuntimeHandle, shared: &Arc<Mutex<State>>) -> Res
 /// its speech is persisted, and the rest after its final flush (`settled`). Incomplete captures
 /// keep theirs for `repair_once`.
 async fn release_chunks(shared: &Arc<Mutex<State>>, settled: bool) -> Result<()> {
-    let (repair, persistence) = {
+    let (repair, persistence, transcript) = {
         let state = shared.lock().unwrap_or_else(|poison| poison.into_inner());
         if state.incomplete || state.batch {
             return Ok(());
         }
-        let (Some(repair), Some(persistence)) = (state.repair.clone(), state.persistence.clone())
-        else {
+        let (Some(repair), Some(persistence), Some(transcript)) = (
+            state.repair.clone(),
+            state.persistence.clone(),
+            state.transcript.clone(),
+        ) else {
             return Ok(());
         };
-        (repair, persistence)
+        (repair, persistence, transcript)
     };
     let _job = repair.job.lock().await;
-    let through = persistence.persisted_through();
+    let primary = CaptureTarget {
+        transcript,
+        started: repair.started as i64,
+        provider: String::new(),
+        model: String::new(),
+        memo: String::new(),
+        created_at: None,
+        owner_user_id: String::new(),
+        retained: true,
+    };
+    release_attempt_chunks(
+        &repair.directory,
+        &primary,
+        &repair.inherited,
+        persistence.persisted_through(),
+        settled,
+    )
+    .await
+}
+
+pub(super) async fn release_attempt_chunks(
+    directory: &std::path::Path,
+    primary: &CaptureTarget,
+    inherited: &[CaptureTarget],
+    through: i64,
+    settled: bool,
+) -> Result<()> {
+    let earliest = inherited
+        .iter()
+        .map(|target| target.started.saturating_sub(5_000).max(0) as u64)
+        .min()
+        .unwrap_or(primary.started.max(0) as u64)
+        .min(primary.started.max(0) as u64);
+    let mut cursor: Option<(u64, u64)> = None;
     loop {
-        let chunks = page(&repair.directory, repair.started).await?;
+        // Page with a cursor so a full page of inherited-owned chunks cannot hide the current
+        // capture's chunks on later pages. Examined chunks are never re-read.
+        let chunks = Recovery::chunks_after(directory.to_path_buf(), cursor).await?;
         if chunks.is_empty() {
             return Ok(());
         }
+        let page_len = chunks.len();
+        let mut released = false;
         for chunk in chunks {
-            if !settled && chunk_interval(&chunk, repair.started as i64).end > through {
-                return Ok(());
+            cursor = Some((chunk.capture_started_at, chunk.start_ms));
+            // Classify by the owning target, not by start time alone: a backward clock
+            // adjustment can make an inherited chunk's start land after the current one.
+            match resolve_chunk_target(&chunk, primary, inherited) {
+                Some(target) if target.transcript == primary.transcript => {
+                    if !settled && chunk_interval(&chunk, primary.started).end > through {
+                        continue;
+                    }
+                    release(directory, chunk.id).await?;
+                    released = true;
+                }
+                Some(_) => {
+                    // An inherited target still owns this chunk; keep it for its own transcript.
+                }
+                None if chunk.capture_started_at < earliest => {
+                    // Older than every known pending capture: a leftover from a finished one.
+                    release(directory, chunk.id).await?;
+                    released = true;
+                }
+                None => {}
             }
-            release(&repair.directory, chunk.id).await?;
+        }
+        if !released && page_len < 128 {
+            // A short page with nothing releasable means the rest are inherited-owned too.
+            return Ok(());
         }
     }
 }

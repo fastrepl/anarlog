@@ -107,11 +107,12 @@ pub(super) async fn spawn_recorder(
             runtime: ctx.runtime.clone(),
             app_dir: ctx.app_dir.clone(),
             retain_audio: ctx.params.retain_audio.unwrap_or(true),
-            capture_started_at: ctx
-                .started_at_system
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_millis() as u64,
+            capture_started_at: ctx.params.capture_started_at_ms.unwrap_or_else(|| {
+                ctx.started_at_system
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_millis() as u64
+            }),
             offset_ms: ctx.started_at_instant.elapsed().as_millis() as u64,
             session_id: ctx.params.session_id.clone(),
         },

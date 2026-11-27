@@ -825,6 +825,16 @@ fn storage_budget(available: Option<u64>, used: u64) -> std::io::Result<DiskSpac
 }
 
 pub fn list_recovery_chunks(session_dir: &Path) -> std::io::Result<Vec<RecoveryAudioChunk>> {
+    list_recovery_chunks_after(session_dir, None)
+}
+
+/// The oldest page of recovery chunks strictly after `after` (a `(capture_started_at, start_ms)`
+/// cursor), or the oldest page overall when `after` is `None`. Callers advance the cursor past
+/// entries they have examined so a full page of unreadable chunks cannot block later ones.
+pub fn list_recovery_chunks_after(
+    session_dir: &Path,
+    after: Option<(u64, u64)>,
+) -> std::io::Result<Vec<RecoveryAudioChunk>> {
     let dir = session_dir.join(RECOVERY_DIR);
     if !dir.exists() {
         return Ok(Vec::new());
@@ -848,6 +858,11 @@ pub fn list_recovery_chunks(session_dir: &Path) -> std::io::Result<Vec<RecoveryA
         ) else {
             continue;
         };
+        if let Some((cursor_started, cursor_start)) = after
+            && (capture_started_at, start_ms) <= (cursor_started, cursor_start)
+        {
+            continue;
+        }
         chunks.push(RecoveryAudioChunk {
             id,
             path: entry.path().to_string_lossy().into_owned(),
@@ -856,10 +871,10 @@ pub fn list_recovery_chunks(session_dir: &Path) -> std::io::Result<Vec<RecoveryA
             end_ms,
             audio_start_ms,
         });
-        // A caller fetches only a bounded page of metadata, never the audio.
-        chunks.sort_unstable_by_key(|chunk| (chunk.capture_started_at, chunk.start_ms));
-        chunks.truncate(128);
     }
+    // A caller fetches only a bounded page of metadata, never the audio.
+    chunks.sort_unstable_by_key(|chunk| (chunk.capture_started_at, chunk.start_ms));
+    chunks.truncate(128);
     Ok(chunks)
 }
 
@@ -1461,6 +1476,34 @@ mod tests {
         let decoded = dir.path().join("tail.wav");
         anlg_mp3::decode_to_wav(Path::new(&chunks[0].path), &decoded).unwrap();
         assert!(hound::WavReader::open(decoded).unwrap().duration() >= SAMPLE_RATE);
+    }
+
+    #[test]
+    fn list_recovery_chunks_after_advances_past_a_full_page() {
+        let dir = tempfile::tempdir().unwrap();
+        let recovery = dir.path().join(RECOVERY_DIR);
+        std::fs::create_dir_all(&recovery).unwrap();
+        // 130 chunks sharing one capture start, ordered by start_ms.
+        for index in 0..130 {
+            let start = index * 1_000;
+            std::fs::write(
+                recovery.join(format!("500-{start}-{}-{start}.mp3", start + 1_000)),
+                b"",
+            )
+            .unwrap();
+        }
+        let first = list_recovery_chunks(dir.path()).unwrap();
+        assert_eq!(first.len(), 128);
+        let cursor = (
+            first.last().unwrap().capture_started_at,
+            first.last().unwrap().start_ms,
+        );
+        let rest = list_recovery_chunks_after(dir.path(), Some(cursor)).unwrap();
+        assert_eq!(rest.len(), 2);
+        assert!(
+            rest.iter()
+                .all(|chunk| (chunk.capture_started_at, chunk.start_ms) > cursor)
+        );
     }
 
     #[test]

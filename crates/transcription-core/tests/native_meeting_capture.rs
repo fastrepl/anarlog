@@ -275,6 +275,7 @@ fn params(session_id: &str, address: std::net::SocketAddr) -> SessionParams {
         participant_human_ids: vec![],
         self_human_id: None,
         speaker_assignments: vec![],
+        capture_started_at_ms: None,
     }
 }
 

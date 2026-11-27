@@ -311,6 +311,7 @@ impl From<CaptureParams> for listener::actors::SessionParams {
             // The desktop config sync pushes the transcript's persisted hints
             // once the capture is active; a new transcript has none yet.
             speaker_assignments: Vec::new(),
+            capture_started_at_ms: None,
         }
     }
 }

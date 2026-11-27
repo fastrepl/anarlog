@@ -2,8 +2,9 @@ mod chunks;
 mod disk;
 pub(crate) use chunks::recover_interrupted_captures_except;
 pub use chunks::{
-    RecoveryAudioChunk, acknowledge_recovery_chunk, delete_capture_audio,
-    delete_transcribed_capture_audio, list_recovery_chunks, recover_interrupted_captures,
+    DELETE_ON_STOP, RecoveryAudioChunk, acknowledge_recovery_chunk, delete_capture_audio,
+    delete_transcribed_capture_audio, list_recovery_chunks, list_recovery_chunks_after,
+    recover_interrupted_captures,
 };
 
 use std::collections::HashSet;

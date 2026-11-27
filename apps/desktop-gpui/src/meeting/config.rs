@@ -313,6 +313,7 @@ impl ProviderServices {
             participant_human_ids: participants,
             self_human_id: connection.self_human_id,
             speaker_assignments: Vec::new(),
+            capture_started_at_ms: None,
         };
         params.transcription_mode = params.effective_transcription_mode();
         Ok(CaptureConfig {
