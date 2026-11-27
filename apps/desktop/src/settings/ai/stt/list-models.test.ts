@@ -180,6 +180,32 @@ describe("listSttProviderModels", () => {
     ).resolves.toEqual(["@cf/deepgram/nova-3", "@cf/deepgram/flux"]);
   });
 
+  it("keeps Together transcription models and excludes audio TTS models", async () => {
+    providerFetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify([
+          { id: "openai/whisper-large-v3", type: "transcribe" },
+          { id: "distil-whisper/distil-large-v3", type: "audio" },
+          { id: "hexgrad/Kokoro-82M", type: "audio" },
+          { id: "vendor/text-to-speech-v1", type: "audio" },
+          { id: "meta-llama/Llama-3.3-70B", type: "chat" },
+        ]),
+        { status: 200 },
+      ),
+    );
+
+    await expect(
+      listSttProviderModels(
+        "together",
+        "https://api.together.xyz/v1",
+        "tg-key",
+      ),
+    ).resolves.toEqual([
+      "openai/whisper-large-v3",
+      "distil-whisper/distil-large-v3",
+    ]);
+  });
+
   it("returns empty list on HTTP failure without throwing", async () => {
     providerFetchMock.mockResolvedValue(
       new Response("unauthorized", { status: 401 }),

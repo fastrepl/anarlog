@@ -2654,7 +2654,11 @@ test("Vertex AI, Cloudflare Workers AI, and remote STT model discovery support l
       "https://us-central1-aiplatform.googleapis.com/v1beta1/publishers/google/models"
     ) {
       return Response.json({
-        publisherModels: [{ name: "publishers/google/models/gemini-2.5-pro" }],
+        publisherModels: [
+          { name: "publishers/google/models/gemini-2.5-pro" },
+          { name: "publishers/google/models/veo-3.0-generate-001" },
+          { name: "publishers/google/models/imagen-3.0-generate-002" },
+        ],
       });
     }
     return new Response("not found", { status: 404 });
@@ -2765,5 +2769,15 @@ test("Vertex AI, Cloudflare Workers AI, and remote STT model discovery support l
       ],
     }),
     ["@cf/deepgram/flux", "@cf/deepgram/nova-3"],
+  );
+  assert.deepEqual(
+    parseSttProviderModels("together", [
+      { id: "openai/whisper-large-v3", type: "transcribe" },
+      { id: "distil-whisper/distil-large-v3", type: "audio" },
+      { id: "hexgrad/Kokoro-82M", type: "audio" },
+      { id: "vendor/text-to-speech-v1", type: "audio" },
+      { id: "meta-llama/Llama-3.3-70B", type: "chat" },
+    ]),
+    ["distil-whisper/distil-large-v3", "openai/whisper-large-v3"],
   );
 });

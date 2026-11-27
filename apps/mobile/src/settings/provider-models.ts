@@ -368,11 +368,20 @@ export function parseSttProviderModels(
         return /^@cf\/deepgram\/(?:nova-3|flux)$/i.test(id) ? [id] : [];
       case "fireworks":
         return /whisper|asr|transcribe|speech|audio/i.test(id) ? [id] : [];
-      case "together":
-        return item.type === "audio" ||
-          /whisper|asr|transcribe|speech/i.test(id)
-          ? [id]
-          : [];
+      case "together": {
+        const modelType =
+          typeof item.type === "string" ? item.type.trim().toLowerCase() : "";
+        if (modelType === "transcribe") {
+          return [id];
+        }
+        if (modelType && modelType !== "audio") {
+          return [];
+        }
+        if (/(?:^|[-_/])tts(?:$|[-_/])|text-to-speech/i.test(id)) {
+          return [];
+        }
+        return /whisper|asr|transcribe/i.test(id) ? [id] : [];
+      }
       case "dashscope":
         return /asr|transcribe|sensevoice|paraformer|whisper|audio/i.test(id)
           ? [id]
@@ -454,7 +463,7 @@ export function parseProviderModels(
     )
       return [];
     if (
-      /(embed|tts|whisper|dall-e|audio|image|realtime|transcribe|moderation|rerank)/i.test(
+      /(embed|tts|whisper|dall-e|audio|image|imagine|veo|lyria|sora|realtime|transcribe|moderation|rerank)/i.test(
         id,
       )
     )

@@ -301,7 +301,12 @@ pub async fn fetch_models(
                 let Some(body) = get_json(&url, &[("authorization", &auth)]).await else {
                     return Vec::new();
                 };
-                parse_openai_like_models(&body, (provider == "openai").then_some(is_openai_chat_id))
+                let filter = match provider {
+                    "openai" => Some(is_openai_chat_item as fn(&str, &Value) -> bool),
+                    "mistral" => Some(is_mistral_chat_item as fn(&str, &Value) -> bool),
+                    _ => None,
+                };
+                parse_openai_like_models(&body, filter)
             }
         },
         ProviderKind::Stt => fetch_stt_models(provider, trimmed_base, trimmed_key).await,
@@ -579,6 +584,29 @@ fn parse_anarlog_models(body: &Value) -> Vec<ModelEntry> {
     dedupe_entries(entries)
 }
 
+fn is_vertex_non_chat_id(id: &str) -> bool {
+    let lower = id.to_ascii_lowercase();
+    [
+        "embed",
+        "veo",
+        "imagen",
+        "lyria",
+        "sora",
+        "tts",
+        "whisper",
+        "dall-e",
+        "audio",
+        "image",
+        "imagine",
+        "realtime",
+        "transcribe",
+        "moderation",
+        "rerank",
+    ]
+    .iter()
+    .any(|needle| lower.contains(needle))
+}
+
 fn parse_vertex_models(body: &Value) -> Vec<ModelEntry> {
     let items = body
         .get("models")
@@ -603,7 +631,7 @@ fn parse_vertex_models(body: &Value) -> Vec<ModelEntry> {
             } else {
                 raw
             };
-            if model_name.to_ascii_lowercase().contains("embedding") {
+            if is_vertex_non_chat_id(model_name) {
                 return None;
             }
             let id = if model_name.starts_with("google/") {
@@ -682,7 +710,10 @@ fn is_non_chat_cf_id(id: &str) -> bool {
     .any(|needle| lower.contains(needle))
 }
 
-fn parse_openai_like_models(body: &Value, filter: Option<fn(&str) -> bool>) -> Vec<ModelEntry> {
+fn parse_openai_like_models(
+    body: &Value,
+    filter: Option<fn(&str, &Value) -> bool>,
+) -> Vec<ModelEntry> {
     let items = body
         .get("data")
         .or_else(|| body.get("models"))
@@ -699,7 +730,7 @@ fn parse_openai_like_models(body: &Value, filter: Option<fn(&str) -> bool>) -> V
                 .or_else(|| item.get("name"))
                 .and_then(Value::as_str)?
                 .trim();
-            if id.is_empty() || filter.is_some_and(|pred| !pred(id)) {
+            if id.is_empty() || filter.is_some_and(|pred| !pred(id, item)) {
                 return None;
             }
             let label = item
@@ -718,7 +749,7 @@ fn parse_openai_like_models(body: &Value, filter: Option<fn(&str) -> bool>) -> V
     dedupe_entries(entries)
 }
 
-fn is_openai_chat_id(id: &str) -> bool {
+fn is_openai_chat_item(id: &str, _item: &Value) -> bool {
     let lower = id.to_ascii_lowercase();
     ![
         "whisper",
@@ -736,6 +767,17 @@ fn is_openai_chat_id(id: &str) -> bool {
     ]
     .iter()
     .any(|needle| lower.contains(needle))
+}
+
+fn is_mistral_chat_item(id: &str, item: &Value) -> bool {
+    if let Some(flag) = item
+        .get("capabilities")
+        .and_then(|caps| caps.get("completion_chat"))
+        .and_then(Value::as_bool)
+    {
+        return flag;
+    }
+    !is_vertex_non_chat_id(id)
 }
 
 fn parse_google_gemini_llm_models(body: &Value) -> Vec<ModelEntry> {
@@ -881,6 +923,13 @@ fn parse_groq_stt_ids(body: &Value) -> Vec<String> {
     parse_filtered_openai_ids(body, &["whisper", "asr", "transcribe"])
 }
 
+fn is_tts_id(lower_id: &str) -> bool {
+    lower_id
+        .split(['-', '_', '/'])
+        .any(|segment| segment == "tts")
+        || lower_id.contains("text-to-speech")
+}
+
 fn is_mistral_stt_item(item: &Value, lower_id: &str) -> bool {
     if let Some(caps) = item.get("audio_transcription_capabilities") {
         return match caps {
@@ -896,14 +945,7 @@ fn is_mistral_stt_item(item: &Value, lower_id: &str) -> bool {
     {
         return flag;
     }
-    let is_tts = lower_id == "tts"
-        || lower_id.starts_with("tts-")
-        || lower_id.ends_with("-tts")
-        || lower_id.contains("-tts-")
-        || lower_id.contains("/tts")
-        || lower_id.contains("_tts")
-        || lower_id.contains("text-to-speech");
-    !is_tts
+    !is_tts_id(lower_id)
         && (lower_id.contains("voxtral")
             || lower_id.contains("transcribe")
             || lower_id.contains("asr"))
@@ -945,12 +987,22 @@ fn parse_together_stt_ids(body: &Value) -> Vec<String> {
             if id.is_empty() {
                 return None;
             }
-            let is_audio = item.get("type").and_then(Value::as_str) == Some("audio");
+            let model_type = item
+                .get("type")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|t| !t.is_empty());
+            if model_type.is_some_and(|t| t.eq_ignore_ascii_case("transcribe")) {
+                return Some(id.to_owned());
+            }
+            if model_type.is_some_and(|t| !t.eq_ignore_ascii_case("audio")) {
+                return None;
+            }
             let lower = id.to_ascii_lowercase();
-            (is_audio
-                || ["whisper", "asr", "transcribe", "speech"]
+            (!is_tts_id(&lower)
+                && ["whisper", "asr", "transcribe"]
                     .iter()
-                    .any(|n| lower.contains(n)))
+                    .any(|needle| lower.contains(needle)))
             .then(|| id.to_owned())
         })
         .collect()
@@ -1276,7 +1328,11 @@ mod tests {
             .and(path("/v1beta1/publishers/google/models"))
             .and(header("authorization", "Bearer vtx-key"))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
-                "publisherModels": [{ "name": "publishers/google/models/gemini-2.5-pro" }]
+                "publisherModels": [
+                    { "name": "publishers/google/models/gemini-2.5-pro" },
+                    { "name": "publishers/google/models/veo-3.0-generate-001" },
+                    { "name": "publishers/google/models/imagen-3.0-generate-002" }
+                ]
             })))
             .mount(&server)
             .await;
@@ -1373,5 +1429,58 @@ mod tests {
             ]
         }));
         assert_eq!(cloudflare, vec!["@cf/deepgram/nova-3", "@cf/deepgram/flux"]);
+    }
+
+    #[tokio::test]
+    async fn mistral_llm_filters_by_completion_chat_and_non_chat_ids() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/models"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "data": [
+                    {
+                        "id": "mistral-large-latest",
+                        "capabilities": { "completion_chat": true }
+                    },
+                    {
+                        "id": "mistral-embed-capable",
+                        "capabilities": { "completion_chat": false }
+                    },
+                    { "id": "mistral-embed" }
+                ]
+            })))
+            .mount(&server)
+            .await;
+
+        let models = fetch_models(
+            ProviderKind::Llm,
+            "mistral",
+            &server.uri(),
+            Some("m-key"),
+            None,
+        )
+        .await;
+        assert_eq!(
+            models,
+            vec![ModelEntry {
+                id: "mistral-large-latest".into(),
+                label: "mistral-large-latest".into(),
+            }]
+        );
+    }
+
+    #[test]
+    fn together_stt_filters_out_audio_tts_models() {
+        let together = parse_together_stt_ids(&serde_json::json!([
+            { "id": "openai/whisper-large-v3", "type": "transcribe" },
+            { "id": "distil-whisper/distil-large-v3", "type": "audio" },
+            { "id": "hexgrad/Kokoro-82M", "type": "audio" },
+            { "id": "vendor/text-to-speech-v1", "type": "audio" },
+            { "id": "meta-llama/Llama-3.3-70B", "type": "chat" }
+        ]));
+        assert_eq!(
+            together,
+            vec!["openai/whisper-large-v3", "distil-whisper/distil-large-v3"]
+        );
     }
 }

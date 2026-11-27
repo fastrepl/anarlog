@@ -391,7 +391,7 @@ pub struct ProviderView {
     draft: Option<&'static str>,
     /// Each provider's last model this session, per kind (shipping's `lastSelectedModelsRef`,
     /// which each settings page keeps for itself).
-    remembered: std::collections::HashMap<(ProviderKind, String), String>,
+    remembered: std::collections::HashMap<(ProviderKind, String), (String, bool)>,
     /// A choice to save once the load or save in flight finishes.
     queued: bool,
     model: Entity<TextInput>,
@@ -447,6 +447,7 @@ impl ProviderView {
                     InputEvent::Changed => {
                         if input == this.model {
                             this.dirty_choice = true;
+                            this.manual_model = true;
                         } else {
                             this.dirty_card = true;
                         }
@@ -713,11 +714,15 @@ impl ProviderView {
         }
         let saved = self.current("model");
         if !current.is_empty() && !saved.is_empty() {
-            self.remembered.insert((self.kind, current), saved);
+            self.remembered
+                .insert((self.kind, current), (saved, self.manual_model));
         }
         self.draft = Some(provider);
         self.dirty_choice = false;
-        self.manual_model = false;
+        self.manual_model = self
+            .remembered
+            .get(&(self.kind, provider.to_owned()))
+            .is_some_and(|(_, is_manual)| *is_manual);
         self.ensure_models(provider.to_owned(), false, cx);
         self.model
             .update(cx, |input, cx| input.set_text(model.clone(), cx));
@@ -729,24 +734,23 @@ impl ProviderView {
         cx.notify();
     }
 
-    /// The model `provider` starts with: its last model this session if still offered, else
-    /// the first one offered, else its default (`getPreferredProviderModel` and
+    /// The model `provider` starts with: its last model this session if still offered (or entered
+    /// manually), else the first one offered, else its default (`getPreferredProviderModel` and
     /// `getDefaultSttModel`).
     fn next_model(&self, provider: &str, cx: &gpui::App) -> String {
         let models = self.models(provider, cx);
-        // Typed models cannot be checked against a catalog; external LLMs keep custom IDs too.
-        let typed = (self.kind == ProviderKind::Llm
-            && !matches!(provider, "anarlog" | "apple_foundation"))
-            || (models.is_empty() && matches!(provider, "custom" | "nvidia"));
+        let allow_unlisted = models.is_empty()
+            && (self.kind == ProviderKind::Llm || matches!(provider, "custom" | "nvidia"));
         self.remembered
             .get(&(self.kind, provider.to_owned()))
-            .filter(|model| {
-                typed
+            .filter(|(model, is_manual)| {
+                *is_manual
+                    || allow_unlisted
                     || models
                         .iter()
-                        .any(|(id, _, disabled_reason)| disabled_reason.is_none() && id == *model)
+                        .any(|(id, _, disabled_reason)| disabled_reason.is_none() && id == model)
             })
-            .cloned()
+            .map(|(model, _)| model.clone())
             .or_else(|| {
                 models
                     .iter()
@@ -1992,6 +1996,72 @@ mod tests {
         fixture.pick("openai", cx);
         assert_eq!(fixture.setting("current_llm_provider"), None);
         assert!(fixture.view.read_with(cx, |view, cx| !view.has_unsaved(cx)));
+        fixture.shutdown();
+    }
+
+    #[gpui::test]
+    fn switching_providers_drops_retired_presets_while_keeping_manual_models(
+        cx: &mut TestAppContext,
+    ) {
+        let fixture = fixture(cx);
+        fixture
+            .view
+            .update(cx, |view, cx| view.select_kind(ProviderKind::Llm, cx));
+        fixture.settle(cx);
+
+        // 1. Seed a catalog preset selected from the list, then refresh with a catalog that drops it.
+        fixture.view.update(cx, |view, cx| {
+            view.fetched_models.insert(
+                (ProviderKind::Llm, "lmstudio".into()),
+                FetchedModels {
+                    signature: String::new(),
+                    models: vec![crate::product::provider_models::ModelEntry {
+                        id: "old-preset".into(),
+                        label: "old-preset".into(),
+                    }],
+                    loading: false,
+                    loaded: true,
+                },
+            );
+            view.manual_model = false;
+            view.draft = Some("lmstudio");
+            view.model
+                .update(cx, |input, cx| input.set_text("old-preset".into(), cx));
+            view.save_choice(cx);
+        });
+        fixture.settle(cx);
+        fixture.view.update(cx, |view, _| {
+            view.fetched_models.insert(
+                (ProviderKind::Llm, "lmstudio".into()),
+                FetchedModels {
+                    signature: String::new(),
+                    models: vec![crate::product::provider_models::ModelEntry {
+                        id: "new-preset".into(),
+                        label: "new-preset".into(),
+                    }],
+                    loading: false,
+                    loaded: true,
+                },
+            );
+        });
+        fixture.pick("google_vertex_ai", cx);
+        fixture.pick("lmstudio", cx);
+        assert_eq!(fixture.setting("current_llm_model").unwrap(), "new-preset");
+
+        // 2. A manually entered custom ID is remembered across switches even if absent from the list.
+        fixture.view.update(cx, |view, cx| {
+            view.manual_model = true;
+            view.model
+                .update(cx, |input, cx| input.set_text("custom-local".into(), cx));
+            view.save_choice(cx);
+        });
+        fixture.settle(cx);
+        fixture.pick("google_vertex_ai", cx);
+        fixture.pick("lmstudio", cx);
+        assert_eq!(
+            fixture.setting("current_llm_model").unwrap(),
+            "custom-local"
+        );
         fixture.shutdown();
     }
 

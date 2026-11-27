@@ -205,12 +205,22 @@ function buildRequestSpec(
         url: `${normalizedBase}/models`,
         headers: { Authorization: `Bearer ${trimmedKey}` },
         parse: (body) =>
-          extractOpenAiIds(
-            body,
-            (id, entry) =>
-              entry.type === "audio" ||
-              /whisper|asr|transcribe|speech/i.test(id),
-          ),
+          extractOpenAiIds(body, (id, entry) => {
+            const modelType =
+              typeof entry.type === "string"
+                ? entry.type.trim().toLowerCase()
+                : "";
+            if (modelType === "transcribe") {
+              return true;
+            }
+            if (modelType && modelType !== "audio") {
+              return false;
+            }
+            if (/(?:^|[-_/])tts(?:$|[-_/])|text-to-speech/i.test(id)) {
+              return false;
+            }
+            return /whisper|asr|transcribe/i.test(id);
+          }),
       };
 
     case "siliconflow":
