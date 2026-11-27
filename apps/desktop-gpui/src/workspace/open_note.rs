@@ -8,6 +8,7 @@ mod summary;
 mod versions;
 
 pub use meeting_info::Clock;
+pub(crate) use summary::{SummaryEvent, SummaryJobs};
 
 use std::{collections::HashMap, path::PathBuf, sync::Arc, time::Duration};
 
@@ -100,9 +101,6 @@ pub struct NoteView {
     details_task: Option<Task<()>>,
     compact_folder: bool,
     share: Option<(SessionId, Entity<SharePopover>, Subscription)>,
-    /// Summary generations by session; they outlive switching notes, as shipping's tasks do.
-    jobs: HashMap<SessionId, summary::SummaryJob>,
-    job_poll: Option<Task<()>>,
     model: Option<summary::ModelState>,
     picker: Option<summary::TemplatePicker>,
     templates: Arc<Library>,
@@ -258,36 +256,81 @@ fn summary_ids(details: &[Value], session: &SessionId, transcript_done: bool) ->
     }
 }
 
-/// Shipping's `hasSummaryContent`: text beyond a leading heading that only repeats the title.
+/// Shipping's `hasSummaryContent`: text or non-text content beyond a synthesized title heading.
 fn summary_has_content(body: &str, title: &str) -> bool {
-    fn text(node: &Value) -> String {
-        node["text"].as_str().map(str::to_owned).unwrap_or_else(|| {
-            node["content"]
-                .as_array()
-                .map(|children| children.iter().map(text).collect())
-                .unwrap_or_default()
-        })
+    const TEXT_CONTAINER_TYPES: &[&str] = &[
+        "doc",
+        "heading",
+        "paragraph",
+        "text",
+        "codeBlock",
+        "blockquote",
+        "bulletList",
+        "orderedList",
+        "listItem",
+    ];
+    fn collect_text(node: &Value) -> String {
+        let own = node["text"].as_str().unwrap_or_default();
+        let children = node["content"]
+            .as_array()
+            .map(|children| children.iter().map(collect_text).collect::<String>())
+            .unwrap_or_default();
+        format!("{own}{children}")
+    }
+    fn has_meaningful_content(node: &Value) -> bool {
+        if node["text"]
+            .as_str()
+            .is_some_and(|text| !text.trim().is_empty())
+        {
+            return true;
+        }
+        let Some(node_type) = node["type"].as_str() else {
+            return true;
+        };
+        if !TEXT_CONTAINER_TYPES.contains(&node_type) {
+            return true;
+        }
+        node["content"]
+            .as_array()
+            .is_some_and(|children| children.iter().any(has_meaningful_content))
     }
     let trimmed = body.trim();
+    if trimmed.is_empty() {
+        return false;
+    }
+    if !trimmed.starts_with('{') {
+        return true;
+    }
     let Ok(doc) = serde_json::from_str::<Value>(trimmed) else {
-        return !trimmed.is_empty();
+        return true;
     };
-    if !trimmed.starts_with('{') || doc["type"] != "doc" {
+    if !doc.is_object() || doc["type"] != "doc" {
         return true;
     }
     let blocks = doc["content"]
         .as_array()
         .map(Vec::as_slice)
         .unwrap_or_default();
-    let title_block = blocks.first().is_some_and(|block| {
+    let synthesized_title = blocks.first().is_some_and(|first| {
         !title.trim().is_empty()
-            && block["type"] == "heading"
-            && block["attrs"]["level"] == 1
-            && text(block).trim() == title.trim()
+            && first["type"] == "heading"
+            && first["attrs"].as_object().is_some_and(|attrs| {
+                attrs.len() == 1 && attrs.get("level").and_then(Value::as_i64) == Some(1)
+            })
+            && collect_text(first).trim() == title.trim()
+            && !first["content"].as_array().is_some_and(|children| {
+                children.iter().any(|child| {
+                    child["type"] != "text"
+                        || child["text"].as_str().is_none_or(|t| t.trim().is_empty())
+                        || child["marks"]
+                            .as_array()
+                            .is_some_and(|marks| !marks.is_empty())
+                })
+            })
     });
-    blocks[usize::from(title_block)..]
+    blocks[usize::from(synthesized_title)..]
         .iter()
-        .any(|block| !text(block).trim().is_empty() || block["type"] == "image")
+        .any(has_meaningful_content)
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -400,6 +443,7 @@ impl NoteView {
             this.rename(cx);
         });
         let uploads = Uploads::global(cx);
+        let summary_jobs = summary::SummaryJobs::global(cx);
         let mut subscriptions = vec![
             input,
             blur,
@@ -413,6 +457,23 @@ impl NoteView {
                     }
                 }
                 UploadEvent::Transcribed(session) => this.transcribed(session.clone(), cx),
+            }),
+            cx.observe(&summary_jobs, |_, _, cx| cx.notify()),
+            cx.subscribe(&summary_jobs, |this, _, event, cx| match event {
+                summary::SummaryEvent::AutoStarted(session) => {
+                    if this.session_id() == Some(session) && this.view != Some(NoteTab::Transcript)
+                    {
+                        this.view = None;
+                        cx.notify();
+                    }
+                }
+                summary::SummaryEvent::Completed { session, .. } => {
+                    if this.session_id() == Some(session) {
+                        this.summary_editors
+                            .retain(|_, summary| summary.editor.read(cx).is_dirty());
+                        cx.notify();
+                    }
+                }
             }),
         ];
         if let Some(live) = LiveState::global(cx) {
@@ -475,8 +536,6 @@ impl NoteView {
             details_task: None,
             compact_folder: false,
             share: None,
-            jobs: HashMap::new(),
-            job_poll: None,
             model: None,
             picker: None,
             templates: Arc::default(),
@@ -1532,7 +1591,7 @@ impl NoteView {
         cx.notify();
     }
 
-    fn tab_menu_items(&self, menu: &TabMenu) -> Vec<(&'static str, bool, bool)> {
+    fn tab_menu_items(&self, menu: &TabMenu, cx: &gpui::App) -> Vec<(&'static str, bool, bool)> {
         match menu {
             TabMenu::Memo => {
                 let (body, format) = &self.details.memo;
@@ -1542,8 +1601,13 @@ impl NoteView {
                 let generating = self
                     .current
                     .as_ref()
-                    .and_then(|session| self.jobs.get(&session.summary.id))
-                    .is_some_and(|job| job.shows(id) && job.running());
+                    .zip(summary::SummaryJobs::try_global(cx))
+                    .and_then(|(session, jobs)| {
+                        jobs.read(cx)
+                            .job(&session.summary.id)
+                            .map(|job| (job.shows(id), job.running()))
+                    })
+                    .is_some_and(|(shows, running)| shows && running);
                 let empty = self
                     .details
                     .summaries
@@ -2211,17 +2275,23 @@ impl NoteView {
                             .map(|(_, template_id)| template_id.clone())
                             .unwrap_or_default();
                         let template = self.summary_template(&template_id).cloned();
-                        let job = self
+                        let (running, failed) = self
                             .current
                             .as_ref()
-                            .and_then(|session| self.jobs.get(&session.summary.id))
-                            .filter(|job| job.shows(id));
+                            .zip(summary::SummaryJobs::try_global(cx))
+                            .and_then(|(session, jobs)| {
+                                jobs.read(cx)
+                                    .job(&session.summary.id)
+                                    .filter(|job| job.shows(id))
+                                    .map(|job| (job.running(), !job.running()))
+                            })
+                            .unwrap_or((false, false));
                         Some((
                             self.summary_title(id),
                             template,
                             (!template_id.is_empty()).then_some(template_id),
-                            job.is_some_and(|job| job.running()),
-                            job.is_some_and(|job| !job.running()),
+                            running,
+                            failed,
                         ))
                     }
                     _ => None,
@@ -2911,7 +2981,7 @@ impl NoteView {
         colors: Theme,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        let items = self.tab_menu_items(&menu);
+        let items = self.tab_menu_items(&menu, cx);
         gpui::deferred(
             gpui::anchored().position(position).snap_to_window().child(
                 resource_list::context_menu(colors)

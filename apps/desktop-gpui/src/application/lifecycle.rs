@@ -3386,4 +3386,249 @@ mod tests {
         });
         let _ = futures::executor::block_on(fixture.runtime.shutdown());
     }
+
+    #[gpui::test]
+    fn capture_stop_runs_auto_summary_after_standalone_close_and_dispatches_note_enhanced(
+        cx: &mut gpui::TestAppContext,
+    ) {
+        use std::sync::{
+            Mutex,
+            atomic::{AtomicUsize, Ordering},
+        };
+
+        use futures::{StreamExt, channel::oneshot};
+        use wiremock::{
+            Mock, MockServer, ResponseTemplate,
+            matchers::{header, method},
+        };
+
+        let fixture = open_app_with_detached_note(cx);
+        let delivered = Arc::new(AtomicUsize::new(0));
+        let delivered_hook = delivered.clone();
+        let sid = fixture.session_id.clone();
+        let long_transcript = json!(
+            "We agreed to ship the pricing update next Tuesday after legal and finance finish signing off on every enterprise billing clause across all regions and notify customers immediately after launch."
+                .split(' ')
+                .enumerate()
+                .map(|(index, word)| {
+                    let start = (index as i64) * 200;
+                    json!({
+                        "id": format!("w-{index}"),
+                        "text": word,
+                        "start_ms": start,
+                        "end_ms": start + 150,
+                        "channel": 0
+                    })
+                })
+                .collect::<Vec<_>>()
+        )
+        .to_string();
+
+        let server = futures::executor::block_on(
+            fixture
+                .runtime
+                .service(move |services| async move {
+                    services
+                        .executor
+                        .execute(
+                            "DELETE FROM session_documents WHERE id = 'quit-summary'".into(),
+                            vec![],
+                        )
+                        .await
+                        .map_err(|error| ServiceError::Failed(error.to_string().into()))?;
+                    services
+                        .executor
+                        .execute(
+                            "INSERT OR REPLACE INTO app_settings (id, value_json)
+                             VALUES ('current_llm_provider', '\"openai\"'), ('current_llm_model', '\"gpt-5\"')"
+                                .into(),
+                            vec![],
+                        )
+                        .await
+                        .map_err(|error| ServiceError::Failed(error.to_string().into()))?;
+                    services
+                        .executor
+                        .execute(
+                            "INSERT INTO transcripts (id, session_id, words_json) VALUES ('t-auto', ?, ?)"
+                                .into(),
+                            vec![json!(sid), json!(long_transcript)],
+                        )
+                        .await
+                        .map_err(|error| ServiceError::Failed(error.to_string().into()))?;
+
+                    let server = MockServer::start().await;
+                    Mock::given(method("POST"))
+                        .and(header("x-anarlog-event", "note.enhanced"))
+                        .respond_with(move |_: &wiremock::Request| {
+                            delivered_hook.fetch_add(1, Ordering::SeqCst);
+                            ResponseTemplate::new(204)
+                        })
+                        .mount(&server)
+                        .await;
+                    let secret = anlg_db_app::generate_webhook_secret();
+                    anlg_db_app::insert_webhook_endpoint(
+                        services.db.pool(),
+                        "hook-note-enhanced",
+                        &server.uri(),
+                        &secret,
+                        r#"["note.enhanced"]"#,
+                    )
+                    .await
+                    .map_err(|error| ServiceError::Failed(error.to_string().into()))?;
+                    Ok(server)
+                })
+                .unwrap()
+                .receive(),
+        )
+        .unwrap();
+
+        struct ControlledProvider {
+            started: Mutex<Option<oneshot::Sender<()>>>,
+            release: Mutex<Option<oneshot::Receiver<()>>>,
+        }
+        impl crate::meeting::ai::ProviderAdapter for ControlledProvider {
+            fn stream(
+                &self,
+                _request: crate::meeting::ai::Request,
+            ) -> futures::future::BoxFuture<
+                'static,
+                desktop_runtime::Result<
+                    futures::stream::BoxStream<
+                        'static,
+                        desktop_runtime::Result<crate::meeting::ai::ProviderEvent>,
+                    >,
+                >,
+            > {
+                let started = self.started.lock().unwrap().take();
+                let release = self.release.lock().unwrap().take();
+                Box::pin(async move {
+                    let first = futures::stream::once(async move {
+                        if let Some(tx) = started {
+                            let _ = tx.send(());
+                        }
+                        Ok(crate::meeting::ai::ProviderEvent::Text(
+                            "# Summary\n\n".into(),
+                        ))
+                    });
+                    let second = futures::stream::once(async move {
+                        if let Some(rx) = release {
+                            let _ = rx.await;
+                        }
+                        Ok(crate::meeting::ai::ProviderEvent::Text(
+                            "- Key decision after closing standalone window".into(),
+                        ))
+                    });
+                    Ok(first.chain(second).boxed())
+                })
+            }
+        }
+
+        let (started_tx, mut started_rx) = oneshot::channel::<()>();
+        let (release_tx, release_rx) = oneshot::channel::<()>();
+        let provider: Arc<dyn crate::meeting::ai::ProviderAdapter> = Arc::new(ControlledProvider {
+            started: Mutex::new(Some(started_tx)),
+            release: Mutex::new(Some(release_rx)),
+        });
+        cx.update(|cx| {
+            let existing = cx
+                .global::<crate::meeting::ai_view::AiViewServices>()
+                .clone();
+            let ai = Arc::new(
+                crate::meeting::ai::AiServices::new(
+                    fixture.runtime.clone(),
+                    Arc::new(move |_| {
+                        let provider = provider.clone();
+                        Box::pin(async move { Ok(provider) })
+                    }),
+                    existing.ai.execute.clone(),
+                    existing.ai.capture_active.clone(),
+                )
+                .unwrap(),
+            );
+            cx.set_global(crate::meeting::ai_view::AiViewServices {
+                ai,
+                context: existing.context,
+                approvals: existing.approvals,
+            });
+        });
+
+        // Closing skips enqueueing an automatic summary when capture stops.
+        let ignored = SessionId("ignored-while-closing".into());
+        fixture.app_entity.update(cx, |app, cx| {
+            app.closing = true;
+            app.capture_session = Some(ignored.clone());
+            app.native_tick(cx);
+            app.closing = false;
+        });
+        assert_eq!(
+            cx.update(|cx| {
+                crate::meeting::upload::Uploads::global(cx)
+                    .update(cx, |uploads, _| uploads.claim_summary(&ignored))
+            }),
+            None
+        );
+
+        // Live capture stop starts auto-summary, survives closing the standalone note window
+        // mid-stream, saves to SQLite, and fires the note.enhanced webhook once.
+        fixture.app_entity.update(cx, |app, cx| {
+            app.capture_session = Some(fixture.session_id.clone());
+            app.native_tick(cx);
+        });
+        wait_until(cx, |cx| {
+            cx.executor().advance_clock(Duration::from_millis(5));
+            started_rx.try_recv().ok().flatten().is_some()
+        });
+
+        let _ = cx.update(|cx| {
+            cx.update_window(fixture.detached_window, |_, win, _| win.remove_window())
+        });
+        wait_until(cx, |cx| {
+            cx.read(|cx| {
+                fixture
+                    .detached_window
+                    .downcast::<crate::note_window::NoteWindow>()
+                    .is_none_or(|w| w.read(cx).is_err())
+            })
+        });
+
+        let _ = release_tx.send(());
+        wait_until(cx, |cx| {
+            cx.executor().advance_clock(Duration::from_millis(5));
+            if delivered.load(Ordering::SeqCst) != 1 {
+                return false;
+            }
+            let sid = fixture.session_id.clone();
+            futures::executor::block_on(
+                fixture
+                    .runtime
+                    .read(CancellationToken::new(), move |services| async move {
+                        services
+                            .executor
+                            .execute(
+                                "SELECT body FROM session_documents
+                                 WHERE session_id = ? AND kind IN ('summary', 'template_output') AND deleted_at IS NULL"
+                                    .into(),
+                                vec![json!(sid)],
+                            )
+                            .await
+                            .map_err(|error| ServiceError::Failed(error.to_string().into()))
+                    })
+                    .unwrap()
+                    .receive(),
+            )
+            .is_ok_and(|rows| {
+                rows.iter().any(|row| {
+                    row["body"]
+                        .as_str()
+                        .is_some_and(|body| body.contains("Key decision after closing standalone window"))
+                })
+            })
+        });
+        assert_eq!(delivered.load(Ordering::SeqCst), 1);
+
+        drop(server);
+        let _ =
+            cx.update(|cx| cx.update_window(fixture.main_window, |_, win, _| win.remove_window()));
+        let _ = futures::executor::block_on(fixture.runtime.shutdown());
+    }
 }

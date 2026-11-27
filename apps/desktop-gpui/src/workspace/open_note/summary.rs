@@ -1,6 +1,7 @@
 //! The summary states of shipping's `Enhanced` view and its summary tab: Generate summary,
 //! AI setup, streaming, generation errors, and the template picker with Regenerate.
 
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -401,6 +402,216 @@ fn button(
         .child(label)
 }
 
+struct SummaryJobsGlobal(gpui::Entity<SummaryJobs>);
+impl gpui::Global for SummaryJobsGlobal {}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum SummaryEvent {
+    AutoStarted(SessionId),
+    Completed { session: SessionId, title: String },
+}
+
+/// Summary generations by session, scoped to the app so closing a standalone note window does
+/// not cancel in-flight generation or drop its completion notification and workflows.
+#[derive(Default)]
+pub struct SummaryJobs {
+    jobs: HashMap<SessionId, SummaryJob>,
+    poll: Option<gpui::Task<()>>,
+}
+
+impl gpui::EventEmitter<SummaryEvent> for SummaryJobs {}
+
+impl SummaryJobs {
+    pub fn global(cx: &mut gpui::App) -> gpui::Entity<Self> {
+        if let Some(global) = cx.try_global::<SummaryJobsGlobal>() {
+            return global.0.clone();
+        }
+        let jobs = cx.new(|_| Self::default());
+        cx.set_global(SummaryJobsGlobal(jobs.clone()));
+        jobs
+    }
+
+    pub fn try_global(cx: &gpui::App) -> Option<gpui::Entity<Self>> {
+        cx.try_global::<SummaryJobsGlobal>()
+            .map(|global| global.0.clone())
+    }
+
+    pub(super) fn job(&self, session: &SessionId) -> Option<&SummaryJob> {
+        self.jobs.get(session)
+    }
+
+    fn take_error_document(
+        &mut self,
+        session: &SessionId,
+        cx: &mut Context<Self>,
+    ) -> Option<DocumentId> {
+        if self.jobs.get(session).is_some_and(SummaryJob::running) {
+            return None;
+        }
+        let document = self
+            .jobs
+            .remove(session)
+            .and_then(|job| job.document.clone());
+        cx.notify();
+        document
+    }
+
+    pub(super) fn generate(
+        &mut self,
+        runtime: RuntimeHandle,
+        session: SessionId,
+        target: Option<DocumentId>,
+        template: Option<Option<String>>,
+        cx: &mut Context<Self>,
+    ) {
+        if self.jobs.get(&session).is_some_and(SummaryJob::running) {
+            return;
+        }
+        let stream = Arc::new(Mutex::new((String::new(), String::new())));
+        let cancellation = CancellationToken::new();
+        let mut job = SummaryJob {
+            document: target.clone(),
+            stream: stream.clone(),
+            text: String::new(),
+            reasoning: false,
+            error: None,
+            cancellation: cancellation.clone(),
+        };
+        let Some(services) = cx.try_global::<AiViewServices>().cloned() else {
+            job.error = Some("Summary generation is not ready yet.".into());
+            self.jobs.insert(session, job);
+            cx.notify();
+            return;
+        };
+        let observer: StreamObserver = Arc::new(move |update| {
+            if let Ok(mut stream) = stream.lock() {
+                stream.0.push_str(&update.text);
+                stream.1.push_str(&update.reasoning);
+            }
+        });
+        let ai = services.ai.clone();
+        let id = session.clone();
+        let queue = services.ai.enqueue(Box::pin(async move {
+            check_eligible(&runtime, id.clone()).await?;
+            let (base, context) =
+                context::load_summary(&runtime, id.clone(), target, template).await?;
+            ai.summarize(base, context, cancellation, observer).await?;
+            let title = match runtime.read(CancellationToken::new(), move |services| async move {
+                services
+                    .executor
+                    .execute(
+                        "SELECT title FROM sessions WHERE id = ?".into(),
+                        vec![json!(id)],
+                    )
+                    .await
+                    .map_err(failure)
+            }) {
+                Ok(reply) => reply
+                    .receive()
+                    .await
+                    .ok()
+                    .and_then(|rows| {
+                        rows.first()
+                            .and_then(|row| row["title"].as_str())
+                            .map(str::to_owned)
+                    })
+                    .unwrap_or_default(),
+                Err(_) => String::new(),
+            };
+            Ok(title)
+        }));
+        self.jobs.insert(session.clone(), job);
+        self.poll_jobs(cx);
+        cx.spawn(async move |this, cx| {
+            let result = match queue {
+                Ok(reply) => reply.await.map_err(failure).and_then(|result| result),
+                Err(error) => Err(error),
+            };
+            let _ = this.update(cx, |this, cx| {
+                match result {
+                    Ok(title) => {
+                        this.jobs.remove(&session);
+                        cx.emit(SummaryEvent::Completed { session, title });
+                    }
+                    Err(desktop_runtime::ServiceError::Cancelled) => {
+                        this.jobs.remove(&session);
+                    }
+                    Err(error) => {
+                        if let Some(job) = this.jobs.get_mut(&session) {
+                            job.error = Some(error.to_string());
+                        }
+                    }
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+        cx.notify();
+    }
+
+    pub(crate) fn claim_auto_summary(
+        &mut self,
+        runtime: RuntimeHandle,
+        session: SessionId,
+        cx: &mut Context<Self>,
+    ) {
+        let uploads = crate::meeting::upload::Uploads::global(cx);
+        let Some(if_empty) = uploads.update(cx, |uploads, _| uploads.claim_summary(&session))
+        else {
+            return;
+        };
+        let pro = crate::product::account::is_pro(cx);
+        cx.spawn(async move |this, cx| {
+            let decision = auto_summary(&runtime, session.clone(), if_empty, pro).await;
+            let _ = this.update(cx, |this, cx| match decision {
+                Ok(AutoSummary::Generate) => {
+                    this.generate(runtime, session.clone(), None, None, cx);
+                    cx.emit(SummaryEvent::AutoStarted(session));
+                }
+                Ok(AutoSummary::TooShort(reason)) => crate::application::toasts::show(
+                    crate::application::toasts::Toast::warning("Summary wasn't generated")
+                        .id(format!("auto-summary-too-short-{}", session.0))
+                        .description(reason),
+                    cx,
+                ),
+                Ok(AutoSummary::Skip) | Err(_) => {}
+            });
+        })
+        .detach();
+    }
+
+    /// Copies streamed text into running jobs at about 30 fps while any runs.
+    fn poll_jobs(&mut self, cx: &mut Context<Self>) {
+        if self.poll.is_some() {
+            return;
+        }
+        self.poll = Some(cx.spawn(async move |this, cx| {
+            loop {
+                cx.background_executor()
+                    .timer(Duration::from_millis(33))
+                    .await;
+                let running = this.update(cx, |this, cx| {
+                    let mut changed = false;
+                    for job in this.jobs.values_mut().filter(|job| job.running()) {
+                        changed |= job.pull();
+                    }
+                    if changed {
+                        cx.notify();
+                    }
+                    let running = this.jobs.values().any(SummaryJob::running);
+                    if !running {
+                        this.poll = None;
+                    }
+                    running
+                });
+                if !matches!(running, Ok(true)) {
+                    break;
+                }
+            }
+        }));
+    }
+}
+
 impl NoteView {
     /// Shipping's enhancer `enhance`: generates into `target` (or a new summary) with
     /// `template` (`Some(None)` is Auto; `None` keeps shipping's template order).
@@ -426,9 +637,6 @@ impl NoteView {
         template: Option<Option<String>>,
         cx: &mut Context<Self>,
     ) {
-        if self.jobs.get(&session).is_some_and(SummaryJob::running) {
-            return;
-        }
         // A clean editor of the summary being replaced reopens on the generated revision.
         if let Some(target) = &target
             && self
@@ -438,146 +646,18 @@ impl NoteView {
         {
             self.summary_editors.remove(target);
         }
-        let stream = Arc::new(Mutex::new((String::new(), String::new())));
-        let cancellation = CancellationToken::new();
-        let mut job = SummaryJob {
-            document: target.clone(),
-            stream: stream.clone(),
-            text: String::new(),
-            reasoning: false,
-            error: None,
-            cancellation: cancellation.clone(),
-        };
-        let Some(services) = cx.try_global::<AiViewServices>().cloned() else {
-            job.error = Some("Summary generation is not ready yet.".into());
-            self.jobs.insert(session, job);
-            cx.notify();
-            return;
-        };
-        let observer: StreamObserver = Arc::new(move |update| {
-            if let Ok(mut stream) = stream.lock() {
-                stream.0.push_str(&update.text);
-                stream.1.push_str(&update.reasoning);
-            }
+        let runtime = self.runtime.clone();
+        SummaryJobs::global(cx).update(cx, |jobs, cx| {
+            jobs.generate(runtime, session, target, template, cx);
         });
-        let runtime = self.runtime.clone();
-        let ai = services.ai.clone();
-        let id = session.clone();
-        let queue = services.ai.enqueue(Box::pin(async move {
-            check_eligible(&runtime, id.clone()).await?;
-            let (base, context) = context::load_summary(&runtime, id, target, template).await?;
-            ai.summarize(base, context, cancellation, observer).await
-        }));
-        self.jobs.insert(session.clone(), job);
-        self.poll_jobs(cx);
-        cx.spawn(async move |this, cx| {
-            let result = match queue {
-                Ok(reply) => reply.await.map_err(failure).and_then(|result| result),
-                Err(error) => Err(error),
-            };
-            let _ = this.update(cx, |this, cx| {
-                match result {
-                    Ok(_) => {
-                        this.jobs.remove(&session);
-                        let title = this
-                            .current
-                            .as_ref()
-                            .filter(|current| current.summary.id == session)
-                            .map(|current| current.summary.title.to_string())
-                            .unwrap_or_default();
-                        crate::meeting::automation::summary_ready(&session, &title, cx);
-                    }
-                    Err(desktop_runtime::ServiceError::Cancelled) => {
-                        this.jobs.remove(&session);
-                    }
-                    Err(error) => {
-                        if let Some(job) = this.jobs.get_mut(&session) {
-                            job.error = Some(error.to_string());
-                        }
-                    }
-                }
-                cx.notify();
-            });
-        })
-        .detach();
-        cx.notify();
     }
 
-    /// Shipping's summary after an upload, re-transcription or transcript import: the view
-    /// showing the session takes it, else the main window's; it switches to the summary
-    /// unless the transcript is shown.
+    /// Shipping's summary after an upload, re-transcription or transcript import.
     pub(super) fn transcribed(&mut self, session: SessionId, cx: &mut Context<Self>) {
-        if self.session_id() == Some(&session) {
-            self.claim_summary(session, cx);
-        } else if !self.standalone {
-            let this = cx.weak_entity();
-            cx.defer(move |cx| {
-                let _ = this.update(cx, |this, cx| this.claim_summary(session, cx));
-            });
-        }
-    }
-
-    fn claim_summary(&mut self, session: SessionId, cx: &mut Context<Self>) {
-        let uploads = crate::meeting::upload::Uploads::global(cx);
-        let Some(if_empty) = uploads.update(cx, |uploads, _| uploads.claim_summary(&session))
-        else {
-            return;
-        };
         let runtime = self.runtime.clone();
-        let pro = crate::product::account::is_pro(cx);
-        cx.spawn(async move |this, cx| {
-            let decision = auto_summary(&runtime, session.clone(), if_empty, pro).await;
-            let _ = this.update(cx, |this, cx| match decision {
-                Ok(AutoSummary::Generate) => {
-                    this.generate_summary_for(session.clone(), None, None, cx);
-                    if this.session_id() == Some(&session)
-                        && this.view != Some(super::NoteTab::Transcript)
-                    {
-                        this.view = None;
-                    }
-                    cx.notify();
-                }
-                Ok(AutoSummary::TooShort(reason)) => crate::application::toasts::show(
-                    crate::application::toasts::Toast::warning("Summary wasn't generated")
-                        .id(format!("auto-summary-too-short-{}", session.0))
-                        .description(reason),
-                    cx,
-                ),
-                Ok(AutoSummary::Skip) | Err(_) => {}
-            });
-        })
-        .detach();
-    }
-
-    /// Copies streamed text into running jobs at about 30 fps while any runs.
-    fn poll_jobs(&mut self, cx: &mut Context<Self>) {
-        if self.job_poll.is_some() {
-            return;
-        }
-        self.job_poll = Some(cx.spawn(async move |this, cx| {
-            loop {
-                cx.background_executor()
-                    .timer(Duration::from_millis(33))
-                    .await;
-                let running = this.update(cx, |this, cx| {
-                    let mut changed = false;
-                    for job in this.jobs.values_mut().filter(|job| job.running()) {
-                        changed |= job.pull();
-                    }
-                    if changed {
-                        cx.notify();
-                    }
-                    let running = this.jobs.values().any(SummaryJob::running);
-                    if !running {
-                        this.job_poll = None;
-                    }
-                    running
-                });
-                if !matches!(running, Ok(true)) {
-                    break;
-                }
-            }
-        }));
+        SummaryJobs::global(cx).update(cx, |jobs, cx| {
+            jobs.claim_auto_summary(runtime, session, cx);
+        });
     }
 
     pub(super) fn open_picker(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -651,11 +731,12 @@ impl NoteView {
         cx: &mut Context<Self>,
     ) -> Option<AnyElement> {
         let session = self.current.as_ref()?.summary.id.clone();
-        let job = self
-            .jobs
-            .get(&session)
-            .filter(|job| document.is_none_or(|document| job.shows(&document.0)));
-        if let Some(job) = job {
+        if let Some(jobs) = SummaryJobs::try_global(cx)
+            && let Some(job) = jobs
+                .read(cx)
+                .job(&session)
+                .filter(|job| document.is_none_or(|document| job.shows(&document.0)))
+        {
             return Some(match &job.error {
                 Some(error) => self.enhance_error(error.clone(), colors, cx),
                 None => self.streaming(job, title, colors),
@@ -806,10 +887,10 @@ impl NoteView {
                             .current
                             .as_ref()
                             .map(|session| session.summary.id.clone());
-                        let target = session
-                            .as_ref()
-                            .and_then(|session| this.jobs.remove(session))
-                            .and_then(|job| job.document.clone());
+                        let target = session.as_ref().and_then(|session| {
+                            SummaryJobs::global(cx)
+                                .update(cx, |jobs, cx| jobs.take_error_document(session, cx))
+                        });
                         this.generate_summary(target, None, cx);
                     })),
             )
@@ -1352,6 +1433,24 @@ mod tests {
         );
         // A summary with content stays after audio, while an imported transcript regenerates.
         sql("INSERT INTO session_documents(id,session_id,kind,body) VALUES ('d','s','summary','Shipped')", vec![]).await;
+        assert_eq!(
+            decide(session.clone(), true).await.unwrap(),
+            AutoSummary::Skip
+        );
+        // An attachment-only summary (even with a synthesized H1 title) also stays preserved.
+        let attachment_only = json!({
+            "type": "doc",
+            "content": [
+                {"type": "heading", "attrs": {"level": 1}, "content": [{"type": "text", "text": "Sync"}]},
+                {"type": "fileAttachment", "attrs": {"id": "att-1", "name": "slides.pdf"}}
+            ]
+        })
+        .to_string();
+        sql(
+            "UPDATE session_documents SET body = ? WHERE id = 'd'",
+            vec![json!(attachment_only)],
+        )
+        .await;
         assert_eq!(
             decide(session.clone(), true).await.unwrap(),
             AutoSummary::Skip
