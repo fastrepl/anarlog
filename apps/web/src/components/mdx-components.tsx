@@ -140,11 +140,11 @@ function BenchmarkChart({
           <span className="text-sm font-semibold tracking-tight text-[var(--color-fg)]">
             {title}
           </span>
-          <span className="font-sans text-xs text-[var(--color-fg-secondary)]">
+          <span className="font-sans text-xs text-[var(--grey-700)]">
             {subtitle ? `${subtitle} (${unit})` : unit}
           </span>
         </div>
-        <div className="flex flex-wrap items-center gap-3 font-sans text-xs text-[var(--color-fg-secondary)]">
+        <div className="flex flex-wrap items-center gap-3 font-sans text-xs text-[var(--grey-700)]">
           <span className="inline-flex items-center gap-1.5">
             <span
               className="inline-block h-2.5 w-2.5 shrink-0 bg-red-600"
@@ -194,7 +194,7 @@ function BenchmarkChart({
                       aria-hidden="true"
                     />
                   </div>
-                  <span className="min-w-[6.5rem] text-right font-mono text-xs font-medium text-[var(--color-fg-secondary)] tabular-nums">
+                  <span className="min-w-[6.5rem] text-right font-mono text-xs font-medium text-[var(--grey-700)] tabular-nums">
                     <span className="sr-only">{baselineLabel}: </span>
                     {baselineText}
                   </span>
@@ -220,7 +220,7 @@ function BenchmarkChart({
       </div>
 
       {note && (
-        <p className="mt-3 border-t border-[var(--color-border-subtle)] pt-2.5 font-sans text-xs leading-relaxed text-[var(--color-fg-secondary)]">
+        <p className="mt-3 border-t border-[var(--color-border-subtle)] pt-2.5 font-sans text-xs leading-relaxed text-[var(--grey-700)]">
           {note}
         </p>
       )}
