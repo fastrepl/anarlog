@@ -243,10 +243,10 @@ impl WindowIdentity {
 
 /// Borderless `NSWindowStyleMaskNonactivatingPanel` (`1 << 7`), omitting `NSWindowStyleMaskTitled`
 /// and `FullSizeContentView` so macOS renders no titled chrome or liquid-glass wrapper.
-#[cfg(any(target_os = "macos", test))]
+#[cfg(target_os = "macos")]
 const FLOATING_PANEL_STYLE_MASK: usize = 1 << 7;
 /// `CanJoinAllSpaces | Stationary | FullScreenAuxiliary` (`FloatingBarManager.swift`).
-#[cfg(any(target_os = "macos", test))]
+#[cfg(target_os = "macos")]
 const FLOATING_PANEL_COLLECTION_BEHAVIOR: usize = (1 << 0) | (1 << 4) | (1 << 8);
 
 /// Removes native titled panel chrome, backdrop, and shadow on macOS (`FloatingBarManager.swift`)
@@ -935,6 +935,20 @@ mod tests {
             sel,
         };
 
+        #[derive(Clone, Copy)]
+        struct OrderFrontSnapshot {
+            style_mask: usize,
+            level: isize,
+            movable: bool,
+            opaque: bool,
+            background_alpha: f64,
+            has_shadow: bool,
+            shadow_invalidated: bool,
+            hides_on_deactivate: bool,
+            collection_behavior: usize,
+            floating_panel: bool,
+        }
+
         struct PanelProbe {
             style_mask: usize,
             level: isize,
@@ -946,7 +960,7 @@ mod tests {
             hides_on_deactivate: bool,
             collection_behavior: usize,
             floating_panel: bool,
-            ordered_front_regardless: bool,
+            at_order_front: Option<OrderFrontSnapshot>,
         }
 
         unsafe fn state(obj: *mut AnyObject) -> &'static mut PanelProbe {
@@ -1003,7 +1017,19 @@ mod tests {
             unsafe { state(obj).floating_panel = floating.as_bool() };
         }
         extern "C" fn order_front_regardless(obj: *mut AnyObject, _: Sel) {
-            unsafe { state(obj).ordered_front_regardless = true };
+            let probe = unsafe { state(obj) };
+            probe.at_order_front = Some(OrderFrontSnapshot {
+                style_mask: probe.style_mask,
+                level: probe.level,
+                movable: probe.movable,
+                opaque: probe.opaque,
+                background_alpha: probe.background_alpha,
+                has_shadow: probe.has_shadow,
+                shadow_invalidated: probe.shadow_invalidated,
+                hides_on_deactivate: probe.hides_on_deactivate,
+                collection_behavior: probe.collection_behavior,
+                floating_panel: probe.floating_panel,
+            });
         }
 
         static PANEL_CLASS: OnceLock<usize> = OnceLock::new();
@@ -1079,7 +1105,7 @@ mod tests {
             hides_on_deactivate: true,
             collection_behavior: 0,
             floating_panel: false,
-            ordered_front_regardless: false,
+            at_order_front: None,
         };
         let panel: Retained<AnyObject> = unsafe {
             let class = &*(class as *const AnyClass);
@@ -1094,27 +1120,19 @@ mod tests {
         macos::configure_native_floating_panel(&panel, true);
         drop(panel);
 
-        assert_eq!(probe.style_mask, FLOATING_PANEL_STYLE_MASK);
-        assert_eq!(probe.level, 101);
-        assert!(probe.movable);
-        assert!(!probe.opaque);
-        assert_eq!(probe.background_alpha, 0.0);
-        assert!(!probe.has_shadow);
-        assert!(probe.shadow_invalidated);
-        assert!(!probe.hides_on_deactivate);
+        let at_order_front = probe.at_order_front.expect("orderFrontRegardless called");
+        assert_eq!(at_order_front.style_mask, FLOATING_PANEL_STYLE_MASK);
+        assert_eq!(at_order_front.level, 101);
+        assert!(at_order_front.movable);
+        assert!(!at_order_front.opaque);
+        assert_eq!(at_order_front.background_alpha, 0.0);
+        assert!(!at_order_front.has_shadow);
+        assert!(at_order_front.shadow_invalidated);
+        assert!(!at_order_front.hides_on_deactivate);
         assert_eq!(
-            probe.collection_behavior,
+            at_order_front.collection_behavior,
             FLOATING_PANEL_COLLECTION_BEHAVIOR
         );
-        assert!(probe.floating_panel);
-        assert!(probe.ordered_front_regardless);
-    }
-
-    #[cfg(not(target_os = "macos"))]
-    #[test]
-    fn floating_panel_style_mask_omits_titled_chrome() {
-        assert_eq!(FLOATING_PANEL_STYLE_MASK & 1, 0);
-        assert_eq!(FLOATING_PANEL_STYLE_MASK & (1 << 15), 0);
-        assert_ne!(FLOATING_PANEL_STYLE_MASK & (1 << 7), 0);
+        assert!(at_order_front.floating_panel);
     }
 }

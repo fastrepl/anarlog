@@ -3271,6 +3271,52 @@ mod tests {
             let app = fixture.app_entity.read(cx);
             assert!(!app.main_window_active);
             assert!(app.meeting_host.floating_open());
+            assert_eq!(app.meeting_host.floating_expanded(cx), Some(false));
+        });
+
+        cx.update(|cx| {
+            fixture.app_entity.update(cx, |app, cx| {
+                app.meeting_host.set_floating_expanded(true, cx)
+            });
+        });
+        cx.run_until_parked();
+        let expanded_bounds = cx.update(|cx| {
+            let expanded = fixture
+                .app_entity
+                .read(cx)
+                .meeting_host
+                .floating_expanded(cx);
+            assert_eq!(expanded, Some(true));
+            fixture
+                .app_entity
+                .update(cx, |app, cx| app.meeting_host.floating_bounds(cx))
+                .expect("floating bounds while open")
+        });
+
+        activate(fixture.main_window, cx);
+        cx.read(|cx| {
+            let app = fixture.app_entity.read(cx);
+            assert!(app.main_window_active);
+            assert!(!app.meeting_host.floating_open());
+        });
+
+        activate(fixture.detached_window, cx);
+        cx.update(|cx| {
+            let (main_active, open, expanded) = {
+                let app = fixture.app_entity.read(cx);
+                (
+                    app.main_window_active,
+                    app.meeting_host.floating_open(),
+                    app.meeting_host.floating_expanded(cx),
+                )
+            };
+            assert!(!main_active);
+            assert!(open);
+            assert_eq!(expanded, Some(true));
+            let bounds = fixture
+                .app_entity
+                .update(cx, |app, cx| app.meeting_host.floating_bounds(cx));
+            assert_eq!(bounds, Some(expanded_bounds));
         });
 
         activate(fixture.main_window, cx);
@@ -3287,7 +3333,21 @@ mod tests {
             });
         });
         cx.run_until_parked();
-        cx.read(|cx| assert!(fixture.app_entity.read(cx).meeting_host.floating_open()));
+        cx.update(|cx| {
+            let (open, expanded) = {
+                let app = fixture.app_entity.read(cx);
+                (
+                    app.meeting_host.floating_open(),
+                    app.meeting_host.floating_expanded(cx),
+                )
+            };
+            assert!(open);
+            assert_eq!(expanded, Some(true));
+            let bounds = fixture
+                .app_entity
+                .update(cx, |app, cx| app.meeting_host.floating_bounds(cx));
+            assert_eq!(bounds, Some(expanded_bounds));
+        });
 
         activate(fixture.main_window, cx);
         cx.read(|cx| {
