@@ -85,7 +85,7 @@ impl RealtimeSttAdapter for SonioxAdapter {
             sample_rate: params.sample_rate,
             language_hints_strict: language_hints.len() == 1,
             language_hints,
-            enable_endpoint_detection: true,
+            enable_endpoint_detection: false,
             enable_speaker_diarization: !single_speaker,
             context,
         };
@@ -655,5 +655,13 @@ mod tests {
         assert_eq!(partial_alt.transcript, " world");
         assert_eq!(partial_alt.words.len(), 1);
         assert_eq!(partial_alt.words[0].word, "world");
+    }
+
+    #[test]
+    fn initial_message_disables_endpoint_detection() {
+        let adapter = SonioxAdapter::default();
+        let params = owhisper_interface::ListenParams::default();
+        let json = extract_initial_message_json(&adapter, &params);
+        assert_eq!(json["enable_endpoint_detection"].as_bool(), Some(false));
     }
 }
