@@ -49,6 +49,7 @@ pub struct LibraryView {
     /// The open note's row has not loaded yet; reveal it when it does, like shipping's
     /// selected-row ref.
     reveal_active: bool,
+    now_hovered: bool,
 }
 
 #[derive(Clone)]
@@ -215,6 +216,7 @@ impl LibraryView {
             show_tags: false,
             centring: None,
             reveal_active: false,
+            now_hovered: false,
         }
     }
 
@@ -525,6 +527,7 @@ impl LibraryView {
             Some(Row::Heading(label)) => heading(label.clone(), colors)
                 .id(("timeline-heading", row))
                 .a11y_heading(gpui::SharedString::from(label), 3)
+                .occlude()
                 .into_any_element(),
             Some(Row::Now { above, below }) => div()
                 .pt(px(above))
@@ -584,6 +587,12 @@ impl LibraryView {
             .flex()
             .items_center()
             .justify_center()
+            .on_hover(cx.listener(|this, hovered: &bool, _, cx| {
+                if this.now_hovered != *hovered {
+                    this.now_hovered = *hovered;
+                    cx.notify();
+                }
+            }))
             .child(
                 div()
                     .absolute()
@@ -596,6 +605,9 @@ impl LibraryView {
             .when_some(label, |view, label| {
                 view.child(
                     div()
+                        .when(self.now_hovered, |badge| {
+                            badge.debug_selector(|| "timeline-current-time-badge".into())
+                        })
                         .border_1()
                         .border_color(rgb(RED_500))
                         .bg(rgb(RED_500))
@@ -607,7 +619,7 @@ impl LibraryView {
                         .font_weight(gpui::FontWeight::SEMIBOLD)
                         .text_color(gpui::white())
                         .shadow_xs()
-                        .opacity(0.)
+                        .opacity(if self.now_hovered { 1. } else { 0. })
                         .group_hover("current-time", |style| style.opacity(1.))
                         .child(label),
                 )
@@ -1704,5 +1716,27 @@ mod tests {
         assert_eq!(indicator.size.height, px(20.));
         assert_eq!(indicator.top(), row_bounds.top() - px(10.));
         assert!(indicator.bottom() > next_bounds.top());
+        assert!(cx.debug_bounds("timeline-current-time-badge").is_none());
+
+        let overlap = gpui::point(
+            indicator.center().x,
+            (next_bounds.top() + indicator.bottom()) * 0.5,
+        );
+        cx.simulate_mouse_move(overlap, None, gpui::Modifiers::none());
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        cx.run_until_parked();
+
+        assert!(library.read_with(cx, |library, _| library.now_hovered));
+        let badge = cx
+            .debug_bounds("timeline-current-time-badge")
+            .expect("hovered now badge bounds rendered");
+        assert!(badge.contains(&overlap));
+        assert!(badge.bottom() > next_bounds.top());
+
+        cx.simulate_mouse_move(gpui::point(px(1.), px(1.)), None, gpui::Modifiers::none());
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        cx.run_until_parked();
+        assert!(!library.read_with(cx, |library, _| library.now_hovered));
+        assert!(cx.debug_bounds("timeline-current-time-badge").is_none());
     }
 }
