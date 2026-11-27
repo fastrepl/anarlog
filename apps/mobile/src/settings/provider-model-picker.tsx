@@ -10,7 +10,10 @@ import { Button, Picker, Text, TextInput } from "@/settings/fields";
 
 import { createProviderAutosave } from "./provider-autosave";
 import { modelOptions, presetProviderModels } from "./provider-model-catalog";
-import { discoverProviderModels } from "./provider-models";
+import {
+  discoverProviderModels,
+  isListableRemoteSttProvider,
+} from "./provider-models";
 import type { ProviderConfig, ProviderKind } from "./providers-model";
 import { useColors } from "./theme-provider";
 import { supportsLiveTranscription } from "./transcription-mode";
@@ -37,6 +40,12 @@ export function ProviderModelPicker({
   const [manual, setManual] = useState(false);
   const form = useForm({ defaultValues: { model: initialModel } });
   const presets = presetProviderModels(kind, config.provider);
+  const canDiscover =
+    kind === "stt"
+      ? isListableRemoteSttProvider(config.provider)
+      : !presets ||
+        config.provider === "google_vertex_ai" ||
+        config.provider === "cloudflare_workers_ai";
   const models = useQuery({
     queryKey: [
       "provider-models",
@@ -45,8 +54,9 @@ export function ProviderModelPicker({
       config.provider,
       config.baseUrl,
     ],
-    queryFn: ({ signal }) => discoverProviderModels(account, config, signal),
-    enabled: !presets && hasKey && Boolean(config.baseUrl),
+    queryFn: ({ signal }) =>
+      discoverProviderModels(account, config, signal, kind),
+    enabled: canDiscover && hasKey && Boolean(config.baseUrl),
     staleTime: 5 * 60 * 1000,
     gcTime: 0,
     retry: false,
@@ -99,7 +109,18 @@ export function ProviderModelPicker({
               >
                 {!model && <Picker.Item value="empty" label="Select model" />}
                 {modelOptions(
-                  presets ?? (hasKey ? (models.data ?? []) : []),
+                  kind === "stt"
+                    ? [
+                        ...(presets ?? []),
+                        ...(hasKey ? (models.data ?? []) : []),
+                      ]
+                    : presets
+                      ? hasKey && models.data?.length
+                        ? models.data
+                        : presets
+                      : hasKey
+                        ? (models.data ?? [])
+                        : [],
                   model,
                 ).map((id) => (
                   <Picker.Item key={id} value={`model:${id}`} label={id} />

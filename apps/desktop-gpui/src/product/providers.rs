@@ -372,6 +372,14 @@ enum Saved {
 
 /// `settings/ai/{stt,llm}`: "Model being used" plus the provider cards. Choices save as one
 /// compare-and-swap transaction; API keys go to the system keyring.
+#[derive(Clone, Default)]
+struct FetchedModels {
+    signature: String,
+    models: Vec<super::provider_models::ModelEntry>,
+    loading: bool,
+    loaded: bool,
+}
+
 pub struct ProviderView {
     services: ProviderServices,
     kind: ProviderKind,
@@ -397,6 +405,7 @@ pub struct ProviderView {
     /// Unsaved edits to the model choice and to the expanded card, which save separately.
     dirty_choice: bool,
     dirty_card: bool,
+    fetched_models: std::collections::HashMap<(ProviderKind, String), FetchedModels>,
     generation: u64,
     operation: Option<Operation>,
     status: String,
@@ -417,6 +426,10 @@ impl ProviderView {
         self.model_menu = false;
         self.effort_menu = false;
         self.refresh_on_device(cx);
+        let active = self.provider();
+        if !active.is_empty() {
+            self.ensure_models(active, false, cx);
+        }
         self.restore(cx);
     }
 
@@ -464,6 +477,7 @@ impl ProviderView {
             secret,
             dirty_choice: false,
             dirty_card: false,
+            fetched_models: std::collections::HashMap::new(),
             generation: 0,
             operation: None,
             status: String::new(),
@@ -549,6 +563,10 @@ impl ProviderView {
                             .is_some_and(|draft| this.current("provider") == draft)
                         {
                             this.draft = None;
+                        }
+                        let active = this.provider();
+                        if !active.is_empty() {
+                            this.ensure_models(active, !restore, cx);
                         }
                     }
                     Err(error) => this.status = error.to_string(),
@@ -695,6 +713,7 @@ impl ProviderView {
         }
         self.draft = Some(provider);
         self.dirty_choice = false;
+        self.ensure_models(provider.to_owned(), false, cx);
         self.model
             .update(cx, |input, cx| input.set_text(model.clone(), cx));
         if self.kind == ProviderKind::Stt || !model.is_empty() {
@@ -719,14 +738,14 @@ impl ProviderView {
                 typed
                     || models
                         .iter()
-                        .any(|(id, _, disabled_reason)| disabled_reason.is_none() && id == model)
+                        .any(|(id, _, disabled_reason)| disabled_reason.is_none() && id == *model)
             })
             .cloned()
             .or_else(|| {
                 models
                     .iter()
                     .find(|(_, _, disabled_reason)| disabled_reason.is_none())
-                    .map(|(id, ..)| (*id).to_owned())
+                    .map(|(id, ..)| id.clone())
             })
             .or_else(|| {
                 (self.kind == ProviderKind::Stt && !is_local_stt_provider(self.kind, provider))
@@ -737,43 +756,149 @@ impl ProviderView {
             .unwrap_or_default()
     }
 
-    /// `provider`'s fixed models as `(id, label, disabled_reason)`; without them the model is typed.
+    fn ensure_models(&mut self, provider: String, force: bool, cx: &mut Context<Self>) {
+        let kind = self.kind;
+        if provider.is_empty() || !super::provider_models::supports_live_models(kind, &provider) {
+            return;
+        }
+        let base_url = if provider == "anarlog" {
+            self.services.api_url.clone()
+        } else {
+            self.stored_base(&provider)
+        };
+        let key_marker = self
+            .snapshot
+            .as_ref()
+            .and_then(|snapshot| {
+                snapshot
+                    .values
+                    .get(&format!("ai_provider:{}:{provider}", kind.key()))
+            })
+            .cloned()
+            .unwrap_or_default();
+        let cloud_paid = super::account::is_paid(cx);
+        let signature = format!("{base_url}|{key_marker}|{cloud_paid}");
+        if let Some(existing) = self.fetched_models.get(&(kind, provider.clone()))
+            && !force
+            && existing.signature == signature
+            && (existing.loading || existing.loaded)
+        {
+            return;
+        }
+        let entry = self
+            .fetched_models
+            .entry((kind, provider.clone()))
+            .or_default();
+        entry.signature = signature.clone();
+        entry.loading = true;
+
+        let services = self.services.clone();
+        let provider_for_task = provider.clone();
+        let base_for_task = base_url;
+        let reply = self.services.runtime.service(move |_| async move {
+            let (api_key, cloud_token) = if provider_for_task == "anarlog" {
+                let token = (services.cloud)()
+                    .await
+                    .ok()
+                    .map(|access| access.access_token)
+                    .filter(|token| !token.is_empty());
+                (None, token)
+            } else {
+                let key = (services.secret)(kind, provider_for_task.clone())
+                    .await
+                    .ok()
+                    .flatten();
+                (key, None)
+            };
+            Ok(super::provider_models::fetch_models(
+                kind,
+                &provider_for_task,
+                &base_for_task,
+                api_key.as_deref(),
+                cloud_token.as_deref(),
+            )
+            .await)
+        });
+        cx.spawn(async move |this, cx| {
+            let models = match reply {
+                Ok(reply) => reply.receive().await.unwrap_or_default(),
+                Err(_) => Vec::new(),
+            };
+            let _ = this.update(cx, |this, cx| {
+                if let Some(slot) = this.fetched_models.get_mut(&(kind, provider.clone()))
+                    && slot.signature == signature
+                {
+                    slot.loading = false;
+                    slot.loaded = true;
+                    slot.models = models;
+                    cx.notify();
+                }
+            });
+        })
+        .detach();
+    }
+
+    /// `provider`'s models as `(id, label, disabled_reason)`; without them the model is typed.
     /// Anarlog's transcription model is offered on a paid plan, where shipping lists it as
     /// downloaded.
     fn models(
         &self,
         provider: &str,
         cx: &gpui::App,
-    ) -> Vec<(&'static str, &'static str, Option<SharedString>)> {
+    ) -> Vec<(String, String, Option<SharedString>)> {
         match self.kind {
-            ProviderKind::Stt => provider_catalog::stt_models(provider)
-                .iter()
-                .map(|id| {
-                    let disabled_reason = if *id == "cloud" && !super::account::is_paid(cx) {
-                        Some(SharedString::from("Upgrade to use"))
-                    } else if is_local_stt_provider(self.kind, provider)
-                        && !self.is_local_model_installed(id)
-                    {
-                        Some(SharedString::from("Download in Manage local models"))
-                    } else {
-                        None
-                    };
-                    (*id, provider_catalog::stt_model_label(id), disabled_reason)
-                })
-                .collect(),
-            ProviderKind::Llm if provider == "anarlog" => provider_catalog::ANARLOG_LLM_MODELS
-                .iter()
-                .map(|(id, label)| (*id, *label, None))
-                .collect(),
+            ProviderKind::Stt => {
+                let mut entries =
+                    super::provider_models::fallback_models(ProviderKind::Stt, provider);
+                if let Some(fetched) = self
+                    .fetched_models
+                    .get(&(ProviderKind::Stt, provider.to_owned()))
+                {
+                    for candidate in &fetched.models {
+                        if !entries.iter().any(|existing| existing.id == candidate.id) {
+                            entries.push(candidate.clone());
+                        }
+                    }
+                }
+                entries
+                    .into_iter()
+                    .map(|entry| {
+                        let disabled_reason = if entry.id == "cloud" && !super::account::is_paid(cx)
+                        {
+                            Some(SharedString::from("Upgrade to use"))
+                        } else if is_local_stt_provider(self.kind, provider)
+                            && !self.is_local_model_installed(&entry.id)
+                        {
+                            Some(SharedString::from("Download in Manage local models"))
+                        } else {
+                            None
+                        };
+                        (entry.id, entry.label, disabled_reason)
+                    })
+                    .collect()
+            }
             ProviderKind::Llm if provider == "apple_foundation" => vec![(
-                provider_catalog::APPLE_FOUNDATION_MODEL,
-                provider_catalog::APPLE_FOUNDATION_MODEL,
+                provider_catalog::APPLE_FOUNDATION_MODEL.to_owned(),
+                provider_catalog::APPLE_FOUNDATION_MODEL.to_owned(),
                 self.on_device
                     .as_ref()
                     .and_then(|status| status.apple_foundation_unavailable.clone())
                     .map(SharedString::from),
             )],
-            ProviderKind::Llm => Vec::new(),
+            ProviderKind::Llm => {
+                let entries = self
+                    .fetched_models
+                    .get(&(ProviderKind::Llm, provider.to_owned()))
+                    .filter(|slot| !slot.models.is_empty())
+                    .map(|slot| slot.models.clone())
+                    .unwrap_or_else(|| {
+                        super::provider_models::fallback_models(ProviderKind::Llm, provider)
+                    });
+                entries
+                    .into_iter()
+                    .map(|entry| (entry.id, entry.label, None))
+                    .collect()
+            }
         }
     }
 
@@ -1191,14 +1316,17 @@ impl ProviderView {
         let current = self.model.read(cx).buffer.text.clone();
         let selected = models
             .iter()
-            .find(|(id, ..)| *id == current)
-            .map(|(id, label, _)| (*id, *label));
-        let display = selected.map(|(_, label)| label.to_owned()).or_else(|| {
-            (!current.trim().is_empty()).then(|| match self.kind {
-                ProviderKind::Stt => provider_catalog::stt_model_label(&current).to_owned(),
-                ProviderKind::Llm => current.clone(),
-            })
-        });
+            .find(|(id, ..)| id == &current)
+            .map(|(id, label, _)| (id.clone(), label.clone()));
+        let display = selected
+            .as_ref()
+            .map(|(_, label)| label.clone())
+            .or_else(|| {
+                (!current.trim().is_empty()).then(|| match self.kind {
+                    ProviderKind::Stt => provider_catalog::stt_model_label(&current).to_owned(),
+                    ProviderKind::Llm => current.clone(),
+                })
+            });
         let muted = colors.muted_foreground;
         // Shipping heads Anarlog's cloud model with its "latest" category.
         let recommended = self.kind == ProviderKind::Stt && provider == "anarlog";
@@ -1224,11 +1352,14 @@ impl ProviderView {
                     })
                     .children(models.into_iter().map(|(model, label, disabled_reason)| {
                         let offered = disabled_reason.is_none();
+                        let is_selected =
+                            selected.as_ref().map(|(id, _)| id.as_str()) == Some(model.as_str());
+                        let click_model = model.clone();
                         controls::menu_item(
                             SharedString::from(format!("model-{model}")),
                             label,
                             disabled_reason,
-                            Some(model) == selected.map(|(id, _)| id),
+                            is_selected,
                             colors,
                         )
                         .a11y_disabled(!offered)
@@ -1236,8 +1367,9 @@ impl ProviderView {
                         .when(offered, |view| {
                             view.on_click(cx.listener(move |this, _, _, cx| {
                                 this.model_menu = false;
-                                this.model
-                                    .update(cx, |input, cx| input.set_text(model.into(), cx));
+                                this.model.update(cx, |input, cx| {
+                                    input.set_text(click_model.clone(), cx)
+                                });
                                 this.save_choice(cx);
                                 cx.notify();
                             }))
@@ -1259,6 +1391,7 @@ impl ProviderView {
                         this.model_menu = !this.model_menu;
                         if this.model_menu {
                             this.refresh_on_device(cx);
+                            this.ensure_models(this.provider(), false, cx);
                         }
                         cx.notify();
                     }))

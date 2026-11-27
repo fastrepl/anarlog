@@ -42,6 +42,7 @@ import { cn } from "@anlg/utils";
 
 import { useSttSettings } from "./context";
 import { HealthStatusIndicator, useConnectionHealth } from "./health";
+import { isListableRemoteSttProvider, listSttProviderModels } from "./list-models";
 import { LocalFileModel } from "./local-file-model";
 import { LocalModelBackendBadge, LocalModelLabel } from "./model-icon";
 import { recommendOnDeviceModel } from "./on-device-recommendation";
@@ -725,6 +726,48 @@ export function useConfiguredMapping(): {
     ],
   });
 
+  const listableRemoteProviders = PROVIDERS.flatMap((provider) => {
+    if (!isListableRemoteSttProvider(provider.id)) {
+      return [];
+    }
+    const config = configuredProviders[providerRowId("stt", provider.id)] as
+      | AIProviderStorage
+      | undefined;
+    const baseUrl = String(config?.base_url || provider.baseUrl || "").trim();
+    const apiKey = String(config?.api_key || "").trim();
+    const eligible =
+      getProviderSelectionBlockers(provider.requirements, {
+        isAuthenticated: true,
+        isPaid: billing.isPaid,
+        config: { base_url: baseUrl, api_key: apiKey },
+      }).length === 0;
+    const enabled =
+      isReady &&
+      eligible &&
+      (!requiresKeyVerification(provider) ||
+        availability[provider.id] === true) &&
+      Boolean(baseUrl && apiKey);
+    return [{ id: provider.id, baseUrl, apiKey, enabled }];
+  });
+
+  const remoteSttQueries = useQueries({
+    queries: listableRemoteProviders.map(({ id, baseUrl, apiKey, enabled }) => ({
+      queryKey: ["stt-models", id, baseUrl, apiKey],
+      queryFn: ({ signal }: { signal: AbortSignal }) =>
+        listSttProviderModels(id, baseUrl, apiKey, { signal }),
+      enabled,
+      staleTime: 5 * 60_000,
+      retry: false,
+    })),
+  });
+
+  const discoveredRemoteModels = new Map<string, string[]>(
+    listableRemoteProviders.map((entry, index) => [
+      entry.id,
+      remoteSttQueries[index]?.data ?? [],
+    ]),
+  );
+
   const providers = Object.fromEntries(
     PROVIDERS.map((provider) => {
       const config = configuredProviders[providerRowId("stt", provider.id)] as
@@ -806,11 +849,14 @@ export function useConfiguredMapping(): {
         return [provider.id, { configured: true, models: [] }];
       }
 
+      const discoveredModels = discoveredRemoteModels.get(provider.id) ?? [];
+      const mergedModels = [...new Set([...provider.models, ...discoveredModels])];
+
       return [
         provider.id,
         {
           configured: true,
-          models: provider.models.map((model) => {
+          models: mergedModels.map((model) => {
             const mode = getSttModelTranscriptionMode(provider.id, model);
             return {
               id: model,
