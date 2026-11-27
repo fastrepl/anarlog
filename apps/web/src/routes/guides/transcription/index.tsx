@@ -79,7 +79,7 @@ function TranscriptionGuides() {
 
         <section className="pt-24 pb-16 md:pt-32">
           <p className="text-brand-dark mb-4 text-sm">Anarlog guides</p>
-          <h1 className="font-hand text-6xl leading-[0.98] font-semibold tracking-normal text-balance md:text-8xl">
+          <h1 className="text-4xl leading-[1.06] font-semibold tracking-[-0.03em] text-balance md:text-6xl">
             Find your transcription workflow.
           </h1>
           <p className="text-brand-dark mt-6 max-w-2xl text-lg leading-8">
@@ -106,7 +106,7 @@ function TranscriptionGuides() {
         <div className="space-y-16">
           {sections.map((section) => (
             <section key={section.id} id={section.id} className="scroll-mt-8">
-              <h2 className="font-hand text-4xl font-semibold tracking-normal">
+              <h2 className="text-2xl leading-tight font-semibold tracking-tight md:text-3xl">
                 {section.title}
               </h2>
               <p className="text-brand-dark mt-3 max-w-2xl leading-7">
@@ -120,7 +120,7 @@ function TranscriptionGuides() {
                       params={{ slug: article.slug }}
                       className="border-border-subtle hover:bg-surface-subtle block h-full rounded-lg border p-5 transition-colors"
                     >
-                      <h3 className="font-hand text-2xl leading-7 font-semibold tracking-normal">
+                      <h3 className="text-lg leading-snug font-semibold tracking-tight">
                         {article.title}
                       </h3>
                       <p className="text-brand-dark mt-3 text-sm leading-6">
@@ -138,7 +138,7 @@ function TranscriptionGuides() {
         </div>
 
         <section className="border-border-subtle mt-16 border-t pt-10 pb-8">
-          <h2 className="font-hand text-4xl font-semibold tracking-normal">
+          <h2 className="text-2xl leading-tight font-semibold tracking-tight md:text-3xl">
             Bring the transcript into your meeting notes.
           </h2>
           <p className="text-brand-dark mt-4 max-w-2xl leading-7">

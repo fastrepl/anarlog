@@ -16,8 +16,10 @@
   --font-mono:
     ui-monospace, "SFMono-Regular", "SF Mono", Consolas, "Liberation Mono",
     Menlo, monospace;
-  --font-hand: "Caveat", cursive;
-  --font-signature: "Patrick Hand", cursive;
+  --font-hand:
+    system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-signature:
+    system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 
   /* ── Layout ──────────────────────────────────── */
   --breakpoint-laptop: 72rem;
@@ -163,7 +165,7 @@
     font-family: var(--font-sans);
     font-weight: 500;
     letter-spacing: -0.02em;
-    line-height: 1.3 !important;
+    line-height: 1.3;
   }
 
   h3,
@@ -827,11 +829,11 @@
   :where(h2):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
   margin-top: 4rem;
   margin-bottom: 1.25rem;
-  font-family: var(--font-hand);
-  font-size: 2.125rem;
+  font-family: var(--font-sans);
+  font-size: 1.625rem;
   font-weight: 600;
-  line-height: 1.05 !important;
-  letter-spacing: 0;
+  line-height: 1.2 !important;
+  letter-spacing: -0.025em;
   color: #756b5d;
 }
 
@@ -839,11 +841,11 @@
   :where(h3):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
   margin-top: 3.5rem;
   margin-bottom: 1rem;
-  font-family: var(--font-hand);
-  font-size: 1.75rem;
+  font-family: var(--font-sans);
+  font-size: 1.25rem;
   font-weight: 600;
-  line-height: 1.05;
-  letter-spacing: 0;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
   color: #756b5d;
 }
 
@@ -851,11 +853,11 @@
   :where(h4):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
   margin-top: 2.5rem;
   margin-bottom: 0.75rem;
-  font-family: var(--font-hand);
-  font-size: 1.375rem;
+  font-family: var(--font-sans);
+  font-size: 1.0625rem;
   font-weight: 600;
-  line-height: 1.1;
-  letter-spacing: 0;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
   color: #756b5d;
 }
 
@@ -878,12 +880,12 @@
 @media (min-width: 768px) {
   .blog-prose
     :where(h2):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
-    font-size: 2.5rem;
+    font-size: 1.875rem;
   }
 
   .blog-prose
     :where(h3):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
-    font-size: 2rem;
+    font-size: 1.4375rem;
   }
 }
 
@@ -903,18 +905,18 @@
   margin-bottom: 1rem;
   min-height: 0;
   color: #756b5d;
-  font-family: var(--font-hand);
-  font-size: 2rem;
+  font-family: var(--font-sans);
+  font-size: 1.5rem;
   font-weight: 600;
-  letter-spacing: 0;
-  line-height: 1.1 !important;
+  letter-spacing: -0.02em;
+  line-height: 1.25 !important;
 }
 
 .changelog-prose h3,
 .changelog-prose h4,
 .changelog-prose h5,
 .changelog-prose h6 {
-  font-size: 1.625rem;
+  font-size: 1.25rem;
 }
 
 .changelog-prose > :first-child:is(h1, h2, h3) {
@@ -1044,7 +1046,7 @@
 @media (min-width: 768px) {
   .changelog-prose h1,
   .changelog-prose h2 {
-    font-size: 2.25rem;
+    font-size: 1.75rem;
   }
 }
 

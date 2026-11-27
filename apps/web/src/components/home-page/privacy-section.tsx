@@ -31,7 +31,7 @@ export function PrivacySection() {
   return (
     <section className="py-16 md:py-20">
       <div>
-        <h2 className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
+        <h2 className="text-2xl leading-tight font-semibold tracking-tight text-[#756b5d] md:text-3xl">
           Private from call to file
         </h2>
         <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[#4f4940]">

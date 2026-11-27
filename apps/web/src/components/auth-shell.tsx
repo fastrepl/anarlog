@@ -50,10 +50,10 @@ export function AuthShell({
         >
           {showMarketing && (
             <section className="hidden md:block">
-              <p className="font-hand text-2xl leading-none font-semibold text-[#756b5d]">
+              <p className="text-base leading-snug font-medium tracking-tight text-[#756b5d]">
                 Stay present. Keep the notes.
               </p>
-              <h2 className="font-hand mt-5 max-w-[620px] text-6xl leading-[0.95] font-semibold tracking-normal text-balance lg:text-7xl">
+              <h2 className="mt-4 max-w-[540px] text-4xl leading-[1.06] font-semibold tracking-[-0.03em] text-balance lg:text-5xl">
                 AI notepad for{" "}
                 <mark className="bg-[#fff0b3] px-1 text-[#181613]">
                   private meetings.
@@ -65,13 +65,13 @@ export function AuthShell({
           <section className="mx-auto w-full max-w-[440px] overflow-hidden rounded-[24px] border border-[#e5ddcf] bg-white shadow-[0_24px_80px_rgba(24,22,19,0.10)]">
             <header className="border-b border-[#ede7dc] px-6 py-7 sm:px-8 sm:py-8">
               {showEyebrow && (
-                <p className="font-hand text-xl leading-none font-semibold text-[#756b5d]">
+                <p className="text-sm leading-snug font-medium tracking-tight text-[#756b5d]">
                   Private by default
                 </p>
               )}
               <h1
                 className={cn([
-                  "font-hand text-4xl leading-none font-semibold text-[#181613]",
+                  "text-2xl leading-tight font-semibold tracking-tight text-[#181613]",
                   showEyebrow && "mt-3",
                   !showEyebrow && "text-center",
                 ])}

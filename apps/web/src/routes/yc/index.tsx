@@ -120,7 +120,7 @@ function YcPerkPage() {
             YC founder perk
           </div>
 
-          <h1 className="font-hand mx-auto mt-5 max-w-3xl text-5xl leading-[0.98] font-semibold tracking-normal text-balance md:text-7xl">
+          <h1 className="mx-auto mt-5 max-w-3xl text-4xl leading-[1.06] font-semibold tracking-[-0.03em] text-balance md:text-5xl">
             Build the company. Keep every decision.
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[#4f4940]">

@@ -135,7 +135,7 @@ function FinalCtaSection() {
   return (
     <section className="relative left-1/2 mt-10 w-screen -translate-x-1/2 py-20 md:mt-12 md:py-24">
       <div className="mx-auto max-w-[700px] px-5 text-center md:px-8">
-        <h2 className="font-hand mx-auto max-w-3xl text-4xl leading-[0.98] font-semibold tracking-normal text-balance text-[#181613] md:text-5xl">
+        <h2 className="mx-auto max-w-3xl text-3xl leading-[1.08] font-semibold tracking-[-0.025em] text-balance text-[#181613] md:text-4xl">
           Keep your meeting notes yours.
         </h2>
         <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[#4f4940]">
@@ -166,7 +166,7 @@ function OpenSourceSection({
       <div className="mx-auto max-w-[700px] px-5 md:px-8">
         <h2
           id="open-source-heading"
-          className="font-hand text-3xl leading-none font-semibold text-[#756b5d]"
+          className="text-2xl leading-tight font-semibold tracking-tight text-[#756b5d] md:text-3xl"
         >
           Open source by default
         </h2>

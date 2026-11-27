@@ -117,7 +117,7 @@ export function SharedNotesSection() {
   return (
     <>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-brand-dark font-hand text-3xl leading-none font-semibold">
+        <h2 className="text-brand-dark text-2xl leading-tight font-semibold tracking-tight">
           Shared notes
         </h2>
         {!sharesQuery.isPending &&

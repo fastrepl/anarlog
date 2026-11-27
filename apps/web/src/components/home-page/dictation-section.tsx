@@ -66,9 +66,8 @@ const polishedSpeechStream = polishedSpeech.repeat(streamCopies);
 export function DictationSection() {
   return (
     <section id="dictation" className="pt-16 md:pt-20">
-      <h2 className="text-color font-hand text-3xl leading-none font-semibold">
-        <span className="font-hand opacity-45">Stop typing.</span> Start
-        talking.
+      <h2 className="text-color text-2xl leading-tight font-semibold tracking-tight md:text-3xl">
+        <span className="opacity-45">Stop typing.</span> Start talking.
       </h2>
       <p className="text-color mx-auto mt-6 max-w-xl text-lg leading-8">
         Dictation, built right into Anarlog. Turn your thoughts into text in the

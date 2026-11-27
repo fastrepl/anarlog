@@ -52,7 +52,7 @@ function Component() {
         </header>
 
         <section className="pt-24 pb-16 md:pt-32">
-          <h1 className="font-hand text-fg text-6xl leading-[0.98] font-semibold tracking-normal text-balance md:text-8xl">
+          <h1 className="text-fg text-4xl leading-[1.06] font-semibold tracking-[-0.03em] text-balance md:text-6xl">
             Changelog
           </h1>
           <p className="text-brand-dark mt-6 max-w-2xl text-xl leading-9">
@@ -105,7 +105,7 @@ function Component() {
                         {changelogStreamLabel(entry.stream)}
                       </p>
                       <div className="flex flex-wrap items-center gap-2.5">
-                        <h2 className="font-hand text-brand-dark group-hover:text-fg text-4xl leading-none font-semibold tracking-normal transition-colors">
+                        <h2 className="text-brand-dark group-hover:text-fg text-2xl leading-tight font-semibold tracking-tight transition-colors">
                           v{entry.version}
                         </h2>
                         {changelogEntries.find(

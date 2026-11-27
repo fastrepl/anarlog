@@ -58,11 +58,11 @@ Six typefaces are loaded; the first three carry distinct roles. The rest are spe
 
 ### Primary stack
 
-| Face  | Font       | Variable       | Role                                          |
-| ----- | ---------- | -------------- | --------------------------------------------- |
-| Serif | Fraunces   | `--font-serif` | Wordmark weight, editorial pull-quotes        |
-| Sans  | Geist      | `--font-sans`  | All body copy, UI labels, navigation          |
-| Mono  | Geist Mono | `--font-mono`  | Button labels, display headings (h1/h2), code |
+| Face  | Font        | Variable       | Role                                              |
+| ----- | ----------- | -------------- | ------------------------------------------------- |
+| Sans  | System Sans | `--font-sans`  | Headings (h1/h2), body copy, buttons, labels, nav |
+| Mono  | System Mono | `--font-mono`  | Code blocks, technical specs, tabular metadata    |
+| Serif | Fraunces    | `--font-serif` | Wordmark weight, editorial pull-quotes            |
 
 ### Secondary / special-purpose
 
@@ -76,14 +76,14 @@ Six typefaces are loaded; the first three carry distinct roles. The rest are spe
 ### Base layer rules (from `styles.css`)
 
 - `html, body` → `font-sans`
-- `h1, h2` → `font-mono`, weight 500, tracking -0.02em, line-height 1.3
+- `h1, h2` → `font-sans`, weight 500, tracking -0.02em, line-height 1.3
 - `h3–h6, p, span, li` → `font-sans`
 - `p` → `font-size: 1.3rem`, `line-height: 1.5`
-- `button, [role="button"]` → `font-mono`
+- `button, [role="button"]` → `font-sans`
 
 ### Type scale principles
 
-- **Heading hierarchy**: h1/h2 use `font-mono` by default (per base styles). Serif is used selectively for editorial or brand moments, not for all headings.
+- **Heading hierarchy**: h1/h2 use `font-sans` by default (per base styles); `--font-hand` and `--font-signature` alias system sans. Serif is used selectively for editorial or brand moments, not for all headings.
 - **Weight contrast**: Pair heavy display weight (`font-semibold` / `font-bold`) with light body weight (`font-normal`). Never use two heavy weights adjacently.
 - **Letter spacing**: Tight (`tracking-tight`) on large display type. Open (`tracking-wider`) on all-caps labels and category tags.
 - **Minimum readable size**: 14px for body, 12px only for all-caps labels or metadata.
