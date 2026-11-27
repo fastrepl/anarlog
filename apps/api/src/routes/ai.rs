@@ -93,16 +93,21 @@ pub(crate) fn router(
             rate_limit::rate_limit,
         ));
 
-    let llm_routes = Router::new()
+    let llm_completion_routes = Router::new()
         .merge(anlg_llm_proxy::chat_completions_router(llm_config.clone()))
-        .nest("/llm", anlg_llm_proxy::router(llm_config))
+        .nest(
+            "/llm",
+            anlg_llm_proxy::completions_router(llm_config.clone()),
+        )
         .route_layer(middleware::from_fn_with_state(
             llm_rate_limit,
             rate_limit::rate_limit,
         ));
+    let llm_models_route = Router::new().nest("/llm", anlg_llm_proxy::models_router(llm_config));
 
     let authenticated = stt_routes
-        .merge(llm_routes)
+        .merge(llm_completion_routes)
+        .merge(llm_models_route)
         .route_layer(middleware::from_fn(auth::sentry_and_analytics))
         .route_layer(middleware::from_fn_with_state(
             auth_state,

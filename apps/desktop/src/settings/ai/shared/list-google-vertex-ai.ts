@@ -1,11 +1,18 @@
-import type {
-  InputModality,
-  ListModelsResult,
-  ModelMetadata,
+import { Duration } from "effect";
+
+import {
+  type InputModality,
+  type ListModelsResult,
+  type ModelMetadata,
+  readResponseTextWithLimit,
+  REQUEST_TIMEOUT,
 } from "./list-common";
 import { processGenericModels } from "./list-openai";
 
 import { providerFetch } from "~/ai/provider-fetch";
+
+const MAX_VERTEX_RESPONSE_BYTES = 8 * 1024 * 1024;
+const VERTEX_DISCOVERY_TIMEOUT_MS = Duration.toMillis(REQUEST_TIMEOUT);
 
 export const GOOGLE_VERTEX_AI_MODELS = [
   "google/gemini-3.8-flash",
@@ -53,7 +60,9 @@ function parseVertexModelsPayload(payload: unknown): ListModelsResult | null {
   if (Array.isArray(obj.data)) {
     for (const item of obj.data) {
       const id =
-        item && typeof item === "object" && typeof (item as { id?: unknown }).id === "string"
+        item &&
+        typeof item === "object" &&
+        typeof (item as { id?: unknown }).id === "string"
           ? normalizeVertexModelId((item as { id: string }).id)
           : "";
       if (id) {
@@ -110,6 +119,44 @@ function parseVertexModelsPayload(payload: unknown): ListModelsResult | null {
   return { ...parsed, metadata };
 }
 
+async function fetchVertexJson(
+  url: string,
+  headers: Record<string, string>,
+  signal: AbortSignal,
+): Promise<unknown | null> {
+  const res = await providerFetch(url, { method: "GET", headers, signal });
+  if (!res.ok) {
+    await res.body?.cancel().catch(() => {});
+    return null;
+  }
+
+  let abortListener: (() => void) | undefined;
+  const abortPromise = new Promise<never>((_, reject) => {
+    const onAbort = () => {
+      void res.body?.cancel().catch(() => {});
+      reject(signal.reason ?? new Error("Vertex model discovery timed out"));
+    };
+    if (signal.aborted) {
+      onAbort();
+      return;
+    }
+    abortListener = onAbort;
+    signal.addEventListener("abort", onAbort, { once: true });
+  });
+
+  try {
+    const text = await Promise.race([
+      readResponseTextWithLimit(res, MAX_VERTEX_RESPONSE_BYTES),
+      abortPromise,
+    ]);
+    return JSON.parse(text) as unknown;
+  } finally {
+    if (abortListener) {
+      signal.removeEventListener("abort", abortListener);
+    }
+  }
+}
+
 export async function listGoogleVertexAIModels(
   baseUrl: string,
   apiKey: string,
@@ -121,34 +168,39 @@ export async function listGoogleVertexAIModels(
   }
 
   const headers = { Authorization: `Bearer ${trimmedKey}` };
+  const controller = new AbortController();
+  const timeoutId = setTimeout(
+    () => controller.abort(new Error("Vertex model discovery timed out")),
+    VERTEX_DISCOVERY_TIMEOUT_MS,
+  );
 
   try {
-    const res = await providerFetch(`${normalizedBase}/models`, {
-      method: "GET",
+    const primaryPayload = await fetchVertexJson(
+      `${normalizedBase}/models`,
       headers,
-    });
-    if (res.ok) {
-      const parsed = parseVertexModelsPayload(await res.json());
-      if (parsed) {
-        return parsed;
-      }
+      controller.signal,
+    );
+    const parsedPrimary = parseVertexModelsPayload(primaryPayload);
+    if (parsedPrimary) {
+      return parsedPrimary;
     }
 
     const parsedUrl = new URL(normalizedBase);
     if (parsedUrl.hostname.endsWith("aiplatform.googleapis.com")) {
-      const pubRes = await providerFetch(
+      const publisherPayload = await fetchVertexJson(
         `${parsedUrl.origin}/v1beta1/publishers/google/models`,
-        { method: "GET", headers },
+        headers,
+        controller.signal,
       );
-      if (pubRes.ok) {
-        const parsed = parseVertexModelsPayload(await pubRes.json());
-        if (parsed) {
-          return parsed;
-        }
+      const parsedPublisher = parseVertexModelsPayload(publisherPayload);
+      if (parsedPublisher) {
+        return parsedPublisher;
       }
     }
   } catch {
     return createStaticGoogleVertexAIModelResult();
+  } finally {
+    clearTimeout(timeoutId);
   }
 
   return createStaticGoogleVertexAIModelResult();

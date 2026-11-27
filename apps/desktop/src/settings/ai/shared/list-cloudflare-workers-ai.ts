@@ -110,7 +110,9 @@ function buildCloudflareModelsResult(ids: string[]): ListModelsResult | null {
   };
 }
 
-function parseCloudflareModelsResponse(payload: unknown): ListModelsResult | null {
+function parseCloudflareModelsResponse(
+  payload: unknown,
+): ListModelsResult | null {
   if (!payload || typeof payload !== "object") {
     return null;
   }

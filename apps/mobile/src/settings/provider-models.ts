@@ -19,7 +19,6 @@ const LISTABLE_REMOTE_STT_PROVIDERS = new Set([
   "mistral",
   "fireworks",
   "together",
-  "openrouter",
   "siliconflow",
   "dashscope",
   "google_generative_ai",
@@ -113,7 +112,11 @@ export async function discoverProviderModels(
         config.provider,
         JSON.parse(await readModels(response)),
       );
-      if (parsed.length > 0 || config.provider !== "cloudflare_workers_ai") {
+      if (
+        parsed.length > 0 ||
+        (config.provider !== "cloudflare_workers_ai" &&
+          config.provider !== "google_vertex_ai")
+      ) {
         return parsed;
       }
     } else {
@@ -146,8 +149,9 @@ export async function discoverProviderModels(
       );
     }
 
+    const vertexOrigin = new URL(normalizedBase).origin;
     const publisherRes = await fetch(
-      `${normalizedBase.replace(/\/(?:chat\/completions|endpoints)$/i, "")}/publishers/google/models`,
+      `${vertexOrigin}/v1beta1/publishers/google/models`,
       {
         headers,
         signal: controller.signal,
@@ -229,7 +233,10 @@ async function discoverSttModels(
     await response.body?.cancel();
     throw new Error("Model request failed.");
   }
-  return parseSttProviderModels(provider, JSON.parse(await readModels(response)));
+  return parseSttProviderModels(
+    provider,
+    JSON.parse(await readModels(response)),
+  );
 }
 
 async function readModels(response: Response) {
@@ -335,8 +342,30 @@ export function parseSttProviderModels(
         return /^(whisper|.*transcribe)/i.test(id) ? [id] : [];
       case "groq":
         return /whisper|asr|transcribe/i.test(id) ? [id] : [];
-      case "mistral":
-        return /voxtral|transcribe|asr|speech/i.test(id) ? [id] : [];
+      case "mistral": {
+        if (
+          Object.prototype.hasOwnProperty.call(
+            item,
+            "audio_transcription_capabilities",
+          )
+        ) {
+          const caps = item.audio_transcription_capabilities;
+          if (caps === null || caps === false || caps === undefined) {
+            return [];
+          }
+          return !Array.isArray(caps) || caps.length > 0 ? [id] : [];
+        }
+        const capabilities = record(item.capabilities);
+        if (typeof capabilities.audio_transcription === "boolean") {
+          return capabilities.audio_transcription ? [id] : [];
+        }
+        if (/(?:^|[-_/])tts(?:$|[-_/])|text-to-speech/i.test(id)) {
+          return [];
+        }
+        return /voxtral|transcribe|asr/i.test(id) ? [id] : [];
+      }
+      case "cloudflare_workers_ai":
+        return /^@cf\/deepgram\/(?:nova-3|flux)$/i.test(id) ? [id] : [];
       case "fireworks":
         return /whisper|asr|transcribe|speech|audio/i.test(id) ? [id] : [];
       case "together":
@@ -344,10 +373,6 @@ export function parseSttProviderModels(
           /whisper|asr|transcribe|speech/i.test(id)
           ? [id]
           : [];
-      case "openrouter": {
-        const inputs = record(item.architecture).input_modalities;
-        return Array.isArray(inputs) && inputs.includes("audio") ? [id] : [];
-      }
       case "dashscope":
         return /asr|transcribe|sensevoice|paraformer|whisper|audio/i.test(id)
           ? [id]

@@ -2584,9 +2584,8 @@ test("Venice model discovery excludes offline and non-text entries", () => {
 });
 
 test("Vertex AI, Cloudflare Workers AI, and remote STT model discovery support live endpoints", async () => {
-  const { isListableRemoteSttProvider, parseSttProviderModels } = await import(
-    "./provider-models.ts"
-  );
+  const { isListableRemoteSttProvider, parseSttProviderModels } =
+    await import("./provider-models.ts");
 
   assert.equal(isListableRemoteSttProvider("deepgram"), true);
   assert.equal(isListableRemoteSttProvider("soniox"), true);
@@ -2610,7 +2609,11 @@ test("Vertex AI, Cloudflare Workers AI, and remote STT model discovery support l
           name: "@cf/meta/llama-4-scout-17b-16e-instruct",
           task: { name: "Text Generation" },
         },
-        { id: "cf-uuid-456", name: "@cf/baai/bge-m3", task: { name: "Text Embeddings" } },
+        {
+          id: "cf-uuid-456",
+          name: "@cf/baai/bge-m3",
+          task: { name: "Text Embeddings" },
+        },
       ],
     }),
     ["@cf/meta/llama-4-scout-17b-16e-instruct"],
@@ -2629,20 +2632,46 @@ test("Vertex AI, Cloudflare Workers AI, and remote STT model discovery support l
     ]),
     ["scribe_v2"],
   );
+  assert.equal(isListableRemoteSttProvider("openrouter"), false);
+
+  await saveProviderSetup(
+    "account-a",
+    "llm",
+    {
+      provider: "google_vertex_ai",
+      baseUrl:
+        "https://us-central1-aiplatform.googleapis.com/v1/projects/p/locations/global/endpoints/openapi",
+      model: "google/gemini-2.5-flash",
+    },
+    "vertex-key",
+  );
+  fixture.respond = async (url) => {
+    if (String(url).endsWith("/endpoints/openapi/models")) {
+      return Response.json({ models: [] });
+    }
+    if (
+      String(url) ===
+      "https://us-central1-aiplatform.googleapis.com/v1beta1/publishers/google/models"
+    ) {
+      return Response.json({
+        publisherModels: [{ name: "publishers/google/models/gemini-2.5-pro" }],
+      });
+    }
+    return new Response("not found", { status: 404 });
+  };
   assert.deepEqual(
-    parseSttProviderModels("openrouter", {
-      data: [
-        {
-          id: "anthropic/claude-sonnet-4",
-          architecture: { input_modalities: ["text"] },
-        },
-        {
-          id: "openai/gpt-4o-audio-preview",
-          architecture: { input_modalities: ["audio", "text"] },
-        },
-      ],
-    }),
-    ["openai/gpt-4o-audio-preview"],
+    await discoverProviderModels(
+      "account-a",
+      {
+        provider: "google_vertex_ai",
+        baseUrl:
+          "https://us-central1-aiplatform.googleapis.com/v1/projects/p/locations/global/endpoints/openapi",
+        model: "google/gemini-2.5-flash",
+      },
+      new AbortController().signal,
+      "llm",
+    ),
+    ["google/gemini-2.5-pro"],
   );
 
   await saveProviderSetup(
@@ -2708,5 +2737,33 @@ test("Vertex AI, Cloudflare Workers AI, and remote STT model discovery support l
       "stt",
     ),
     ["stt-async-v4", "stt-rt-v5"],
+  );
+
+  assert.deepEqual(
+    parseSttProviderModels("mistral", {
+      data: [
+        { id: "voxtral-mini-2602" },
+        { id: "voxtral-mini-tts-3-0" },
+        {
+          id: "mistral-stt-cap",
+          audio_transcription_capabilities: { realtime: true },
+        },
+        {
+          id: "voxtral-disabled",
+          capabilities: { audio_transcription: false },
+        },
+      ],
+    }),
+    ["mistral-stt-cap", "voxtral-mini-2602"],
+  );
+  assert.deepEqual(
+    parseSttProviderModels("cloudflare_workers_ai", {
+      result: [
+        { name: "@cf/deepgram/nova-3" },
+        { name: "@cf/deepgram/flux" },
+        { name: "@cf/openai/whisper" },
+      ],
+    }),
+    ["@cf/deepgram/flux", "@cf/deepgram/nova-3"],
   );
 });

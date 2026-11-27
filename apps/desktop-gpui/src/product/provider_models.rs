@@ -1,6 +1,7 @@
 use std::{collections::HashSet, sync::OnceLock, time::Duration};
 
-use serde_json::Value;
+use futures::stream::{self, StreamExt};
+use serde_json::{Value, json};
 
 use crate::meeting::config::ProviderKind;
 
@@ -81,7 +82,6 @@ pub fn supports_live_models(kind: ProviderKind, provider: &str) -> bool {
                 | "mistral"
                 | "fireworks"
                 | "together"
-                | "openrouter"
                 | "siliconflow"
                 | "dashscope"
                 | "google_generative_ai"
@@ -161,10 +161,21 @@ pub async fn fetch_models(
                 if let (false, Some(key)) = (trimmed_base.is_empty(), trimmed_key) {
                     let normalized = normalize_vertex_base(trimmed_base);
                     let headers = [("authorization", format!("Bearer {key}"))];
-                    for url in [
-                        format!("{normalized}/models"),
-                        format!("{normalized}/publishers/google/models"),
-                    ] {
+                    let mut urls = vec![format!("{normalized}/models")];
+                    if let Ok(parsed) = reqwest::Url::parse(trimmed_base) {
+                        let origin_url = format!(
+                            "{}/v1beta1/publishers/google/models",
+                            parsed.origin().ascii_serialization()
+                        );
+                        if !urls.contains(&origin_url) {
+                            urls.push(origin_url);
+                        }
+                    }
+                    let fallback_url = format!("{normalized}/publishers/google/models");
+                    if !urls.contains(&fallback_url) {
+                        urls.push(fallback_url);
+                    }
+                    for url in urls {
                         if let Some(body) = get_json_owned(&url, &headers).await {
                             let live = parse_vertex_models(&body);
                             if !live.is_empty() {
@@ -264,20 +275,22 @@ pub async fn fetch_models(
                     headers.push(("authorization", auth));
                 }
                 let url = format!("{trimmed_base}/models");
-                if let Some(body) = get_json(&url, &headers).await {
-                    let parsed = parse_openai_like_models(&body, None);
-                    if !parsed.is_empty() {
-                        return parsed;
-                    }
-                }
-                if provider == "ollama" {
+                let mut entries = if let Some(body) = get_json(&url, &headers).await {
+                    parse_openai_like_models(&body, None)
+                } else {
+                    Vec::new()
+                };
+                if entries.is_empty() && provider == "ollama" {
                     let tags_base = strip_suffix_ci(trimmed_base, "/v1");
                     let tags_url = format!("{tags_base}/api/tags");
                     if let Some(body) = get_json(&tags_url, &headers).await {
-                        return parse_ollama_tags(&body);
+                        entries = parse_ollama_tags(&body);
                     }
                 }
-                Vec::new()
+                if provider == "ollama" && !entries.is_empty() {
+                    return filter_ollama_completion_models(trimmed_base, &headers, entries).await;
+                }
+                entries
             }
             _ => {
                 let (false, Some(key)) = (trimmed_base.is_empty(), trimmed_key) else {
@@ -361,11 +374,6 @@ async fn fetch_stt_models(
             vec![("authorization", &bearer)],
             parse_together_stt_ids,
         ),
-        "openrouter" => (
-            format!("{trimmed_base}/models"),
-            vec![("authorization", &bearer)],
-            parse_openrouter_stt_ids,
-        ),
         "siliconflow" => (
             format!("{trimmed_base}/models?sub_type=audio"),
             vec![("authorization", &bearer)],
@@ -447,7 +455,20 @@ async fn get_json(url: &str, headers: &[(&'static str, &str)]) -> Option<Value> 
     for (name, value) in headers {
         request = request.header(*name, *value);
     }
-    let mut response = request.send().await.ok()?;
+    read_limited_json(request.send().await.ok()?).await
+}
+
+async fn post_json(url: &str, headers: &[(&'static str, &str)], body: &Value) -> Option<Value> {
+    let parsed = validate_url(url)?;
+    let client = http_client()?;
+    let mut request = client.post(parsed).json(body);
+    for (name, value) in headers {
+        request = request.header(*name, *value);
+    }
+    read_limited_json(request.send().await.ok()?).await
+}
+
+async fn read_limited_json(mut response: reqwest::Response) -> Option<Value> {
     if !response.status().is_success() {
         return None;
     }
@@ -465,6 +486,36 @@ async fn get_json(url: &str, headers: &[(&'static str, &str)]) -> Option<Value> 
         bytes.extend_from_slice(&chunk);
     }
     serde_json::from_slice(&bytes).ok()
+}
+
+async fn filter_ollama_completion_models(
+    trimmed_base: &str,
+    headers: &[(&'static str, &str)],
+    entries: Vec<ModelEntry>,
+) -> Vec<ModelEntry> {
+    let show_base = strip_suffix_ci(trimmed_base, "/v1");
+    let show_url = format!("{show_base}/api/show");
+    stream::iter(entries)
+        .map(|entry| {
+            let show_url = &show_url;
+            async move {
+                let body = json!({ "model": entry.id });
+                let keep = match post_json(show_url, headers, &body).await {
+                    Some(info) => info
+                        .get("capabilities")
+                        .and_then(Value::as_array)
+                        .is_none_or(|caps| {
+                            caps.iter().any(|cap| cap.as_str() == Some("completion"))
+                        }),
+                    None => true,
+                };
+                keep.then_some(entry)
+            }
+        })
+        .buffered(4)
+        .filter_map(|entry| async move { entry })
+        .collect()
+        .await
 }
 
 fn strip_suffix_ci<'a>(value: &'a str, suffix: &str) -> &'a str {
@@ -773,7 +824,11 @@ fn parse_soniox_stt_ids(body: &Value) -> Vec<String> {
         .map(|items| {
             items
                 .iter()
-                .filter_map(|item| item.get("id").and_then(Value::as_str).map(str::to_owned))
+                .filter_map(|item| {
+                    let id = item.get("id").and_then(Value::as_str)?.trim();
+                    (!id.is_empty() && !id.to_ascii_lowercase().starts_with("stt-async-"))
+                        .then(|| id.to_owned())
+                })
                 .collect()
         })
         .unwrap_or_default()
@@ -826,8 +881,50 @@ fn parse_groq_stt_ids(body: &Value) -> Vec<String> {
     parse_filtered_openai_ids(body, &["whisper", "asr", "transcribe"])
 }
 
+fn is_mistral_stt_item(item: &Value, lower_id: &str) -> bool {
+    if let Some(caps) = item.get("audio_transcription_capabilities") {
+        return match caps {
+            Value::Null | Value::Bool(false) => false,
+            Value::Array(arr) => !arr.is_empty(),
+            _ => true,
+        };
+    }
+    if let Some(flag) = item
+        .get("capabilities")
+        .and_then(|c| c.get("audio_transcription"))
+        .and_then(Value::as_bool)
+    {
+        return flag;
+    }
+    let is_tts = lower_id == "tts"
+        || lower_id.starts_with("tts-")
+        || lower_id.ends_with("-tts")
+        || lower_id.contains("-tts-")
+        || lower_id.contains("/tts")
+        || lower_id.contains("_tts")
+        || lower_id.contains("text-to-speech");
+    !is_tts
+        && (lower_id.contains("voxtral")
+            || lower_id.contains("transcribe")
+            || lower_id.contains("asr"))
+}
+
 fn parse_mistral_stt_ids(body: &Value) -> Vec<String> {
-    parse_filtered_openai_ids(body, &["voxtral", "transcribe", "asr", "speech"])
+    let items = body
+        .get("data")
+        .and_then(Value::as_array)
+        .or_else(|| body.as_array());
+    let Some(items) = items else {
+        return Vec::new();
+    };
+    items
+        .iter()
+        .filter_map(|item| {
+            let id = item.get("id").and_then(Value::as_str)?.trim();
+            let lower = id.to_ascii_lowercase();
+            (!id.is_empty() && is_mistral_stt_item(item, &lower)).then(|| id.to_owned())
+        })
+        .collect()
 }
 
 fn parse_fireworks_stt_ids(body: &Value) -> Vec<String> {
@@ -857,26 +954,6 @@ fn parse_together_stt_ids(body: &Value) -> Vec<String> {
             .then(|| id.to_owned())
         })
         .collect()
-}
-
-fn parse_openrouter_stt_ids(body: &Value) -> Vec<String> {
-    body.get("data")
-        .and_then(Value::as_array)
-        .map(|items| {
-            items
-                .iter()
-                .filter_map(|item| {
-                    let id = item.get("id").and_then(Value::as_str)?.trim();
-                    let modalities = item
-                        .get("architecture")
-                        .and_then(|arch| arch.get("input_modalities"))
-                        .and_then(Value::as_array)?;
-                    let has_audio = modalities.iter().any(|m| m.as_str() == Some("audio"));
-                    (!id.is_empty() && has_audio).then(|| id.to_owned())
-                })
-                .collect()
-        })
-        .unwrap_or_default()
 }
 
 fn parse_all_openai_ids(body: &Value) -> Vec<String> {
@@ -932,11 +1009,17 @@ fn parse_cloudflare_stt_ids(body: &Value) -> Vec<String> {
             items
                 .iter()
                 .filter_map(|item| {
-                    item.get("name")
+                    let id = item
+                        .get("name")
                         .and_then(Value::as_str)
                         .filter(|s| !s.trim().is_empty())
-                        .or_else(|| item.get("id").and_then(Value::as_str))
-                        .map(str::to_owned)
+                        .or_else(|| item.get("id").and_then(Value::as_str))?
+                        .trim();
+                    matches!(
+                        id.to_ascii_lowercase().as_str(),
+                        "@cf/deepgram/nova-3" | "@cf/deepgram/flux"
+                    )
+                    .then(|| id.to_owned())
                 })
                 .collect()
         })
@@ -1100,7 +1183,7 @@ mod tests {
             .and(path("/v1/models"))
             .and(header("authorization", "Bearer sx-key"))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
-                "models": [{ "id": "stt-rt-v5" }]
+                "models": [{ "id": "stt-rt-v5" }, { "id": "stt-async-v5" }]
             })))
             .mount(&server)
             .await;
@@ -1175,5 +1258,120 @@ mod tests {
             .await
             .is_empty()
         );
+    }
+
+    #[tokio::test]
+    async fn vertex_prediction_base_falls_back_to_origin_publisher_models() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path(
+                "/v1/projects/p/locations/global/endpoints/openapi/models",
+            ))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "models": []
+            })))
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/v1beta1/publishers/google/models"))
+            .and(header("authorization", "Bearer vtx-key"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "publisherModels": [{ "name": "publishers/google/models/gemini-2.5-pro" }]
+            })))
+            .mount(&server)
+            .await;
+
+        let models = fetch_models(
+            ProviderKind::Llm,
+            "google_vertex_ai",
+            &format!(
+                "{}/v1/projects/p/locations/global/endpoints/openapi",
+                server.uri()
+            ),
+            Some("vtx-key"),
+            None,
+        )
+        .await;
+        assert_eq!(
+            models,
+            vec![ModelEntry {
+                id: "google/gemini-2.5-pro".into(),
+                label: "google/gemini-2.5-pro".into(),
+            }]
+        );
+    }
+
+    #[tokio::test]
+    async fn ollama_filters_non_completion_models_via_show() {
+        use wiremock::matchers::body_json;
+
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/v1/models"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "data": [
+                    { "id": "llama3.2:latest" },
+                    { "id": "nomic-embed-text:latest" }
+                ]
+            })))
+            .mount(&server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/api/show"))
+            .and(body_json(serde_json::json!({ "model": "llama3.2:latest" })))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "capabilities": ["completion", "tools"]
+            })))
+            .mount(&server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/api/show"))
+            .and(body_json(
+                serde_json::json!({ "model": "nomic-embed-text:latest" }),
+            ))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "capabilities": ["embedding"]
+            })))
+            .mount(&server)
+            .await;
+
+        let models = fetch_models(
+            ProviderKind::Llm,
+            "ollama",
+            &format!("{}/v1", server.uri()),
+            None,
+            None,
+        )
+        .await;
+        assert_eq!(
+            models,
+            vec![ModelEntry {
+                id: "llama3.2:latest".into(),
+                label: "llama3.2:latest".into(),
+            }]
+        );
+    }
+
+    #[test]
+    fn stt_filters_exclude_mistral_tts_and_cloudflare_whisper() {
+        let mistral = parse_mistral_stt_ids(&serde_json::json!({
+            "data": [
+                { "id": "voxtral-mini-2602" },
+                { "id": "voxtral-mini-tts-3-0" },
+                { "id": "custom-stt", "audio_transcription_capabilities": { "realtime": true } },
+                { "id": "voxtral-disabled", "capabilities": { "audio_transcription": false } }
+            ]
+        }));
+        assert_eq!(mistral, vec!["voxtral-mini-2602", "custom-stt"]);
+
+        let cloudflare = parse_cloudflare_stt_ids(&serde_json::json!({
+            "result": [
+                { "name": "@cf/deepgram/nova-3" },
+                { "name": "@cf/deepgram/flux" },
+                { "name": "@cf/openai/whisper" },
+                { "name": "@cf/openai/whisper-large-v3-turbo" }
+            ]
+        }));
+        assert_eq!(cloudflare, vec!["@cf/deepgram/nova-3", "@cf/deepgram/flux"]);
     }
 }

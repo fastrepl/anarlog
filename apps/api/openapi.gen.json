@@ -349,7 +349,12 @@
           "504": {
             "description": "Request timeout"
           }
-        }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
       }
     },
     "/llm/models": {
@@ -372,7 +377,12 @@
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
       }
     },
     "/mail/google/get-attachment": {

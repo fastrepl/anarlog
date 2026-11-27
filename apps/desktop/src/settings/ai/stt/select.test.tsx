@@ -94,8 +94,8 @@ test("merges dynamically discovered STT models without blocking readiness", asyn
 
   expect(result.current.isReady).toBe(true);
   await waitFor(() => {
-    expect(
-      result.current.providers.deepgram.models.map((m) => m.id),
-    ).toContain("nova-3-live-discovery");
+    expect(result.current.providers.deepgram.models.map((m) => m.id)).toContain(
+      "nova-3-live-discovery",
+    );
   });
 });

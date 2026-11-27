@@ -1,5 +1,5 @@
 import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import {
   GOOGLE_VERTEX_AI_MODELS,
@@ -12,14 +12,15 @@ beforeEach(() => {
   vi.mocked(tauriFetch).mockReset();
 });
 
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 describe("listGoogleVertexAIModels", () => {
   test("lists models from an OpenAI-compatible Vertex endpoint", async () => {
     vi.mocked(tauriFetch).mockResolvedValueOnce(
       Response.json({
-        data: [
-          { id: "google/gemini-3.8-flash" },
-          { id: "text-embedding-005" },
-        ],
+        data: [{ id: "google/gemini-3.8-flash" }, { id: "text-embedding-005" }],
       }),
     );
 
@@ -63,5 +64,34 @@ describe("listGoogleVertexAIModels", () => {
     expect((await listGoogleVertexAIModels("", "")).models).toEqual([
       ...GOOGLE_VERTEX_AI_MODELS,
     ]);
+  });
+
+  test("falls back to curated models when discovery exceeds REQUEST_TIMEOUT", async () => {
+    vi.useFakeTimers();
+    let aborted = false;
+    vi.mocked(tauriFetch).mockImplementationOnce(
+      (_input, init) =>
+        new Promise((_resolve, reject) => {
+          const signal = (init as RequestInit | undefined)?.signal;
+          signal?.addEventListener(
+            "abort",
+            () => {
+              aborted = true;
+              reject(new Error("aborted"));
+            },
+            { once: true },
+          );
+        }),
+    );
+
+    const promise = listGoogleVertexAIModels(
+      "https://us-central1-aiplatform.googleapis.com/v1beta1/projects/p/locations/us-central1/endpoints/openapi",
+      "vertex-token",
+    );
+    await vi.advanceTimersByTimeAsync(5_000);
+    const result = await promise;
+
+    expect(aborted).toBe(true);
+    expect(result.models).toEqual([...GOOGLE_VERTEX_AI_MODELS]);
   });
 });

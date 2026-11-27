@@ -165,6 +165,29 @@ pub fn router(config: LlmProxyConfig) -> Router {
         .with_state(state)
 }
 
+pub fn completions_router(config: LlmProxyConfig) -> Router {
+    let state = AppState {
+        config,
+        client: Client::new(),
+    };
+
+    Router::new()
+        .route("/", post(completions_handler))
+        .route("/chat/completions", post(completions_handler))
+        .with_state(state)
+}
+
+pub fn models_router(config: LlmProxyConfig) -> Router {
+    let state = AppState {
+        config,
+        client: Client::new(),
+    };
+
+    Router::new()
+        .route("/models", get(models_handler))
+        .with_state(state)
+}
+
 pub fn chat_completions_router(config: LlmProxyConfig) -> Router {
     let state = AppState {
         config,

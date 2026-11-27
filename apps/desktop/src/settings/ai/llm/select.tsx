@@ -25,26 +25,25 @@ import {
   listSubscriptionModels,
 } from "./subscriptions";
 
+import { createAuthFetch } from "~/ai/auth-fetch";
 import {
   normalizeReasoningEffort,
   supportsReasoningEffort,
 } from "~/ai/reasoning-effort";
+import { tracedFetch } from "~/ai/traced-fetch";
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing-context";
+import { env } from "~/env";
 import {
   providerRowId,
   ProviderIconSlot,
   requiresKeyVerification,
   useProviderAvailability,
 } from "~/settings/ai/shared";
-import { createAuthFetch } from "~/ai/auth-fetch";
-import { tracedFetch } from "~/ai/traced-fetch";
-import { env } from "~/env";
 import {
   createStaticAnarlogProModelResult,
   listAnarlogProModels,
 } from "~/settings/ai/shared/anarlog-pro-models";
-import { listGoogleVertexAIModels } from "~/settings/ai/shared/list-google-vertex-ai";
 import {
   getProviderSelectionBlockers,
   requiresEntitlement,
@@ -59,6 +58,7 @@ import {
   removeNonStreamingModels,
 } from "~/settings/ai/shared/list-common";
 import { listGoogleModels } from "~/settings/ai/shared/list-google";
+import { listGoogleVertexAIModels } from "~/settings/ai/shared/list-google-vertex-ai";
 import { listLMStudioModels } from "~/settings/ai/shared/list-lmstudio";
 import { listMistralModels } from "~/settings/ai/shared/list-mistral";
 import { listOllamaModels } from "~/settings/ai/shared/list-ollama";

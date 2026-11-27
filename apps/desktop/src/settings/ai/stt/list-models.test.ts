@@ -22,6 +22,7 @@ describe("listSttProviderModels", () => {
     expect(isListableRemoteSttProvider("deepgram")).toBe(true);
     expect(isListableRemoteSttProvider("soniox")).toBe(true);
     expect(isListableRemoteSttProvider("elevenlabs")).toBe(true);
+    expect(isListableRemoteSttProvider("openrouter")).toBe(false);
     expect(isListableRemoteSttProvider("soniqo")).toBe(false);
     expect(isListableRemoteSttProvider("custom")).toBe(false);
   });
@@ -82,11 +83,11 @@ describe("listSttProviderModels", () => {
     expect(models).toEqual(["scribe_v2", "scribe_v2_realtime"]);
   });
 
-  it("fetches Soniox models with Bearer auth", async () => {
+  it("fetches Soniox live models with Bearer auth and omits async-only IDs", async () => {
     providerFetchMock.mockResolvedValue(
       new Response(
         JSON.stringify({
-          models: [{ id: "stt-rt-v5" }, { id: "stt-async-v4" }],
+          models: [{ id: "stt-rt-v5" }, { id: "stt-async-v5" }],
         }),
         { status: 200 },
       ),
@@ -104,40 +105,22 @@ describe("listSttProviderModels", () => {
         headers: { Authorization: "Bearer soniox-key" },
       }),
     );
-    expect(models).toEqual(["stt-rt-v5", "stt-async-v4"]);
+    expect(models).toEqual(["stt-rt-v5"]);
   });
 
-  it("filters OpenAI and OpenRouter results down to transcription/audio models", async () => {
-    providerFetchMock
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            data: [
-              { id: "gpt-4o" },
-              { id: "whisper-1" },
-              { id: "gpt-4o-transcribe" },
-            ],
-          }),
-          { status: 200 },
-        ),
-      )
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            data: [
-              {
-                id: "anthropic/claude-sonnet-4",
-                architecture: { input_modalities: ["text", "image"] },
-              },
-              {
-                id: "openai/gpt-4o-audio-preview",
-                architecture: { input_modalities: ["text", "audio"] },
-              },
-            ],
-          }),
-          { status: 200 },
-        ),
-      );
+  it("filters OpenAI results down to transcription models and keeps OpenRouter curated", async () => {
+    providerFetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          data: [
+            { id: "gpt-4o" },
+            { id: "whisper-1" },
+            { id: "gpt-4o-transcribe" },
+          ],
+        }),
+        { status: 200 },
+      ),
+    );
 
     await expect(
       listSttProviderModels("openai", "https://api.openai.com/v1", "oa-key"),
@@ -148,7 +131,53 @@ describe("listSttProviderModels", () => {
         "https://openrouter.ai/api/v1",
         "or-key",
       ),
-    ).resolves.toEqual(["openai/gpt-4o-audio-preview"]);
+    ).resolves.toEqual([]);
+  });
+
+  it("excludes Mistral TTS models and keeps Deepgram-compatible Cloudflare STT models", async () => {
+    providerFetchMock
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: [
+              { id: "voxtral-mini-2602" },
+              { id: "voxtral-mini-tts-3-0" },
+              {
+                id: "mistral-stt-cap",
+                audio_transcription_capabilities: { realtime: true },
+              },
+              {
+                id: "voxtral-disabled",
+                capabilities: { audio_transcription: false },
+              },
+            ],
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            result: [
+              { name: "@cf/deepgram/nova-3" },
+              { name: "@cf/deepgram/flux" },
+              { name: "@cf/openai/whisper" },
+            ],
+          }),
+          { status: 200 },
+        ),
+      );
+
+    await expect(
+      listSttProviderModels("mistral", "https://api.mistral.ai/v1", "m-key"),
+    ).resolves.toEqual(["voxtral-mini-2602", "mistral-stt-cap"]);
+    await expect(
+      listSttProviderModels(
+        "cloudflare_workers_ai",
+        "https://api.cloudflare.com/client/v4/accounts/acct/ai/v1",
+        "cf-key",
+      ),
+    ).resolves.toEqual(["@cf/deepgram/nova-3", "@cf/deepgram/flux"]);
   });
 
   it("returns empty list on HTTP failure without throwing", async () => {

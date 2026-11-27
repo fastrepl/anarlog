@@ -42,7 +42,10 @@ import { cn } from "@anlg/utils";
 
 import { useSttSettings } from "./context";
 import { HealthStatusIndicator, useConnectionHealth } from "./health";
-import { isListableRemoteSttProvider, listSttProviderModels } from "./list-models";
+import {
+  isListableRemoteSttProvider,
+  listSttProviderModels,
+} from "./list-models";
 import { LocalFileModel } from "./local-file-model";
 import { LocalModelBackendBadge, LocalModelLabel } from "./model-icon";
 import { recommendOnDeviceModel } from "./on-device-recommendation";
@@ -751,14 +754,16 @@ export function useConfiguredMapping(): {
   });
 
   const remoteSttQueries = useQueries({
-    queries: listableRemoteProviders.map(({ id, baseUrl, apiKey, enabled }) => ({
-      queryKey: ["stt-models", id, baseUrl, apiKey],
-      queryFn: ({ signal }: { signal: AbortSignal }) =>
-        listSttProviderModels(id, baseUrl, apiKey, { signal }),
-      enabled,
-      staleTime: 5 * 60_000,
-      retry: false,
-    })),
+    queries: listableRemoteProviders.map(
+      ({ id, baseUrl, apiKey, enabled }) => ({
+        queryKey: ["stt-models", id, baseUrl, apiKey],
+        queryFn: ({ signal }: { signal: AbortSignal }) =>
+          listSttProviderModels(id, baseUrl, apiKey, { signal }),
+        enabled,
+        staleTime: 5 * 60_000,
+        retry: false,
+      }),
+    ),
   });
 
   const discoveredRemoteModels = new Map<string, string[]>(
@@ -850,7 +855,9 @@ export function useConfiguredMapping(): {
       }
 
       const discoveredModels = discoveredRemoteModels.get(provider.id) ?? [];
-      const mergedModels = [...new Set([...provider.models, ...discoveredModels])];
+      const mergedModels = [
+        ...new Set([...provider.models, ...discoveredModels]),
+      ];
 
       return [
         provider.id,

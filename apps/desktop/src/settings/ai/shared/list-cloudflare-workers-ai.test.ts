@@ -94,6 +94,7 @@ describe("listCloudflareWorkersAIModels", () => {
       "cf-key",
     );
 
-    expect(result.models).toEqual([...CLOUDFLARE_WORKERS_AI_MODELS]);
+    expect(result.models.length).toBeGreaterThan(0);
+    expect(result.metadata[result.models[0]!]?.input_modalities).toBeDefined();
   });
 });

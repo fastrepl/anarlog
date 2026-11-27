@@ -6,6 +6,7 @@ import {
   createStaticAnarlogProModelResult,
   listAnarlogProModels,
 } from "./anarlog-pro-models";
+import { modelSupportsImageInput } from "./model-capabilities";
 
 describe("listAnarlogProModels", () => {
   test("fetches live models and registers their labels", async () => {
@@ -23,6 +24,11 @@ describe("listAnarlogProModels", () => {
             label: "GPT Live New",
             input_modalities: ["text"],
           },
+          {
+            id: "~custom/new-vision-model",
+            label: "New Vision",
+            input_modalities: ["text", "image"],
+          },
         ],
       }),
     );
@@ -36,12 +42,22 @@ describe("listAnarlogProModels", () => {
       "https://api.anarlog.test/llm/models",
       { method: "GET" },
     );
-    expect(result.models).toEqual(["Auto", "~openai/gpt-live-new"]);
+    expect(result.models).toEqual([
+      "Auto",
+      "~openai/gpt-live-new",
+      "~custom/new-vision-model",
+    ]);
     expect(result.metadata["~openai/gpt-live-new"]).toEqual({
       input_modalities: ["text"],
     });
     expect(anarlogProLlmModelLabel("~openai/gpt-live-new")).toBe(
       "GPT Live New",
+    );
+    expect(modelSupportsImageInput("anarlog", "~custom/new-vision-model")).toBe(
+      true,
+    );
+    expect(modelSupportsImageInput("anarlog", "~openai/gpt-live-new")).toBe(
+      false,
     );
   });
 

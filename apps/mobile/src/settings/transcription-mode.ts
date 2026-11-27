@@ -20,13 +20,7 @@ export function supportsLiveTranscription(provider: string, model: string) {
     case "assemblyai":
       return !["universal-3-pro", "universal-3-5-pro"].includes(model);
     case "openai":
-      return ![
-        "gpt-transcribe",
-        "gpt-4o-transcribe-diarize",
-        "gpt-4o-transcribe",
-        "gpt-4o-mini-transcribe",
-        "whisper-1",
-      ].includes(model);
+      return model === "gpt-live-transcribe";
     case "google_generative_ai":
       return model.includes("transcribe-live");
     case "elevenlabs":

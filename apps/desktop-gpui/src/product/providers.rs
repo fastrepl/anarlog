@@ -398,6 +398,7 @@ pub struct ProviderView {
     search: Entity<TextInput>,
     menu: bool,
     model_menu: bool,
+    manual_model: bool,
     effort_menu: bool,
     expanded: Option<&'static str>,
     base: Entity<TextInput>,
@@ -424,6 +425,7 @@ impl ProviderView {
         }
         self.menu = false;
         self.model_menu = false;
+        self.manual_model = false;
         self.effort_menu = false;
         self.refresh_on_device(cx);
         let active = self.provider();
@@ -471,6 +473,7 @@ impl ProviderView {
             search,
             menu: false,
             model_menu: false,
+            manual_model: false,
             effort_menu: false,
             expanded: None,
             base,
@@ -628,6 +631,7 @@ impl ProviderView {
     fn restore_choice(&mut self, cx: &mut Context<Self>) {
         let model = self.current("model");
         self.draft = None;
+        self.manual_model = false;
         self.model.update(cx, |input, cx| input.set_text(model, cx));
         self.dirty_choice = false;
     }
@@ -713,6 +717,7 @@ impl ProviderView {
         }
         self.draft = Some(provider);
         self.dirty_choice = false;
+        self.manual_model = false;
         self.ensure_models(provider.to_owned(), false, cx);
         self.model
             .update(cx, |input, cx| input.set_text(model.clone(), cx));
@@ -729,9 +734,10 @@ impl ProviderView {
     /// `getDefaultSttModel`).
     fn next_model(&self, provider: &str, cx: &gpui::App) -> String {
         let models = self.models(provider, cx);
-        // Typed models cannot be checked against a list; shipping keeps custom ones.
-        let typed = models.is_empty()
-            && (self.kind == ProviderKind::Llm || matches!(provider, "custom" | "nvidia"));
+        // Typed models cannot be checked against a catalog; external LLMs keep custom IDs too.
+        let typed = (self.kind == ProviderKind::Llm
+            && !matches!(provider, "anarlog" | "apple_foundation"))
+            || (models.is_empty() && matches!(provider, "custom" | "nvidia"));
         self.remembered
             .get(&(self.kind, provider.to_owned()))
             .filter(|model| {
@@ -1301,16 +1307,38 @@ impl ProviderView {
                     )),
             );
         }
-        if models.is_empty() {
+        let allow_manual =
+            self.kind == ProviderKind::Llm && !matches!(provider, "anarlog" | "apple_foundation");
+        if models.is_empty() || (allow_manual && self.manual_model) {
             return field.child(
-                pill(colors).child(
-                    div()
-                        .flex_1()
-                        .min_w_0()
-                        .h(px(20.))
-                        .line_height(px(20.))
-                        .child(self.model.clone()),
-                ),
+                pill(colors)
+                    .gap_2()
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .h(px(20.))
+                            .line_height(px(20.))
+                            .child(self.model.clone()),
+                    )
+                    .when(!models.is_empty(), |view| {
+                        view.child(
+                            div()
+                                .id("model-presets")
+                                .a11y_button("Choose from model list")
+                                .cursor_pointer()
+                                .px_1()
+                                .text_xs()
+                                .text_color(colors.muted_foreground)
+                                .hover(|style| style.text_color(colors.foreground))
+                                .child("List")
+                                .on_click(cx.listener(|this, _, _, cx| {
+                                    this.manual_model = false;
+                                    this.model_menu = true;
+                                    cx.notify();
+                                })),
+                        )
+                    }),
             );
         }
         let current = self.model.read(cx).buffer.text.clone();
@@ -1367,6 +1395,7 @@ impl ProviderView {
                         .when(offered, |view| {
                             view.on_click(cx.listener(move |this, _, _, cx| {
                                 this.model_menu = false;
+                                this.manual_model = false;
                                 this.model.update(cx, |input, cx| {
                                     input.set_text(click_model.clone(), cx)
                                 });
@@ -1374,7 +1403,23 @@ impl ProviderView {
                                 cx.notify();
                             }))
                         })
-                    })),
+                    }))
+                    .when(allow_manual, |view| {
+                        view.child(
+                            controls::menu_item(
+                                "model-custom",
+                                "Enter custom model ID…",
+                                None,
+                                false,
+                                colors,
+                            )
+                            .on_click(cx.listener(|this, _, _, cx| {
+                                this.model_menu = false;
+                                this.manual_model = true;
+                                cx.notify();
+                            })),
+                        )
+                    }),
             )
         });
         field

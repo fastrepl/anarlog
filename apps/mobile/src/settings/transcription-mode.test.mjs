@@ -34,6 +34,14 @@ test("mobile model modes match desktop for every preset remote model", () => {
     }
   }
   assert.equal(supportsLiveTranscription("soniox", "stt-async-v5"), false);
+  assert.equal(
+    supportsLiveTranscription("openai", "gpt-live-transcribe"),
+    true,
+  );
+  assert.equal(
+    supportsLiveTranscription("openai", "gpt-4o-mini-transcribe-2025-12-15"),
+    false,
+  );
   assert.equal(supportsLiveTranscription("custom", "whisper-1"), false);
   assert.equal(supportsLiveTranscription("assemblyai", ""), false);
 });

@@ -9,7 +9,6 @@ const LISTABLE_REMOTE_STT_PROVIDERS = new Set([
   "mistral",
   "fireworks",
   "together",
-  "openrouter",
   "siliconflow",
   "dashscope",
   "google_generative_ai",
@@ -112,9 +111,10 @@ function buildRequestSpec(
         headers: { Authorization: `Bearer ${trimmedKey}` },
         parse: (body) =>
           dedupeStrings(
-            arrayOfObjects(record(body).models).map((entry) =>
-              typeof entry.id === "string" ? entry.id : "",
-            ),
+            arrayOfObjects(record(body).models).map((entry) => {
+              const id = typeof entry.id === "string" ? entry.id.trim() : "";
+              return /^stt-async-/i.test(id) ? "" : id;
+            }),
           ),
       };
 
@@ -166,9 +166,28 @@ function buildRequestSpec(
         url: `${normalizedBase}/models`,
         headers: { Authorization: `Bearer ${trimmedKey}` },
         parse: (body) =>
-          extractOpenAiIds(body, (id) =>
-            /voxtral|transcribe|asr|speech/i.test(id),
-          ),
+          extractOpenAiIds(body, (id, entry) => {
+            if (
+              Object.prototype.hasOwnProperty.call(
+                entry,
+                "audio_transcription_capabilities",
+              )
+            ) {
+              const caps = entry.audio_transcription_capabilities;
+              if (caps === null || caps === false || caps === undefined) {
+                return false;
+              }
+              return Array.isArray(caps) ? caps.length > 0 : true;
+            }
+            const capabilities = record(entry.capabilities);
+            if (typeof capabilities.audio_transcription === "boolean") {
+              return capabilities.audio_transcription;
+            }
+            if (/(?:^|[-_/])tts(?:$|[-_/])|text-to-speech/i.test(id)) {
+              return false;
+            }
+            return /voxtral|transcribe|asr/i.test(id);
+          }),
       };
 
     case "fireworks":
@@ -192,17 +211,6 @@ function buildRequestSpec(
               entry.type === "audio" ||
               /whisper|asr|transcribe|speech/i.test(id),
           ),
-      };
-
-    case "openrouter":
-      return {
-        url: `${normalizedBase}/models`,
-        headers: { Authorization: `Bearer ${trimmedKey}` },
-        parse: (body) =>
-          extractOpenAiIds(body, (_id, entry) => {
-            const modalities = record(entry.architecture).input_modalities;
-            return Array.isArray(modalities) && modalities.includes("audio");
-          }),
       };
 
     case "siliconflow":
@@ -247,13 +255,16 @@ function buildRequestSpec(
             Array.isArray(obj.result) ? obj.result : obj.data,
           );
           return dedupeStrings(
-            items.map((entry) =>
-              typeof entry.name === "string" && entry.name.trim()
-                ? entry.name
-                : typeof entry.id === "string"
-                  ? entry.id
-                  : "",
-            ),
+            items.map((entry) => {
+              const id = (
+                typeof entry.name === "string" && entry.name.trim()
+                  ? entry.name
+                  : typeof entry.id === "string"
+                    ? entry.id
+                    : ""
+              ).trim();
+              return /^@cf\/deepgram\/(?:nova-3|flux)$/i.test(id) ? id : "";
+            }),
           );
         },
       };

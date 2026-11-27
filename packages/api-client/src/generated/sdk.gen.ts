@@ -87,9 +87,17 @@ export const googleMeetImportMeetings = <ThrowOnError extends boolean = false>(o
     }
 });
 
-export const llmChatCompletions = <ThrowOnError extends boolean = false>(options?: Options<LlmChatCompletionsData, ThrowOnError>) => (options?.client ?? client).post<LlmChatCompletionsResponses, LlmChatCompletionsErrors, ThrowOnError>({ url: '/llm/chat/completions', ...options });
+export const llmChatCompletions = <ThrowOnError extends boolean = false>(options?: Options<LlmChatCompletionsData, ThrowOnError>) => (options?.client ?? client).post<LlmChatCompletionsResponses, LlmChatCompletionsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/llm/chat/completions',
+    ...options
+});
 
-export const llmListModels = <ThrowOnError extends boolean = false>(options?: Options<LlmListModelsData, ThrowOnError>) => (options?.client ?? client).get<LlmListModelsResponses, LlmListModelsErrors, ThrowOnError>({ url: '/llm/models', ...options });
+export const llmListModels = <ThrowOnError extends boolean = false>(options?: Options<LlmListModelsData, ThrowOnError>) => (options?.client ?? client).get<LlmListModelsResponses, LlmListModelsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/llm/models',
+    ...options
+});
 
 export const googleGetAttachment = <ThrowOnError extends boolean = false>(options: Options<GoogleGetAttachmentData, ThrowOnError>) => (options.client ?? client).post<GoogleGetAttachmentResponses, GoogleGetAttachmentErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],

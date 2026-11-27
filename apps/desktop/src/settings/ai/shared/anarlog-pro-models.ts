@@ -81,7 +81,10 @@ export const ANARLOG_PRO_LLM_MODELS = [
 ] as const;
 
 const KNOWN_MODALITIES = new Map<string, readonly InputModality[]>(
-  ANARLOG_PRO_LLM_MODELS.map(({ id, inputModalities }) => [id, inputModalities]),
+  ANARLOG_PRO_LLM_MODELS.map(({ id, inputModalities }) => [
+    id,
+    inputModalities,
+  ]),
 );
 
 const KNOWN_LABELS = new Map<string, string>(
@@ -90,6 +93,12 @@ const KNOWN_LABELS = new Map<string, string>(
 
 export function anarlogProLlmModelLabel(model: string): string | undefined {
   return KNOWN_LABELS.get(model);
+}
+
+export function getAnarlogProModelModalities(
+  model: string,
+): readonly InputModality[] | undefined {
+  return KNOWN_MODALITIES.get(model);
 }
 
 export function createStaticAnarlogProModelResult(): ListModelsResult {
@@ -156,9 +165,9 @@ export async function listAnarlogProModels(
       if (label) {
         KNOWN_LABELS.set(id, label);
       }
-      const modalities =
-        parseModalities(item.input_modalities) ??
+      const modalities = parseModalities(item.input_modalities) ??
         KNOWN_MODALITIES.get(id) ?? ["text"];
+      KNOWN_MODALITIES.set(id, modalities);
       metadata[id] = { input_modalities: [...modalities] };
     }
 

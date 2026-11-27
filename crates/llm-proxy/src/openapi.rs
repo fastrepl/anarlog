@@ -17,6 +17,7 @@ use crate::model::{CharTask, SelectableModel};
         (status = 502, description = "Upstream provider failed"),
         (status = 504, description = "Request timeout"),
     ),
+    security(("bearer_auth" = [])),
     tag = "llm",
 )]
 async fn _chat_completions_spec() {}
@@ -29,6 +30,7 @@ async fn _chat_completions_spec() {}
         (status = 200, description = "Available hosted LLM models", body = ModelsResponse),
         (status = 401, description = "Unauthorized"),
     ),
+    security(("bearer_auth" = [])),
     tag = "llm",
 )]
 async fn _models_spec() {}
