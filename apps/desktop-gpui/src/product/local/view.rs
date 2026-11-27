@@ -116,12 +116,23 @@ impl LocalSettingsView {
                     Ok(panel)
                 }) {
                     Ok(panel) => {
+                        // A periodic reload of an unchanged page must not redraw: the Models
+                        // and Permissions surfaces reload every second, so an identical
+                        // panel (same rows, fields, and operations) skips the notify.
+                        let unchanged = this.panel.as_ref() == Some(&panel)
+                            && this.error.is_empty()
+                            && panel.fields.iter().all(|field| {
+                                this.fields.get(field.id.as_ref()) == Some(&field.value)
+                            });
                         for field in panel.fields.iter() {
                             this.fields
                                 .entry(field.id.clone())
                                 .or_insert_with(|| field.value.clone());
                         }
                         this.panel = Some(panel);
+                        if unchanged {
+                            return;
+                        }
                         this.error.clear();
                     }
                     Err(error) => this.error = error.to_string(),
