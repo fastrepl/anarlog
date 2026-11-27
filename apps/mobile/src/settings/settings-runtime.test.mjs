@@ -2600,6 +2600,21 @@ test("Vertex AI, Cloudflare Workers AI, and remote STT model discovery support l
     }),
     ["google/gemini-3.8-flash"],
   );
+  assert.deepEqual(
+    parseProviderModels("openrouter", {
+      data: [
+        {
+          id: "vendor/imagine-chat",
+          architecture: {
+            input_modalities: ["text"],
+            output_modalities: ["text"],
+          },
+        },
+        { id: "vendor/veo-video" },
+      ],
+    }),
+    ["vendor/imagine-chat", "vendor/veo-video"],
+  );
 
   assert.deepEqual(
     parseProviderModels("cloudflare_workers_ai", {
@@ -2628,9 +2643,11 @@ test("Vertex AI, Cloudflare Workers AI, and remote STT model discovery support l
   assert.deepEqual(
     parseSttProviderModels("elevenlabs", [
       { model_id: "eleven_multilingual_v2", can_do_text_to_speech: true },
+      { model_id: "eleven_english_sts_v2", can_do_text_to_speech: false },
       { model_id: "scribe_v2", can_do_text_to_speech: false },
+      { model_id: "scribe_v2_realtime" },
     ]),
-    ["scribe_v2"],
+    ["scribe_v2", "scribe_v2_realtime"],
   );
   assert.equal(isListableRemoteSttProvider("openrouter"), false);
 

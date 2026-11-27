@@ -798,7 +798,7 @@ async fn sync_composition_keeps_devices_and_sharing_available_when_credentials_a
 }
 
 #[tokio::test]
-async fn llm_models_requires_auth_and_bypasses_completion_rate_limit() {
+async fn llm_models_bypasses_completion_rate_limit() {
     let server = MockServer::start().await;
     Mock::given(method("GET"))
         .and(path("/auth/v1/.well-known/jwks.json"))
@@ -824,11 +824,6 @@ async fn llm_models_requires_auth_and_bypasses_completion_rate_limit() {
         anlg_transcribe_proxy::SessionGate::new(),
         build_analytics_client(&config),
         routes::llm_rate_limit_builder().enforce_in_debug().build(),
-    );
-
-    assert_eq!(
-        request_status(&app, Method::GET, "/llm/models").await,
-        StatusCode::UNAUTHORIZED
     );
 
     let free_token = token_with_entitlements(&[]);

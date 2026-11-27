@@ -56,11 +56,12 @@ describe("listSttProviderModels", () => {
     expect(models).toEqual(["nova-3-general", "nova-2"]);
   });
 
-  it("fetches ElevenLabs Scribe models and excludes pure TTS models", async () => {
+  it("fetches ElevenLabs Scribe models and excludes non-STT models", async () => {
     providerFetchMock.mockResolvedValue(
       new Response(
         JSON.stringify([
           { model_id: "eleven_multilingual_v2", can_do_text_to_speech: true },
+          { model_id: "eleven_english_sts_v2", can_do_text_to_speech: false },
           { model_id: "scribe_v2", can_do_text_to_speech: false },
           { model_id: "scribe_v2_realtime" },
         ]),

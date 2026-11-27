@@ -133,10 +133,7 @@ function buildRequestSpec(
               if (!id) {
                 return [];
               }
-              if (
-                entry.can_do_text_to_speech === true &&
-                !id.toLowerCase().includes("scribe")
-              ) {
+              if (entry.can_do_speech_to_text !== true && !/scribe/i.test(id)) {
                 return [];
               }
               return [id];

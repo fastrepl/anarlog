@@ -389,9 +389,12 @@ pub struct ProviderView {
     /// A provider picked in the menu until its choice is saved, or until a language model
     /// is entered for it. It is not an unsaved edit: leaving drops it, as in shipping.
     draft: Option<&'static str>,
-    /// Each provider's last model this session, per kind (shipping's `lastSelectedModelsRef`,
-    /// which each settings page keeps for itself).
+    /// Each provider's last model this session, per kind (shipping's `lastSelectedModelsRef`),
+    /// paired with whether that choice came from a discovered/preset catalog.
     remembered: std::collections::HashMap<(ProviderKind, String), (String, bool)>,
+    /// Tracks whether each provider's persisted model came from clicking a catalog entry rather
+    /// than restoring an existing row or typing a custom ID, independent of text-entry UI mode.
+    saved_from_catalog: std::collections::HashMap<(ProviderKind, String), bool>,
     /// A choice to save once the load or save in flight finishes.
     queued: bool,
     model: Entity<TextInput>,
@@ -469,6 +472,7 @@ impl ProviderView {
             on_device_loading: false,
             draft: None,
             remembered: Default::default(),
+            saved_from_catalog: std::collections::HashMap::new(),
             queued: false,
             model,
             search,
@@ -714,37 +718,52 @@ impl ProviderView {
         }
         let saved = self.current("model");
         if !current.is_empty() && !saved.is_empty() {
+            let from_catalog = self
+                .saved_from_catalog
+                .get(&(self.kind, current.clone()))
+                .copied()
+                .unwrap_or(false);
             self.remembered
-                .insert((self.kind, current), (saved, self.manual_model));
+                .insert((self.kind, current), (saved, from_catalog));
         }
         self.draft = Some(provider);
         self.dirty_choice = false;
-        self.manual_model = self
-            .remembered
-            .get(&(self.kind, provider.to_owned()))
-            .is_some_and(|(_, is_manual)| *is_manual);
+        self.manual_model = false;
         self.ensure_models(provider.to_owned(), false, cx);
         self.model
             .update(cx, |input, cx| input.set_text(model.clone(), cx));
         if self.kind == ProviderKind::Stt || !model.is_empty() {
+            let next_from_catalog = self
+                .remembered
+                .get(&(self.kind, provider.to_owned()))
+                .map(|(_, from_catalog)| *from_catalog)
+                .unwrap_or_else(|| {
+                    self.models(provider, cx)
+                        .iter()
+                        .any(|(id, _, disabled)| disabled.is_none() && id == &model)
+                });
+            self.saved_from_catalog
+                .insert((self.kind, provider.to_owned()), next_from_catalog);
             self.save_choice(cx);
         } else {
+            self.saved_from_catalog
+                .insert((self.kind, provider.to_owned()), false);
             self.status = "Enter a model and press Return to use this provider.".into();
         }
         cx.notify();
     }
 
-    /// The model `provider` starts with: its last model this session if still offered (or entered
-    /// manually), else the first one offered, else its default (`getPreferredProviderModel` and
-    /// `getDefaultSttModel`).
+    /// The model `provider` starts with: its last model this session if still offered (or custom /
+    /// restored without catalog provenance), else the first one offered, else its default
+    /// (`getPreferredProviderModel` and `getDefaultSttModel`).
     fn next_model(&self, provider: &str, cx: &gpui::App) -> String {
         let models = self.models(provider, cx);
         let allow_unlisted = models.is_empty()
             && (self.kind == ProviderKind::Llm || matches!(provider, "custom" | "nvidia"));
         self.remembered
             .get(&(self.kind, provider.to_owned()))
-            .filter(|(model, is_manual)| {
-                *is_manual
+            .filter(|(model, from_catalog)| {
+                !*from_catalog
                     || allow_unlisted
                     || models
                         .iter()
@@ -786,6 +805,15 @@ impl ProviderView {
             })
             .cloned()
             .unwrap_or_default();
+        let saved_api_key = serde_json::from_str::<Value>(&key_marker)
+            .ok()
+            .and_then(|row| {
+                row["api_key"]
+                    .as_str()
+                    .map(str::trim)
+                    .filter(|key| !key.is_empty())
+                    .map(str::to_owned)
+            });
         let cloud_paid = super::account::is_paid(cx);
         let signature = format!("{base_url}|{key_marker}|{cloud_paid}");
         if let Some(existing) = self.fetched_models.get(&(kind, provider.clone()))
@@ -799,36 +827,53 @@ impl ProviderView {
             .fetched_models
             .entry((kind, provider.clone()))
             .or_default();
+        if entry.signature != signature {
+            entry.models.clear();
+            entry.loaded = false;
+        }
         entry.signature = signature.clone();
         entry.loading = true;
 
         let services = self.services.clone();
         let provider_for_task = provider.clone();
         let base_for_task = base_url;
-        let reply = self.services.runtime.service(move |_| async move {
-            let (api_key, cloud_token) = if provider_for_task == "anarlog" {
-                let token = (services.cloud)()
-                    .await
-                    .ok()
-                    .map(|access| access.access_token)
-                    .filter(|token| !token.is_empty());
-                (None, token)
-            } else {
-                let key = (services.secret)(kind, provider_for_task.clone())
-                    .await
-                    .ok()
-                    .flatten();
-                (key, None)
-            };
-            Ok(super::provider_models::fetch_models(
-                kind,
-                &provider_for_task,
-                &base_for_task,
-                api_key.as_deref(),
-                cloud_token.as_deref(),
-            )
-            .await)
-        });
+        let reply = self
+            .services
+            .runtime
+            .service(move |runtime_services| async move {
+                let cancel = runtime_services.shutdown_requested;
+                tokio::select! {
+                    biased;
+                    _ = cancel.cancelled() => Ok(Vec::new()),
+                    models = async {
+                        let (api_key, cloud_token) = if provider_for_task == "anarlog" {
+                            let token = (services.cloud)()
+                                .await
+                                .ok()
+                                .map(|access| access.access_token)
+                                .filter(|token| !token.is_empty());
+                            (None, token)
+                        } else {
+                            let key = (services.secret)(kind, provider_for_task.clone())
+                                .await
+                                .ok()
+                                .flatten()
+                                .map(|key| key.trim().to_owned())
+                                .filter(|key| !key.is_empty())
+                                .or(saved_api_key);
+                            (key, None)
+                        };
+                        Ok(super::provider_models::fetch_models(
+                            kind,
+                            &provider_for_task,
+                            &base_for_task,
+                            api_key.as_deref(),
+                            cloud_token.as_deref(),
+                        )
+                        .await)
+                    } => models,
+                }
+            });
         cx.spawn(async move |this, cx| {
             let models = match reply {
                 Ok(reply) => reply.receive().await.unwrap_or_default(),
@@ -963,6 +1008,10 @@ impl ProviderView {
             self.restore_choice(cx);
             cx.notify();
             return;
+        }
+        if self.manual_model {
+            self.saved_from_catalog
+                .insert((self.kind, provider.clone()), false);
         }
         let base = self.stored_base(&provider);
         let kind = self.kind;
@@ -1398,8 +1447,10 @@ impl ProviderView {
                         .when(!offered, |view| view.text_color(muted).cursor_default())
                         .when(offered, |view| {
                             view.on_click(cx.listener(move |this, _, _, cx| {
+                                let provider = this.provider();
                                 this.model_menu = false;
                                 this.manual_model = false;
+                                this.saved_from_catalog.insert((this.kind, provider), true);
                                 this.model.update(cx, |input, cx| {
                                     input.set_text(click_model.clone(), cx)
                                 });
@@ -2009,7 +2060,7 @@ mod tests {
             .update(cx, |view, cx| view.select_kind(ProviderKind::Llm, cx));
         fixture.settle(cx);
 
-        // 1. Seed a catalog preset selected from the list, then refresh with a catalog that drops it.
+        // 1. Catalog selection keeps provenance across tab switches and drops retired presets.
         fixture.view.update(cx, |view, cx| {
             view.fetched_models.insert(
                 (ProviderKind::Llm, "lmstudio".into()),
@@ -2024,11 +2075,21 @@ mod tests {
                 },
             );
             view.manual_model = false;
+            view.saved_from_catalog
+                .insert((ProviderKind::Llm, "lmstudio".into()), true);
             view.draft = Some("lmstudio");
             view.model
                 .update(cx, |input, cx| input.set_text("old-preset".into(), cx));
             view.save_choice(cx);
         });
+        fixture.settle(cx);
+        fixture
+            .view
+            .update(cx, |view, cx| view.select_kind(ProviderKind::Stt, cx));
+        fixture.settle(cx);
+        fixture
+            .view
+            .update(cx, |view, cx| view.select_kind(ProviderKind::Llm, cx));
         fixture.settle(cx);
         fixture.view.update(cx, |view, _| {
             view.fetched_models.insert(
@@ -2048,7 +2109,7 @@ mod tests {
         fixture.pick("lmstudio", cx);
         assert_eq!(fixture.setting("current_llm_model").unwrap(), "new-preset");
 
-        // 2. A manually entered custom ID is remembered across switches even if absent from the list.
+        // 2. A saved unlisted custom ID survives reopening settings even with a populated catalog.
         fixture.view.update(cx, |view, cx| {
             view.manual_model = true;
             view.model
@@ -2056,8 +2117,50 @@ mod tests {
             view.save_choice(cx);
         });
         fixture.settle(cx);
-        fixture.pick("google_vertex_ai", cx);
-        fixture.pick("lmstudio", cx);
+        let reopened = cx.new(|cx| ProviderView::new(fixture.services.clone(), cx));
+        for _ in 0..400 {
+            cx.run_until_parked();
+            if reopened.read_with(cx, |view, _| {
+                view.snapshot.is_some()
+                    && view.operation.is_none()
+                    && view.on_device.is_some()
+                    && !view.on_device_loading
+            }) {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        reopened.update(cx, |view, cx| {
+            view.select_kind(ProviderKind::Llm, cx);
+            view.fetched_models.insert(
+                (ProviderKind::Llm, "lmstudio".into()),
+                FetchedModels {
+                    signature: String::new(),
+                    models: vec![crate::product::provider_models::ModelEntry {
+                        id: "new-preset".into(),
+                        label: "new-preset".into(),
+                    }],
+                    loading: false,
+                    loaded: true,
+                },
+            );
+            view.pick_provider("google_vertex_ai", cx);
+        });
+        for _ in 0..400 {
+            cx.run_until_parked();
+            if reopened.read_with(cx, |view, _| view.operation.is_none() && !view.queued) {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        reopened.update(cx, |view, cx| view.pick_provider("lmstudio", cx));
+        for _ in 0..400 {
+            cx.run_until_parked();
+            if reopened.read_with(cx, |view, _| view.operation.is_none() && !view.queued) {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
         assert_eq!(
             fixture.setting("current_llm_model").unwrap(),
             "custom-local"
@@ -2383,5 +2486,172 @@ mod tests {
                 .statements(ProviderKind::Llm, "local", "fixture", "")
                 .is_err()
         );
+    }
+
+    #[gpui::test]
+    fn changing_provider_base_url_clears_stale_cached_models_while_loading(
+        cx: &mut TestAppContext,
+    ) {
+        let fixture = fixture(cx);
+        fixture.view.update(cx, |view, cx| {
+            view.select_kind(ProviderKind::Llm, cx);
+        });
+        fixture.settle(cx);
+
+        fixture.view.update(cx, |view, cx| {
+            let row_one = json!({
+                "type": "llm",
+                "base_url": "https://one.example/v1",
+                "api_key": ""
+            });
+            let raw_one = row_one.to_string();
+            if let Some(snapshot) = view.snapshot.as_mut() {
+                snapshot
+                    .values
+                    .insert("ai_provider:llm:openai".into(), raw_one.clone());
+                snapshot
+                    .parsed
+                    .insert("ai_provider:llm:openai".into(), row_one);
+            }
+            view.fetched_models.insert(
+                (ProviderKind::Llm, "openai".into()),
+                FetchedModels {
+                    signature: format!("https://one.example/v1|{raw_one}|false"),
+                    models: vec![crate::product::provider_models::ModelEntry {
+                        id: "stale-model".into(),
+                        label: "stale-model".into(),
+                    }],
+                    loading: false,
+                    loaded: true,
+                },
+            );
+
+            // Forced refresh for the exact same configuration keeps existing models visible.
+            view.ensure_models("openai".into(), true, cx);
+            let slot = view
+                .fetched_models
+                .get(&(ProviderKind::Llm, "openai".into()))
+                .unwrap();
+            assert!(slot.loading);
+            assert_eq!(slot.models.len(), 1);
+
+            // Changing the base URL hides the previous endpoint's models while loading.
+            let row_two = json!({
+                "type": "llm",
+                "base_url": "https://two.example/v1",
+                "api_key": ""
+            });
+            if let Some(snapshot) = view.snapshot.as_mut() {
+                snapshot
+                    .values
+                    .insert("ai_provider:llm:openai".into(), row_two.to_string());
+                snapshot
+                    .parsed
+                    .insert("ai_provider:llm:openai".into(), row_two);
+            }
+            view.ensure_models("openai".into(), false, cx);
+            let slot = view
+                .fetched_models
+                .get(&(ProviderKind::Llm, "openai".into()))
+                .unwrap();
+            assert!(slot.loading);
+            assert!(!slot.loaded);
+            assert!(slot.models.is_empty());
+        });
+        fixture.shutdown();
+    }
+
+    #[gpui::test]
+    fn discovery_uses_saved_row_api_key_when_keyring_empty(cx: &mut TestAppContext) {
+        let server = futures::executor::block_on(async {
+            let server = wiremock::MockServer::start().await;
+            wiremock::Mock::given(wiremock::matchers::method("GET"))
+                .and(wiremock::matchers::path("/models"))
+                .and(wiremock::matchers::header(
+                    "authorization",
+                    "Bearer row-key",
+                ))
+                .respond_with(wiremock::ResponseTemplate::new(200).set_body_json(
+                    serde_json::json!({
+                        "data": [{ "id": "gpt-4.1-mini" }]
+                    }),
+                ))
+                .mount(&server)
+                .await;
+            server
+        });
+
+        let fixture = fixture(cx);
+        futures::executor::block_on(
+            fixture
+                .runtime
+                .submit({
+                    let base_url = server.uri();
+                    move |services| async move {
+                        services
+                            .executor
+                            .execute_transaction(vec![TransactionStatement {
+                                sql: "INSERT INTO app_settings (id, value_json) VALUES (?1, ?2)"
+                                    .into(),
+                                params: vec![
+                                    json!("ai_provider:llm:openai"),
+                                    json!(
+                                        json!({
+                                            "type": "llm",
+                                            "base_url": base_url,
+                                            "api_key": "row-key"
+                                        })
+                                        .to_string()
+                                    ),
+                                ],
+                                expected_rows_affected: None,
+                            }])
+                            .await
+                            .map_err(failure)?;
+                        Ok(())
+                    }
+                })
+                .unwrap()
+                .receive(),
+        )
+        .unwrap();
+
+        fixture.view.update(cx, |view, cx| {
+            view.reload(true, cx);
+            view.select_kind(ProviderKind::Llm, cx);
+        });
+        fixture.settle(cx);
+        fixture.view.update(cx, |view, cx| {
+            view.ensure_models("openai".into(), true, cx);
+        });
+
+        let mut loaded = false;
+        for _ in 0..400 {
+            cx.run_until_parked();
+            if fixture.view.read_with(cx, |view, _| {
+                view.fetched_models
+                    .get(&(ProviderKind::Llm, "openai".into()))
+                    .is_some_and(|slot| !slot.loading && slot.loaded)
+            }) {
+                loaded = true;
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        assert!(loaded, "OpenAI discovery should finish");
+        fixture.view.read_with(cx, |view, _| {
+            let slot = view
+                .fetched_models
+                .get(&(ProviderKind::Llm, "openai".into()))
+                .unwrap();
+            assert_eq!(
+                slot.models,
+                vec![crate::product::provider_models::ModelEntry {
+                    id: "gpt-4.1-mini".into(),
+                    label: "gpt-4.1-mini".into(),
+                }]
+            );
+        });
+        fixture.shutdown();
     }
 }

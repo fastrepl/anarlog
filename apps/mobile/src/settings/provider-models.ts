@@ -334,10 +334,9 @@ export function parseSttProviderModels(
 
     switch (provider) {
       case "elevenlabs":
-        return item.can_do_text_to_speech === true &&
-          !id.toLowerCase().includes("scribe")
-          ? []
-          : [id];
+        return item.can_do_speech_to_text === true || /scribe/i.test(id)
+          ? [id]
+          : [];
       case "openai":
         return /^(whisper|.*transcribe)/i.test(id) ? [id] : [];
       case "groq":
@@ -463,9 +462,14 @@ export function parseProviderModels(
     )
       return [];
     if (
-      /(embed|tts|whisper|dall-e|audio|image|imagine|veo|lyria|sora|realtime|transcribe|moderation|rerank)/i.test(
+      /(embed|tts|whisper|dall-e|audio|image|realtime|transcribe|moderation|rerank)/i.test(
         id,
       )
+    )
+      return [];
+    if (
+      provider === "google_vertex_ai" &&
+      /(imagine|veo|lyria|sora|imagen)/i.test(id)
     )
       return [];
     return [id];

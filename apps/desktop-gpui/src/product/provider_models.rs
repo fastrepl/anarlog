@@ -56,7 +56,6 @@ pub fn supports_live_models(kind: ProviderKind, provider: &str) -> bool {
                 | "deepseek"
                 | "alibaba_cloud"
                 | "siliconflow"
-                | "azure_openai"
                 | "google_vertex_ai"
                 | "azure_ai"
                 | "groq"
@@ -232,18 +231,6 @@ pub async fn fetch_models(
                 };
                 parse_google_gemini_llm_models(&body)
             }
-            "azure_openai" => {
-                let (false, Some(key)) = (trimmed_base.is_empty(), trimmed_key) else {
-                    return Vec::new();
-                };
-                let stripped = strip_suffix_ci(trimmed_base, "/v1");
-                let stripped = strip_suffix_ci(stripped, "/openai");
-                let url = format!("{stripped}/openai/models?api-version=2024-10-21");
-                let Some(body) = get_json(&url, &[("api-key", key)]).await else {
-                    return Vec::new();
-                };
-                parse_openai_like_models(&body, None)
-            }
             "azure_ai" => {
                 let (false, Some(key)) = (trimmed_base.is_empty(), trimmed_key) else {
                     return Vec::new();
@@ -265,7 +252,28 @@ pub async fn fetch_models(
                 };
                 parse_openai_like_models(&body, None)
             }
-            "ollama" | "lmstudio" => {
+            "lmstudio" => {
+                if trimmed_base.is_empty() {
+                    return Vec::new();
+                }
+                let mut headers = Vec::new();
+                let auth = trimmed_key.map(|key| format!("Bearer {key}"));
+                if let Some(auth) = auth.as_deref() {
+                    headers.push(("authorization", auth));
+                }
+                let native_url = lmstudio_native_models_url(trimmed_base);
+                if let Some(body) = get_json(&native_url, &headers).await
+                    && body.get("models").and_then(Value::as_array).is_some()
+                {
+                    return parse_openai_like_models(&body, Some(is_lmstudio_chat_item));
+                }
+                let url = format!("{trimmed_base}/models");
+                let Some(body) = get_json(&url, &headers).await else {
+                    return Vec::new();
+                };
+                parse_openai_like_models(&body, Some(is_lmstudio_chat_item))
+            }
+            "ollama" => {
                 if trimmed_base.is_empty() {
                     return Vec::new();
                 }
@@ -280,14 +288,14 @@ pub async fn fetch_models(
                 } else {
                     Vec::new()
                 };
-                if entries.is_empty() && provider == "ollama" {
+                if entries.is_empty() {
                     let tags_base = strip_suffix_ci(trimmed_base, "/v1");
                     let tags_url = format!("{tags_base}/api/tags");
                     if let Some(body) = get_json(&tags_url, &headers).await {
                         entries = parse_ollama_tags(&body);
                     }
                 }
-                if provider == "ollama" && !entries.is_empty() {
+                if !entries.is_empty() {
                     return filter_ollama_completion_models(trimmed_base, &headers, entries).await;
                 }
                 entries
@@ -493,14 +501,40 @@ async fn read_limited_json(mut response: reqwest::Response) -> Option<Value> {
     serde_json::from_slice(&bytes).ok()
 }
 
+fn lmstudio_native_models_url(trimmed_base: &str) -> String {
+    let base = trimmed_base.trim_end_matches('/');
+    if base.to_ascii_lowercase().ends_with("/api/v1") {
+        format!("{base}/models")
+    } else {
+        format!("{}/api/v1/models", strip_suffix_ci(base, "/v1"))
+    }
+}
+
+fn is_lmstudio_chat_item(_id: &str, item: &Value) -> bool {
+    let Some(model_type) = item.get("type").and_then(Value::as_str) else {
+        return true;
+    };
+    let lower = model_type.trim().to_ascii_lowercase();
+    lower.is_empty() || matches!(lower.as_str(), "llm" | "vlm" | "chat" | "text")
+}
+
 async fn filter_ollama_completion_models(
+    trimmed_base: &str,
+    headers: &[(&'static str, &str)],
+    entries: Vec<ModelEntry>,
+) -> Vec<ModelEntry> {
+    filter_ollama_completion_models_within(REQUEST_TIMEOUT, trimmed_base, headers, entries).await
+}
+
+async fn filter_ollama_completion_models_within(
+    deadline: Duration,
     trimmed_base: &str,
     headers: &[(&'static str, &str)],
     entries: Vec<ModelEntry>,
 ) -> Vec<ModelEntry> {
     let show_base = strip_suffix_ci(trimmed_base, "/v1");
     let show_url = format!("{show_base}/api/show");
-    stream::iter(entries)
+    let filtered = stream::iter(entries)
         .map(|entry| {
             let show_url = &show_url;
             async move {
@@ -519,8 +553,10 @@ async fn filter_ollama_completion_models(
         })
         .buffered(4)
         .filter_map(|entry| async move { entry })
-        .collect()
+        .collect();
+    tokio::time::timeout(deadline, filtered)
         .await
+        .unwrap_or_default()
 }
 
 fn strip_suffix_ci<'a>(value: &'a str, suffix: &str) -> &'a str {
@@ -727,6 +763,7 @@ fn parse_openai_like_models(
         .filter_map(|item| {
             let id = item
                 .get("id")
+                .or_else(|| item.get("key"))
                 .or_else(|| item.get("name"))
                 .and_then(Value::as_str)?
                 .trim();
@@ -890,9 +927,10 @@ fn parse_elevenlabs_stt_ids(body: &Value) -> Vec<String> {
             if id.is_empty() {
                 return None;
             }
-            let tts_only = item.get("can_do_text_to_speech").and_then(Value::as_bool) == Some(true)
-                && !id.to_ascii_lowercase().contains("scribe");
-            (!tts_only).then(|| id.to_owned())
+            let stt_capable = item.get("can_do_speech_to_text").and_then(Value::as_bool)
+                == Some(true)
+                || id.to_ascii_lowercase().contains("scribe");
+            stt_capable.then(|| id.to_owned())
         })
         .collect()
 }
@@ -1227,7 +1265,9 @@ mod tests {
             .and(header("xi-api-key", "xi-key"))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([
                 { "model_id": "eleven_multilingual_v2", "can_do_text_to_speech": true },
-                { "model_id": "scribe_v2", "can_do_text_to_speech": false }
+                { "model_id": "eleven_english_sts_v2", "can_do_text_to_speech": false },
+                { "model_id": "scribe_v2", "can_do_text_to_speech": false },
+                { "model_id": "scribe_v2_realtime" }
             ])))
             .mount(&server)
             .await;
@@ -1266,7 +1306,7 @@ mod tests {
             .into_iter()
             .map(|m| m.id)
             .collect::<Vec<_>>(),
-            vec!["scribe_v2"]
+            vec!["scribe_v2", "scribe_v2_realtime"]
         );
         assert_eq!(
             fetch_models(
@@ -1482,5 +1522,142 @@ mod tests {
             together,
             vec!["openai/whisper-large-v3", "distil-whisper/distil-large-v3"]
         );
+    }
+
+    #[tokio::test]
+    async fn lmstudio_excludes_embeddings_and_keeps_untyped_openai_models() {
+        assert!(!supports_live_models(ProviderKind::Llm, "azure_openai"));
+
+        // 1. Native /api/v1/models keeps llm entries and drops embeddings.
+        let native_server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/api/v1/models"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "models": [
+                    { "type": "llm", "key": "qwen2.5-7b-instruct" },
+                    { "type": "embeddings", "key": "text-embedding-nomic" }
+                ]
+            })))
+            .mount(&native_server)
+            .await;
+
+        let native_models = fetch_models(
+            ProviderKind::Llm,
+            "lmstudio",
+            &format!("{}/v1", native_server.uri()),
+            None,
+            None,
+        )
+        .await;
+        assert_eq!(
+            native_models,
+            vec![ModelEntry {
+                id: "qwen2.5-7b-instruct".into(),
+                label: "qwen2.5-7b-instruct".into(),
+            }]
+        );
+
+        // 2. A valid /api/v1/models response with only embeddings does not fall back to /v1/models.
+        let embed_only_server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/api/v1/models"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "models": [
+                    { "type": "embeddings", "key": "text-embedding-nomic" }
+                ]
+            })))
+            .mount(&embed_only_server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/v1/models"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "data": [{ "id": "text-embedding-nomic" }]
+            })))
+            .mount(&embed_only_server)
+            .await;
+        assert!(
+            fetch_models(
+                ProviderKind::Llm,
+                "lmstudio",
+                &format!("{}/v1", embed_only_server.uri()),
+                None,
+                None,
+            )
+            .await
+            .is_empty()
+        );
+
+        // 3. When /api/v1/models is absent, /v1/models keeps untyped models and filters typed embeddings.
+        let compat_server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/v1/models"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "data": [
+                    { "id": "legacy-untyped-model" },
+                    { "id": "nomic-embed", "type": "embedding" }
+                ]
+            })))
+            .mount(&compat_server)
+            .await;
+        let compat_models = fetch_models(
+            ProviderKind::Llm,
+            "lmstudio",
+            &format!("{}/v1", compat_server.uri()),
+            None,
+            None,
+        )
+        .await;
+        assert_eq!(
+            compat_models,
+            vec![ModelEntry {
+                id: "legacy-untyped-model".into(),
+                label: "legacy-untyped-model".into(),
+            }]
+        );
+    }
+
+    #[tokio::test]
+    async fn ollama_discovery_enforces_single_overall_timeout() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/v1/models"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "data": [
+                    { "id": "m1" },
+                    { "id": "m2" },
+                    { "id": "m3" },
+                    { "id": "m4" },
+                    { "id": "m5" },
+                    { "id": "m6" }
+                ]
+            })))
+            .mount(&server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/api/show"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_delay(Duration::from_millis(250))
+                    .set_body_json(serde_json::json!({ "capabilities": ["completion"] })),
+            )
+            .mount(&server)
+            .await;
+
+        let entries = (1..=6)
+            .map(|i| ModelEntry {
+                id: format!("m{i}"),
+                label: format!("m{i}"),
+            })
+            .collect();
+        let started = std::time::Instant::now();
+        let models = filter_ollama_completion_models_within(
+            Duration::from_millis(80),
+            &format!("{}/v1", server.uri()),
+            &[],
+            entries,
+        )
+        .await;
+        assert!(models.is_empty());
+        assert!(started.elapsed() < Duration::from_millis(300));
     }
 }
