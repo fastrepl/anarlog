@@ -1,4 +1,5 @@
 import { useRouter } from "expo-router";
+import { Platform } from "react-native";
 
 import { useMicrophonePermission } from "@/audio/microphone-permission";
 import { deviceHasActionButton } from "@/quick-actions/action-button-setup";
@@ -9,6 +10,9 @@ import {
 } from "@/settings/components";
 import { FieldGroup } from "@/settings/field-group";
 import { Text } from "@/settings/fields";
+import { RecordingBatterySettings } from "@/settings/recording-battery-settings";
+
+import LocalSpeech from "../../../modules/local-speech";
 
 export default function RecordingSettings() {
   const router = useRouter();
@@ -51,6 +55,7 @@ export default function RecordingSettings() {
           </Text>
         </FieldGroup.SectionFooter>
       </FieldGroup.Section>
+      {Platform.OS === "android" && LocalSpeech && <RecordingBatterySettings />}
     </SettingsPage>
   );
 }

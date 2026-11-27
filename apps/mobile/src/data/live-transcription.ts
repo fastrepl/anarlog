@@ -2,9 +2,10 @@ import { Platform } from "react-native";
 
 import type { ProviderLiveTranscriptionLike } from "@anlg/mobile-bridge";
 
+import { getActiveAccountId } from "@/auth/active-account";
 import { decodeJwtPayload, deriveBillingInfo } from "@/auth/billing";
 import { supabase } from "@/auth/client";
-import { execute, executeTransaction } from "@/db";
+import { executeTransaction } from "@/db";
 import { captureAnalytics } from "@/lib/analytics";
 import { env } from "@/lib/env";
 import { captureOperationalError } from "@/lib/error-reporting";
@@ -28,6 +29,7 @@ import { sharedMicrophoneContextStatement } from "./transcript-model";
 export type LiveTranscriptionStatus = "connecting" | "live" | "fallback";
 
 const MAX_QUEUED_AUDIO_BYTES = 320_000;
+const MAX_LOCAL_QUEUED_AUDIO_BYTES = 1_920_000;
 const MAX_SOCKET_BUFFERED_BYTES = 1_000_000;
 const FINALIZE_TIMEOUT_MS = 3_000;
 const KEEP_ALIVE_INTERVAL_MS = 5_000;
@@ -175,19 +177,28 @@ export class SessionLiveTranscription {
 
   private async connect(sampleRate: number, channels: number) {
     try {
-      const auth = await supabase?.auth.getSession();
-      if (auth?.error) throw auth.error;
-      const provider = await readProviderConfig(
-        auth?.data.session?.user.id ?? null,
-        "stt",
-      );
+      const accountId = getActiveAccountId();
+      const provider = await readProviderConfig(accountId, "stt");
+      if (provider.provider !== "google_on_device") {
+        const auth = await supabase?.auth.getSession();
+        if (auth?.error) throw auth.error;
+        if ((auth?.data.session?.user.id ?? null) !== accountId) {
+          this.fallBack();
+          return;
+        }
+      }
       this.provider = provider.provider;
       this.model = provider.model;
       const preferences = await readPreferences();
-      const accountId = auth?.data.session?.user.id ?? null;
       if (this.stopping || this.status === "fallback") return;
       const subscription = supabase?.auth.onAuthStateChange(
-        (_event, session) => {
+        (event, session) => {
+          if (
+            this.provider === "google_on_device" &&
+            event === "INITIAL_SESSION" &&
+            !session
+          )
+            return;
           if ((session?.user.id ?? null) !== accountId) this.fallBack();
           else if (this.provider === "anarlog" && session)
             this.updateBilling(session.access_token);
@@ -195,13 +206,50 @@ export class SessionLiveTranscription {
       );
       this.unsubscribeAuth = () =>
         subscription?.data.subscription.unsubscribe();
-      const currentAuth = await supabase?.auth.getSession();
+      const currentAuth =
+        provider.provider === "google_on_device"
+          ? null
+          : await supabase?.auth.getSession();
       if (currentAuth?.error) throw currentAuth.error;
-      if ((currentAuth?.data.session?.user.id ?? null) !== accountId) {
+      const currentAccountId =
+        provider.provider === "google_on_device"
+          ? getActiveAccountId()
+          : (currentAuth?.data.session?.user.id ?? null);
+      if (currentAccountId !== accountId) {
         this.fallBack();
         return;
       }
       if (this.stopping || this.connectAbort.signal.aborted) return;
+      if (provider.provider === "google_on_device") {
+        const { startLocalLiveTranscription } = await import("./local-speech");
+        const native = await startLocalLiveTranscription({
+          sessionId: this.transcriptId,
+          model: provider.model,
+          language: preferences.spoken_languages[0] ?? preferences.ai_language,
+          sampleRate,
+          channels,
+          onMessage: (message) => this.handleMessage(message),
+          onError: (error) => this.fail(error, "recognize"),
+          signal: this.connectAbort.signal,
+        });
+        if (this.stopping || this.connectAbort.signal.aborted) {
+          native.cancel();
+          return;
+        }
+        this.native = native;
+        this.setStatus("live");
+        const queued = new Uint8Array(this.queuedAudioBytes);
+        let offset = 0;
+        for (const buffer of this.queuedAudio) {
+          queued.set(new Uint8Array(buffer), offset);
+          offset += buffer.byteLength;
+        }
+        this.queuedAudio = [];
+        this.queuedAudioBytes = 0;
+        for (let start = 0; start < queued.byteLength; start += 320_000)
+          this.sendAudio(queued.slice(start, start + 320_000).buffer);
+        return;
+      }
       if (provider.provider !== "anarlog") {
         if (
           Platform.OS === "web" ||
@@ -317,9 +365,14 @@ export class SessionLiveTranscription {
         }
       };
       this.socket = socket;
-    } catch {
+    } catch (error) {
       if (this.stopping || this.connectAbort.signal.aborted) return;
-      this.fail(new Error("Live transcription could not connect"), "connect");
+      this.fail(
+        this.provider === "google_on_device"
+          ? error
+          : new Error("Live transcription could not connect"),
+        "connect",
+      );
     }
   }
 
@@ -350,7 +403,11 @@ export class SessionLiveTranscription {
       return;
     }
 
-    if (this.queuedAudioBytes + buffer.byteLength > MAX_QUEUED_AUDIO_BYTES) {
+    const maxQueuedBytes =
+      this.provider === "google_on_device"
+        ? MAX_LOCAL_QUEUED_AUDIO_BYTES
+        : MAX_QUEUED_AUDIO_BYTES;
+    if (this.queuedAudioBytes + buffer.byteLength > maxQueuedBytes) {
       this.fail(new Error("Live transcription connection timed out"), "queue");
       return;
     }
@@ -486,9 +543,9 @@ export class SessionLiveTranscription {
           );
   }
 
-  private fallBack() {
+  private fallBack(message = "") {
     if (this.status === "fallback") return;
-    this.setStatus("fallback");
+    this.setStatus("fallback", message);
     this.clearKeepAlive();
     this.queuedAudio = [];
     this.queuedAudioBytes = 0;
@@ -500,7 +557,16 @@ export class SessionLiveTranscription {
 
   private fail(error: unknown, stage: string) {
     if (this.status === "fallback") return;
-    this.fallBack();
+    this.fallBack(
+      this.provider === "google_on_device" &&
+        error instanceof Error &&
+        (stage === "recognize" ||
+          ("code" in error &&
+            typeof error.code === "string" &&
+            error.code.startsWith("ERR_MLKIT_")))
+        ? error.message
+        : "",
+    );
     captureOperationalError(error, {
       operation: "transcription_live",
       tags: { mode: "live", stage },

@@ -181,7 +181,7 @@ jobs:
       - run: cargo xtask mobile-bridge android
       - run: pnpm -F @anlg/mobile exec expo prebuild --platform android --no-install
       - run: |
-          ./gradlew :app:assembleRelease \
+          ./gradlew :app:assembleRelease :local-speech:testDebugUnitTest \
             --no-daemon \
             -Dorg.gradle.jvmargs="-Xmx6g -XX:MaxMetaspaceSize=1g"
         working-directory: apps/mobile/android

@@ -12,16 +12,19 @@ import { Linking } from "react-native";
 
 import { ProRequiredError } from "@/auth/billing";
 import { useAuth } from "@/auth/context";
+import { isLocalSpeechSupportedOS } from "@/data/local-speech";
 import { FieldGroup } from "@/settings/field-group";
 import { Button, ListItem, Text, TextInput } from "@/settings/fields";
 
 import { SettingsPage } from "./components";
+import { LocalSpeechSettings } from "./local-speech-settings";
 import { createProviderAutosave } from "./provider-autosave";
 import { ProviderIcon } from "./provider-icon";
 import { ProviderModelPicker } from "./provider-model-picker";
 import { ProviderPicker } from "./provider-picker";
 import {
   readProviderConfig,
+  readLocalSpeechModel,
   readProviderSetup,
   readProviderStatus,
   removeProviderKey,
@@ -79,7 +82,12 @@ function ProviderForm({
   const auth = useAuth();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const definitions = providersFor(kind).filter(({ id }) => id !== "anarlog");
+  const available = providersFor(kind).filter(
+    ({ id }) => id !== "google_on_device" || isLocalSpeechSupportedOS(),
+  );
+  const definitions = available.filter(
+    ({ id }) => id !== "anarlog" && id !== "google_on_device",
+  );
   const setups = useQueries({
     queries: definitions.map(({ id }) => ({
       queryKey: ["provider-setup", account, kind, id],
@@ -90,6 +98,11 @@ function ProviderForm({
   const [selectedProvider, setSelectedProvider] = useState(config.provider);
   const selectedProviderRef = useRef(config.provider);
   const modelDrafts = useRef<Record<string, string>>({});
+  const localSetup = useQuery({
+    queryKey: ["provider-setup", account, kind, "google_on_device"],
+    queryFn: () => readProviderSetup(account, kind, "google_on_device"),
+    enabled: selectedProvider === "google_on_device",
+  });
   const selectedSetup =
     setups[definitions.findIndex(({ id }) => id === selectedProvider)];
   const configuredIds = new Set(
@@ -97,8 +110,9 @@ function ProviderForm({
       data?.isConfigured ? [data.config.provider] : [],
     ),
   );
-  const providerOptions = providersFor(kind).filter(
-    ({ id }) => id === "anarlog" || configuredIds.has(id),
+  const providerOptions = available.filter(
+    ({ id }) =>
+      id === "anarlog" || id === "google_on_device" || configuredIds.has(id),
   );
   const visibleProvider = providerOptions.some(
     ({ id }) => id === selectedProvider,
@@ -117,13 +131,20 @@ function ProviderForm({
       if (provider === "anarlog" && !auth.billing.isPro && !auth.bypass)
         throw new ProRequiredError();
       const setup = await readProviderSetup(account, kind, provider);
+      const selectedModel = model?.trim() || setup.model;
+      if (
+        provider === "google_on_device" &&
+        (await readLocalSpeechModel(undefined, selectedModel)).status !==
+          "available"
+      )
+        return;
       const save =
         selectedProviderRef.current === provider
           ? saveProviderConfig
           : saveProviderSetup;
       await save(account, kind, {
         ...setup,
-        model: model?.trim() || setup.model,
+        model: selectedModel,
       });
     },
     onSuccess: async () => {
@@ -163,7 +184,29 @@ function ProviderForm({
             }}
           />
         </Row>
-        {!visibleProvider ? (
+        {selectedProvider === "google_on_device" ? (
+          localSetup.data ? (
+            <LocalSpeechSettings
+              key={selectedProvider}
+              initialModel={localSetup.data.model}
+              model={
+                config.provider === "google_on_device"
+                  ? config.model
+                  : undefined
+              }
+              saving={select.isPending}
+              onSelect={(model) =>
+                select.mutateAsync({ provider: "google_on_device", model })
+              }
+            />
+          ) : (
+            <Text>
+              {localSetup.isError
+                ? "Could not load the speech model."
+                : "Loading…"}
+            </Text>
+          )
+        ) : !visibleProvider ? (
           <Text>Choose a configured provider to select a model.</Text>
         ) : selectedProvider === "anarlog" ? (
           <Row alignment="center">
@@ -209,7 +252,9 @@ function ProviderForm({
               ? select.error.message
               : selectedProvider === "anarlog"
                 ? "Included with your Pro trial or subscription. No API key needed."
-                : "Choose your model here. Configure connections below."}
+                : selectedProvider === "google_on_device"
+                  ? "Transcription stays on this device. No API key or Pro subscription required. Summaries and cloud sync use their separate settings."
+                  : "Choose your model here. Configure connections below."}
           </Text>
         </FieldGroup.SectionFooter>
       </FieldGroup.Section>
