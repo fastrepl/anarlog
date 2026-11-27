@@ -14,6 +14,7 @@ import { TemplatesNav } from "./templates";
 import { TimelineView } from "./timeline";
 import { hasOwnSidebarHeaderTab } from "./use-custom-sidebar";
 
+import { useMarkdownImportDrop } from "~/session/components/note-input/markdown-import";
 import { usesTitleBarSidebarActions } from "~/shared/hooks/useWindowControlsGutter";
 import { useTabs } from "~/store/zustand/tabs";
 
@@ -31,6 +32,7 @@ export function LeftSidebar({
   onShowIgnoredTimelineEventsChange?: (showIgnored: boolean) => void;
 } = {}) {
   const currentTab = useTabs((state) => state.currentTab);
+  const { markdownImportDropProps } = useMarkdownImportDrop();
 
   const isSettingsMode = currentTab?.type === "settings";
   const isCalendarMode = currentTab?.type === "calendar";
@@ -58,6 +60,7 @@ export function LeftSidebar({
         needsChromeRowGutter ? "pt-11" : "pt-0",
         !isTimelineSidebarLayout && "pr-1",
       ])}
+      {...markdownImportDropProps}
     >
       <div className="flex flex-1 flex-col gap-1 overflow-hidden">
         {isTimelineSidebarLayout ? timelineHeader : null}

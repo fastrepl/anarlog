@@ -5,6 +5,7 @@ import { useCallback } from "react";
 import { Kbd } from "@anlg/ui/components/ui/kbd";
 import { cn } from "@anlg/utils";
 
+import { useMarkdownImportDrop } from "~/session/components/note-input/markdown-import";
 import { FloatingChatCTA } from "~/shared/chat-cta";
 import { StandardContentWrapper } from "~/shared/main";
 import { useNewNote, useNewNoteAndListen } from "~/shared/useNewNote";
@@ -27,6 +28,7 @@ function EmptyView() {
   const newNoteAndListen = useNewNoteAndListen({ behavior: "current" });
   const openCurrent = useTabs((state) => state.openCurrent);
   const primaryModifier = platform() === "macos" ? "⌘" : "Ctrl";
+  const { markdownImportDropProps } = useMarkdownImportDrop();
 
   const openSettings = useCallback(
     () => openCurrent({ type: "settings" }),
@@ -37,6 +39,7 @@ function EmptyView() {
     <div
       data-tauri-drag-region
       className="flex h-full flex-col items-center justify-center gap-6"
+      {...markdownImportDropProps}
     >
       <div className="flex min-w-[280px] flex-col gap-1 text-center">
         <ActionItem
