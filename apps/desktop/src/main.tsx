@@ -36,6 +36,7 @@ import {
   createTaskScheduler,
   TaskSchedulerProvider,
 } from "./services/task-scheduler";
+import { TrayLanguagesSync } from "./services/tray-languages";
 import { TrayRecordingSync } from "./services/tray-recording";
 import { TrayScheduleSync } from "./services/tray-schedule";
 import { UpdaterMeetingSync } from "./services/updater-meeting";
@@ -130,6 +131,7 @@ function ReadyApp() {
             {isMainWindow ? <CameraGuidanceToasts /> : null}
             {isMainWindow ? <TrayScheduleSync /> : null}
             {isMainWindow ? <TrayRecordingSync /> : null}
+            {isMainWindow ? <TrayLanguagesSync /> : null}
             {isMainWindow && !isAppStoreBuild() ? <UpdaterMeetingSync /> : null}
             <Toaster position="bottom-right" theme={theme} />
           </AppLockGate>
