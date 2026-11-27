@@ -55,19 +55,14 @@ export const speakerHintSchema = z.object({
   value: jsonObject(z.record(z.string(), z.unknown())),
 });
 
-export const aiProviderSchema = z
-  .object({
-    type: z.enum(["stt", "llm"]),
-    base_url: z.url().min(1),
-    api_key: z.string(),
-  })
-  .refine(
-    (data) => !data.base_url.startsWith("https:") || data.api_key.length > 0,
-    {
-      message: "API key is required for HTTPS URLs",
-      path: ["api_key"],
-    },
-  );
+// Keyless endpoints are valid: a Custom provider may point at a server that
+// needs no credentials. Providers that do require a key enforce it through
+// their own requirements and the shared credential check.
+export const aiProviderSchema = z.object({
+  type: z.enum(["stt", "llm"]),
+  base_url: z.url().min(1),
+  api_key: z.string(),
+});
 
 export type SessionEvent = z.infer<typeof sessionEventSchema>;
 export type EventParticipant = z.infer<typeof eventParticipantSchema>;

@@ -65,7 +65,7 @@ import { useNotifications } from "~/contexts/notifications";
 import {
   providerRowId,
   ProviderIconSlot,
-  requiresKeyVerification,
+  requiresCredentialVerification,
   useProviderAvailability,
 } from "~/settings/ai/shared";
 import {
@@ -742,7 +742,7 @@ export function useConfiguredMapping(): {
 
       if (
         !eligible ||
-        (requiresKeyVerification(provider) &&
+        (requiresCredentialVerification(provider) &&
           availability[provider.id] !== true)
       ) {
         return [provider.id, { configured: false, models: [] }];
