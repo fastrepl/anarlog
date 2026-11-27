@@ -13,15 +13,6 @@ use gpui::{
 use crate::ui::a11y::Accessible;
 use crate::ui::theme::Theme;
 
-/// Shipping's `--font-hand` stack.
-pub const HAND_FONT: &str = if cfg!(target_os = "macos") {
-    "Bradley Hand"
-} else if cfg!(target_os = "windows") {
-    "Segoe Print"
-} else {
-    "Comic Sans MS"
-};
-
 /// Width of the fixed control column in a setting row (`w-48`).
 pub const CONTROL_WIDTH: f32 = 192.;
 
@@ -32,9 +23,8 @@ pub fn page_title(title: impl Into<SharedString>) -> Stateful<Div> {
     div()
         .id(SharedString::from(format!("page-title:{title}")))
         .a11y_heading(title.clone(), 1)
-        .font_family(HAND_FONT)
-        .text_size(px(30.))
-        .line_height(px(37.5))
+        .text_size(px(28.))
+        .line_height(px(34.))
         .font_weight(FontWeight::SEMIBOLD)
         .child(title)
 }

@@ -3253,19 +3253,11 @@ fn dropdown(menu: impl IntoElement) -> Div {
         .child(deferred(anchored().snap_to_window_with_margin(px(8.)).child(menu)).with_priority(1))
 }
 
-/// `SettingsPageTitle`: `font-hand text-3xl leading-tight font-semibold`.
+/// Matches `SettingsPageTitle`'s 28px semibold sans hierarchy.
 fn page_title(title: &'static str) -> Div {
-    let hand = if cfg!(target_os = "macos") {
-        "Bradley Hand"
-    } else if cfg!(target_os = "windows") {
-        "Segoe Print"
-    } else {
-        "Comic Sans MS"
-    };
     div()
-        .font_family(hand)
-        .text_size(px(30.))
-        .line_height(px(37.5))
+        .text_size(px(28.))
+        .line_height(px(34.))
         .font_weight(FontWeight::SEMIBOLD)
         .child(title)
 }
