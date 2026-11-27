@@ -349,7 +349,6 @@ const SESSION_REMOTE_PARTICIPANT_IDS_SQL = `
                         participant.email
                       ))
                     )
-                  )
                 )
                 OR (
                   NULLIF(lower(owner_participant.email), '') IS NOT NULL
