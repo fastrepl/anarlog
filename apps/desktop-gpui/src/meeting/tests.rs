@@ -540,6 +540,60 @@ async fn provider_admission_failure_exits_preparing_and_allows_retry() {
 }
 
 #[tokio::test]
+async fn retrying_capture_prepare_replaces_the_lifecycle_marker() {
+    let fixture = Fixture::new().await;
+    let config = super::capture::CaptureConfig {
+        params: anlg_listener_core::actors::SessionParams {
+            session_id: fixture.session.0.to_string(),
+            retain_audio: Some(true),
+            languages: Vec::new(),
+            onboarding: false,
+            transcription_mode: anlg_listener_core::TranscriptionMode::Live,
+            model: "nova-3".into(),
+            base_url: String::new(),
+            api_key: String::new(),
+            keywords: Vec::new(),
+            mic_device: None,
+            participant_human_ids: Vec::new(),
+            self_human_id: None,
+            speaker_assignments: Vec::new(),
+        },
+        provider: "deepgram".into(),
+        retention: Retention::Forever,
+        memo: String::new(),
+        recovery: None,
+    };
+    let first: Arc<str> = uuid::Uuid::new_v4().to_string().into();
+    let second: Arc<str> = uuid::Uuid::new_v4().to_string().into();
+    super::capture::prepare(&fixture.runtime, &fixture.session, first, &config, 0)
+        .await
+        .unwrap();
+    super::capture::prepare(
+        &fixture.runtime,
+        &fixture.session,
+        second.clone(),
+        &config,
+        0,
+    )
+    .await
+    .unwrap();
+
+    let rows = fixture
+        .sql(
+            "SELECT value_json FROM app_settings WHERE id = ?",
+            vec![json!(format!(
+                "capture_lifecycle_pending:{}",
+                fixture.session.0
+            ))],
+        )
+        .await;
+    assert_eq!(rows.len(), 1);
+    let marker: Value = serde_json::from_str(rows[0]["value_json"].as_str().unwrap()).unwrap();
+    assert_eq!(marker["transcriptId"], json!(second.to_string()));
+    fixture.close().await;
+}
+
+#[tokio::test]
 async fn native_streaming_capture_saves_transcript_and_releases_dont_save_audio() {
     let _ = tracing_subscriber::fmt()
         .with_env_filter("listener_core=debug,owhisper_client=debug")

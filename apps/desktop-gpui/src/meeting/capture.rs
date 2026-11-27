@@ -865,7 +865,7 @@ async fn start(
     })
 }
 
-async fn prepare(
+pub(super) async fn prepare(
     runtime: &RuntimeHandle,
     session: &SessionId,
     transcript: Arc<str>,
@@ -894,7 +894,7 @@ async fn prepare(
         services.executor.execute_transaction(vec![
             statement("INSERT INTO transcripts (id, session_id, owner_user_id, workspace_id, source, provider, model, started_at_ms, memo) SELECT ?, id, owner_user_id, workspace_id, 'live_capture', ?, ?, ?, ? FROM sessions WHERE id = ? AND deleted_at IS NULL AND (locked = 0 OR id IN (SELECT value FROM json_each(?)))",
                 vec![json!(transcript), json!(provider), json!(model), json!(now), json!(memo), json!(session), super::access::param()], Some(1)),
-            statement("INSERT INTO app_settings (id, value_json) VALUES (?, ?)",
+            statement("INSERT INTO app_settings (id, value_json, updated_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now')) ON CONFLICT(id) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at",
                 vec![json!(format!("capture_lifecycle_pending:{}", session.0)), json!(marker.to_string())], Some(1)),
         ]).await.map_err(failure)?;
         Ok(now as u64)
