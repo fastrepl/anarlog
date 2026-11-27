@@ -22,6 +22,7 @@ use self::io::{
     GatedUpstream, relay_client_to_upstreams, relay_upstream_to_events, send_rewritten, send_text,
 };
 use self::payload::{FinalizeMode, rewrite_split_response};
+use super::UPSTREAM_USER_AGENT;
 use super::types::{
     ClientBinaryMessageMapper, ClientMessageFilter, DEFAULT_CLOSE_CODE, InitialMessage,
     OnCloseCallback, ResponseTransformer, ShutdownSignal, UpstreamEvent, convert, ready_channel,
@@ -101,6 +102,10 @@ impl ChannelSplitProxy {
             .clone()
             .into_client_request()
             .map_err(|error| crate::ProxyError::InvalidRequest(error.to_string()))?;
+        req.headers_mut().insert(
+            "user-agent",
+            axum::http::HeaderValue::from_static(UPSTREAM_USER_AGENT),
+        );
         anlg_observability::inject_current_trace_context(req.headers_mut());
 
         let result = tokio::time::timeout(timeout, connect_async(req)).await;

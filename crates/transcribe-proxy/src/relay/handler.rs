@@ -14,6 +14,7 @@ use tokio_tungstenite::{
 
 use owhisper_client::Provider;
 
+use super::UPSTREAM_USER_AGENT;
 use super::builder::WebSocketProxyBuilder;
 use super::pending::{FlushError, PendingState, QueuedPayload};
 use super::types::{
@@ -94,7 +95,7 @@ impl WebSocketProxy {
             .map_err(|e| crate::ProxyError::InvalidRequest(e.to_string()))?;
         req.headers_mut().insert(
             "user-agent",
-            axum::http::HeaderValue::from_static("Anarlog"),
+            axum::http::HeaderValue::from_static(UPSTREAM_USER_AGENT),
         );
         anlg_observability::inject_current_trace_context(req.headers_mut());
 

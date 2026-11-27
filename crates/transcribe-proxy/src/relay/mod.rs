@@ -24,6 +24,8 @@ pub use upstream_error::{UpstreamError, detect_upstream_error};
 use crate::provider_selector::SelectedProvider;
 use channel_split::ChannelSplitProxy;
 
+pub(crate) const UPSTREAM_USER_AGENT: &str = "Anarlog";
+
 #[derive(Clone, Copy)]
 pub enum StreamingTransport {
     Single,
