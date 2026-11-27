@@ -165,8 +165,25 @@ impl ApplicationView {
                 cx,
             )
         });
+        let uploads = crate::meeting::upload::Uploads::global(cx);
+        let summary_jobs = crate::workspace::SummaryJobs::global(cx);
+        let upload_runtime = runtime.clone();
         let mut subscriptions = vec![
             cx.observe(&live, |this, _, cx| this.live_changed(cx)),
+            cx.subscribe(&uploads, move |_, _, event, cx| {
+                if let crate::meeting::upload::UploadEvent::Transcribed(session) = event {
+                    let session = session.clone();
+                    let runtime = upload_runtime.clone();
+                    crate::workspace::SummaryJobs::global(cx).update(cx, |jobs, cx| {
+                        jobs.claim_auto_summary(runtime, session, cx);
+                    });
+                }
+            }),
+            cx.subscribe(&summary_jobs, |this, _, event, cx| {
+                if let crate::workspace::SummaryEvent::Completed { session, title } = event {
+                    this.summary_completed(session.clone(), title, cx);
+                }
+            }),
             cx.observe_window_activation(window, |this, window, cx| {
                 let active = window.is_window_active();
                 if this.main_window_active != active {
@@ -751,6 +768,17 @@ impl ApplicationView {
         });
     }
 
+    fn summary_completed(&mut self, session: SessionId, title: &str, cx: &mut Context<Self>) {
+        crate::meeting::automation::summary_ready(&session, title, cx);
+        self.workspace.update(cx, |workspace, cx| {
+            workspace.run_automations(
+                crate::workspace::automation_runner::Trigger::NoteEnhanced,
+                session,
+                cx,
+            );
+        });
+    }
+
     pub fn native_tick(&mut self, cx: &mut Context<Self>) {
         self.sync_recording_title(cx);
         self.poll_downloads(cx);
@@ -774,6 +802,11 @@ impl ApplicationView {
                     crate::telemetry::track("recording_completed", &[]);
                     lock::capture_ended(&session, cx);
                     crate::meeting::automation::capture_completed(cx);
+                    if !self.closing && !self.shutdown_begun() {
+                        crate::meeting::upload::Uploads::global(cx).update(cx, |uploads, cx| {
+                            uploads.capture_transcribed(session.clone(), cx)
+                        });
+                    }
                     self.workspace.update(cx, |workspace, cx| {
                         workspace.run_automations(
                             crate::workspace::automation_runner::Trigger::MeetingCompleted,
@@ -1553,14 +1586,7 @@ impl ApplicationView {
         self.meeting_subscription = Some(cx.subscribe(&meeting, |this, _, event, cx| {
             match event {
                 MeetingEvent::NoteEnhanced(session) => {
-                    crate::meeting::automation::summary_ready(session, "", cx);
-                    this.workspace.update(cx, |workspace, cx| {
-                        workspace.run_automations(
-                            crate::workspace::automation_runner::Trigger::NoteEnhanced,
-                            session.clone(),
-                            cx,
-                        );
-                    })
+                    this.summary_completed(session.clone(), "", cx);
                 }
                 MeetingEvent::Recording { session_id, active } => {
                     this.workspace.update(cx, |workspace, cx| {

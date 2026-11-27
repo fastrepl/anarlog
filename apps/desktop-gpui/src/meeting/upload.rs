@@ -856,6 +856,11 @@ impl Uploads {
         self.summaries.remove(session)
     }
 
+    /// Requests automatic summary generation once live capture has persisted its transcript.
+    pub fn capture_transcribed(&mut self, session: SessionId, cx: &mut Context<Self>) {
+        self.transcribed(session, true, cx);
+    }
+
     fn transcribed(&mut self, session: SessionId, if_empty: bool, cx: &mut Context<Self>) {
         self.summaries.insert(session.clone(), if_empty);
         cx.emit(UploadEvent::Transcribed(session));
@@ -1736,5 +1741,35 @@ mod tests {
                 .contains("synthetic_text")
         );
         assert!(is_audio(Path::new("call.M4A")) && !is_audio(Path::new("notes.txt")));
+    }
+
+    #[gpui::test]
+    fn capture_transcribed_announces_an_if_empty_summary_request(cx: &mut gpui::TestAppContext) {
+        let uploads = cx.update(Uploads::global);
+        let events = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let recorded = events.clone();
+        let _subscription = cx.update(|cx| {
+            cx.subscribe(&uploads, move |_, event, _| {
+                if let UploadEvent::Transcribed(session) = event {
+                    recorded.lock().unwrap().push(session.clone());
+                }
+            })
+        });
+        let session = SessionId("live-session".into());
+        cx.update(|cx| {
+            uploads.update(cx, |uploads, cx| {
+                uploads.capture_transcribed(session.clone(), cx);
+            });
+        });
+        cx.run_until_parked();
+        assert_eq!(*events.lock().unwrap(), vec![session.clone()]);
+        assert_eq!(
+            cx.update(|cx| uploads.update(cx, |uploads, _| uploads.claim_summary(&session))),
+            Some(true)
+        );
+        assert_eq!(
+            cx.update(|cx| uploads.update(cx, |uploads, _| uploads.claim_summary(&session))),
+            None
+        );
     }
 }

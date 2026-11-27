@@ -38,5 +38,5 @@ mod undo_delete;
 
 pub use contacts::facehash;
 pub use open_note::meeting_records::MeetingRecords;
-pub(crate) use open_note::{NoteEvent, NoteView};
+pub(crate) use open_note::{NoteEvent, NoteView, SummaryEvent, SummaryJobs};
 pub use shell::{WorkspaceAction, WorkspaceView};
