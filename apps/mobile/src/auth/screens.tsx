@@ -447,9 +447,10 @@ const useStyles = createStyleHook((Colors) => ({
   signInTitle: {
     maxWidth: 340,
     color: "#272321",
-    fontFamily: "CaveatSemiBold",
-    fontSize: 38,
-    lineHeight: 44,
+    fontWeight: "600",
+    fontSize: 30,
+    lineHeight: 36,
+    letterSpacing: -0.6,
     textAlign: "center",
   },
   signInMethodList: {

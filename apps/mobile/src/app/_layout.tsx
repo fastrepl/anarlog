@@ -1,6 +1,5 @@
 import * as Sentry from "@sentry/react-native";
 import { useMutation, QueryClientProvider } from "@tanstack/react-query";
-import { useFonts } from "expo-font";
 import { type ErrorBoundaryProps, Stack, usePathname } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
@@ -208,13 +207,10 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
 
 function RootLayout() {
   const styles = useStyles();
-  const [fontsLoaded, fontError] = useFonts({
-    CaveatSemiBold: require("../../assets/fonts/Caveat-SemiBold.ttf"),
-  });
   const [startupAnimationComplete, setStartupAnimationComplete] =
     useState(false);
 
-  if (!startupAnimationComplete || (!fontsLoaded && !fontError)) {
+  if (!startupAnimationComplete) {
     return (
       <BrandLoadingView
         animated={!startupAnimationComplete}
