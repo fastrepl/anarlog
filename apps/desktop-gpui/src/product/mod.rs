@@ -328,12 +328,7 @@ impl ProductPane {
                 self.open_page_subscription = Some(cx.subscribe(
                     &view,
                     |this, _, OpenSettingsPage(id): &OpenSettingsPage, cx| {
-                        // Show release notes opens the workspace's changelog tab.
-                        if *id == "changelog" {
-                            cx.emit(OpenWorkspaceSection(id));
-                        } else {
-                            this.select_page(navigation::page(id), cx)
-                        }
+                        this.select_page(navigation::page(id), cx)
                     },
                 ));
                 self.preferences = Some(view);
@@ -688,6 +683,39 @@ impl ProductPane {
                             })
                     }))
             }));
+        let release_notes = div()
+            .flex_shrink_0()
+            .py_2()
+            .border_t_1()
+            .border_color(colors.border)
+            .child(
+                div()
+                    .id("settings-release-notes")
+                    .debug_selector(|| "settings-release-notes".into())
+                    .a11y_button("Release notes")
+                    .group("settings-release-notes")
+                    .w_full()
+                    .px_3()
+                    .py_2()
+                    .flex()
+                    .items_center()
+                    .gap_2()
+                    .text_sm()
+                    .line_height(px(20.))
+                    .cursor_pointer()
+                    .text_color(muted)
+                    .hover(|style| style.bg(hover).text_color(colors.foreground))
+                    .on_click(cx.listener(|_, _, _, cx| {
+                        cx.emit(OpenWorkspaceSection("changelog"));
+                    }))
+                    .child(
+                        controls::icon("workspace/FileTextIcon.svg", 15., muted)
+                            .group_hover("settings-release-notes", |style| {
+                                style.text_color(colors.foreground)
+                            }),
+                    )
+                    .child(div().flex_1().min_w_0().truncate().child("Release notes")),
+            );
         div()
             .w(px(200.))
             .h_full()
@@ -706,6 +734,7 @@ impl ProductPane {
                     .overflow_y_scroll()
                     .child(list),
             )
+            .child(release_notes)
     }
 
     fn page(&mut self, colors: &Theme, cx: &mut Context<Self>) -> Div {
@@ -851,5 +880,62 @@ impl Render for ProductPane {
             )
             .children(dialog)
             .children(toast)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use desktop_runtime::{Profile, RuntimeHandle};
+    use gpui::{Modifiers, TestAppContext};
+
+    use super::*;
+
+    #[gpui::test]
+    fn sidebar_release_notes_button_opens_changelog_instead_of_general_page(
+        cx: &mut TestAppContext,
+    ) {
+        cx.executor().allow_parking();
+        cx.update(crate::ui::theme::UiFonts::init);
+        let directory = tempfile::tempdir().unwrap();
+        let (runtime, ready) = RuntimeHandle::start(Profile {
+            database: directory.path().join("library.sqlite"),
+        })
+        .unwrap();
+        futures::executor::block_on(ready.receive()).unwrap();
+
+        let (pane, cx) = cx.add_window_view(|window, cx| {
+            ProductPane::new(
+                LaneContext {
+                    runtime: runtime.clone(),
+                },
+                ProductRoute::Settings,
+                window,
+                cx,
+            )
+        });
+        let opened = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let recorded = opened.clone();
+        let _subscription = cx.update(|_, cx| {
+            cx.subscribe(&pane, move |_, OpenWorkspaceSection(section), _| {
+                recorded.lock().unwrap().push(*section);
+            })
+        });
+        cx.simulate_resize(gpui::size(px(900.), px(640.)));
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        cx.run_until_parked();
+
+        assert!(!navigation::matches(
+            navigation::page("app"),
+            "Show release notes"
+        ));
+        let button = cx
+            .debug_bounds("settings-release-notes")
+            .expect("sidebar release notes button");
+        cx.simulate_click(button.center(), Modifiers::none());
+        cx.run_until_parked();
+        assert_eq!(*opened.lock().unwrap(), vec!["changelog"]);
+
+        drop(pane);
+        futures::executor::block_on(runtime.shutdown()).unwrap();
     }
 }

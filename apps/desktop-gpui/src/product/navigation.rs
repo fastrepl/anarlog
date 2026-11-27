@@ -37,7 +37,6 @@ pub const PAGES: &[Page] = &[
         &[
             "Start Anarlog at login",
             "Automatically install updates",
-            "Show release notes",
             "Show app in Dock",
             "Show tray icon",
             "Language & Region",

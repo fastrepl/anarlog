@@ -227,6 +227,13 @@ fn settings_navigation_and_controls_are_named() {
     );
     tree.find(Role::TextInput, "Search settings");
     tree.find(Role::Heading, "General");
+    tree.find(Role::Button, "Release notes");
+    assert!(
+        tree.root()
+            .items(Role::Button)
+            .iter()
+            .all(|button| button.label() != "Show release notes")
+    );
     // Every switch is named and reports its state.
     let switches = tree.root().items(Role::Switch);
     assert!(!switches.is_empty(), "{}", tree.outline());
