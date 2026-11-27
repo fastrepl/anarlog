@@ -39,7 +39,8 @@ const ChatgptModelSchema = Schema.Struct({
   ),
 });
 
-const CHATGPT_CODEX_CLIENT_VERSION = "0.145.0";
+// OpenAI filters newer models out of catalogs requested by older clients.
+const CHATGPT_CODEX_CLIENT_VERSION = "0.165.0";
 
 const CopilotModelSchema = Schema.Struct({
   data: Schema.Array(
