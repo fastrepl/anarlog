@@ -345,19 +345,106 @@ fn partial_words_inherit_speaker_index_across_channels() {
 }
 
 #[test]
-fn overlapping_channels_produce_interleaved_segments() {
+fn overlapping_channels_keep_each_speakers_words_together() {
     let finals = vec![
-        fw("0", 0, 100, 0),
-        fw("1", 50, 150, 1),
-        fw("2", 200, 300, 0),
-        fw("3", 250, 350, 1),
+        fw_si("I", 0, 100, 0, 0),
+        fw_si("That", 50, 150, 1, 0),
+        fw_si("agree", 200, 300, 0, 0),
+        fw_si("works", 250, 350, 1, 0),
     ];
-    let result = build_segments(&finals, &[], &[], None);
-    assert_eq!(result.len(), 4);
-    assert_eq!(result[0].key, key(0));
-    assert_eq!(result[1].key, key(1));
-    assert_eq!(result[2].key, key(0));
-    assert_eq!(result[3].key, key(1));
+    let partials = vec![pw_si("too", 400, 500, 0, 0), pw_si("well", 450, 550, 1, 0)];
+    let result = build_segments(&finals, &partials, &[], None);
+    assert_eq!(result.len(), 2);
+    assert_eq!(result[0].key, key_speaker(0, 0));
+    assert_eq!(result[1].key, key_speaker(1, 0));
+    assert_eq!(texts(&result[0]), vec!["I", "agree", "too"]);
+    assert_eq!(texts(&result[1]), vec!["That", "works", "well"]);
+    assert_eq!(is_finals(&result[0]), vec![true, true, false]);
+    assert_eq!(is_finals(&result[1]), vec![true, true, false]);
+    for word in &finals {
+        let rendered = result
+            .iter()
+            .flat_map(|segment| &segment.words)
+            .find(|rendered| rendered.id.as_deref() == Some(word.id.as_str()))
+            .unwrap();
+        assert_eq!(
+            (rendered.start_ms, rendered.end_ms),
+            (word.start_ms, word.end_ms)
+        );
+    }
+}
+
+#[test]
+fn overlapping_same_channel_words_use_the_furthest_end() {
+    let words = vec![
+        fw_si("mic-long", 0, 400, 0, 0),
+        fw_si("mic-short", 100, 150, 0, 0),
+        fw_si("remote", 200, 500, 1, 0),
+        fw_si("mic-return", 350, 450, 0, 0),
+    ];
+    let result = build_segments(&words, &[], &[], None);
+    assert_eq!(
+        result.iter().map(texts).collect::<Vec<_>>(),
+        vec![vec!["mic-long", "mic-short", "mic-return"], vec!["remote"]]
+    );
+}
+
+#[test]
+fn completed_intervening_turns_do_not_join_separate_speech() {
+    for (remote_speaker, expected) in [
+        (
+            0,
+            vec![
+                vec!["mic-first"],
+                vec!["remote-first", "remote-last"],
+                vec!["mic-return"],
+            ],
+        ),
+        (
+            1,
+            vec![
+                vec!["mic-first"],
+                vec!["remote-first"],
+                vec!["remote-last"],
+                vec!["mic-return"],
+            ],
+        ),
+    ] {
+        let words = vec![
+            fw_si("mic-first", 0, 100, 0, 0),
+            fw_si("remote-first", 50, 150, 1, 0),
+            fw_si("remote-last", 200, 300, 1, remote_speaker),
+            fw_si("mic-return", 350, 450, 0, 0),
+        ];
+        let result = build_segments(&words, &[], &[], None);
+        assert_eq!(
+            result.iter().map(texts).collect::<Vec<_>>(),
+            expected,
+            "remote speaker {remote_speaker}"
+        );
+        assert_eq!(result.last().unwrap().key, key_speaker(0, 0));
+    }
+}
+
+#[test]
+fn speech_starting_in_a_pause_keeps_the_returning_turn_separate() {
+    for leading_overlap in [false, true] {
+        let mut words = vec![fw_si("mic-first", 0, 100, 0, 0)];
+        if leading_overlap {
+            words.push(fw_si("remote-first", 50, 150, 1, 0));
+        }
+        words.extend([
+            fw_si("remote", 150, 400, 1, 1),
+            fw_si("mic-return", 200, 300, 0, 0),
+        ]);
+        let result = build_segments(&words, &[], &[], None);
+        let expected: Vec<_> = words.iter().map(|word| vec![word.text.as_str()]).collect();
+        assert_eq!(
+            result.iter().map(texts).collect::<Vec<_>>(),
+            expected,
+            "leading overlap {leading_overlap}"
+        );
+    }
 }
 
 #[test]
