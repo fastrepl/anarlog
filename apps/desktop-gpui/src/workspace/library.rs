@@ -49,6 +49,7 @@ pub struct LibraryView {
     /// The open note's row has not loaded yet; reveal it when it does, like shipping's
     /// selected-row ref.
     reveal_active: bool,
+    now_hovered: bool,
 }
 
 #[derive(Clone)]
@@ -189,7 +190,10 @@ impl LibraryView {
         let entity = cx.entity().downgrade();
         // Chips, the sticky heading and the fade depend on the scroll position.
         scroll.set_scroll_handler(move |_, _, cx| {
-            let _ = entity.update(cx, |_, cx| cx.notify());
+            let _ = entity.update(cx, |this, cx| {
+                this.now_hovered = false;
+                cx.notify();
+            });
         });
         Self {
             page: Arc::new(LibraryPage {
@@ -215,6 +219,7 @@ impl LibraryView {
             show_tags: false,
             centring: None,
             reveal_active: false,
+            now_hovered: false,
         }
     }
 
@@ -525,34 +530,47 @@ impl LibraryView {
             Some(Row::Heading(label)) => heading(label.clone(), colors)
                 .id(("timeline-heading", row))
                 .a11y_heading(gpui::SharedString::from(label), 3)
+                .block_mouse_except_scroll()
                 .into_any_element(),
             Some(Row::Now { above, below }) => div()
                 .pt(px(above))
                 .pb(px(below))
-                .child(self.now_line(None, cx))
+                .child(div().h(px(1.)).w_full())
                 .into_any_element(),
-            Some(Row::Item { item, indicator }) => {
-                let element = self.render_item(item, date_grouping, colors, cx);
-                match indicator {
-                    Some(position) => div()
-                        .relative()
-                        .child(element)
-                        .child(self.now_line(Some(position), cx))
-                        .into_any_element(),
-                    None => element,
-                }
-            }
+            Some(Row::Item { item, .. }) => self.render_item(item, date_grouping, colors, cx),
         }
     }
 
-    /// The red current-time line; `inside` positions it over an ongoing item. A live recording
-    /// in the timeline replaces the line with an invisible anchor, as in the shipping app.
-    fn now_line(&self, inside: Option<f32>, cx: &Context<Self>) -> gpui::Div {
+    /// Overlay element for the red current-time line so the centered timestamp badge never
+    /// clips behind the following bucket heading or item row.
+    fn now_indicator(&self, cx: &Context<Self>) -> Option<NowIndicatorLayer> {
         let live = self
             .page
             .items
             .iter()
             .any(|item| self.recording.contains(&item.id));
+        if live {
+            return None;
+        }
+        let row = self.timeline.now_row()?;
+        let offset = match self.timeline.rows.get(row)? {
+            Row::Now { above, .. } => NowOffset::Above(*above),
+            Row::Item {
+                indicator: Some(position),
+                ..
+            } => NowOffset::Ratio(*position),
+            _ => return None,
+        };
+        Some(NowIndicatorLayer {
+            scroll: self.scroll.clone(),
+            row,
+            offset,
+            element: Some(self.now_line_element(cx)),
+        })
+    }
+
+    /// The red current-time line and centered badge.
+    fn now_line_element(&self, cx: &Context<Self>) -> gpui::AnyElement {
         let label = self.timeline.now.map(|now| {
             local_time(now, self.timezone)
                 .format(if self.use_24_hour_time {
@@ -563,54 +581,53 @@ impl LibraryView {
                 .to_string()
         });
         div()
-            .h(px(1.))
+            .id("current-time")
+            .debug_selector(|| "timeline-current-time".into())
+            .group("current-time")
+            .relative()
             .w_full()
-            .when_some(inside, |view, position| {
-                view.absolute().left_0().top(gpui::relative(position))
-            })
-            .when(!live, |view| {
+            .h(px(20.))
+            .flex()
+            .items_center()
+            .justify_center()
+            .on_hover(cx.listener(|this, hovered: &bool, _, cx| {
+                if this.now_hovered != *hovered {
+                    this.now_hovered = *hovered;
+                    cx.notify();
+                }
+            }))
+            .child(
+                div()
+                    .absolute()
+                    .left_0()
+                    .right_0()
+                    .top(px(10.))
+                    .h(px(1.))
+                    .bg(Hsla::from(rgb(RED_500)).opacity(0.85)),
+            )
+            .when_some(label, |view, label| {
                 view.child(
                     div()
-                        .id("current-time")
-                        .group("current-time")
-                        .absolute()
-                        .left_0()
-                        .right_0()
-                        .top(px(-10.))
-                        .h(px(20.))
-                        .flex()
-                        .items_center()
-                        .justify_center()
-                        .child(
-                            div()
-                                .absolute()
-                                .left_0()
-                                .right_0()
-                                .top(px(10.))
-                                .h(px(1.))
-                                .bg(Hsla::from(rgb(RED_500)).opacity(0.85)),
-                        )
-                        .when_some(label, |view, label| {
-                            view.child(
-                                div()
-                                    .border_1()
-                                    .border_color(rgb(RED_500))
-                                    .bg(rgb(RED_500))
-                                    .px_2()
-                                    .py(px(2.))
-                                    .font_family(monospace_font(cx))
-                                    .text_size(px(11.))
-                                    .line_height(px(14.))
-                                    .font_weight(gpui::FontWeight::SEMIBOLD)
-                                    .text_color(gpui::white())
-                                    .shadow_xs()
-                                    .opacity(0.)
-                                    .group_hover("current-time", |style| style.opacity(1.))
-                                    .child(label),
-                            )
-                        }),
+                        .when(self.now_hovered, |badge| {
+                            badge.debug_selector(|| "timeline-current-time-badge".into())
+                        })
+                        .border_1()
+                        .border_color(rgb(RED_500))
+                        .bg(rgb(RED_500))
+                        .px_2()
+                        .py(px(2.))
+                        .font_family(monospace_font(cx))
+                        .text_size(px(11.))
+                        .line_height(px(14.))
+                        .font_weight(gpui::FontWeight::SEMIBOLD)
+                        .text_color(gpui::white())
+                        .shadow_xs()
+                        .opacity(if self.now_hovered { 1. } else { 0. })
+                        .group_hover("current-time", |style| style.opacity(1.))
+                        .child(label),
                 )
             })
+            .into_any_element()
     }
 
     fn render_item(
@@ -1217,6 +1234,105 @@ fn fade(color: Hsla) -> gpui::Div {
         ))
 }
 
+#[derive(Clone, Copy)]
+enum NowOffset {
+    Above(f32),
+    Ratio(f32),
+}
+
+struct NowIndicatorLayer {
+    scroll: ListState,
+    row: usize,
+    offset: NowOffset,
+    element: Option<gpui::AnyElement>,
+}
+
+impl gpui::Element for NowIndicatorLayer {
+    type RequestLayoutState = ();
+    type PrepaintState = Option<gpui::Bounds<Pixels>>;
+
+    fn id(&self) -> Option<gpui::ElementId> {
+        None
+    }
+
+    fn source_location(&self) -> Option<&'static core::panic::Location<'static>> {
+        None
+    }
+
+    fn request_layout(
+        &mut self,
+        _id: Option<&gpui::GlobalElementId>,
+        _inspector_id: Option<&gpui::InspectorElementId>,
+        window: &mut Window,
+        cx: &mut gpui::App,
+    ) -> (gpui::LayoutId, Self::RequestLayoutState) {
+        let mut style = gpui::Style {
+            position: gpui::Position::Absolute,
+            ..Default::default()
+        };
+        style.inset.top = px(0.).into();
+        style.inset.right = px(0.).into();
+        style.inset.bottom = px(0.).into();
+        style.inset.left = px(0.).into();
+        (window.request_layout(style, [], cx), ())
+    }
+
+    fn prepaint(
+        &mut self,
+        _id: Option<&gpui::GlobalElementId>,
+        _inspector_id: Option<&gpui::InspectorElementId>,
+        bounds: gpui::Bounds<Pixels>,
+        _: &mut Self::RequestLayoutState,
+        window: &mut Window,
+        cx: &mut gpui::App,
+    ) -> Self::PrepaintState {
+        let item_bounds = self.scroll.bounds_for_item(self.row)?;
+        let y = match self.offset {
+            NowOffset::Above(above) => item_bounds.top() + px(above),
+            NowOffset::Ratio(ratio) => item_bounds.top() + item_bounds.size.height * ratio,
+        };
+        let half = px(10.);
+        if y + half < bounds.top() || y - half > bounds.bottom() {
+            return None;
+        }
+        let mut element = self.element.take()?;
+        let indicator_bounds = gpui::Bounds::new(
+            gpui::point(bounds.left(), y - half),
+            gpui::size(bounds.size.width, px(20.)),
+        );
+        window.with_content_mask(Some(gpui::ContentMask { bounds }), |window| {
+            element.layout_as_root(
+                gpui::size(bounds.size.width.into(), px(20.).into()),
+                window,
+                cx,
+            );
+            element.prepaint_at(indicator_bounds.origin, window, cx);
+        });
+        self.element = Some(element);
+        Some(indicator_bounds)
+    }
+
+    fn paint(
+        &mut self,
+        _id: Option<&gpui::GlobalElementId>,
+        _inspector_id: Option<&gpui::InspectorElementId>,
+        bounds: gpui::Bounds<Pixels>,
+        _: &mut Self::RequestLayoutState,
+        prepaint: &mut Self::PrepaintState,
+        window: &mut Window,
+        cx: &mut gpui::App,
+    ) {
+        if prepaint.is_none() {
+            return;
+        }
+        if let Some(element) = &mut self.element {
+            window.with_content_mask(Some(gpui::ContentMask { bounds }), |window| {
+                element.paint(window, cx);
+            });
+        }
+    }
+}
+
 impl Render for LibraryView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         self.centre_row(window);
@@ -1224,6 +1340,7 @@ impl Render for LibraryView {
         let (_, remaining) = self.scroll_offset();
         let (chips, bottom_now) = self.chips(colors, cx);
         let sticky = self.sticky_heading(colors);
+        let now_indicator = self.now_indicator(cx);
         div()
             .id("timeline")
             .a11y_group(gpui::Role::List, "Timeline")
@@ -1306,6 +1423,7 @@ impl Render for LibraryView {
                 )
                 .size_full(),
             )
+            .when_some(now_indicator, |view, layer| view.child(layer))
             .when(remaining > px(12.), |view| {
                 view.child(fade(colors.background))
             })
@@ -1531,5 +1649,95 @@ mod tests {
         assert!(selection.ids.contains(&ids[1]));
         selection.click(ids[0].clone(), &ids[..1], false, true);
         assert_eq!(selection.ids, HashSet::from([ids[0].clone()]));
+    }
+
+    #[gpui::test]
+    fn now_indicator_overlay_extends_unclipped_across_following_heading(
+        cx: &mut gpui::TestAppContext,
+    ) {
+        use chrono::Timelike;
+
+        let now = Utc::now();
+        let tz = if (2..22).contains(&now.hour()) {
+            chrono_tz::UTC
+        } else {
+            chrono_tz::Pacific::Honolulu
+        };
+        let event_start = now + chrono::Duration::minutes(30);
+        let past_at: Arc<str> = (now - chrono::Duration::days(1)).to_rfc3339().into();
+        let events = EventWindow {
+            events: Arc::from([super::timeline::TimelineEvent {
+                id: "ev-future".into(),
+                title: "Future event".into(),
+                start: event_start,
+                end: Some(event_start + chrono::Duration::hours(1)),
+                all_day: false,
+                tracking: "".into(),
+                series: "".into(),
+            }]),
+            later: false,
+        };
+        let page = Arc::new(LibraryPage {
+            items: Arc::from([desktop_runtime::SessionSummary {
+                id: SessionId("yesterday-note".into()),
+                title: "Yesterday note".into(),
+                updated_at: past_at.clone(),
+                created_at: past_at,
+                folder_path: "".into(),
+                tag_line: "".into(),
+                event_start: "".into(),
+                event_end: "".into(),
+            }]),
+            offset: 0,
+            has_more: false,
+        });
+        cx.update(crate::ui::theme::UiFonts::init);
+        let (library, cx) = cx.add_window_view(|_, cx| LibraryView::new(cx));
+        cx.simulate_resize(gpui::size(px(280.), px(400.)));
+        library.update(cx, |library, cx| {
+            library.set_clock(false, Some(tz), cx);
+            library.set_events(events, cx);
+            library.set_page(page, cx);
+        });
+        let mut indicator = None;
+        for _ in 0..40 {
+            cx.update(|window, cx| window.draw(cx).clear(cx));
+            cx.run_until_parked();
+            if let Some(bounds) = cx.debug_bounds("timeline-current-time") {
+                indicator = Some(bounds);
+                break;
+            }
+        }
+        let indicator = indicator.expect("now indicator bounds rendered");
+        let (row_bounds, next_bounds) = library.read_with(cx, |library, _| {
+            let now_row = library.timeline.now_row().expect("now row");
+            (
+                library.scroll.bounds_for_item(now_row).unwrap(),
+                library.scroll.bounds_for_item(now_row + 1).unwrap(),
+            )
+        });
+        assert_eq!(indicator.size.height, px(20.));
+        assert_eq!(indicator.top(), row_bounds.top() - px(10.));
+        assert!(indicator.bottom() > next_bounds.top());
+        assert!(cx.debug_bounds("timeline-current-time-badge").is_none());
+
+        let overlap = gpui::point(
+            indicator.center().x,
+            (next_bounds.top() + indicator.bottom()) * 0.5,
+        );
+        cx.simulate_mouse_move(overlap, None, gpui::Modifiers::none());
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        cx.run_until_parked();
+
+        let badge = cx
+            .debug_bounds("timeline-current-time-badge")
+            .expect("hovered now badge bounds rendered");
+        assert!(badge.contains(&overlap));
+        assert!(badge.bottom() > next_bounds.top());
+
+        cx.simulate_mouse_move(gpui::point(px(1.), px(1.)), None, gpui::Modifiers::none());
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        cx.run_until_parked();
+        assert!(cx.debug_bounds("timeline-current-time-badge").is_none());
     }
 }
