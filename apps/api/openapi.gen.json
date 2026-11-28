@@ -349,7 +349,40 @@
           "504": {
             "description": "Request timeout"
           }
-        }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/llm/models": {
+      "get": {
+        "tags": [
+          "llm"
+        ],
+        "operationId": "llm_list_models",
+        "responses": {
+          "200": {
+            "description": "Available hosted LLM models",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
       }
     },
     "/mail/google/get-attachment": {
@@ -10660,6 +10693,24 @@
           }
         }
       },
+      "ModelsResponse": {
+        "type": "object",
+        "required": [
+          "object",
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SelectableModel"
+            }
+          },
+          "object": {
+            "type": "string"
+          }
+        }
+      },
       "NotificationMethod": {
         "type": "string",
         "enum": [
@@ -12040,6 +12091,36 @@
             "type": "string"
           },
           "versionRef": {
+            "type": "string"
+          }
+        }
+      },
+      "SelectableModel": {
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "input_modalities",
+          "object",
+          "owned_by"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "input_modalities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "label": {
+            "type": "string"
+          },
+          "object": {
+            "type": "string"
+          },
+          "owned_by": {
             "type": "string"
           }
         }

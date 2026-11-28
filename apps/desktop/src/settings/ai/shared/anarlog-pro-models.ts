@@ -1,5 +1,10 @@
-// Must stay in sync with SELECTABLE_MODELS in crates/llm-proxy/src/model.rs;
-// the proxy routes any other id to its task default.
+import type {
+  InputModality,
+  ListModelsResult,
+  ModelMetadata,
+} from "./list-common";
+
+// Fallback list when GET /llm/models is unreachable; kept aligned with crates/llm-proxy/src/model.rs.
 export const ANARLOG_PRO_LLM_MODELS = [
   { id: "Auto", label: "Pro (Cloud)", inputModalities: ["text", "image"] },
   {
@@ -75,6 +80,103 @@ export const ANARLOG_PRO_LLM_MODELS = [
   },
 ] as const;
 
+const KNOWN_MODALITIES = new Map<string, readonly InputModality[]>(
+  ANARLOG_PRO_LLM_MODELS.map(({ id, inputModalities }) => [
+    id,
+    inputModalities,
+  ]),
+);
+
+const KNOWN_LABELS = new Map<string, string>(
+  ANARLOG_PRO_LLM_MODELS.map(({ id, label }) => [id, label]),
+);
+
 export function anarlogProLlmModelLabel(model: string): string | undefined {
-  return ANARLOG_PRO_LLM_MODELS.find(({ id }) => id === model)?.label;
+  return KNOWN_LABELS.get(model);
+}
+
+export function getAnarlogProModelModalities(
+  model: string,
+): readonly InputModality[] | undefined {
+  return KNOWN_MODALITIES.get(model);
+}
+
+export function createStaticAnarlogProModelResult(): ListModelsResult {
+  return {
+    models: ANARLOG_PRO_LLM_MODELS.map(({ id }) => id),
+    ignored: [],
+    metadata: Object.fromEntries(
+      ANARLOG_PRO_LLM_MODELS.map(({ id, inputModalities }) => [
+        id,
+        { input_modalities: [...inputModalities] },
+      ]),
+    ),
+  };
+}
+
+type LlmProxyModelsPayload = {
+  data?: Array<{
+    id?: unknown;
+    label?: unknown;
+    input_modalities?: unknown;
+  }>;
+};
+
+function parseModalities(value: unknown): InputModality[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const filtered = value.filter(
+    (entry): entry is InputModality => entry === "text" || entry === "image",
+  );
+  return filtered.length > 0 ? filtered : undefined;
+}
+
+export async function listAnarlogProModels(
+  baseUrl: string,
+  fetcher: typeof fetch,
+): Promise<ListModelsResult> {
+  const normalizedBase = baseUrl.trim().replace(/\/+$/, "");
+  if (!normalizedBase) {
+    return createStaticAnarlogProModelResult();
+  }
+
+  try {
+    const response = await fetcher(`${normalizedBase}/models`, {
+      method: "GET",
+    });
+    if (!response.ok) {
+      return createStaticAnarlogProModelResult();
+    }
+
+    const payload = (await response.json()) as LlmProxyModelsPayload;
+    const models: string[] = [];
+    const metadata: Record<string, ModelMetadata> = {};
+    const seen = new Set<string>();
+
+    for (const item of payload.data ?? []) {
+      const id = typeof item.id === "string" ? item.id.trim() : "";
+      if (!id || seen.has(id)) {
+        continue;
+      }
+      seen.add(id);
+      models.push(id);
+      const label = typeof item.label === "string" ? item.label.trim() : "";
+      if (label) {
+        KNOWN_LABELS.set(id, label);
+      }
+      const modalities = parseModalities(item.input_modalities) ??
+        KNOWN_MODALITIES.get(id) ?? ["text"];
+      KNOWN_MODALITIES.set(id, modalities);
+      metadata[id] = { input_modalities: [...modalities] };
+    }
+
+    if (models.length === 0) {
+      return createStaticAnarlogProModelResult();
+    }
+
+    return { models, ignored: [], metadata };
+  } catch {
+    return createStaticAnarlogProModelResult();
+  }
 }

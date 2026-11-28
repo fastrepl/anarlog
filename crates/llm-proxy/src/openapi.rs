@@ -1,6 +1,7 @@
 use utoipa::OpenApi;
 
-use crate::model::CharTask;
+use crate::handler::ModelsResponse;
+use crate::model::{CharTask, SelectableModel};
 
 #[utoipa::path(
     post,
@@ -16,14 +17,28 @@ use crate::model::CharTask;
         (status = 502, description = "Upstream provider failed"),
         (status = 504, description = "Request timeout"),
     ),
+    security(("bearer_auth" = [])),
     tag = "llm",
 )]
 async fn _chat_completions_spec() {}
 
+#[utoipa::path(
+    get,
+    path = "/llm/models",
+    operation_id = "llm_list_models",
+    responses(
+        (status = 200, description = "Available hosted LLM models", body = ModelsResponse),
+        (status = 401, description = "Unauthorized"),
+    ),
+    security(("bearer_auth" = [])),
+    tag = "llm",
+)]
+async fn _models_spec() {}
+
 #[derive(OpenApi)]
 #[openapi(
-    paths(_chat_completions_spec),
-    components(schemas(CharTask)),
+    paths(_chat_completions_spec, _models_spec),
+    components(schemas(CharTask, ModelsResponse, SelectableModel)),
     tags((name = "llm", description = "LLM chat completions proxy"))
 )]
 pub struct ApiDoc;

@@ -1,6 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 import {
   Select,
@@ -25,19 +25,25 @@ import {
   listSubscriptionModels,
 } from "./subscriptions";
 
+import { createAuthFetch } from "~/ai/auth-fetch";
 import {
   normalizeReasoningEffort,
   supportsReasoningEffort,
 } from "~/ai/reasoning-effort";
+import { tracedFetch } from "~/ai/traced-fetch";
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing-context";
+import { env } from "~/env";
 import {
   providerRowId,
   ProviderIconSlot,
   requiresKeyVerification,
   useProviderAvailability,
 } from "~/settings/ai/shared";
-import { ANARLOG_PRO_LLM_MODELS } from "~/settings/ai/shared/anarlog-pro-models";
+import {
+  createStaticAnarlogProModelResult,
+  listAnarlogProModels,
+} from "~/settings/ai/shared/anarlog-pro-models";
 import {
   getProviderSelectionBlockers,
   requiresEntitlement,
@@ -48,11 +54,11 @@ import { listAzureAIModels } from "~/settings/ai/shared/list-azure-ai";
 import { listAzureOpenAIModels } from "~/settings/ai/shared/list-azure-openai";
 import { listCloudflareWorkersAIModels } from "~/settings/ai/shared/list-cloudflare-workers-ai";
 import {
-  type InputModality,
   type ListModelsResult,
   removeNonStreamingModels,
 } from "~/settings/ai/shared/list-common";
 import { listGoogleModels } from "~/settings/ai/shared/list-google";
+import { listGoogleVertexAIModels } from "~/settings/ai/shared/list-google-vertex-ai";
 import { listLMStudioModels } from "~/settings/ai/shared/list-lmstudio";
 import { listMistralModels } from "~/settings/ai/shared/list-mistral";
 import { listOllamaModels } from "~/settings/ai/shared/list-ollama";
@@ -513,28 +519,20 @@ type ProviderConfig = {
   api_key?: unknown;
 };
 
-const GOOGLE_VERTEX_AI_MODELS = [
-  "google/gemini-3.8-flash",
-  "google/gemini-3.7-flash",
-  "google/gemini-3.6-flash",
-  "google/gemini-3.5-flash-lite",
-  "google/gemini-3.1-pro-preview",
-  "google/gemini-3.5-flash",
-  "google/gemini-3.1-flash-lite",
-] as const;
-
 export function getLlmProviderStatus({
   provider,
   config,
   isAuthenticated,
   isPaid,
   isAvailable,
+  listAnarlogProModels: customListAnarlogProModels,
 }: {
   provider: Provider;
   config?: ProviderConfig;
   isAuthenticated: boolean;
   isPaid: boolean;
   isAvailable?: boolean;
+  listAnarlogProModels?: () => Promise<ListModelsResult>;
 }): ProviderStatus {
   const baseUrl = String(config?.base_url || provider.baseUrl || "").trim();
   const apiKey = String(config?.api_key || "").trim();
@@ -560,17 +558,12 @@ export function getLlmProviderStatus({
   }
 
   if (provider.id === "anarlog") {
-    const result: ListModelsResult = {
-      models: ANARLOG_PRO_LLM_MODELS.map(({ id }) => id),
-      ignored: [],
-      metadata: Object.fromEntries(
-        ANARLOG_PRO_LLM_MODELS.map(({ id, inputModalities }) => [
-          id,
-          { input_modalities: [...inputModalities] },
-        ]),
-      ),
+    return {
+      configured: true,
+      listModels:
+        customListAnarlogProModels ??
+        (async () => createStaticAnarlogProModelResult()),
     };
-    return { configured: true, listModels: async () => result };
   }
 
   let listModelsFunc: () => Promise<ListModelsResult>;
@@ -596,16 +589,7 @@ export function getLlmProviderStatus({
       listModelsFunc = () => listGoogleModels(baseUrl, apiKey);
       break;
     case "google_vertex_ai":
-      listModelsFunc = async () => ({
-        models: [...GOOGLE_VERTEX_AI_MODELS],
-        ignored: [],
-        metadata: Object.fromEntries(
-          GOOGLE_VERTEX_AI_MODELS.map((model) => [
-            model,
-            { input_modalities: ["text", "image"] as InputModality[] },
-          ]),
-        ),
-      });
+      listModelsFunc = () => listGoogleVertexAIModels(baseUrl, apiKey);
       break;
     case "mistral":
       listModelsFunc = () => listMistralModels(baseUrl, apiKey);
@@ -662,6 +646,25 @@ function useConfiguredMapping(): {
   ] as const);
   const { providers: configuredProviders, isReady } =
     useAiProvidersState("llm");
+  const getSessionForRequest = auth?.getSessionForRequest;
+  const refreshSession = auth?.refreshSession;
+  const isAuthenticated = !!auth?.session;
+
+  const listAnarlogModels = useCallback(async () => {
+    if (!getSessionForRequest || !refreshSession) {
+      return createStaticAnarlogProModelResult();
+    }
+    const baseUrl = new URL(
+      "/llm",
+      env.VITE_AI_API_URL ?? env.VITE_API_URL,
+    ).toString();
+    const fetcher = createAuthFetch(
+      tracedFetch,
+      async () => (await getSessionForRequest())?.access_token,
+      async () => (await refreshSession())?.access_token,
+    );
+    return listAnarlogProModels(baseUrl, fetcher);
+  }, [getSessionForRequest, refreshSession, isAuthenticated]);
 
   const mapping = useMemo(() => {
     return Object.fromEntries(
@@ -680,14 +683,22 @@ function useConfiguredMapping(): {
           getLlmProviderStatus({
             provider,
             config,
-            isAuthenticated: !!auth?.session,
+            isAuthenticated,
             isPaid: billing.isPaid,
             isAvailable,
+            listAnarlogProModels: listAnarlogModels,
           }),
         ];
       }),
     ) as Record<string, ProviderStatus>;
-  }, [configuredProviders, auth, billing, availability, current_llm_provider]);
+  }, [
+    configuredProviders,
+    isAuthenticated,
+    billing,
+    availability,
+    current_llm_provider,
+    listAnarlogModels,
+  ]);
 
   return {
     providers: mapping,

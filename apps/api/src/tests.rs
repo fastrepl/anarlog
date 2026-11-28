@@ -73,6 +73,7 @@ async fn service_roles_only_expose_owned_routes() {
         let app = app_with_env(Box::leak(Box::new(config))).await;
         for (owner, method, path) in [
             ("ai", Method::POST, "/llm/chat/completions"),
+            ("ai", Method::GET, "/llm/models"),
             ("ai", Method::GET, "/listen"),
             ("sync", Method::GET, "/v1/cloud-api/settings"),
             ("sync", Method::PUT, "/v1/sync-snapshots/session"),
@@ -794,6 +795,70 @@ async fn sync_composition_keeps_devices_and_sharing_available_when_credentials_a
         "shared_note_publication_forbidden"
     );
     server.verify().await;
+}
+
+#[tokio::test]
+async fn llm_models_bypasses_completion_rate_limit() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/auth/v1/.well-known/jwks.json"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "keys": [{
+                "kty": "EC",
+                "use": "sig",
+                "crv": "P-256",
+                "kid": TEST_KEY_ID,
+                "x": "w7JAoU_gJbZJvV-zCOvU9yFJq0FNC_edCMRM78P8eQQ",
+                "y": "wQg1EytcsEmGrM70Gb53oluoDbVhCZ3Uq3hHMslHVb4",
+                "alg": "ES256"
+            }]
+        })))
+        .mount(&server)
+        .await;
+
+    let mut env = deserialize_api_env([("ANARLOG_SERVICE", "ai")]);
+    env.supabase.supabase_url = server.uri();
+    let config = crate::env::RuntimeConfig::resolve(env).unwrap();
+    let app = routes::build_ai_routes(
+        &config,
+        anlg_transcribe_proxy::SessionGate::new(),
+        build_analytics_client(&config),
+        routes::llm_rate_limit_builder().enforce_in_debug().build(),
+    );
+
+    let free_token = token_with_entitlements(&[]);
+    for expected in [
+        StatusCode::UNPROCESSABLE_ENTITY,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        StatusCode::TOO_MANY_REQUESTS,
+    ] {
+        let completion = app
+            .clone()
+            .oneshot(
+                Request::post("/llm/chat/completions")
+                    .header(header::AUTHORIZATION, format!("Bearer {free_token}"))
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from("{}"))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(completion.status(), expected);
+    }
+
+    let models_response = app
+        .oneshot(
+            Request::get("/llm/models")
+                .header(header::AUTHORIZATION, format!("Bearer {free_token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(models_response.status(), StatusCode::OK);
 }
 
 #[tokio::test]

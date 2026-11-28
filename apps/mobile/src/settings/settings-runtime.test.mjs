@@ -2582,3 +2582,219 @@ test("Venice model discovery excludes offline and non-text entries", () => {
     ["venice-uncensored"],
   );
 });
+
+test("Vertex AI, Cloudflare Workers AI, and remote STT model discovery support live endpoints", async () => {
+  const { isListableRemoteSttProvider, parseSttProviderModels } =
+    await import("./provider-models.ts");
+
+  assert.equal(isListableRemoteSttProvider("deepgram"), true);
+  assert.equal(isListableRemoteSttProvider("soniox"), true);
+  assert.equal(isListableRemoteSttProvider("custom"), false);
+
+  assert.deepEqual(
+    parseProviderModels("google_vertex_ai", {
+      publisherModels: [
+        { name: "publishers/google/models/gemini-3.8-flash" },
+        { name: "publishers/google/models/text-embedding-005" },
+      ],
+    }),
+    ["google/gemini-3.8-flash"],
+  );
+  assert.deepEqual(
+    parseProviderModels("openrouter", {
+      data: [
+        {
+          id: "vendor/imagine-chat",
+          architecture: {
+            input_modalities: ["text"],
+            output_modalities: ["text"],
+          },
+        },
+        { id: "vendor/veo-video" },
+      ],
+    }),
+    ["vendor/imagine-chat", "vendor/veo-video"],
+  );
+
+  assert.deepEqual(
+    parseProviderModels("cloudflare_workers_ai", {
+      result: [
+        {
+          id: "cf-uuid-123",
+          name: "@cf/meta/llama-4-scout-17b-16e-instruct",
+          task: { name: "Text Generation" },
+        },
+        {
+          id: "cf-uuid-456",
+          name: "@cf/baai/bge-m3",
+          task: { name: "Text Embeddings" },
+        },
+      ],
+    }),
+    ["@cf/meta/llama-4-scout-17b-16e-instruct"],
+  );
+
+  assert.deepEqual(
+    parseSttProviderModels("deepgram", {
+      stt: [{ name: "general", canonical_name: "nova-3-general" }],
+    }),
+    ["nova-3-general"],
+  );
+  assert.deepEqual(
+    parseSttProviderModels("elevenlabs", [
+      { model_id: "eleven_multilingual_v2", can_do_text_to_speech: true },
+      { model_id: "eleven_english_sts_v2", can_do_text_to_speech: false },
+      { model_id: "scribe_v2", can_do_text_to_speech: false },
+      { model_id: "scribe_v2_realtime" },
+    ]),
+    ["scribe_v2", "scribe_v2_realtime"],
+  );
+  assert.equal(isListableRemoteSttProvider("openrouter"), false);
+
+  await saveProviderSetup(
+    "account-a",
+    "llm",
+    {
+      provider: "google_vertex_ai",
+      baseUrl:
+        "https://us-central1-aiplatform.googleapis.com/v1/projects/p/locations/global/endpoints/openapi",
+      model: "google/gemini-2.5-flash",
+    },
+    "vertex-key",
+  );
+  fixture.respond = async (url) => {
+    if (String(url).endsWith("/endpoints/openapi/models")) {
+      return Response.json({ models: [] });
+    }
+    if (
+      String(url) ===
+      "https://us-central1-aiplatform.googleapis.com/v1beta1/publishers/google/models"
+    ) {
+      return Response.json({
+        publisherModels: [
+          { name: "publishers/google/models/gemini-2.5-pro" },
+          { name: "publishers/google/models/veo-3.0-generate-001" },
+          { name: "publishers/google/models/imagen-3.0-generate-002" },
+        ],
+      });
+    }
+    return new Response("not found", { status: 404 });
+  };
+  assert.deepEqual(
+    await discoverProviderModels(
+      "account-a",
+      {
+        provider: "google_vertex_ai",
+        baseUrl:
+          "https://us-central1-aiplatform.googleapis.com/v1/projects/p/locations/global/endpoints/openapi",
+        model: "google/gemini-2.5-flash",
+      },
+      new AbortController().signal,
+      "llm",
+    ),
+    ["google/gemini-2.5-pro"],
+  );
+
+  await saveProviderSetup(
+    "account-a",
+    "llm",
+    {
+      provider: "cloudflare_workers_ai",
+      baseUrl: "https://api.cloudflare.com/client/v4/accounts/acct/ai/v1",
+      model: "@cf/openai/gpt-oss-120b",
+    },
+    "cf-key",
+  );
+  fixture.respond = async (url) => {
+    if (String(url).endsWith("/ai/v1/models")) {
+      return new Response("not found", { status: 404 });
+    }
+    return Response.json({
+      result: [
+        {
+          name: "@cf/moonshotai/kimi-k2.7-code",
+          task: { name: "Text Generation" },
+        },
+      ],
+    });
+  };
+  assert.deepEqual(
+    await discoverProviderModels(
+      "account-a",
+      {
+        provider: "cloudflare_workers_ai",
+        baseUrl: "https://api.cloudflare.com/client/v4/accounts/acct/ai/v1",
+        model: "@cf/openai/gpt-oss-120b",
+      },
+      new AbortController().signal,
+      "llm",
+    ),
+    ["@cf/moonshotai/kimi-k2.7-code"],
+  );
+
+  await saveProviderSetup(
+    "account-a",
+    "stt",
+    {
+      provider: "soniox",
+      baseUrl: "https://api.soniox.com",
+      model: "stt-rt-v5",
+    },
+    "soniox-key",
+  );
+  fixture.respond = async () =>
+    Response.json({
+      models: [{ id: "stt-rt-v5" }, { id: "stt-async-v4" }],
+    });
+  assert.deepEqual(
+    await discoverProviderModels(
+      "account-a",
+      {
+        provider: "soniox",
+        baseUrl: "https://api.soniox.com",
+        model: "stt-rt-v5",
+      },
+      new AbortController().signal,
+      "stt",
+    ),
+    ["stt-async-v4", "stt-rt-v5"],
+  );
+
+  assert.deepEqual(
+    parseSttProviderModels("mistral", {
+      data: [
+        { id: "voxtral-mini-2602" },
+        { id: "voxtral-mini-tts-3-0" },
+        {
+          id: "mistral-stt-cap",
+          audio_transcription_capabilities: { realtime: true },
+        },
+        {
+          id: "voxtral-disabled",
+          capabilities: { audio_transcription: false },
+        },
+      ],
+    }),
+    ["mistral-stt-cap", "voxtral-mini-2602"],
+  );
+  assert.deepEqual(
+    parseSttProviderModels("cloudflare_workers_ai", {
+      result: [
+        { name: "@cf/deepgram/nova-3" },
+        { name: "@cf/deepgram/flux" },
+        { name: "@cf/openai/whisper" },
+      ],
+    }),
+    ["@cf/deepgram/flux", "@cf/deepgram/nova-3"],
+  );
+  assert.deepEqual(
+    parseSttProviderModels("together", [
+      { id: "openai/whisper-large-v3", type: "transcribe" },
+      { id: "distil-whisper/distil-large-v3", type: "audio" },
+      { id: "hexgrad/Kokoro-82M", type: "audio" },
+      { id: "vendor/text-to-speech-v1", type: "audio" },
+      { id: "meta-llama/Llama-3.3-70B", type: "chat" },
+    ]),
+    ["distil-whisper/distil-large-v3", "openai/whisper-large-v3"],
+  );
+});

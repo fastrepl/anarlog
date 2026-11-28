@@ -13,9 +13,11 @@ pub use analytics::{AnalyticsReporter, GenerationEvent};
 pub use anlg_analytics::{AuthenticatedUserId, DeviceFingerprint};
 pub use config::*;
 pub use env::{ApiKey, Env};
-pub use handler::{chat_completions_router, router};
+pub use handler::{
+    ModelsResponse, chat_completions_router, completions_router, models_router, router,
+};
 pub use model::{
-    CharTask, MODEL_KEY_AUDIO, MODEL_KEY_DEFAULT, MODEL_KEY_TOOL_CALLING, ModelContext,
-    ModelResolver, SELECTABLE_MODELS, StaticModelResolver,
+    ANARLOG_MODELS, CharTask, MODEL_KEY_AUDIO, MODEL_KEY_DEFAULT, MODEL_KEY_TOOL_CALLING,
+    ModelContext, ModelResolver, SELECTABLE_MODELS, SelectableModel, StaticModelResolver,
 };
 pub use openapi::openapi;

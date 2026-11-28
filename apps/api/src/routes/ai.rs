@@ -6,10 +6,38 @@ use crate::{
 use axum::{Router, middleware};
 use std::{num::NonZeroU32, sync::Arc, time::Duration};
 
+pub(crate) fn llm_rate_limit_builder() -> rate_limit::RateLimitStateBuilder {
+    rate_limit::RateLimitState::builder()
+        .pro(
+            governor::Quota::with_period(Duration::from_secs(1))
+                .unwrap()
+                .allow_burst(NonZeroU32::new(30).unwrap()),
+        )
+        .free(
+            governor::Quota::with_period(Duration::from_hours(12))
+                .unwrap()
+                .allow_burst(NonZeroU32::new(5).unwrap()),
+        )
+}
+
 pub(crate) fn router(
     env: &RuntimeConfig,
     session_gate: anlg_transcribe_proxy::SessionGate,
     analytics: Arc<anlg_analytics::AnalyticsClient>,
+) -> Router {
+    build_ai_routes(
+        env,
+        session_gate,
+        analytics,
+        llm_rate_limit_builder().build(),
+    )
+}
+
+pub(crate) fn build_ai_routes(
+    env: &RuntimeConfig,
+    session_gate: anlg_transcribe_proxy::SessionGate,
+    analytics: Arc<anlg_analytics::AnalyticsClient>,
+    llm_rate_limit: rate_limit::RateLimitState,
 ) -> Router {
     let llm_config =
         anlg_llm_proxy::LlmProxyConfig::new(env.llm.as_ref().expect("AI configuration resolved"))
@@ -31,18 +59,6 @@ pub(crate) fn router(
             governor::Quota::with_period(Duration::from_hours(24))
                 .unwrap()
                 .allow_burst(NonZeroU32::new(3).unwrap()),
-        )
-        .build();
-    let llm_rate_limit = rate_limit::RateLimitState::builder()
-        .pro(
-            governor::Quota::with_period(Duration::from_secs(1))
-                .unwrap()
-                .allow_burst(NonZeroU32::new(30).unwrap()),
-        )
-        .free(
-            governor::Quota::with_period(Duration::from_hours(12))
-                .unwrap()
-                .allow_burst(NonZeroU32::new(5).unwrap()),
         )
         .build();
     let auth_state = AuthState::new(&env.supabase.supabase_url);
@@ -93,16 +109,21 @@ pub(crate) fn router(
             rate_limit::rate_limit,
         ));
 
-    let llm_routes = Router::new()
+    let llm_completion_routes = Router::new()
         .merge(anlg_llm_proxy::chat_completions_router(llm_config.clone()))
-        .nest("/llm", anlg_llm_proxy::router(llm_config))
+        .nest(
+            "/llm",
+            anlg_llm_proxy::completions_router(llm_config.clone()),
+        )
         .route_layer(middleware::from_fn_with_state(
             llm_rate_limit,
             rate_limit::rate_limit,
         ));
+    let llm_models_route = Router::new().nest("/llm", anlg_llm_proxy::models_router(llm_config));
 
     let authenticated = stt_routes
-        .merge(llm_routes)
+        .merge(llm_completion_routes)
+        .merge(llm_models_route)
         .route_layer(middleware::from_fn(auth::sentry_and_analytics))
         .route_layer(middleware::from_fn_with_state(
             auth_state,

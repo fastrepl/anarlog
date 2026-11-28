@@ -1,10 +1,15 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, renderHook } from "@testing-library/react";
+import { cleanup, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { afterEach, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
-const { useProviderAvailabilityMock } = vi.hoisted(() => ({
+const { providerFetchMock, useProviderAvailabilityMock } = vi.hoisted(() => ({
+  providerFetchMock: vi.fn(),
   useProviderAvailabilityMock: vi.fn(),
+}));
+
+vi.mock("~/ai/provider-fetch", () => ({
+  providerFetch: providerFetchMock,
 }));
 
 vi.mock("~/auth/billing-context", () => ({
@@ -29,6 +34,11 @@ vi.mock("~/shared/config", async (importOriginal) => ({
 }));
 
 import { useConfiguredMapping } from "./select";
+
+beforeEach(() => {
+  providerFetchMock.mockReset();
+  providerFetchMock.mockResolvedValue(new Response(null, { status: 404 }));
+});
 
 afterEach(cleanup);
 
@@ -59,3 +69,33 @@ test.each([true, false])(
     expect(result.current.providers.deepgram.configured).toBe(verified);
   },
 );
+
+test("merges dynamically discovered STT models without blocking readiness", async () => {
+  providerFetchMock.mockResolvedValue(
+    new Response(
+      JSON.stringify({
+        stt: [{ canonical_name: "nova-3-live-discovery" }],
+      }),
+      { status: 200 },
+    ),
+  );
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  client.setQueryData(["device-info"], { totalMemoryBytes: 16e9 });
+  client.setQueryData(["list-supported-models"], []);
+  useProviderAvailabilityMock.mockReturnValue({ deepgram: true });
+
+  const { result } = renderHook(useConfiguredMapping, {
+    wrapper: ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    ),
+  });
+
+  expect(result.current.isReady).toBe(true);
+  await waitFor(() => {
+    expect(result.current.providers.deepgram.models.map((m) => m.id)).toContain(
+      "nova-3-live-discovery",
+    );
+  });
+});

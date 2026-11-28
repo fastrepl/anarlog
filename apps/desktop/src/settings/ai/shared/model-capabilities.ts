@@ -1,4 +1,4 @@
-import { ANARLOG_PRO_LLM_MODELS } from "./anarlog-pro-models";
+import { getAnarlogProModelModalities } from "./anarlog-pro-models";
 import { getCloudflareWorkersAIModelMetadata } from "./list-cloudflare-workers-ai";
 
 const TEXT_ONLY_MODEL_RE =
@@ -27,9 +27,9 @@ export function modelSupportsImageInput(
   }
 
   if (providerId === "anarlog") {
-    const model = ANARLOG_PRO_LLM_MODELS.find(({ id }) => id === modelId);
-    if (model) {
-      return model.inputModalities.some((modality) => modality === "image");
+    const modalities = getAnarlogProModelModalities(modelId);
+    if (modalities) {
+      return modalities.includes("image");
     }
   }
 

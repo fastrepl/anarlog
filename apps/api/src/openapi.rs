@@ -156,6 +156,7 @@ fn apply_bearer_auth_to_protected_paths(doc: &mut utoipa::openapi::OpenApi) {
             || path.starts_with("/subscription")
             || path.starts_with("/nango")
             || path.starts_with("/pyannote")
+            || path.starts_with("/llm")
             || path.starts_with("/sync")
             || path.starts_with("/v1/cloud-api")
             || path.starts_with("/v1/sync-snapshots")

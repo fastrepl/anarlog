@@ -6,6 +6,8 @@ mod sync;
 use axum::Router;
 
 pub(super) use ai::router as ai;
+#[cfg(test)]
+pub(super) use ai::{build_ai_routes, llm_rate_limit_builder};
 pub(super) use billing::router as billing;
 pub(super) use core::router as core;
 #[cfg(test)]
