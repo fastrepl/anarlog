@@ -2157,22 +2157,12 @@ impl PreferencesView {
                                                 .items_center()
                                                 .justify_center()
                                                 .when(enabled, |view| {
-                                                    let removed_count = terms.len().saturating_sub(remaining.len());
-                                                    let remaining_count = remaining.len();
                                                     view.cursor_pointer().on_click(cx.listener(
                                                         move |this, _, _, cx| {
                                                             this.set(
                                                                 "personalization_dictionary_terms",
                                                                 json!(json!(remaining).to_string()),
                                                                 cx,
-                                                            );
-                                                            crate::telemetry::track(
-                                                                "dictionary_updated",
-                                                                &[
-                                                                    ("operation", json!("removed")),
-                                                                    ("term_count", json!(remaining_count)),
-                                                                    ("removed_count", json!(removed_count)),
-                                                                ],
                                                             );
                                                         },
                                                     ))
@@ -2237,19 +2227,10 @@ impl PreferencesView {
                 .chain(input.split(['\n', ',']).map(str::to_owned)),
         );
         if terms.len() > stored.len() {
-            let added = terms.len() - stored.len();
             self.set(
                 "personalization_dictionary_terms",
                 json!(json!(terms).to_string()),
                 cx,
-            );
-            crate::telemetry::track(
-                "dictionary_updated",
-                &[
-                    ("operation", json!("added")),
-                    ("term_count", json!(terms.len())),
-                    ("added_count", json!(added)),
-                ],
             );
         }
         self.dictionary_input
@@ -2275,7 +2256,7 @@ fn plan_gate(allowed: bool, content: Div, cx: &mut Context<PreferencesView>) -> 
     )
 }
 
-fn stored_terms(stored: &str) -> Vec<String> {
+pub(super) fn stored_terms(stored: &str) -> Vec<String> {
     normalize_terms(serde_json::from_str::<Vec<String>>(stored).unwrap_or_default())
 }
 

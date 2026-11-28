@@ -103,6 +103,7 @@ pub struct SharePopover {
     error: Option<SharedString>,
     /// The access the user just picked, shown until the refreshed share confirms it.
     optimistic: Option<GeneralAccess>,
+    paywall_viewed: bool,
     areas: Areas,
     focus: FocusHandle,
     cancel: CancellationToken,
@@ -166,6 +167,7 @@ impl SharePopover {
             load_failed: false,
             error: None,
             optimistic: None,
+            paywall_viewed: false,
             areas: Areas::default(),
             focus,
             cancel: CancellationToken::new(),
@@ -454,7 +456,22 @@ impl Render for SharePopover {
         let share = managed(&self.session, cx).filter(|_| account.signed_in());
         let paid = account.is_paid(account::now());
         let entity = cx.entity();
-        let content = if account.signed_in() && !paid && share.is_none() && !self.loading {
+        let show_upgrade = account.signed_in() && !paid && share.is_none() && !self.loading;
+        if show_upgrade {
+            if !self.paywall_viewed {
+                self.paywall_viewed = true;
+                crate::telemetry::track(
+                    "paywall_viewed",
+                    &[
+                        ("entry_point", serde_json::json!("session_sharing")),
+                        ("feature", serde_json::json!("sharing")),
+                    ],
+                );
+            }
+        } else {
+            self.paywall_viewed = false;
+        }
+        let content = if show_upgrade {
             self.upgrade(colors, cx).into_any_element()
         } else {
             self.panel(share, !account.signed_in(), paid, &account, window, cx)
@@ -847,13 +864,6 @@ impl SharePopover {
                         .a11y_button("Upgrade to Pro")
                         .mt_4()
                         .on_click(cx.listener(|_, _, _, cx| {
-                            crate::telemetry::track(
-                                "paywall_viewed",
-                                &[
-                                    ("entry_point", serde_json::json!("session_sharing")),
-                                    ("feature", serde_json::json!("sharing")),
-                                ],
-                            );
                             crate::telemetry::track(
                                 "upgrade_clicked",
                                 &[

@@ -410,10 +410,6 @@ impl SyncView {
             move |this, result, cx| match result {
                 // Enabling without a recovery key opens the setup dialog.
                 Ok(_) if enabled => {
-                    crate::telemetry::track(
-                        "cloud_sync_enabled",
-                        &[("entry_point", serde_json::json!("settings"))],
-                    );
                     this.open_setup_when_required(cx);
                 }
                 Ok(_) => {
@@ -457,6 +453,11 @@ impl SyncView {
                 if let Ok(state) = result {
                     if state.block == Some(SyncBlock::SetupRequired) {
                         this.open_setup(cx);
+                    } else if state.enabled {
+                        crate::telemetry::track(
+                            "cloud_sync_enabled",
+                            &[("entry_point", serde_json::json!("settings"))],
+                        );
                     }
                     this.state = Some(Ok(state));
                 }

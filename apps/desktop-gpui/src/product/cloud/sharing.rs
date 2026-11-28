@@ -348,53 +348,74 @@ impl Core {
                 return Ok(());
             }
             Action::InviteToShare | Action::ResendInvitation => {
-                let mut response = if mutation.operation.action == Action::InviteToShare {
-                    self.rpc(lease, "create_session_access_invitation", json!({"p_share_id": share,
-                        "p_invitee_email": field(mutation, "email")?.to_lowercase(),
-                        "p_capability": choice(mutation, "role", &["viewer", "commenter", "editor"])?})).await?
-                } else {
-                    self.rpc(
-                        lease,
-                        "resend_session_access_invitation",
-                        json!({"p_invitation_id": id()?}),
-                    )
-                    .await?
-                };
-                let invitation = uuid(text(first(&response)?, "invitation_id")?)?.to_owned();
-                if first(&response)?["invite_token"].as_str().is_none() {
-                    response = self
-                        .rpc(
-                            lease,
-                            "resend_session_access_invitation",
-                            json!({"p_invitation_id":invitation}),
-                        )
-                        .await?;
-                }
-                let token = text(first(&response)?, "invite_token")?;
-                let url = self.capability_url(&format!("/share/invite/{invitation}/"), token)?;
-                let title = self.share_source(services, lease, scope).await?.title;
-                let sent = self.api(lease, Method::POST, &format!("/shared-notes/invitations/{invitation}/email"),
-                    Some(&json!({"shareId":share,"inviteToken":token,"noteTitle":title,"fromName":lease.identity.email.as_deref().unwrap_or_default()}))).await;
-                if sent.is_err() {
-                    lease.check()?;
-                    if self.host.copy_text(Zeroizing::new(url)).await.is_err() {
-                        self.rpc(
-                            lease,
-                            "revoke_session_access_invitation",
-                            json!({"p_invitation_id": invitation}),
-                        )
-                        .await?;
-                        return Err(failure("Could not deliver invitation; invitation revoked"));
-                    }
-                    *self.notice.lock().await =
-                        Some("Email unavailable. Invitation link copied instead".into());
-                }
-                return Ok(());
+                return self
+                    .invite_to_share(services, lease, scope, share, mutation)
+                    .await
+                    .map(|_| ());
             }
             _ => return Err(failure("Invalid sharing action")),
         };
         self.rpc(lease, rpc, body).await?;
         Ok(())
+    }
+
+    async fn invite_to_share(
+        &self,
+        services: &Services,
+        lease: &AuthLease,
+        scope: &Scope,
+        share: &str,
+        mutation: &Mutation,
+    ) -> Result<&'static str> {
+        let id = || uuid(target(mutation)?);
+        let mut response = if mutation.operation.action == Action::InviteToShare {
+            self.rpc(
+                lease,
+                "create_session_access_invitation",
+                json!({"p_share_id": share,
+                "p_invitee_email": field(mutation, "email")?.to_lowercase(),
+                "p_capability": choice(mutation, "role", &["viewer", "commenter", "editor"])?}),
+            )
+            .await?
+        } else {
+            self.rpc(
+                lease,
+                "resend_session_access_invitation",
+                json!({"p_invitation_id": id()?}),
+            )
+            .await?
+        };
+        let invitation = uuid(text(first(&response)?, "invitation_id")?)?.to_owned();
+        if first(&response)?["invite_token"].as_str().is_none() {
+            response = self
+                .rpc(
+                    lease,
+                    "resend_session_access_invitation",
+                    json!({"p_invitation_id":invitation}),
+                )
+                .await?;
+        }
+        let token = text(first(&response)?, "invite_token")?;
+        let url = self.capability_url(&format!("/share/invite/{invitation}/"), token)?;
+        let title = self.share_source(services, lease, scope).await?.title;
+        let sent = self.api(lease, Method::POST, &format!("/shared-notes/invitations/{invitation}/email"),
+            Some(&json!({"shareId":share,"inviteToken":token,"noteTitle":title,"fromName":lease.identity.email.as_deref().unwrap_or_default()}))).await;
+        if sent.is_err() {
+            lease.check()?;
+            if self.host.copy_text(Zeroizing::new(url)).await.is_err() {
+                self.rpc(
+                    lease,
+                    "revoke_session_access_invitation",
+                    json!({"p_invitation_id": invitation}),
+                )
+                .await?;
+                return Err(failure("Could not deliver invitation; invitation revoked"));
+            }
+            *self.notice.lock().await =
+                Some("Email unavailable. Invitation link copied instead".into());
+            return Ok("clipboard");
+        }
+        Ok("email")
     }
 
     pub(super) fn capability_url(&self, path: &str, token: &str) -> Result<String> {
@@ -903,21 +924,23 @@ impl Core {
                     return Err(failure("Invite between 1 and 32 people at a time"));
                 }
                 for email in emails {
-                    self.share_action(
-                        services,
-                        lease,
-                        scope,
-                        &run(
-                            Action::InviteToShare,
-                            None,
-                            &[("email", &email), ("role", "viewer")],
-                        ),
-                    )
-                    .await?;
+                    let delivery_method = self
+                        .invite_to_share(
+                            services,
+                            lease,
+                            scope,
+                            share,
+                            &run(
+                                Action::InviteToShare,
+                                None,
+                                &[("email", &email), ("role", "viewer")],
+                            ),
+                        )
+                        .await?;
                     crate::telemetry::track(
                         "share_invitation_sent",
                         &[
-                            ("delivery_method", serde_json::json!("email")),
+                            ("delivery_method", serde_json::json!(delivery_method)),
                             ("capability", serde_json::json!("viewer")),
                         ],
                     );

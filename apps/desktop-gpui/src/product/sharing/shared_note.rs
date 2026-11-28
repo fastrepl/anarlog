@@ -57,6 +57,7 @@ pub struct SharedNoteView {
     state: State,
     signing_in: bool,
     viewer: Option<Arc<str>>,
+    opened_for: Option<Arc<str>>,
     cancel: CancellationToken,
     _subscriptions: [gpui::Subscription; 2],
 }
@@ -72,6 +73,7 @@ impl SharedNoteView {
             state: State::Loading,
             signing_in: false,
             viewer: None,
+            opened_for: None,
             cancel: CancellationToken::new(),
             _subscriptions: [
                 cx.observe_global::<account::Account>(|this, cx| {
@@ -129,8 +131,13 @@ impl SharedNoteView {
             .detach();
             return;
         }
-        self.viewer = account_id(cx);
+        let next_viewer = account_id(cx);
+        if next_viewer != self.viewer {
+            self.opened_for = None;
+        }
+        self.viewer = next_viewer;
         let Some(viewer) = self.viewer.clone() else {
+            self.opened_for = None;
             self.state = State::SignedOut;
             cx.notify();
             return;
@@ -146,6 +153,7 @@ impl SharedNoteView {
         self.cancel = CancellationToken::new();
         let cancel = self.cancel.clone();
         let id = self.id.clone();
+        let viewer_for_track = viewer.clone();
         let reply = self
             .runtime
             .read(cancel.clone(), move |services| async move {
@@ -167,21 +175,24 @@ impl SharedNoteView {
                 this.state = match result.map(|rows| rows.into_iter().next()) {
                     Ok(Some(row)) => match cached_note(&row) {
                         Some(state) => {
-                            let manage = row["manage_access"].as_i64() == Some(1);
-                            let access_mode = if manage {
-                                "owner"
-                            } else if matches!(
-                                row["capability"].as_str(),
-                                Some("editor" | "commenter")
-                            ) {
-                                "collaborator"
-                            } else {
-                                "viewer"
-                            };
-                            crate::telemetry::track(
-                                "shared_note_opened",
-                                &[("access_mode", json!(access_mode))],
-                            );
+                            if this.opened_for.as_deref() != Some(viewer_for_track.as_ref()) {
+                                this.opened_for = Some(viewer_for_track);
+                                let manage = row["manage_access"].as_i64() == Some(1);
+                                let access_mode = if manage {
+                                    "owner"
+                                } else if matches!(
+                                    row["capability"].as_str(),
+                                    Some("editor" | "commenter")
+                                ) {
+                                    "collaborator"
+                                } else {
+                                    "viewer"
+                                };
+                                crate::telemetry::track(
+                                    "shared_note_opened",
+                                    &[("access_mode", json!(access_mode))],
+                                );
+                            }
                             state
                         }
                         None => cache_unreadable(),

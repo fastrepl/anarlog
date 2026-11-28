@@ -302,6 +302,7 @@ impl PreferencesView {
             self.desired.remove(&key);
             return;
         }
+        let previous_value = base.value.clone();
         let reply = settings::save(&self.runtime, key.clone(), base, value.clone());
         self.saving.insert(key.clone());
         cx.spawn(async move |this, cx| {
@@ -317,6 +318,48 @@ impl PreferencesView {
                             crate::platform::system_settings::apply(&key, &setting.value, cx)
                         {
                             this.fail(error, cx);
+                        }
+                        if key == "personalization_dictionary_terms" {
+                            let before = super::pages::stored_terms(
+                                previous_value.as_str().unwrap_or_default(),
+                            );
+                            let after = super::pages::stored_terms(
+                                setting.value.as_str().unwrap_or_default(),
+                            );
+                            if after.len() > before.len() {
+                                crate::telemetry::track(
+                                    "dictionary_updated",
+                                    &[
+                                        ("operation", serde_json::json!("added")),
+                                        ("term_count", serde_json::json!(after.len())),
+                                        (
+                                            "added_count",
+                                            serde_json::json!(after.len() - before.len()),
+                                        ),
+                                    ],
+                                );
+                            } else if after.len() < before.len() {
+                                crate::telemetry::track(
+                                    "dictionary_updated",
+                                    &[
+                                        ("operation", serde_json::json!("removed")),
+                                        ("term_count", serde_json::json!(after.len())),
+                                        (
+                                            "removed_count",
+                                            serde_json::json!(before.len() - after.len()),
+                                        ),
+                                    ],
+                                );
+                            } else if after != before {
+                                crate::telemetry::track(
+                                    "dictionary_updated",
+                                    &[
+                                        ("operation", serde_json::json!("edited")),
+                                        ("term_count", serde_json::json!(after.len())),
+                                        ("edited_count", serde_json::json!(1)),
+                                    ],
+                                );
+                            }
                         }
                         if let Some(snapshot) = &mut this.snapshot {
                             Arc::make_mut(snapshot).insert(key.clone(), setting);

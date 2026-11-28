@@ -272,4 +272,86 @@ mod tests {
             }
         }
     }
+
+    #[tokio::test]
+    async fn proxy_redirects_to_nonproxy_do_not_forward_extra_headers() {
+        use wiremock::matchers::{method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let proxy_server = MockServer::start().await;
+        let external_server = MockServer::start().await;
+
+        Mock::given(method("POST"))
+            .and(path("/stt/listen"))
+            .respond_with(
+                ResponseTemplate::new(303)
+                    .insert_header("Location", format!("{}/result", external_server.uri())),
+            )
+            .expect(1)
+            .mount(&proxy_server)
+            .await;
+
+        Mock::given(path("/result"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "metadata": {},
+                "results": { "channels": [] }
+            })))
+            .mount(&external_server)
+            .await;
+
+        let proxy_client = BatchClient::<crate::AnarlogAdapter>::builder()
+            .api_base(format!("{}/stt", proxy_server.uri()))
+            .api_key("test-key")
+            .extra_header("x-device-fingerprint", "dev-fp-1")
+            .build();
+        let result = proxy_client
+            .transcribe_file(anlg_data::english_1::AUDIO_PATH)
+            .await;
+        assert!(
+            result.is_err(),
+            "redirect from proxy to third-party host must be rejected"
+        );
+        assert!(
+            external_server
+                .received_requests()
+                .await
+                .unwrap()
+                .is_empty(),
+            "third-party redirect target must not receive any request"
+        );
+
+        let same_host_proxy = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/stt/listen"))
+            .respond_with(
+                ResponseTemplate::new(303)
+                    .insert_header("Location", format!("{}/v1/result", same_host_proxy.uri())),
+            )
+            .expect(1)
+            .mount(&same_host_proxy)
+            .await;
+        Mock::given(path("/v1/result"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "metadata": {},
+                "results": { "channels": [] }
+            })))
+            .mount(&same_host_proxy)
+            .await;
+
+        let same_host_client = BatchClient::<crate::AnarlogAdapter>::builder()
+            .api_base(format!("{}/stt", same_host_proxy.uri()))
+            .api_key("test-key")
+            .extra_header("x-device-fingerprint", "dev-fp-1")
+            .build();
+        let same_host_result = same_host_client
+            .transcribe_file(anlg_data::english_1::AUDIO_PATH)
+            .await;
+        assert!(
+            same_host_result.is_err(),
+            "redirect from proxy to non-proxy path must be rejected"
+        );
+        let received = same_host_proxy.received_requests().await.unwrap();
+        assert_eq!(received.len(), 1);
+        assert_eq!(received[0].url.path(), "/stt/listen");
+    }
 }
