@@ -32,6 +32,10 @@ import {
   type TranscriptWordSelection,
 } from "./selection";
 import { useRegisterTranscriptSelectionSource } from "./selection-context";
+import {
+  getSameSpeakerWordIds,
+  SameSpeakerWordIdsProvider,
+} from "./speaker-assign";
 import { useVirtualSegments, VirtualSegmentRow } from "./virtual-segments";
 
 import {
@@ -302,6 +306,15 @@ const SegmentsList = memo(
       }
       return labels;
     }, [labelContext, segments, speakerLabelManager]);
+    const sameSpeakerWordIdsRef = useRef<(segment: Segment) => string[]>(
+      () => [],
+    );
+    sameSpeakerWordIdsRef.current = (segment) =>
+      getSameSpeakerWordIds(segments, speakerLabels, segment);
+    const getSameSpeakerWordIdsForSegment = useCallback(
+      (segment: Segment) => sameSpeakerWordIdsRef.current(segment),
+      [],
+    );
     const transcriptSearch = useMemo<TranscriptSearchRenderState>(() => {
       const query = search?.query.trim() ?? "";
       if (!search?.isVisible || !query) {
@@ -366,45 +379,47 @@ const SegmentsList = memo(
     }, [scrollElement, segments.length, shouldScrollToEnd]);
 
     return (
-      <div
-        ref={virtual.listRef}
-        data-transcript-virtual-total={segments.length}
-        className="relative w-full min-w-0 overflow-x-clip"
-        style={{ height: virtual.totalHeight }}
-      >
-        {virtual.virtualItems.map(({ index, key, top }) => {
-          const segment = segments[index]!;
-          return (
-            <VirtualSegmentRow
-              key={key}
-              rowKey={key}
-              index={index}
-              top={top}
-              onMeasure={virtual.measureRow}
-              onFocus={virtual.handleRowFocus}
-              onBlur={virtual.handleRowBlur}
-            >
-              <div className={cn([index > 0 && "pt-4"])}>
-                <SegmentRenderer
-                  segment={segment}
-                  offsetMs={offsetMs}
-                  transcriptId={transcriptId}
-                  sessionId={sessionId}
-                  speakerLabel={
-                    speakerLabels.get(segment) ??
-                    SegmentKeyUtils.renderLabel(segment.key)
-                  }
-                  currentMs={currentMs}
-                  seekAndPlay={seekAndPlay}
-                  audioExists={audioExists}
-                  search={transcriptSearch}
-                  editMode={editMode}
-                />
-              </div>
-            </VirtualSegmentRow>
-          );
-        })}
-      </div>
+      <SameSpeakerWordIdsProvider value={getSameSpeakerWordIdsForSegment}>
+        <div
+          ref={virtual.listRef}
+          data-transcript-virtual-total={segments.length}
+          className="relative w-full min-w-0 overflow-x-clip"
+          style={{ height: virtual.totalHeight }}
+        >
+          {virtual.virtualItems.map(({ index, key, top }) => {
+            const segment = segments[index]!;
+            return (
+              <VirtualSegmentRow
+                key={key}
+                rowKey={key}
+                index={index}
+                top={top}
+                onMeasure={virtual.measureRow}
+                onFocus={virtual.handleRowFocus}
+                onBlur={virtual.handleRowBlur}
+              >
+                <div className={cn([index > 0 && "pt-4"])}>
+                  <SegmentRenderer
+                    segment={segment}
+                    offsetMs={offsetMs}
+                    transcriptId={transcriptId}
+                    sessionId={sessionId}
+                    speakerLabel={
+                      speakerLabels.get(segment) ??
+                      SegmentKeyUtils.renderLabel(segment.key)
+                    }
+                    currentMs={currentMs}
+                    seekAndPlay={seekAndPlay}
+                    audioExists={audioExists}
+                    search={transcriptSearch}
+                    editMode={editMode}
+                  />
+                </div>
+              </VirtualSegmentRow>
+            );
+          })}
+        </div>
+      </SameSpeakerWordIdsProvider>
     );
   },
   (prevProps, nextProps) => {

@@ -1,5 +1,12 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { useCallback, useMemo, useRef, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import type { EventParticipant } from "@anlg/store";
 import { MagnifyingGlass, Plus } from "@anlg/ui/components/icons";
@@ -24,13 +31,34 @@ import {
   useSession,
   useSessionParticipants,
 } from "~/session/queries";
-import type { Segment } from "~/stt/live-segment";
+import { type Segment, SegmentKeyUtils } from "~/stt/live-segment";
 import {
   assignSessionTranscriptSpeaker,
   assignTranscriptSpeaker,
 } from "~/stt/queries";
 
 export type AssignmentMode = "all" | "segment";
+
+const SameSpeakerWordIdsContext = createContext<
+  ((segment: Segment) => string[]) | null
+>(null);
+
+export const SameSpeakerWordIdsProvider = SameSpeakerWordIdsContext.Provider;
+
+export function getSameSpeakerWordIds(
+  segments: readonly Segment[],
+  labels: ReadonlyMap<Segment, string>,
+  target: Segment,
+): string[] {
+  const key = SegmentKeyUtils.serialize(target.key);
+  const label = labels.get(target);
+  return segments.flatMap((segment) =>
+    SegmentKeyUtils.serialize(segment.key) === key &&
+    labels.get(segment) === label
+      ? getAssignmentWordIds(segment)
+      : [],
+  );
+}
 
 export function SpeakerAssignPopover({
   segment,
@@ -51,6 +79,7 @@ export function SpeakerAssignPopover({
 }) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const getSameSpeakerWords = useContext(SameSpeakerWordIdsContext);
 
   const handleOpenChange = useCallback((nextOpen: boolean) => {
     setOpen(nextOpen);
@@ -65,6 +94,14 @@ export function SpeakerAssignPopover({
         triggerRef.current?.closest<HTMLElement>(
           "[data-transcript-container]",
         ) ?? null;
+      // Without a provider speaker index there is no speaker scope to store, so
+      // Apply to all names the words of every segment rendered as this speaker.
+      const wordIds =
+        assignmentMode === "all" &&
+        !Number.isInteger(segment.key.speaker_index) &&
+        getSameSpeakerWords
+          ? getSameSpeakerWords(segment)
+          : getAssignmentWordIds(segment);
       const assign = () =>
         assignmentMode === "all" && sessionId
           ? assignSessionTranscriptSpeaker({
@@ -73,7 +110,7 @@ export function SpeakerAssignPopover({
               segmentKey: segment.key,
               humanId,
               anchorWordId,
-              wordIds: getAssignmentWordIds(segment),
+              wordIds,
             })
           : assignTranscriptSpeaker({
               transcriptId,
@@ -81,7 +118,7 @@ export function SpeakerAssignPopover({
               humanId,
               anchorWordId,
               mode: assignmentMode,
-              wordIds: getAssignmentWordIds(segment),
+              wordIds,
             });
       void preserveScrollPosition(scrollContainer, assign)
         .then(() => {
@@ -96,7 +133,14 @@ export function SpeakerAssignPopover({
           console.error("[transcript] failed to assign speaker", error);
         });
     },
-    [handleOpenChange, onAssigned, sessionId, transcriptId, segment],
+    [
+      getSameSpeakerWords,
+      handleOpenChange,
+      onAssigned,
+      sessionId,
+      transcriptId,
+      segment,
+    ],
   );
 
   return (
@@ -128,7 +172,6 @@ export function SpeakerAssignPopover({
         <SpeakerParticipantPicker
           sessionId={sessionId}
           onSelect={handleAssign}
-          showAssignmentScope={Number.isInteger(segment.key.speaker_index)}
         />
       </PopoverContent>
     </Popover>

@@ -19,6 +19,8 @@ import {
   buildSpeakerParticipantGroups,
   getAssignmentAnchorWordId,
   getAssignmentWordIds,
+  getSameSpeakerWordIds,
+  SameSpeakerWordIdsProvider,
   SpeakerAssignPopover,
   type SpeakerParticipantOption,
 } from "./speaker-assign";
@@ -170,49 +172,82 @@ function option(
   };
 }
 
+function unnumberedSegment(
+  id: string,
+  channel: Segment["key"]["channel"],
+  wordId: string,
+): Segment {
+  return {
+    id,
+    key: { channel, speaker_index: null, speaker_human_id: null },
+    start_ms: 0,
+    end_ms: 100,
+    text: wordId,
+    words: [
+      {
+        id: wordId,
+        text: wordId,
+        start_ms: 0,
+        end_ms: 100,
+        channel,
+        is_final: true,
+      },
+    ],
+  } as Segment;
+}
+
+describe("getSameSpeakerWordIds", () => {
+  it("does not take words rendered as another speaker on the same channel", () => {
+    const clicked = unnumberedSegment("a", "DirectMic", "word-1");
+    const contextual = unnumberedSegment("b", "DirectMic", "word-2");
+    const sameLabel = unnumberedSegment("c", "DirectMic", "word-3");
+    const otherChannel = unnumberedSegment("d", "RemoteParty", "word-4");
+    const labels = new Map([
+      [clicked, "Speaker 1"],
+      [contextual, "John"],
+      [sameLabel, "Speaker 1"],
+      [otherChannel, "Speaker 1"],
+    ]);
+
+    expect(
+      getSameSpeakerWordIds(
+        [clicked, contextual, sameLabel, otherChannel],
+        labels,
+        clicked,
+      ),
+    ).toEqual(["word-1", "word-3"]);
+  });
+});
+
 describe("SpeakerAssignPopover", () => {
-  it("offers only word-scoped assignment when a segment has no speaker index", async () => {
+  it("names every segment rendered as the same unnumbered speaker", async () => {
     render(
-      createElement(SpeakerAssignPopover, {
-        segment: {
-          id: "segment-1",
-          key: {
-            channel: "MixedCapture",
-            speaker_index: null,
-            speaker_human_id: null,
-          },
-          start_ms: 0,
-          end_ms: 100,
-          text: "hello",
-          words: [
-            {
-              id: "word-1",
-              text: "hello",
-              start_ms: 0,
-              end_ms: 100,
-              channel: "MixedCapture",
-              is_final: true,
-            },
-          ],
-        } as Segment,
-        transcriptId: "transcript-1",
-        sessionId: "session-1",
-        color: "red",
-        label: "Unknown speaker",
-      }),
+      createElement(
+        SameSpeakerWordIdsProvider,
+        { value: () => ["word-1", "word-3"] },
+        createElement(SpeakerAssignPopover, {
+          segment: unnumberedSegment("segment-1", "MixedCapture", "word-1"),
+          transcriptId: "transcript-1",
+          sessionId: "session-1",
+          color: "red",
+          label: "Unknown speaker",
+        }),
+      ),
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Unknown speaker" }));
-    expect(screen.queryByRole("checkbox")).toBeNull();
+    expect((screen.getByRole("checkbox") as HTMLInputElement).checked).toBe(
+      true,
+    );
     fireEvent.click(screen.getByRole("button", { name: "Alice" }));
     fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
 
     await waitFor(() =>
-      expect(assignTranscriptSpeakerMock).toHaveBeenCalledWith(
-        expect.objectContaining({ mode: "segment", wordIds: ["word-1"] }),
+      expect(assignSessionTranscriptSpeakerMock).toHaveBeenCalledWith(
+        expect.objectContaining({ wordIds: ["word-1", "word-3"] }),
       ),
     );
-    expect(assignSessionTranscriptSpeakerMock).not.toHaveBeenCalled();
+    expect(assignTranscriptSpeakerMock).not.toHaveBeenCalled();
   });
 
   it("assigns only after confirmation and defaults to all matching segments", async () => {
