@@ -23,19 +23,34 @@ For plan allowances, use the [free AI notetaker comparison](/blog/free-ai-noteta
 
 ---
 
+## How do you transcribe Zoom and Microsoft Teams calls locally when meeting bots are banned?
+
+When a company bans Zoom and Microsoft Teams meeting bots, teams transcribe calls locally by capturing system audio at the OS level, saving transcripts and notes in local SQLite (`app.db`) with separate local audio files, routing AI through approved local or BYOK providers, and enforcing fail-closed endpoint locks via `managed_settings.json`.
+
+A meeting bot ban usually targets two risks at once: unapproved third-party participants entering external or internal calls, and unvetted SaaS vendors ingesting sensitive audio into cloud workspaces. Simply picking any "bot-free" app does not satisfy IT if that desktop app still uploads audio to a vendor cloud or lets employees toggle Cloud Sync back on.
+
+A compliant local setup separates four controls cleanly:
+
+- **Device-level system audio capture:** Captures microphone and call audio directly on macOS, Windows, or Linux without adding a third-party participant to the Zoom or Teams call. Local capture still requires your organization's approval and explicit participant notice and consent.
+- **Local SQLite (`app.db`) and separate local audio files:** Canonical sessions, notes, and transcripts live on the endpoint in local SQLite (`app.db`), audio recordings stay as separate local files with configurable retention (`Don't save`, `1 day`, `3 days`, `1 week`, `1 month`, or `Forever`), and Markdown serves as a portable export format rather than a central cloud repository.
+- **Decoupled Transcription and Intelligence settings:** Speech recognition and LLM summaries are independent settings. Apple Silicon Macs can run built-in Soniqo Parakeet, Apple Speech (macOS 26), or On-device file whisper.cpp `.bin` models alongside Ollama, LM Studio, or Unsloth; Windows and Linux endpoints can point Transcription at a local Deepgram-compatible server or an IT-approved BYOK/internal HTTPS gateway.
+- **Fail-closed MDM policy locks (`managed_settings.json`):** Per the [Managed deployment and MDM documentation](https://docs.anarlog.so/enterprise/managed-deployment), IT teams deploy `managed_settings.json` (`schema_version: 1`) alongside `app.db` (`~/Library/Application Support/anarlog/` on macOS, `%APPDATA%\anarlog\` on Windows, `~/.local/share/anarlog/` on Linux). SQLite triggers prevent users from modifying locked keys in the app, and Anarlog refuses to start if the policy file is invalid or tampered with. Verified MDM keys include `cloud_sync_enabled: false`, `telemetry_consent: false`, `crash_reporting_consent: false`, `automatic_updates: false`, `intelligence_disabled: true`, `current_llm_provider: ""`, `current_llm_model: ""`, `auto_start_scheduled_meetings`, `save_recordings`, `audio_retention: "forever"`, plus locking transcription to an internal HTTPS endpoint via `current_stt_provider: "custom"`, `current_stt_model`, and `stt:custom` (`type: "stt"`, `base_url`, and empty `api_key: ""`).
+
+For a full legal, Works Council, and security review of local MDM enforcement, read our [GDPR-compliant AI notetaker guide](/blog/gdpr-compliant-ai-notetaker/).
+
 ## What are the best bot-free meeting assistants?
 
 ### 1. Anarlog
 
 **Disclosure:** I'm a co-founder of Anarlog.
 
-[Anarlog](/) is an open-source AI meeting notetaker that captures microphone and system audio without joining the call as a participant. Canonical sessions, notes, and transcripts live in local SQLite; Markdown is an export format, and recordings are separate local files.
+[Anarlog](/) is an open-source AI meeting notetaker built as a native Rust and GPUI desktop application (`apps/desktop-gpui`) across macOS, Windows (beta), and Linux (beta). It captures microphone and system audio without joining the call as a participant. Canonical sessions, notes, and transcripts live in local SQLite (`app.db`); Markdown is an export format, and recordings are separate local files. The community desktop client (`apps/desktop-gpui` and community packages) is MIT-licensed on [GitHub](https://github.com/fastrepl/anarlog), separate from the commercial `enterprise/` workspace.
 
-Use your own notes alongside the transcript, then generate and review a structured summary. [Transcription and Intelligence are independent settings](https://docs.anarlog.so/models-and-providers): local speech recognition does not make AI summaries local. Hosted transcription receives audio; hosted Intelligence receives the text and context needed for its request. For a fully local setup, follow the [offline Mac guide](/blog/offline-meeting-transcription-mac/), including model downloads and hardware requirements.
+Use your own notes alongside the transcript, then generate and review a structured summary. [Transcription and Intelligence are independent settings](https://docs.anarlog.so/models-and-providers): local speech recognition does not make AI summaries local. Hosted transcription receives audio; hosted Intelligence receives the text and context needed for its request. For fully local setups, follow the [offline Mac guide](/blog/offline-meeting-transcription-mac/) (Apple Silicon on-device Soniqo, Apple Speech, or whisper.cpp `.bin`), the [Linux offline AI meeting notetaker guide](/blog/linux-offline-ai-meeting-notetaker/) (local Deepgram-compatible STT plus Ollama, LM Studio, or Unsloth), the [Claude Code and Cursor MCP guide](/blog/claude-code-cursor-mcp-meeting-notes/) for local `--json` CLI and zero-port stdio MCP access, or the [GDPR and MDM lockdown guide](/blog/gdpr-compliant-ai-notetaker/).
 
 Bot-free capture does not confirm permission to record. Anarlog's [recording guide](https://docs.anarlog.so/meetings) and [recording terms](/terms/) put the required notice and consent with the person recording. A disclosure message is not proof that every participant agreed; do not assume verbal consent detection or a compliance guarantee.
 
-**Pricing:** The [Free plan](/pricing/) supports on-device transcription on supported hardware and your own provider keys. Pro adds hosted transcription, cloud AI, encrypted CloudSync, and other hosted features. Using your own keys can incur provider charges.
+**Pricing:** The [Free plan](/pricing/) supports on-device transcription on supported hardware, local SQLite storage, CLI/MCP access, and your own provider keys. Pro adds hosted transcription, cloud AI, encrypted CloudSync, and other hosted features. Using your own keys can incur provider charges.
 
 [Download Anarlog](/download/) to try the capture and summary configuration that fits your workflow.
 
@@ -43,12 +58,13 @@ Bot-free capture does not confirm permission to record. Anarlog's [recording gui
 
 #### Useful capabilities
 
-- Local meeting records with portable exports
+- Native Rust and GPUI desktop app across macOS, Windows (beta), and Linux (beta)
+- Local SQLite (`app.db`) meeting records with separate audio files and portable Markdown/JSON exports
+- Bundled `--json` CLI and zero-port stdio MCP server with human-reviewed diff proposals
+- Fail-closed `managed_settings.json` MDM policy locks for IT-managed fleets
 - Independently selected transcription and summary providers
-- Templates for different meeting structures
-- AI Chat for questions about meeting content
-- Search across stored meetings
-- Open-source community application ([GitHub](https://github.com/fastrepl/anarlog))
+- Templates for different meeting structures, AI Chat, and local Tantivy search across stored meetings
+- MIT-licensed community desktop application ([GitHub](https://github.com/fastrepl/anarlog)), separate from `enterprise/`
 
 #### Considerations
 
