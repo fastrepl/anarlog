@@ -15,6 +15,10 @@ The practical question is not just which country contains a file. It is which se
 
 This guide reviews public documentation as of September 22, 2026. We make Anarlog. We did not provision a Fireflies Enterprise environment or inspect its infrastructure.
 
+## Where are Fireflies.ai servers located?
+
+**By default, Fireflies stores and processes meeting data on US cloud infrastructure using AWS and GCP.** Enterprise Private Storage lets organizations use a Fireflies-managed or customer-supplied storage bucket in a chosen region (including EU options), but Fireflies' own [storage and transfer guide](https://guide.fireflies.ai/articles/9596505232-learn-about-data-storage-and-transfer) explicitly documents an EU-storage arrangement that still processes meeting data in the US. Always verify storage location separately from transcription and AI summary processing locations.
+
 ## Follow each kind of meeting data
 
 | Data | Storage location and scope | Processing | Retention owner / rule |

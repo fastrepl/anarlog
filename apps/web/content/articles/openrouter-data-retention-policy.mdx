@@ -14,6 +14,17 @@ That leaves two retention questions: what OpenRouter stores and what the receivi
 
 Freshness review: October 6, 2026.
 
+## How does OpenRouter privacy and Zero Data Retention (ZDR) routing work?
+
+**OpenRouter does not store prompt or response bodies by default, and its Zero Data Retention (ZDR) setting filters which underlying provider endpoints can receive your requests.** By default, OpenRouter stores only request metadata (such as token counts and latency) unless you opt into **Private Input & Output Logging** in Observability or **OpenRouter Use of Inputs/Outputs** (for a 1% usage discount) in Privacy.
+
+Four routing controls determine how OpenRouter handles sensitive requests:
+
+- **ZDR enforcement:** Enabled through account privacy settings, guardrails, or `provider.zdr: true` per request (account and guardrail locks cannot be overridden per request), restricting routing to eligible zero-retention endpoints rather than merely toggling OpenRouter's own logs.
+- **Fallback routing:** Fallbacks across providers are enabled by default when load-balancing on price, so configure an allowed-provider list or disable fallbacks explicitly when unapproved providers must never receive data.
+- **Caching and tool exclusions:** In-memory prompt caching is treated as compatible with ZDR, whereas plugins and third-party tool backends are not automatically covered by ZDR filtering.
+- **In-region endpoints:** Business and Enterprise plans can send requests to `https://eu.openrouter.ai` or `https://us.openrouter.ai`, which fail closed instead of falling back outside the chosen region.
+
 ## What OpenRouter Itself Keeps From Your Requests
 
 According to [OpenRouter's data-collection guide](https://openrouter.ai/docs/guides/privacy/data-collection), it does not store prompts or responses unless you opt into content logging or data sharing. It does store request metadata, including token counts and latency, for reporting and model ranking.

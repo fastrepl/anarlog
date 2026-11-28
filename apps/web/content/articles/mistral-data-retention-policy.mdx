@@ -38,11 +38,17 @@ Mistral's [August hosting help article](https://help.mistral.ai/en/articles/3476
 
 Do not treat the global endpoint as an EU processing guarantee. Verify the chosen endpoint, supported workload, and contractual geography requirements. Regional inference does not establish where every associated service stores data.
 
-## Is Zero Data Retention Applicable?
+<span id="is-zero-data-retention-applicable" />
+
+## Does Mistral AI offer Zero Data Retention (ZDR)?
+
+**Yes, for approved commercial API organizations on supported stateless endpoints, not automatically on standard paid or free accounts.**
 
 The [ZDR developer guide](https://docs.mistral.ai/admin/monitor-comply/zero-data-retention) covers supported stateless endpoints such as chat completions, embeddings, and OCR. It excludes Labs models and stateful products including Agents, Conversations, Libraries, Files, batch files, Vibe Work, and Chat. A local CLI can still call a hosted API; coverage follows the underlying request.
 
 Plan wording differs: the [Help Center](https://help.mistral.ai/en/articles/347612-can-i-activate-zero-data-retention-zdr) describes pay-as-you-go eligibility; the developer guide says paid plans. Both require a reviewed request. Confirm approval for your Organization in Admin privacy settings and verify the model and endpoint before relying on ZDR. A paid subscription or training opt-out alone is not proof that it is active.
+
+Also keep regional inference separate from ZDR: Mistral's global `api.mistral.ai` endpoint carries no specific inference-location commitment, whereas `api.eu.mistral.ai` (EU and EFTA data centers) and `api.us.mistral.ai` select regional inference at +10% token pricing with model/feature restrictions and without moving control-plane, account, API-key, or billing data into that region.
 
 ## Training Opt-Out in Plain Terms
 

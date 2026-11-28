@@ -1,7 +1,7 @@
 ---
-meta_title: "5 Best Jamie AI Alternatives in 2026"
-display_title: "Jamie AI Alternatives for More Control Over Meeting Notes"
-meta_description: "Compare five Jamie AI alternatives for local-first notes, note-first workflows, live browser transcription, sales follow-up, and self-hosted meeting AI."
+meta_title: "5 Best Jamie AI Alternatives (2026): Bot-Free, Open-Source & Local"
+display_title: "5 Best Jamie AI Alternatives: Bot-Free, Local-First & Open-Source Options"
+meta_description: "Looking for a bot-free Jamie AI alternative? Compare Anarlog (MIT open source, local SQLite, BYOK, macOS/Windows/Linux), Granola, Tactiq, Fathom, and Meetily."
 author: "John Jeong"
 featured: false
 category: "Comparisons"
@@ -10,13 +10,15 @@ date: "2026-09-05"
 
 Jamie is a polished AI note taker for people who want meeting notes without adding a bot to the call. It works across online, hybrid, and in-person meetings, supports more than 100 languages, remembers speakers, and keeps the resulting notes in a managed workspace.
 
-That combination is strong, but it is not universal. You may want the meeting record stored locally, a notepad that starts with your own observations, a transcript that appears live in the browser, a more generous free sales workflow, or an open-source stack you can run yourself.
+That combination is strong, but it is not universal. You may want zero meeting bots alongside an MIT open-source desktop client, canonical local SQLite storage with Markdown export, bring-your-own-key (BYOK) or local AI models, or native performance across macOS, Windows, and Linux.
 
-This guide compares five Jamie AI alternatives by those reasons to switch. Pricing and product claims were checked on September 5, 2026.
+This guide compares five Jamie AI alternatives by those reasons to switch. Pricing and product claims were checked on September 5, 2026 (with Anarlog 2.0 details updated on November 28, 2026).
 
-## The short answer
+<span id="the-short-answer" />
 
-- **Choose Anarlog** if the canonical meeting record should stay local and you want open-source code, Markdown export, and control over the AI provider.
+## Which Jamie AI alternative fits your workflow best?
+
+- **Choose Anarlog** for bot-free capture on macOS, Windows, and Linux (`2.0` Rust + GPUI), an MIT-licensed community desktop client (`apps/desktop-gpui`), local SQLite storage with Markdown export, and BYOK or local AI models.
 - **Choose Granola** if you want to keep taking rough notes during the meeting and have AI complete them afterward.
 - **Choose Tactiq** if you want a live transcript inside browser-based Zoom, Google Meet, or Microsoft Teams calls.
 - **Choose Fathom** if a generous free tier and sales follow-up matter more than bot-free capture.
@@ -36,7 +38,7 @@ The constraints become clearer on [Jamie's pricing page](https://www.meetjamie.a
 - **Free:** 10 meetings per month, with a 30-minute limit per meeting.
 - **Plus:** 20 meetings per month and a two-hour limit, at €25 per month or €21 per month billed annually.
 - **Pro:** unlimited meetings with a five-hour limit, at €47 per month or €39 per month billed annually.
-- **Team:** unlimited meetings for 2–10 seats, listed at €39 per seat per month plus applicable VAT.
+- **Team:** unlimited meetings for 2-10 seats, listed at €39 per seat per month plus applicable VAT.
 - **Enterprise:** custom annual pricing for organizations with 10 or more seats.
 
 Jamie is also specific about its security model. Its [security page](https://www.meetjamie.ai/security) says meeting data is stored and processed within the EEA, Switzerland, and the UK; audio is deleted after transcription; data is encrypted in transit with TLS 1.2 and at rest with AES-256; and customer data is not used to train models. Jamie lists ISO 27001 certification, GDPR compliance, and DORA alignment. Its pricing comparison marks SOC 2 Type II as pending, so buyers should not treat that certification as complete.
@@ -47,7 +49,7 @@ Those are meaningful controls, but they still describe a managed cloud service. 
 
 | Tool | Best for | Capture model | Starting point | Main tradeoff |
 | --- | --- | --- | --- | --- |
-| Anarlog | Local-first meeting records and AI-provider choice | Desktop system-audio capture, no meeting bot | Free; Pro $14/month or $140/year | No unattended meeting bot; macOS is the most mature build |
+| Anarlog | Local-first meeting records and AI-provider choice | Desktop system-audio capture, no meeting bot | Free; Pro $14/month or $140/year | No unattended meeting bot; built-in on-device speech models require Apple Silicon (Windows, Linux, and Intel Macs use a local server, BYOK, or Pro cloud) |
 | Granola | A human-guided notepad that AI completes | Device capture, no meeting bot | Free plan; Business from $14/user/month | Record remains in a managed workspace |
 | Tactiq | Live transcription in browser meetings | Browser extension, no separate participant | Free plan; Pro from $8/user/month annually | Best when meetings happen in supported browser workflows |
 | Fathom | Sales follow-up and a generous free individual plan | Bot capture, with bot-free capture in beta | Free individual plan | Meeting record lives in Fathom's cloud workspace |
@@ -61,9 +63,9 @@ Those are meaningful controls, but they still describe a managed cloud service. 
 
 *Anarlog keeps a structured summary beside the local meeting history.*
 
-The desktop app captures microphone and system audio without adding a bot to Zoom, Google Meet, Microsoft Teams, or another call. Transcripts, notes, and summaries are stored in local SQLite. You can export Markdown, use your own API keys, or run local models through tools such as Ollama and LM Studio.
+The desktop app runs natively on Rust and GPUI (`2.0`) across macOS, Windows, and Linux (alongside iOS and Android companion apps) and captures microphone and system audio without adding a bot to Zoom, Google Meet, Microsoft Teams, or another call. Canonical transcripts, notes, and summaries are stored in local SQLite (`app.db`), with clean Markdown export (export only). You can use your own API keys (OpenAI, Anthropic, Google Gemini, Mistral, OpenRouter, Deepgram) or run local models through tools such as Ollama and LM Studio.
 
-Anarlog is also open source. That matters when “private” needs to mean more than a vendor trust page: a technical team can inspect the capture, storage, and AI paths directly.
+Anarlog's community desktop client (`apps/desktop-gpui`) is MIT-licensed open source, while commercial `enterprise/` components are licensed separately. That matters when "private" needs to mean more than a vendor trust page: a technical team can inspect the capture, storage, and AI paths directly.
 
 **Choose Anarlog when:**
 
@@ -71,16 +73,16 @@ Anarlog is also open source. That matters when “private” needs to mean more 
 - you want to choose which transcription and language-model provider processes a meeting;
 - Markdown export and long-term portability matter;
 - open-source auditability is part of the security review;
-- you want bot-free capture without putting every meeting into a cloud archive.
+- you want bot-free capture across macOS, Windows, and Linux without putting every meeting into a cloud archive.
 
 **Consider the tradeoffs:**
 
 - Anarlog cannot attend a meeting when your computer is absent.
-- macOS is the most mature build; Windows and Linux builds are in beta.
+- Built-in on-device speech models require Apple Silicon; Windows, Linux, and Intel Macs use a local Deepgram-compatible server, BYOK, or hosted cloud.
 - Local ownership makes backup and device access controls your responsibility.
 - It does not try to replace a revenue-intelligence platform.
 
-The [Free plan](/pricing/) includes local transcription and bring-your-own-key workflows. Pro costs $14 per month or $140 per year and adds managed transcription, cloud AI, encrypted CloudSync, and calendar integrations. Read the [local AI meeting notes guide](/blog/local-ai-meeting-notes/) for the architectural details.
+The [Free plan](/pricing/) includes local transcription and bring-your-own-key workflows. Pro costs $14 per person per month or $140 per person per year and adds managed transcription, cloud AI, encrypted CloudSync across unlimited devices, and calendar integrations. Read the [local AI meeting notes guide](/blog/local-ai-meeting-notes/) for the architectural details.
 
 ## 2. Granola: best for people who still take notes
 
@@ -117,7 +119,7 @@ Granola's [Business plan](https://www.granola.ai/pricing) starts at $14 per user
 
 *The official Zoom Marketplace listing shows Tactiq Sidebar running inside Zoom. Source: [Zoom App Marketplace](https://marketplace.zoom.us/apps/Zep8ayo7TwC0qIU6CQJmaQ).*
 
-Jamie focuses on the record produced after capture: structured notes, transcripts, action items, speaker memory, and Ask AI. Tactiq is a better fit when seeing the words during the call is itself useful—for accessibility, quoting a customer accurately, or highlighting a point before the discussion moves on.
+Jamie focuses on the record produced after capture: structured notes, transcripts, action items, speaker memory, and Ask AI. Tactiq is a better fit when seeing the words during the call is itself useful: for accessibility, quoting a customer accurately, or highlighting a point before the discussion moves on.
 
 **Choose Tactiq when:**
 
