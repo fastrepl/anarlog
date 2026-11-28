@@ -115,6 +115,9 @@ struct AnalyticsCore {
     shipping_store: Option<Arc<StoreJson>>,
     legacy_aliased: Arc<AtomicBool>,
     legacy_alias_claimed: Arc<AtomicBool>,
+    legacy_aliased_at_startup: bool,
+    first_open_recorded: Arc<AtomicBool>,
+    first_open_claimed: Arc<AtomicBool>,
     groups: Mutex<HashMap<String, String>>,
     session: Mutex<SessionTracker>,
     last_identify: Mutex<Option<String>>,
@@ -222,13 +225,23 @@ impl AnalyticsCore {
         shipping_store: Option<Arc<StoreJson>>,
         enabled: Box<dyn Fn() -> bool + Send + Sync>,
     ) -> Self {
+        let legacy_aliased_at_startup = shipping_store.as_ref().is_some_and(|store| {
+            store
+                .get(ANALYTICS_STORE_SCOPE, LEGACY_ALIAS_STORE_KEY)
+                .ok()
+                .flatten()
+                == Some(Value::Bool(true))
+        });
         Self {
             client,
             permits: Arc::new(Semaphore::new(MAX_CONCURRENT_EVENTS)),
             in_flight: InFlightTracker::new(),
             shipping_store,
-            legacy_aliased: Arc::new(AtomicBool::new(false)),
+            legacy_aliased: Arc::new(AtomicBool::new(legacy_aliased_at_startup)),
             legacy_alias_claimed: Arc::new(AtomicBool::new(false)),
+            legacy_aliased_at_startup,
+            first_open_recorded: Arc::new(AtomicBool::new(false)),
+            first_open_claimed: Arc::new(AtomicBool::new(false)),
             groups: Mutex::new(HashMap::new()),
             session: Mutex::new(SessionTracker::new(SystemTime::now())),
             last_identify: Mutex::new(None),
@@ -530,7 +543,7 @@ impl AnalyticsCore {
     }
 
     fn track_first_open_if_needed(&self, shipping_store: Option<&Arc<StoreJson>>) -> bool {
-        if !(self.enabled)() {
+        if !(self.enabled)() || self.first_open_recorded.load(Ordering::Acquire) {
             return false;
         }
         let Some(store) = shipping_store else {
@@ -542,29 +555,76 @@ impl AnalyticsCore {
             .flatten()
             == Some(Value::Bool(true))
         {
+            self.first_open_recorded.store(true, Ordering::Release);
             return false;
         }
-        let already_aliased = store
-            .get(ANALYTICS_STORE_SCOPE, LEGACY_ALIAS_STORE_KEY)
-            .ok()
-            .flatten()
-            == Some(Value::Bool(true));
-        let sent = if already_aliased {
-            false
-        } else {
-            self.track(
-                "app_first_opened".into(),
-                &[("first_open_marker", json!("local_install"))],
-            )
-        };
-        if let Err(error) = store.set(
-            ANALYTICS_STORE_SCOPE,
-            FIRST_OPENED_STORE_KEY,
-            Value::Bool(true),
-        ) {
-            tracing::debug!(%error, "failed to persist app_first_opened marker");
+        if self.legacy_aliased_at_startup {
+            self.first_open_recorded.store(true, Ordering::Release);
+            if let Err(error) = store.set(
+                ANALYTICS_STORE_SCOPE,
+                FIRST_OPENED_STORE_KEY,
+                Value::Bool(true),
+            ) {
+                tracing::debug!(%error, "failed to persist app_first_opened marker");
+            }
+            return false;
         }
-        sent
+        if self
+            .first_open_claimed
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+            .is_err()
+        {
+            return false;
+        }
+        let Ok(permit) = self.permits.clone().try_acquire_owned() else {
+            self.first_open_claimed.store(false, Ordering::Release);
+            return false;
+        };
+        let guard = self.in_flight.acquire();
+        let mut builder = AnalyticsPayload::builder("app_first_opened");
+        builder = builder.with("first_open_marker", json!("local_install"));
+        let mut payload = builder.build();
+        self.enrich(&mut payload);
+        let client = self.client.clone();
+        let store = store.clone();
+        let aliased = self.legacy_aliased.clone();
+        let alias_claimed = self.legacy_alias_claimed.clone();
+        let recorded = self.first_open_recorded.clone();
+        let claimed = self.first_open_claimed.clone();
+        let machine_id = anlg_host::fingerprint();
+        self.runtime.spawn(async move {
+            let _permit = permit;
+            let _guard = guard;
+            ensure_legacy_alias_in_task(
+                &client,
+                Some(&store),
+                &machine_id,
+                &aliased,
+                &alias_claimed,
+            )
+            .await;
+            match client.event(machine_id, payload).await {
+                Ok(()) => {
+                    recorded.store(true, Ordering::Release);
+                    let persisted = tokio::task::spawn_blocking(move || {
+                        store.set(
+                            ANALYTICS_STORE_SCOPE,
+                            FIRST_OPENED_STORE_KEY,
+                            Value::Bool(true),
+                        )
+                    })
+                    .await;
+                    if let Ok(Err(error)) = persisted {
+                        tracing::debug!(%error, "failed to persist app_first_opened marker");
+                    }
+                }
+                Err(error) => {
+                    claimed.store(false, Ordering::Release);
+                    tracing::debug!(%error, "app_first_opened event delivery failed");
+                }
+            }
+        });
+        true
     }
 
     fn clear_identity(&self) {
@@ -902,6 +962,94 @@ mod tests {
         assert_eq!(
             store
                 .get(ANALYTICS_STORE_SCOPE, LEGACY_ALIAS_STORE_KEY)
+                .unwrap(),
+            Some(Value::Bool(true))
+        );
+    }
+
+    #[test]
+    fn failed_first_open_can_retry_until_persisted() {
+        let rt = runtime();
+        let server = rt.block_on(MockServer::start());
+        rt.block_on(async {
+            Mock::given(method("POST"))
+                .and(path("/i/v0/e/"))
+                .respond_with(ResponseTemplate::new(200))
+                .up_to_n_times(1)
+                .mount(&server)
+                .await;
+            Mock::given(method("POST"))
+                .and(path("/i/v0/e/"))
+                .respond_with(ResponseTemplate::new(500))
+                .up_to_n_times(1)
+                .mount(&server)
+                .await;
+            Mock::given(method("POST"))
+                .and(path("/i/v0/e/"))
+                .respond_with(ResponseTemplate::new(200))
+                .mount(&server)
+                .await;
+        });
+
+        let dir = tempfile::tempdir().unwrap();
+        let store = Arc::new(StoreJson::at(dir.path().join("store.json")));
+        let client = AnalyticsClientBuilder::default()
+            .with_posthog_endpoint("phc_test", server.uri())
+            .build();
+        let core = AnalyticsCore::new(
+            client,
+            rt.handle().clone(),
+            Some(store.clone()),
+            Box::new(|| true),
+        );
+
+        assert!(core.track_first_open_if_needed(Some(&store)));
+        assert!(core.flush(Duration::from_secs(5)));
+        assert_eq!(
+            store
+                .get(ANALYTICS_STORE_SCOPE, LEGACY_ALIAS_STORE_KEY)
+                .unwrap(),
+            Some(Value::Bool(true))
+        );
+        assert_eq!(
+            store
+                .get(ANALYTICS_STORE_SCOPE, FIRST_OPENED_STORE_KEY)
+                .unwrap(),
+            None
+        );
+
+        assert!(core.track_first_open_if_needed(Some(&store)));
+        assert!(core.flush(Duration::from_secs(5)));
+        assert_eq!(
+            store
+                .get(ANALYTICS_STORE_SCOPE, FIRST_OPENED_STORE_KEY)
+                .unwrap(),
+            Some(Value::Bool(true))
+        );
+        assert!(!core.track_first_open_if_needed(Some(&store)));
+
+        // Pre-existing legacy installs that already aliased at startup mark first-open without emitting.
+        let legacy_dir = tempfile::tempdir().unwrap();
+        let legacy_store = Arc::new(StoreJson::at(legacy_dir.path().join("store.json")));
+        legacy_store
+            .set(
+                ANALYTICS_STORE_SCOPE,
+                LEGACY_ALIAS_STORE_KEY,
+                Value::Bool(true),
+            )
+            .unwrap();
+        let legacy_core = AnalyticsCore::new(
+            AnalyticsClientBuilder::default()
+                .with_posthog_endpoint("phc_test", server.uri())
+                .build(),
+            rt.handle().clone(),
+            Some(legacy_store.clone()),
+            Box::new(|| true),
+        );
+        assert!(!legacy_core.track_first_open_if_needed(Some(&legacy_store)));
+        assert_eq!(
+            legacy_store
+                .get(ANALYTICS_STORE_SCOPE, FIRST_OPENED_STORE_KEY)
                 .unwrap(),
             Some(Value::Bool(true))
         );

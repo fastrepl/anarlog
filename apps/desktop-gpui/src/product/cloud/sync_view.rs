@@ -255,6 +255,81 @@ struct Rename {
     _subscription: Subscription,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum SyncOutcome {
+    Completed(&'static str),
+    Failed(&'static str),
+}
+
+#[derive(Default)]
+struct SyncTelemetryTracker {
+    initialized: bool,
+    manual_pending: bool,
+    last_sync_at_ms: Option<u64>,
+    last_failures: u32,
+}
+
+impl SyncTelemetryTracker {
+    fn mark_manual_requested(&mut self) {
+        self.manual_pending = true;
+    }
+
+    fn mark_manual_command_failed(&mut self) {
+        self.manual_pending = false;
+    }
+
+    fn observe_outcomes(&mut self, status: &SyncStatus) -> Vec<SyncOutcome> {
+        if !self.initialized {
+            self.initialized = true;
+            self.last_sync_at_ms = status.last_sync_at_ms;
+            self.last_failures = status.consecutive_failures;
+            return Vec::new();
+        }
+        let mut outcomes = Vec::new();
+        let completed =
+            status.last_sync_at_ms.is_some() && status.last_sync_at_ms != self.last_sync_at_ms;
+        let failed = status.consecutive_failures > self.last_failures;
+        if completed || failed {
+            let trigger = if std::mem::take(&mut self.manual_pending) {
+                "manual"
+            } else {
+                "background"
+            };
+            if completed {
+                self.last_sync_at_ms = status.last_sync_at_ms;
+                outcomes.push(SyncOutcome::Completed(trigger));
+            }
+            if failed {
+                outcomes.push(SyncOutcome::Failed(trigger));
+            }
+        }
+        self.last_failures = status.consecutive_failures;
+        outcomes
+    }
+
+    fn observe(&mut self, status: &SyncStatus) {
+        for outcome in self.observe_outcomes(status) {
+            match outcome {
+                SyncOutcome::Completed(trigger) => {
+                    crate::telemetry::track(
+                        "cloud_sync_completed",
+                        &[("trigger", serde_json::json!(trigger))],
+                    );
+                }
+                SyncOutcome::Failed(trigger) => {
+                    crate::telemetry::track(
+                        "cloud_sync_failed",
+                        &[
+                            ("trigger", serde_json::json!(trigger)),
+                            ("failure_stage", serde_json::json!("sync")),
+                        ],
+                    );
+                }
+            }
+        }
+    }
+}
+
 pub struct SyncView {
     calls: Arc<dyn CloudCalls>,
     state: Load<SyncState>,
@@ -269,6 +344,7 @@ pub struct SyncView {
     add_device: bool,
     setup: Option<Setup>,
     rename: Option<Rename>,
+    sync_telemetry: SyncTelemetryTracker,
     _poll: Task<()>,
 }
 
@@ -311,6 +387,7 @@ impl SyncView {
             add_device: false,
             setup: None,
             rename: None,
+            sync_telemetry: SyncTelemetryTracker::default(),
             _poll: poll,
         };
         this.load_state(cx);
@@ -328,7 +405,10 @@ impl SyncView {
             let result = state.await;
             let _ = this.update(cx, |this, cx| {
                 match result {
-                    Ok(state) => this.state = Some(Ok(state)),
+                    Ok(state) => {
+                        this.sync_telemetry.observe(&state.status);
+                        this.state = Some(Ok(state));
+                    }
                     Err(error) => {
                         if !matches!(this.state, Some(Ok(_))) {
                             this.state = Some(Err(error.to_string()));
@@ -861,12 +941,10 @@ impl SyncView {
                                     SyncCommand::SyncNow,
                                     |this, result, _| match result {
                                         Ok(_) => {
-                                            crate::telemetry::track(
-                                                "cloud_sync_completed",
-                                                &[("trigger", serde_json::json!("manual"))],
-                                            );
+                                            this.sync_telemetry.mark_manual_requested();
                                         }
                                         Err(error) => {
+                                            this.sync_telemetry.mark_manual_command_failed();
                                             crate::telemetry::track(
                                                 "cloud_sync_failed",
                                                 &[
@@ -1814,5 +1892,63 @@ mod tests {
             ..running
         };
         assert_eq!(label(true, None, Some(&stopped), false), "Connecting...");
+    }
+
+    #[test]
+    fn sync_telemetry_waits_for_transfer_completion_instead_of_request_queue() {
+        let mut tracker = SyncTelemetryTracker::default();
+        let base = SyncStatus {
+            configured: true,
+            running: true,
+            last_sync_at_ms: Some(1_000),
+            consecutive_failures: 0,
+            ..SyncStatus::default()
+        };
+        assert!(tracker.observe_outcomes(&base).is_empty());
+
+        // Queueing manual sync emits nothing while last_sync_at_ms has not advanced.
+        tracker.mark_manual_requested();
+        assert!(tracker.observe_outcomes(&base).is_empty());
+
+        // Advancing last_sync_at_ms emits one manual completion.
+        let synced = SyncStatus {
+            last_sync_at_ms: Some(2_000),
+            ..base.clone()
+        };
+        assert_eq!(
+            tracker.observe_outcomes(&synced),
+            vec![SyncOutcome::Completed("manual")]
+        );
+
+        // Next sync without a manual request emits background completion.
+        let background = SyncStatus {
+            last_sync_at_ms: Some(3_000),
+            ..synced
+        };
+        assert_eq!(
+            tracker.observe_outcomes(&background),
+            vec![SyncOutcome::Completed("background")]
+        );
+
+        // Manual request followed by failure increment emits manual failure, never completion.
+        tracker.mark_manual_requested();
+        let manual_failed = SyncStatus {
+            consecutive_failures: 1,
+            ..background
+        };
+        assert_eq!(
+            tracker.observe_outcomes(&manual_failed),
+            vec![SyncOutcome::Failed("manual")]
+        );
+
+        // Later background failure uses background trigger.
+        let bg_failed = SyncStatus {
+            consecutive_failures: 2,
+            ..manual_failed
+        };
+        assert_eq!(
+            tracker.observe_outcomes(&bg_failed),
+            vec![SyncOutcome::Failed("background")]
+        );
     }
 }
