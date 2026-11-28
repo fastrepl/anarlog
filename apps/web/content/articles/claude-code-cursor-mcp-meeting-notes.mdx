@@ -1,0 +1,216 @@
+---
+meta_title: "Feed Local Meeting Transcripts into Claude Code & Cursor via MCP or CLI (2026)"
+display_title: "How to Feed Local Meeting Transcripts into Claude Code and Cursor via MCP or CLI"
+meta_description: "Connect local SQLite meeting notes and transcripts to Claude Code or Cursor using Anarlog's zero-port stdio MCP server, --json CLI, and human-approved edit proposals."
+author: "John Jeong"
+category: "Engineering"
+date: "2026-11-28"
+---
+
+Engineers spend half their week translating architecture reviews, incident postmortems, and product syncs into code, tickets, and pull requests. Yet when you try to pipe that context into Claude Code or Cursor, most meeting assistants put a hosted SaaS workspace in the way: proprietary cloud exports, plan-gated history limits, or vendor APIs you do not control.
+
+[Anarlog](/) takes the opposite path by treating your workstation as the canonical source of truth. Sessions, memos, summaries, and transcripts live in a local SQLite database (`app.db`), with separate local audio files beside it, and the bundled `anarlog` binary exposes a zero-port stdio MCP server and `--json` CLI directly against that database.
+
+Disclosure: I am a co-founder of Anarlog.
+
+## Why keep meeting transcripts local before connecting Claude Code or Cursor?
+
+Local storage gives coding agents immediate, offline-capable access to complete meeting context without surrendering company transcripts to a cloud-locked workspace or waiting on server sync.
+
+Cloud-first notetakers such as Granola, Otter, and Fireflies centralize transcripts inside vendor-controlled servers (and Otter and Fireflies rely heavily on meeting bots joining calls). When your meetings are trapped in someone else's workspace, connecting an AI coding tool requires copying and pasting Markdown exports, paying for workspace tiers to unlock older history, or authorizing another cloud-to-cloud connector.
+
+With a local-first architecture:
+
+- **Your machine owns the canonical record:** Anarlog stores sessions, memos, generated summaries, participants, and transcripts in local SQLite (`app.db`) inside your OS application data directory (`~/Library/Application Support/anarlog/` on macOS, `%APPDATA%\anarlog\` on Windows, `~/.local/share/anarlog/` on Linux), while audio recordings and attachments remain separate local files beside `app.db`.
+- **Markdown stays portable, not brittle:** You can export Markdown or expose `anarlog://meetings/...` Markdown resources whenever needed, without turning raw `.md` files into an unstructured database that agents can accidentally corrupt.
+- **No Cloud login or Pro plan is required for local access:** Local MCP and CLI reads work while signed out, offline, and without Cloud Sync enabled.
+- **Data paths stay explicit:** Reading a meeting locally sends zero meeting data to Anarlog's servers. Note that once your coding agent loads retrieved text into its prompt, that coding agent's configured LLM provider processes the context according to its own data terms.
+
+For broader compliance, EU data-residency, and Works Council considerations around keeping meeting records on corporate endpoints, see our [GDPR-compliant AI notetaker guide](/blog/gdpr-compliant-ai-notetaker/).
+
+## How do you connect local meeting transcripts to Claude Code and Cursor over stdio MCP?
+
+You connect Claude Code or Cursor to local meeting transcripts by configuring the `anarlog mcp` stdio server, which opens no network port and reads `app.db` directly on your machine.
+
+First, install the `anarlog` CLI from a direct-download desktop build by opening **Settings -> Developers** and choosing **Install** (or **Reinstall**). That places `anarlog` at `~/.local/bin/anarlog` on macOS and Linux (DEB/AppImage) or `%LOCALAPPDATA%\Anarlog\bin\anarlog.exe` on Windows. Mac App Store builds omit the bundled CLI installer; build from source instead with `cargo install --locked --path apps/cli` in the [Anarlog repository](https://github.com/fastrepl/anarlog). Note that Homebrew, standalone release binaries, and Windows package-manager distribution are forthcoming.
+
+Open the desktop app once so it creates `app.db`. After initialization, the desktop app does not need to stay open for local MCP or CLI reads.
+
+Add the stdio server to your Claude Code or Cursor MCP configuration using the exact config from the [Anarlog MCP documentation](https://docs.anarlog.so/agents/mcp):
+
+```json
+{
+  "mcpServers": {
+    "anarlog": {
+      "command": "anarlog",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+If `anarlog` is not on the client's `PATH`, set `command` to its absolute path (for example, `~/.local/bin/anarlog` expanded to your home directory) and restart the client. To target a non-default database file, pass `--db-path`:
+
+```json
+{
+  "mcpServers": {
+    "anarlog": {
+      "command": "anarlog",
+      "args": ["--db-path", "/path/to/app.db", "mcp"]
+    }
+  }
+}
+```
+
+If you prefer packaged plugins, the official **Anarlog** plugin prefers local CLI or local MCP over Cloud MCP whenever local access is available:
+
+```bash
+# Claude Code plugin marketplace install
+claude plugin marketplace add fastrepl/anarlog
+claude plugin install anarlog@fastrepl
+```
+
+In Cursor, Teams and Enterprise admins can import `https://github.com/fastrepl/anarlog` as a team marketplace and install **Anarlog**, or drop the stdio JSON block directly into Cursor's MCP settings.
+
+How local stdio transport behaves at runtime:
+
+- **Zero open ports:** `anarlog mcp` communicates strictly over standard input and standard output (`stdio`), opening no local HTTP listener or TCP port.
+- **Zero Anarlog server egress:** Local MCP requires no Anarlog Cloud login, no Pro subscription, and no completed sync, and sends zero meeting data to Anarlog servers.
+- **No direct SQLite hacking:** Never point agents or scripts at `app.db` with raw `sqlite3` queries. `anarlog mcp` and the CLI apply Anarlog's rules for canonical notes, summaries, excluded participants, and recurring series without corrupting database state.
+
+## Which MCP tools and resources keep agent reads bounded and edits human-approved?
+
+Anarlog MCP pairs paginated, metadata-first read tools with human-in-the-loop edit proposals so coding agents pull only the context they need and can never silently overwrite human notes.
+
+Rather than dumping entire multi-hour transcripts into your context window or giving an agent direct write access to canonical tables, the [MCP reference](https://docs.anarlog.so/reference/mcp) exposes scoped tools and URI resources.
+
+### Meeting read tools
+
+| Tool | Purpose and bounds | When to call it |
+| --- | --- | --- |
+| `list_meetings` | Search by `query`, `series_id`, or `folder_path` (`limit` default 20, clamped `1..200`, `offset`) | First step to discover real meeting IDs |
+| `list_folders` | List folders (`path`, `name`, `parent_path`) sorted by path | When scoping searches to a folder |
+| `get_meeting` | Returns metadata, `folder_path`, canonical memo, summaries, participants, and action items | Before touching transcripts; omits transcript words |
+| `get_meeting_transcript` | Word-paginated transcript (`limit` default 200, max 500 words; `offset`, `pagination.next_offset`) | Only when notes and summaries are insufficient |
+| `get_recurring_meeting_history` | Returns meetings in the same recurring series, newest first (`limit` default 20, max 200) | When decisions span earlier meetings in a series |
+| `export_meeting` | Complete structured record including metadata, notes, summaries, participants, action items, and transcripts | Only when a task explicitly needs the full record |
+
+### Human-in-the-loop proposal tools (local only)
+
+Coding agents are good at drafting follow-up summaries, action-item cleanups, or structured PR references from a call, yet letting an LLM silently rewrite your notes destroys trust. Local Anarlog MCP enforces a staged proposal workflow:
+
+- `propose_summary_edit`: Stages a replacement Markdown summary (`meeting_id`, `content`, optional `target_id` if a meeting has multiple summaries) and returns a **pending** proposal without modifying the meeting.
+- `propose_memo_edit`: Stages a replacement canonical memo in Markdown (`meeting_id`, `content`) as a pending proposal.
+- `list_proposals`: Lists staged proposals filtered by `meeting_id` and `status` (`pending`, `applied`, `declined`, or `all`).
+- `get_proposal`: Returns proposal metadata alongside a unified `diff` so an agent or user can inspect exact line changes.
+- `decline_proposal`: Marks a pending proposal declined without changing the meeting (applied or already-declined proposals cannot be declined).
+
+In the desktop app, a human reviews the unified diff and chooses whether to apply or decline it.
+
+### MCP resources
+
+Clients that prefer URI reads over tool calls can also read three resource templates directly:
+
+- `anarlog://meetings/{meeting_id}` (`text/markdown`): Meeting detail without transcript text.
+- `anarlog://meetings/{meeting_id}/transcript{?offset,limit}` (`text/plain`): Bounded plain-text transcript page (default 200 words, max 500).
+- `anarlog://series/{series_id}` (`text/markdown`): Up to 100 meetings in a recurring series.
+
+Following the recommended agent flow keeps prompts fast and accurate: call `list_meetings`, pick an actual returned `id`, read `get_meeting`, page `get_meeting_transcript` only until you have enough evidence, keep reads for a meeting on one source, and report any local database error directly instead of hiding it behind a fallback.
+
+## How do you use the Anarlog --json CLI as a fallback in Claude Code, Cursor, or shell scripts?
+
+When an agent already has shell access or you are automating terminal scripts without MCP, `anarlog --json` exposes the same local SQLite workflows in a deterministic JSON envelope.
+
+Every successful `--json` invocation returns `schema_version`, `command`, `data`, and optional `pagination` fields, documented in the [Anarlog CLI guide](https://docs.anarlog.so/agents/cli):
+
+```bash
+# 1. Verify CLI version, resolved app.db path, read-only status, and schema readiness
+anarlog --json doctor
+
+# 2. Search local meetings and inspect metadata, memo, or summary
+anarlog --json meetings list --query "weekly planning" --limit 10
+anarlog --json meetings get MEETING_ID
+anarlog --json meetings note MEETING_ID --kind note
+anarlog --json meetings note MEETING_ID --kind summary
+
+# 3. Page transcript text in 200-word chunks (max 500)
+anarlog --json meetings transcript MEETING_ID --limit 200 --offset 0
+
+# 4. Stage a human-reviewed summary edit proposal
+anarlog --json proposals create --meeting MEETING_ID --kind summary --content "Replacement markdown"
+```
+
+Useful operational details when scripting with Claude Code or Cursor's terminal tool:
+
+- **Diagnostics:** `anarlog --json doctor` prints its JSON diagnostic report to stdout and exits with status `1` if `ready` is `false`, making it safe as a preflight check in hooks or scripts.
+- **Proposal management:** Use `anarlog --json proposals list --meeting MEETING_ID`, `anarlog --json proposals show PROPOSAL_ID`, and `anarlog --json proposals decline PROPOSAL_ID` from the shell, then review and apply inside the desktop app.
+- **Safe exports:** `anarlog meetings export MEETING_ID --format markdown --output meeting.md` (or `--format json`) writes a portable file when requested and refuses to overwrite an existing file unless `--force` is explicitly supplied.
+- **Custom paths:** Pass `--db-path /path/to/app.db`, `ANARLOG_DB_PATH=/path/to/app.db`, or `--base /path/to/anarlog-data` to point scripts at another local profile.
+
+## When should you use optional hosted Cloud MCP instead of local stdio?
+
+Use hosted Cloud MCP (`https://api.anarlog.so/mcp`) only when a remote or headless agent cannot reach `app.db` on your workstation.
+
+For local coding sessions in Claude Code or Cursor on the machine where Anarlog runs, local stdio MCP is faster, private to your machine, and free. Hosted Cloud MCP exists specifically for remote agents when your laptop is closed, and its security and billing boundaries are intentionally separate from local access per the [Cloud API and connectors reference](https://docs.anarlog.so/reference/api-cloud):
+
+- **Explicit opt-in and Pro requirement:** Cloud MCP requires Pro access (through a personal plan or an active paid Pro workspace membership) and must be turned on manually under **Settings -> Developers -> Cloud API & Connectors**.
+- **Separate server-readable upload:** Turning on Cloud API & Connectors uploads a separate server-readable copy of meeting titles, notes, summaries, participants, action items, and transcripts (up to 2 MB per snapshot). Your normal Cloud Sync data remains end-to-end encrypted and separate. Turning Cloud API & Connectors off deletes those server-readable copies and renders existing connector tokens unusable for meeting access.
+- **Strictly read-only:** Remote Cloud MCP exposes only the five read tools (`list_meetings`, `get_meeting`, `get_meeting_transcript`, `get_recurring_meeting_history`, and `export_meeting`). Staging proposals and recording imports remain local-only.
+- **OAuth 2.1 binding:** Hosts connect via Streamable HTTP at `https://api.anarlog.so/mcp` using OAuth 2.1 with dynamic client registration and PKCE (SHA-256), with tokens audience-bound strictly to `https://api.anarlog.so/mcp`.
+
+Remote setup for Claude Code or Cursor when you intentionally opt into Cloud access:
+
+```bash
+claude mcp add --transport http anarlog https://api.anarlog.so/mcp
+```
+
+```json
+{
+  "mcpServers": {
+    "anarlog": {
+      "url": "https://api.anarlog.so/mcp"
+    }
+  }
+}
+```
+
+If you configure both local stdio and hosted Cloud MCP in the same client, give them distinct server names (such as `anarlog-local` and `anarlog-cloud`), prefer local data, and do not assume a meeting's `updated_at` timestamp reflects Cloud snapshot freshness.
+
+## How does Anarlog's local MCP compare with Granola, Otter, Fireflies, Meetily, and Minutes?
+
+Anarlog combines local SQLite ownership with a zero-port stdio MCP server and staged diff proposals, whereas cloud-locked assistants depend on vendor workspaces and other local tools make different storage or platform tradeoffs.
+
+| Tool | Where canonical notes live | Meeting capture style | Local stdio MCP and CLI | Edit safety for coding agents |
+| --- | --- | --- | --- | --- |
+| **Anarlog** | Local SQLite (`app.db`); separate audio files; Markdown export | Bot-free OS system audio (macOS, Windows beta, Linux beta) | Bundled `anarlog mcp` (zero-port stdio) + `--json` CLI | Read tools + staged diff proposals; human applies in app |
+| **Granola** | Vendor cloud workspace | Bot-free desktop audio (macOS and Windows; no Linux client) | Cloud connector model rather than local SQLite MCP | Managed in Granola's workspace |
+| **Otter and Fireflies** | Vendor cloud workspace | Cloud meeting bots by default (plus web/recording workflows) | Cloud exports / APIs rather than local workstation database | Managed in vendor cloud |
+| **Meetily** | Local SQLite (`app.db` style local DB) | Bot-free system audio (MIT open source) | Community local-first focus; no bundled Anarlog-style proposal MCP | Manual export / app UI |
+| **Minutes / flat-file setups** | Local Markdown files | Varies by capture tool or file workflow | Direct filesystem / Markdown MCP access | Direct file edits unless sandboxed by user or Git |
+
+Honest tradeoffs to weigh:
+
+- **Versus Granola, Otter, and Fireflies:** Those tools optimize for shared cloud workspaces and team CRM workflows. If your primary requirement is feeding local, private transcripts into Claude Code or Cursor without a vendor workspace holding your history (or without inviting meeting bots into engineering calls), local SQLite removes that dependency. See our [bot-free AI meeting assistants comparison](/blog/bot-free-ai-meeting-assistants/) for a detailed capture breakdown.
+- **Versus Meetily:** Meetily is an impressive MIT-licensed local-first tool with strong local Whisper/Parakeet and Ollama defaults (covered in our [Meetily review](/blog/meetily-review/) and [Anarlog vs. Meetily comparison](/blog/char-vs-meetily/)). Anarlog differentiates with its native Rust + GPUI desktop app, the bundled `anarlog` `--json` CLI and stdio MCP server with human-reviewed unified diff proposals, and fail-closed `managed_settings.json` MDM policy locks.
+- **Versus Minutes and flat-file Markdown + MCP workflows:** Keeping raw Markdown folders lets any coding agent read notes with `cat` or `grep`, which is appealing if you live inside Obsidian or a Git repo. The downside appears once you have hundreds of calls with multi-speaker transcripts: agents load whole multi-thousand-word files into context or edit human notes directly. Anarlog keeps SQLite canonical so word-bounded transcript paging and proposal diffs stay reliable, while still exposing `anarlog://meetings/...` Markdown resources and one-click or CLI Markdown exports.
+
+## What privacy and context-window guardrails matter when feeding meeting transcripts to coding agents?
+
+Even when Anarlog reads transcripts offline with zero open ports, your coding agent's configured LLM provider receives every word you inject into its prompt context.
+
+Follow five practical guardrails before automating engineering workflows around call transcripts:
+
+1. **Remember the coding agent's inference path:** Local stdio MCP prevents Anarlog from sending data over the network, yet Claude Code or Cursor still transmits active prompt context to whichever cloud or local model endpoint your IDE uses.
+2. **Keep transcript reads paginated:** Configure agent instructions (or install the [Anarlog skill](https://docs.anarlog.so/agents/skills)) so the agent reads `get_meeting` first and pages `get_meeting_transcript` in 200-500 word slices rather than pulling full exports by default.
+3. **Require human approval on note edits:** Use `propose_summary_edit` and `propose_memo_edit` instead of automatically rewriting Markdown files, so hallucinations never overwrite human engineering decisions.
+4. **Verify Anarlog's own AI settings separately:** Recording and reading via MCP are completely local, while Anarlog's in-app transcription and summary generation depend on your independent **Settings -> Transcription** and **Settings -> Intelligence** choices. If you run Linux offline, follow our [Linux offline AI meeting notetaker guide](/blog/linux-offline-ai-meeting-notetaker/).
+5. **Respect participant notice and recording laws:** Bot-free desktop capture never removes legal notice or consent duties on Zoom, Teams, or Google Meet calls. Disclose capture explicitly before recording.
+
+Ready to connect local meeting context to Claude Code or Cursor without locking your notes in a vendor cloud? [Download Anarlog](/download/) on macOS, Windows, or Linux, or review the [MCP setup docs](https://docs.anarlog.so/agents/mcp) and [CLI reference](https://docs.anarlog.so/agents/cli).
+
+<CtaCard
+  href="/download/"
+  title="Keep meeting transcripts in local SQLite, ready for Claude Code and Cursor"
+  description="Download Anarlog (MIT-licensed) for bot-free capture, zero-port stdio MCP, --json CLI reads, and human-reviewed diff proposals."
+  cta="Download Anarlog"
+/>

@@ -1,0 +1,172 @@
+---
+meta_title: "Linux Offline AI Meeting Notetaker: Local SQLite, GPUI & Self-Hosted STT (2026)"
+display_title: "How to Transcribe Work Calls Offline and Store Notes Locally on Linux"
+meta_description: "Run Anarlog's native Rust and GPUI Linux beta with local SQLite storage, self-hosted Deepgram-compatible STT, Ollama/LM Studio/Unsloth summaries, and zero-port MCP."
+author: "John Jeong"
+category: "Guides"
+date: "2026-11-28"
+---
+
+Linux engineers who want automated meeting notes usually hit three walls at once: popular bot-free desktop apps like Granola have no Linux build, browser-bot SaaS tools inject an unwanted guest into Zoom or Teams and archive audio in vendor clouds, and Electron or WebView wrappers chew through RAM while lagging on large note libraries.
+
+[Anarlog](/) ships a native Rust and GPUI Linux desktop beta for both x64 and ARM64 with local SQLite storage (`app.db`), separate local audio files, clean Markdown exports, a bundled `--json` CLI and stdio MCP server, and MIT-licensed community client code. Just as important, we document plainly how offline speech-to-text works on Linux today versus Apple Silicon Macs, without hiding hardware limits behind vague "local AI" marketing.
+
+Disclosure: I am a co-founder of Anarlog.
+
+## Why do most AI meeting notetakers fail Linux engineers who need offline local storage?
+
+Most meeting notetakers treat Linux as an afterthought because desktop audio capture across PipeWire/PulseAudio, Wayland window compositing, and offline speech pipelines is harder to maintain than a macOS-only wrapper or a server-side Zoom bot.
+
+As a result, Linux users usually get pushed into one of three compromises:
+
+- **Cloud meeting bots (Otter, Fireflies):** A third-party participant joins your call, streams meeting audio to vendor servers, and stores transcripts inside a SaaS workspace.
+- **macOS/Windows-only bot-free apps (Granola, Superpowered):** No Linux desktop client is offered at all.
+- **Raw `whisper.cpp` or Python scripts:** Audio stays local, yet you lose live concurrent note-taking, dual-channel mic and system-audio capture, full-text search across thousands of meetings, speaker context, and safe agent tooling.
+
+Anarlog narrows that gap by combining a single-process native desktop app (`apps/desktop-gpui`) with open, inspectable storage in local SQLite (`app.db`).
+
+## How does Anarlog run natively on Linux, and how do you install it?
+
+Anarlog 2.0 replaces Tauri and system WebViews with a single-process native Rust desktop UI built on GPUI (`apps/desktop-gpui`), distributed in beta for Linux x64 and ARM64 via a signed APT repository, `.deb`, AppImage, and an Arch PKGBUILD.
+
+Per the [desktop installation guide](https://docs.anarlog.so/desktop-installation), Linux support is currently in **beta**, so test your audio routing and capture workflow before relying on it for critical calls and include your OS and Anarlog version when filing issues.
+
+### 1. Debian, Ubuntu, and compatible distros (signed APT repository)
+
+Add Anarlog's signed repository to receive stable updates through normal `apt upgrade` runs:
+
+```bash
+sudo install -d -m 0755 /etc/apt/keyrings
+curl -fsSL https://anarlog.so/apt/anarlog-archive-keyring.asc \
+  | sudo tee /etc/apt/keyrings/anarlog.asc > /dev/null
+sudo chmod a+r /etc/apt/keyrings/anarlog.asc
+
+sudo tee /etc/apt/sources.list.d/anarlog.sources > /dev/null <<'EOF'
+Types: deb
+URIs: https://anarlog.so/apt
+Suites: stable
+Components: main
+Signed-By: /etc/apt/keyrings/anarlog.asc
+EOF
+
+sudo apt update
+sudo apt install anarlog
+```
+
+### 2. Direct `.deb`, AppImage, or Arch Linux PKGBUILD
+
+- **Downloaded `.deb` (x64 or ARM64):**
+
+```bash
+sudo apt install ./anarlog-*.deb
+```
+
+- **Portable AppImage (x64 or ARM64):**
+
+```bash
+chmod +x ./anarlog-*.AppImage
+./anarlog-*.AppImage
+```
+
+On Wayland with an NVIDIA GPU, current builds apply the DMA-BUF workaround automatically. If a black window remains or only audio plays, launch with `WEBKIT_DISABLE_DMABUF_RENDERER=1 ./anarlog-*.AppImage` (and add `WEBKIT_DISABLE_COMPOSITING_MODE=1` if still black).
+
+- **Arch Linux (`anarlog-bin`):**
+
+```bash
+git clone https://github.com/fastrepl/anarlog.git
+cd anarlog/packaging/aur/anarlog-bin
+makepkg -si
+```
+
+The PKGBUILD fetches the stable `.deb` matching your architecture, verifies its checksum, and installs via `pacman`.
+
+### Open-source licensing boundary
+
+`apps/desktop-gpui` and Anarlog's community packages are MIT-licensed on [GitHub](https://github.com/fastrepl/anarlog), separate from the commercial `enterprise/` workspace.
+
+## How fast is Anarlog's native Rust and GPUI desktop app on Linux?
+
+Moving from Tauri `1.4.35` to GPUI cut Linux cold-launch time by 91.4% (`379.2 ms` vs `4,404.7 ms`), idle memory by 86.0% (`251.5 MiB` vs `1,794.3 MiB`), and idle CPU by 72.3% (`4.548 s` vs `16.439 s`).
+
+Our [GPUI cross-platform benchmark post](/blog/rebuilding-anarlog-in-gpui/) measured shipping `1.4.35` against GPUI on an Ubuntu 22.04/24.04 KVM guest (8-core Xeon, `5,000`-note fixture with `2,500` summaries and a `20,000`-word stress note, signed out, sync off, Light theme, `1280x800` window):
+
+| Linux benchmark | Tauri `1.4.35` | GPUI 2.0 | Delta |
+| --- | --- | --- | --- |
+| Cold launch (5,000-note list) | `4,404.7 ms` | `379.2 ms` | `-91.4%` (`11.6x` faster; launch CPU `11.11 s -> 0.48 s`) |
+| Idle memory (10 min visible, cgroup PSS) | `1,794.3 MiB` | `251.5 MiB` | `-86.0%` (`7.1x` less; closed to tray `251.0 MiB`) |
+| Idle CPU (10 min visible) | `16.439 s` | `4.548 s` | `-72.3%` (closed to tray `-80.1%`) |
+| Search across 5,000 notes (50 matches) | `3,128.4 ms` | `533.0 ms` | `-83.0%` (`5.9x` faster) |
+| 20,000-word note open | `2,240.0 ms` | `180.4 ms` | `-91.9%` |
+
+Be clear about the harness caveats too:
+
+- Continuous 5-second window resizing inside the headless KVM guest under software Vulkan (Mesa `lavapipe`) spent `9.844 s` vs `6.648 s` CPU (`+48.1%`) rasterizing frames, while memory still fell `-84.9%` (`1,709.7 -> 258.7 MiB`).
+- Those numbers isolate UI, database, and Tantivy search overhead. Live audio capture, speech-to-text, and local LLM inference add their own CPU/GPU budgets when active.
+
+## How do you transcribe work calls offline on Linux without sending audio to the cloud?
+
+On Linux, fully offline transcription works by pointing Anarlog's **Custom** (or Deepgram **Advanced** Base URL) transcription setting at a self-hosted Deepgram-compatible local STT server on `localhost` or your LAN, paired with **Ollama**, **LM Studio**, or **Unsloth** for offline summaries and chat.
+
+This distinction is critical to get right before adopting Anarlog on Linux:
+
+- **Built-in on-device models require Apple Silicon:** Per [Install the desktop app](https://docs.anarlog.so/desktop-installation) and [Use Anarlog offline](https://docs.anarlog.so/offline), Anarlog's built-in **Soniqo** (Parakeet Streaming and Parakeet Batch), **Apple Speech** (macOS 26), and the **On-device file** whisper.cpp `.bin` file picker require an **Apple Silicon Mac**. They do **not** run on Linux, Windows, or Intel Macs.
+- **How offline STT runs on Linux instead:** Per [Models and providers](https://docs.anarlog.so/models-and-providers), open **Settings -> Transcription**, choose **Custom** (or **Deepgram** with a custom **Base URL** under **Advanced**), and point Anarlog at a Deepgram-compatible transcription server running on `localhost` or your local network. For self-hosted live GPU inference, Anarlog also supports your own deployed **NVIDIA Speech NIM** server (NVIDIA's hosted gRPC endpoint is not supported).
+- **How offline summaries and chat run on Linux:** Open **Settings -> Intelligence** and connect **Ollama**, **LM Studio**, or **Unsloth** running on your workstation or LAN server, then pick your downloaded model under **Model being used**.
+- **Zero silent cloud fallback:** Transcription and Intelligence are completely independent selections. If a configured local server or model is unreachable, Anarlog displays a connection error instead of silently routing your call to Anarlog Cloud.
+- **Already running locally on your computer:** Full-text meeting search (Tantivy index), speaker voiceprints (`wespeaker-embedding-onnx-1`), and audio cleanup/speech detection (bundled ONNX models) execute on your machine.
+
+### Strict zero-egress boundaries on Linux
+
+Do not assume "local models selected" automatically means zero network traffic under every interaction. Verify these boundaries from [Use Anarlog offline](https://docs.anarlog.so/offline) and our [GDPR compliance architecture guide](/blog/gdpr-compliant-ai-notetaker/):
+
+- **Avoid AI Chat web search on sensitive calls:** AI Chat's `web_search` tool sends search queries to a hosted research endpoint (currently Exa) without a separate toggle, even when local STT and LLM providers are active. Avoid web search prompts on confidential meetings, or lock `intelligence_disabled: true` in `managed_settings.json`.
+- **Stay signed out of an Anarlog Cloud account:** Signed-in sessions periodically refresh auth tokens against Fastrepl's US auth servers even when CloudSync, note sharing, and Cloud API & Connectors are unused.
+- **Lock updates and telemetry for air-gapped hosts:** Direct-distribution builds still check for version updates (version/platform metadata only, never meeting content) even when signed out with telemetry and sync disabled. On strictly isolated machines, lock `automatic_updates: false`, `cloud_sync_enabled: false`, `telemetry_consent: false`, and `crash_reporting_consent: false` in `managed_settings.json` and block outbound update/research hosts at the firewall.
+
+### Regional or zero-retention BYOK when hosted models are allowed
+
+If your company allows approved cloud inference rather than strictly air-gapped local servers, Anarlog lets Linux teams bring their own API keys (stored in your OS credential store and never synced across devices) and route straight to endpoints such as [Mistral EU](/blog/mistral-data-retention-policy/), [Azure OpenAI deployed in an EU region](/blog/azure-open-ai-data-retention-policy/), or [OpenRouter with `ZDR only`](/blog/openrouter-data-retention-policy/) configured.
+
+## Where does Anarlog store notes, transcripts, and audio on Linux, and how do CLI and MCP work?
+
+Canonical sessions, memos, summaries, participants, and transcripts live in local SQLite at `~/.local/share/anarlog/app.db` (or `$XDG_DATA_HOME/anarlog/app.db`), audio recordings stay as separate local files beside `app.db`, and Markdown, CLI, and stdio MCP sit on top as portable interfaces.
+
+Important storage and automation details for Linux workflows:
+
+- **Audio file retention controls:** Under **Settings -> Meetings -> Audio file retention**, choose `Don't save`, `1 day`, `3 days`, `1 week`, `1 month`, or `Forever`. Recordings live as separate local files rather than bloating SQLite blobs.
+- **Markdown is an export format:** Anarlog exports clean Markdown or JSON from the desktop UI or via `anarlog meetings export MEETING_ID --format markdown --output meeting.md`, while SQLite remains the canonical store so full-text search and structured queries stay fast.
+- **Bundled CLI and zero-port stdio MCP:** Installing the CLI from **Settings -> Developers -> Install** (to `~/.local/bin/anarlog`, or building `apps/cli` with `cargo install --locked --path apps/cli`) unlocks `anarlog --json` reads and `anarlog mcp` over stdio for Claude Code, Cursor, or local Linux scripts, with no open network ports and human-reviewed edit proposals. See our [Claude Code and Cursor MCP guide](/blog/claude-code-cursor-mcp-meeting-notes/) for exact configs.
+- **Fail-closed MDM enforcement:** IT teams managing Linux engineering fleets can deploy `~/.local/share/anarlog/managed_settings.json` (`schema_version: 1`) per the [managed deployment docs](https://docs.anarlog.so/enterprise/managed-deployment). Protected SQLite triggers lock policies at startup, and Anarlog refuses to open if `managed_settings.json` is malformed or modified outside policy rules.
+
+## How does Anarlog on Linux compare with Meetily, Granola, Otter, Fireflies, and manual whisper.cpp scripts?
+
+On Linux, Anarlog stands out by offering a packaged native GPUI desktop client, local SQLite storage, bundled CLI/MCP tooling, and MDM policy locks, whereas most alternatives either skip Linux, force meeting bots, or require manual DIY plumbing.
+
+| Tool | Linux desktop availability | Offline transcription on Linux | Canonical storage | Capture and automation tradeoffs |
+| --- | --- | --- | --- | --- |
+| **Anarlog** | Beta packages (`x64`/`ARM64` APT, `.deb`, AppImage, Arch `anarlog-bin`) | Local Deepgram-compatible server via **Custom** STT (plus Ollama/LM Studio/Unsloth for summaries) | Local SQLite (`app.db`); separate audio files; Markdown export | Bot-free capture, `--json` CLI, zero-port stdio MCP, `managed_settings.json` MDM |
+| **Meetily** | Build from source (prebuilt binaries focus on macOS/Windows) | Built-in local Parakeet or Whisper + Ollama | Local SQLite database | MIT open source, strong local pipeline; lacks Anarlog's bundled CLI/MCP proposal workflow and MDM file |
+| **Granola** | No Linux desktop client | Not available on Linux | Vendor cloud workspace | Bot-free on macOS/Windows, cloud-locked notes |
+| **Otter and Fireflies** | Browser / web apps | Cloud transcription | Vendor cloud workspace | Default to cloud meeting bots and hosted archives |
+| **Manual `whisper.cpp` scripts** | Full Linux compatibility | Native local Whisper CLI | Flat text / audio files you manage | Full low-level control, but no live call UI, dual-channel sync, search index, or staged agent proposals |
+
+For deeper comparisons, see our [Meetily review](/blog/meetily-review/), [Granola alternatives guide](/blog/granola-ai-alternatives/), and [bot-free AI meeting assistants overview](/blog/bot-free-ai-meeting-assistants/).
+
+## What should you check before recording work calls offline on Linux?
+
+Run a quick five-step preflight check before your first live Linux work call to verify audio capture, local endpoints, egress locks, consent, and backups.
+
+1. **Test mic and system audio capture:** Run a short test call and confirm both your microphone and your Zoom, Teams, or Meet browser/desktop output are captured on Linux beta.
+2. **Verify both local AI endpoints offline:** Confirm your local Deepgram-compatible server responds under **Settings -> Transcription** and your Ollama, LM Studio, or Unsloth server responds under **Settings -> Intelligence** with Wi-Fi disabled.
+3. **Confirm zero-egress settings if required:** Stay signed out of Anarlog Cloud, avoid AI Chat `web_search` prompts, and lock `managed_settings.json` keys (`cloud_sync_enabled`, `telemetry_consent`, `crash_reporting_consent`, `automatic_updates`, and `intelligence_disabled` if needed).
+4. **Disclose capture and obtain required consent:** Bot-free recording does not remove legal notice or all-party consent rules. See [Is AI note-taking legal?](/blog/is-ai-notetaking-legal/) and our [GDPR guide](/blog/gdpr-compliant-ai-notetaker/).
+5. **Back up `~/.local/share/anarlog/`:** Keep your SQLite `app.db` and any retained local recordings included in your workstation backup or disk encryption policy.
+
+Ready to test a native, local-first meeting notetaker on Linux? [Download Anarlog](/download/) (MIT community desktop beta for x64 and ARM64) or check the [Linux installation docs](https://docs.anarlog.so/desktop-installation) and [offline setup checklist](https://docs.anarlog.so/offline).
+
+<CtaCard
+  href="/download/"
+  title="Transcribe Linux calls locally with GPUI, SQLite, and your own AI stack"
+  description="Install the MIT-licensed Anarlog Linux beta via signed APT, .deb, AppImage, or Arch PKGBUILD and keep canonical notes on your machine."
+  cta="Download Anarlog"
+/>
