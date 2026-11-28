@@ -618,16 +618,21 @@ name = "api-crm"
 version = "0.1.0"
 dependencies = [
  "api-auth",
+ "api-env",
  "api-error",
  "api-nango",
  "axum",
  "futures-util",
  "nango",
+ "reqwest 0.13.2",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
+ "tokio",
+ "tracing",
  "urlencoding",
  "utoipa",
+ "wiremock",
 ]
 
 [[package]]

@@ -16,6 +16,7 @@ use serde_json::{Value, json};
 use super::ApplicationView;
 use crate::{
     meeting::{
+        ai_view::AiViewServices,
         capture::Phase,
         host,
         model::failure,
@@ -23,13 +24,14 @@ use crate::{
             apps::{self, MeetingApps, MicApp},
             auto_start::{self, Live, Meeting, Outcome, Scheduler, Step},
             auto_stop::{self, MicCheck, Pending, Prompts, Verdict},
+            brief_schedule::{self, BriefScheduler},
             capture::{self, ChatState, Consent, Delivery},
             records,
         },
     },
     platform::notifications::Action,
     product::settings::Snapshot,
-    workspace::navigation::Route,
+    workspace::{automation_runner, navigation::Route},
 };
 
 const MAX_DISCLOSED: usize = 256;
@@ -123,6 +125,10 @@ pub(super) struct MeetingSchedule {
     capture: Option<(SessionId, Vec<Task<()>>)>,
     disclosure: Option<Task<()>>,
     disclosed: VecDeque<SessionId>,
+    brief_scheduler: BriefScheduler,
+    brief_timer: Option<Task<()>>,
+    brief_lead_minutes: Option<u32>,
+    brief_running: bool,
 }
 
 fn now_ms() -> i64 {
@@ -186,6 +192,20 @@ impl ApplicationView {
                 this.schedule_tick(cx);
             },
         ));
+        self.schedule.tasks.push(spawn_schedule_watch(
+            &self.runtime,
+            "SELECT EXISTS(SELECT 1 FROM events) AS events, EXISTS(SELECT 1 FROM app_settings) AS settings",
+            brief_schedule::UPCOMING_BRIEF_SQL,
+            cx,
+            |this, rows, cx| {
+                let meetings = rows
+                    .iter()
+                    .map(brief_schedule::BriefMeeting::from_row)
+                    .collect();
+                this.schedule.brief_scheduler.replace(meetings);
+                this.refresh_brief_schedule(cx);
+            },
+        ));
         self.schedule.tasks.push(cx.spawn(async move |this, cx| {
             loop {
                 cx.background_executor()
@@ -217,6 +237,20 @@ impl ApplicationView {
         if self.meeting_apps(cx).is_some() {
             // Shipping refreshes calendars every minute, which keeps the attendance snapshot
             // fresh enough to start on. Only the real app does: tests never read calendars.
+            self.schedule.tasks.push(spawn_schedule_watch(
+            &self.runtime,
+            "SELECT EXISTS(SELECT 1 FROM events) AS events, EXISTS(SELECT 1 FROM app_settings) AS settings",
+            brief_schedule::UPCOMING_BRIEF_SQL,
+            cx,
+            |this, rows, cx| {
+                let meetings = rows
+                    .iter()
+                    .map(brief_schedule::BriefMeeting::from_row)
+                    .collect();
+                this.schedule.brief_scheduler.replace(meetings);
+                this.refresh_brief_schedule(cx);
+            },
+        ));
             self.schedule.tasks.push(cx.spawn(async move |this, cx| {
                 loop {
                     if this
@@ -247,6 +281,109 @@ impl ApplicationView {
         }
         if self.schedule.started {
             self.schedule_tick(cx);
+            self.brief_tick(cx);
+        }
+    }
+
+    fn refresh_brief_schedule(&mut self, cx: &mut Context<Self>) {
+        let Ok(reply) = automation_runner::brief_automation_schedule(&self.runtime) else {
+            return;
+        };
+        cx.spawn(async move |this, cx| {
+            let Ok(schedule) = reply.receive().await else {
+                return;
+            };
+            let _ = this.update(cx, |this, cx| {
+                this.schedule.brief_lead_minutes = schedule.max_lead_minutes;
+                this.brief_tick(cx);
+            });
+        })
+        .detach();
+    }
+
+    fn brief_tick(&mut self, cx: &mut Context<Self>) {
+        if self.schedule.brief_running || self.writers_paused || self.closing {
+            return;
+        }
+        let Some(lead_minutes) = self.schedule.brief_lead_minutes else {
+            self.schedule.brief_timer = None;
+            return;
+        };
+        if !crate::product::account::is_pro(cx) {
+            self.schedule.brief_timer = None;
+            return;
+        }
+        let now = now_ms();
+        if let Some(meeting) = self
+            .schedule
+            .brief_scheduler
+            .select_due(now, lead_minutes)
+            .into_iter()
+            .next()
+        {
+            let Some(ai_services) = cx.try_global::<AiViewServices>().cloned() else {
+                return;
+            };
+            self.schedule.brief_running = true;
+            self.schedule.brief_timer = None;
+            let runtime = self.runtime.clone();
+            let viewer = self.viewer();
+            let client = self.workspace.read(cx).automation_client();
+            let minutes_until_start = meeting.minutes_until_start(now).unwrap_or(0);
+            let event_id = meeting.id.clone();
+            cx.spawn(async move |this, cx| {
+                let result = async {
+                    let session =
+                        crate::workspace::calendar::open_event(&runtime, event_id.clone(), viewer)?
+                            .receive()
+                            .await?;
+                    automation_runner::run_pre_meeting_briefs(
+                        &runtime,
+                        ai_services.ai,
+                        session,
+                        client,
+                        minutes_until_start,
+                    )?
+                    .receive()
+                    .await
+                }
+                .await;
+                let _ = this.update(cx, |this, cx| {
+                    this.schedule.brief_running = false;
+                    let now = now_ms();
+                    match result {
+                        Ok(true) => {
+                            this.schedule
+                                .brief_scheduler
+                                .mark_done(&event_id, true, now);
+                            crate::application::toasts::info(
+                                "Prepared pre-meeting brief".to_owned(),
+                                cx,
+                            );
+                        }
+                        Ok(false) | Err(_) => {
+                            this.schedule
+                                .brief_scheduler
+                                .mark_done(&event_id, false, now);
+                        }
+                    }
+                    this.brief_tick(cx);
+                });
+            })
+            .detach();
+            return;
+        }
+        match self.schedule.brief_scheduler.next_wake(now, lead_minutes) {
+            Some(delay) => {
+                let delay = delay.max(Duration::from_millis(250));
+                self.schedule.brief_timer = Some(cx.spawn(async move |this, cx| {
+                    cx.background_executor().timer(delay).await;
+                    let _ = this.update(cx, |this, cx| this.brief_tick(cx));
+                }));
+            }
+            None => {
+                self.schedule.brief_timer = None;
+            }
         }
     }
 
@@ -279,6 +416,7 @@ impl ApplicationView {
         }
         if self.schedule.started {
             self.schedule_tick(cx);
+            self.brief_tick(cx);
         }
     }
 

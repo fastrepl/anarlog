@@ -1,19 +1,70 @@
 use anlg_api_nango::NangoIntegrationId;
-use anlg_nango::OwnedNangoHttpClient;
+use anlg_nango::{OwnedNangoHttpClient, OwnedNangoProxy};
 use futures_util::future::BoxFuture;
 use serde_json::{Map, Value, json};
 
-use crate::contacts::{CrmContact, CrmContactQuery};
+use crate::contacts::{
+    CrmContact, CrmContactContext, CrmContactQuery, CrmDeal, CrmLoggedNote, CrmNote, CrmNoteInput,
+    matching_contacts,
+};
 use crate::error::{CrmError, Result};
 
-use super::CrmProvider;
+use super::{CrmProvider, keep_optional_result, send_json, truncate_chars};
 
 pub const PROVIDER: CrmProvider = CrmProvider {
     id: "attio",
     name: "Attio",
     nango_integration_id: anlg_api_nango::Attio::ID,
     search,
+    context,
+    log_note,
 };
+
+async fn search_with_proxy(
+    proxy: &OwnedNangoProxy,
+    query: &CrmContactQuery,
+    limit: usize,
+) -> Result<Vec<CrmContact>> {
+    let filter = if let Some(email) = &query.email {
+        json!({
+            "email_addresses": {
+                "email_address": { "$eq": email },
+            },
+        })
+    } else if let Some(name) = &query.name {
+        json!({
+            "name": {
+                "full_name": { "$contains": name },
+            },
+        })
+    } else {
+        return Ok(Vec::new());
+    };
+    let body = json!({
+        "filter": filter,
+        "limit": limit.min(200),
+    });
+
+    let builder = proxy
+        .post(
+            "/v2/objects/people/records/query",
+            serde_json::to_vec(&body).map_err(|e| CrmError::Internal(e.to_string()))?,
+            "application/json",
+        )
+        .map_err(|e| CrmError::Provider(e.to_string()))?;
+    let payload = send_json(builder).await?;
+
+    Ok(payload
+        .get("data")
+        .and_then(Value::as_array)
+        .map(|records| {
+            records
+                .iter()
+                .filter_map(|record| contact_from_record(record, query.email.as_deref()))
+                .collect()
+        })
+        .unwrap_or_default())
+}
 
 fn search(
     http: OwnedNangoHttpClient,
@@ -21,54 +72,216 @@ fn search(
     limit: usize,
 ) -> BoxFuture<'static, Result<Vec<CrmContact>>> {
     Box::pin(async move {
-        let filter = if let Some(email) = &query.email {
-            json!({
-                "email_addresses": {
-                    "email_address": { "$eq": email },
-                },
+        let proxy = http.into_proxy();
+        search_with_proxy(&proxy, &query, limit).await
+    })
+}
+
+async fn fetch_notes(
+    proxy: &OwnedNangoProxy,
+    record_id: &str,
+    limit: usize,
+) -> Result<Vec<CrmNote>> {
+    let builder = proxy
+        .get(format!(
+            "/v2/notes?parent_object=people&parent_record_id={}&limit={}",
+            urlencoding::encode(record_id),
+            limit.clamp(1, 20),
+        ))
+        .map_err(|e| CrmError::Provider(e.to_string()))?;
+    let payload = send_json(builder).await?;
+    Ok(payload["data"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|note| {
+            let body = note
+                .get("content_plaintext")
+                .or_else(|| note.get("content_markdown"))
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())?;
+            Some(CrmNote {
+                id: note
+                    .get("id")
+                    .and_then(|id| id.get("note_id"))
+                    .and_then(Value::as_str)
+                    .map(str::to_string),
+                title: note
+                    .get("title")
+                    .and_then(Value::as_str)
+                    .map(str::trim)
+                    .filter(|s| !s.is_empty())
+                    .map(str::to_string),
+                body: truncate_chars(body, 1000),
+                created_at: note
+                    .get("created_at")
+                    .and_then(Value::as_str)
+                    .map(str::to_string),
             })
-        } else if let Some(name) = &query.name {
-            json!({
-                "name": {
-                    "full_name": { "$contains": name },
-                },
-            })
-        } else {
-            return Ok(Vec::new());
+        })
+        .collect())
+}
+
+async fn fetch_deals(
+    proxy: &OwnedNangoProxy,
+    record_id: &str,
+    limit: usize,
+) -> Result<Vec<CrmDeal>> {
+    let body = json!({
+        "filter": {
+            "associated_people": {
+                "target_object": "people",
+                "target_record_id": record_id,
+            },
+        },
+        "limit": limit.clamp(1, 20),
+    });
+    let builder = proxy
+        .post(
+            "/v2/objects/deals/records/query",
+            serde_json::to_vec(&body).map_err(|e| CrmError::Internal(e.to_string()))?,
+            "application/json",
+        )
+        .map_err(|e| CrmError::Provider(e.to_string()))?;
+    let payload = send_json(builder).await?;
+    Ok(payload["data"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .map(|record| {
+            let values = record.get("values").and_then(Value::as_object);
+            let name = values
+                .and_then(|v| first_entry_field(v, "name", &["value"]))
+                .map(str::to_string);
+            let stage = values.and_then(|v| {
+                attribute_entries(v, "stage").and_then(|entries| {
+                    entries.iter().find_map(|entry| {
+                        entry
+                            .get("status")
+                            .and_then(|s| s.get("title"))
+                            .and_then(Value::as_str)
+                            .or_else(|| entry.get("value").and_then(Value::as_str))
+                            .map(str::to_string)
+                    })
+                })
+            });
+            let amount = values.and_then(|v| {
+                attribute_entries(v, "value").and_then(|entries| {
+                    entries.iter().find_map(|entry| {
+                        entry.get("currency_value").and_then(|val| {
+                            val.as_f64()
+                                .map(|n| n.to_string())
+                                .or_else(|| val.as_str().map(str::to_string))
+                        })
+                    })
+                })
+            });
+            CrmDeal {
+                id: record
+                    .get("id")
+                    .and_then(|id| id.get("record_id"))
+                    .and_then(Value::as_str)
+                    .map(str::to_string),
+                name,
+                stage,
+                amount,
+                close_date: None,
+                url: record
+                    .get("web_url")
+                    .and_then(Value::as_str)
+                    .map(str::to_string),
+            }
+        })
+        .collect())
+}
+
+fn context(
+    http: OwnedNangoHttpClient,
+    query: CrmContactQuery,
+    limit: usize,
+) -> BoxFuture<'static, Result<CrmContactContext>> {
+    Box::pin(async move {
+        let proxy = http.into_proxy();
+        let candidates = search_with_proxy(&proxy, &query, limit.clamp(5, 25)).await?;
+        let contact = matching_contacts(candidates, &query, 1).into_iter().next();
+        let Some(record_id) = contact.as_ref().and_then(|c| c.id.clone()) else {
+            return Ok(CrmContactContext {
+                contact,
+                deals: Vec::new(),
+                notes: Vec::new(),
+            });
+        };
+
+        let notes = keep_optional_result(fetch_notes(&proxy, &record_id, limit).await)?;
+        let deals = keep_optional_result(fetch_deals(&proxy, &record_id, limit).await)?;
+        Ok(CrmContactContext {
+            contact,
+            deals,
+            notes,
+        })
+    })
+}
+
+fn log_note(
+    http: OwnedNangoHttpClient,
+    input: CrmNoteInput,
+) -> BoxFuture<'static, Result<CrmLoggedNote>> {
+    Box::pin(async move {
+        let proxy = http.into_proxy();
+        let (contact_id, contact_name) = match input
+            .contact_id
+            .as_deref()
+            .map(str::trim)
+            .filter(|id| !id.is_empty())
+        {
+            Some(id) => (id.to_string(), None),
+            None => {
+                let candidates = search_with_proxy(&proxy, &input.query, 10).await?;
+                matching_contacts(candidates, &input.query, 1)
+                    .into_iter()
+                    .next()
+                    .and_then(|c| c.id.map(|id| (id, c.name)))
+                    .ok_or_else(|| {
+                        CrmError::NotFound("no matching Attio person found".to_string())
+                    })?
+            }
+        };
+
+        let title = match input.title.trim() {
+            "" => "Meeting note".to_string(),
+            raw => truncate_chars(raw, 200),
         };
         let body = json!({
-            "filter": filter,
-            "limit": limit.min(200),
+            "data": {
+                "parent_object": "people",
+                "parent_record_id": contact_id,
+                "title": title,
+                "format": "markdown",
+                "content": truncate_chars(input.body.trim(), 30_000),
+            }
         });
-
-        let response = http
-            .into_proxy()
+        let builder = proxy
             .post(
-                "/v2/objects/people/records/query",
+                "/v2/notes",
                 serde_json::to_vec(&body).map_err(|e| CrmError::Internal(e.to_string()))?,
                 "application/json",
             )
-            .map_err(|e| CrmError::Provider(e.to_string()))?
-            .send()
-            .await
-            .map_err(|e| CrmError::Provider(e.to_string()))?
-            .error_for_status()
             .map_err(|e| CrmError::Provider(e.to_string()))?;
+        let created = send_json(builder).await?;
 
-        let payload: Value = response
-            .json()
-            .await
-            .map_err(|e| CrmError::Provider(e.to_string()))?;
-        Ok(payload
-            .get("data")
-            .and_then(Value::as_array)
-            .map(|records| {
-                records
-                    .iter()
-                    .filter_map(|record| contact_from_record(record, query.email.as_deref()))
-                    .collect()
-            })
-            .unwrap_or_default())
+        Ok(CrmLoggedNote {
+            note_id: created
+                .get("data")
+                .and_then(|d| d.get("id"))
+                .and_then(|id| id.get("note_id"))
+                .and_then(Value::as_str)
+                .map(str::to_string),
+            contact_id,
+            contact_name,
+            deal_id: None,
+            url: None,
+        })
     })
 }
 

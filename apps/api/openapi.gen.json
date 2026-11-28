@@ -185,6 +185,96 @@
         ]
       }
     },
+    "/crm/contact-context": {
+      "post": {
+        "tags": [
+          "crm"
+        ],
+        "operationId": "crm_contact_context",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrmContactContextRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "CRM contact profile with recent deals and notes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CrmContactContextResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unknown provider or missing query"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "No Nango connection for the provider"
+          },
+          "424": {
+            "description": "CRM connection requires reconnect"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/crm/log-note": {
+      "post": {
+        "tags": [
+          "crm"
+        ],
+        "operationId": "crm_log_note",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrmLogNoteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Meeting note logged to CRM",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CrmLogNoteResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unknown provider or invalid note request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "No matching contact or connection"
+          },
+          "424": {
+            "description": "CRM connection requires reconnect"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
     "/crm/search-contacts": {
       "post": {
         "tags": [
@@ -220,6 +310,9 @@
           },
           "404": {
             "description": "No Nango connection for the provider"
+          },
+          "424": {
+            "description": "CRM connection requires reconnect"
           },
           "500": {
             "description": "Internal server error"
@@ -7338,6 +7431,231 @@
             ]
           },
           "url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "CrmContactContextRequest": {
+        "type": "object",
+        "required": [
+          "provider",
+          "connection_id"
+        ],
+        "properties": {
+          "connection_id": {
+            "type": "string"
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "limit": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "provider": {
+            "type": "string"
+          }
+        }
+      },
+      "CrmContactContextResponse": {
+        "type": "object",
+        "required": [
+          "deals",
+          "notes"
+        ],
+        "properties": {
+          "contact": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CrmContact"
+              }
+            ]
+          },
+          "deals": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CrmDeal"
+            }
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CrmNote"
+            }
+          }
+        }
+      },
+      "CrmDeal": {
+        "type": "object",
+        "properties": {
+          "amount": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "closeDate": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "stage": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "CrmLogNoteRequest": {
+        "type": "object",
+        "required": [
+          "provider",
+          "connection_id",
+          "title",
+          "body"
+        ],
+        "properties": {
+          "body": {
+            "type": "string"
+          },
+          "connection_id": {
+            "type": "string"
+          },
+          "contact_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "occurred_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "provider": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      },
+      "CrmLogNoteResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/CrmLoggedNote"
+          }
+        ]
+      },
+      "CrmLoggedNote": {
+        "type": "object",
+        "required": [
+          "contactId"
+        ],
+        "properties": {
+          "contactId": {
+            "type": "string"
+          },
+          "contactName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "dealId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "noteId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "CrmNote": {
+        "type": "object",
+        "required": [
+          "body"
+        ],
+        "properties": {
+          "body": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
             "type": [
               "string",
               "null"
@@ -15169,7 +15487,7 @@
     },
     {
       "name": "crm",
-      "description": "CRM contact lookup"
+      "description": "CRM contact lookup, context, and note logging"
     }
   ]
 }

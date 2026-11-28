@@ -877,6 +877,335 @@ fn a_signed_out_starter_run_leaves_the_note_for_a_later_delivery() {
 }
 
 #[test]
+fn crm_update_starter_logs_summary_and_handles_missing_and_reconnect_errors() {
+    block_on(async {
+        let (_directory, runtime) = start().await;
+        let session = note_with_summary(&runtime).await;
+        execute(
+            &runtime,
+            "INSERT INTO action_items(id,session_id,text) VALUES ('act-1',?,'Send MSA')",
+            vec![json!(session.0)],
+        )
+        .await;
+        execute(
+            &runtime,
+            "INSERT INTO humans(id,name) VALUES ('h1','Ada Lovelace'),('h2','Bob Unknown')",
+            vec![],
+        )
+        .await;
+        execute(
+            &runtime,
+            "INSERT INTO session_participants(id,session_id,human_id,display_name,email,source) VALUES
+                ('sp1',?,'h1','Ada Lovelace','ada@acme.com','auto'),
+                ('sp2',?,'h2','Bob Unknown','bob@unknown.com','auto')",
+            vec![json!(session.0), json!(session.0)],
+        )
+        .await;
+        execute(
+            &runtime,
+            "INSERT INTO app_settings(id,value_json) VALUES
+                ('automation_crm_update_enabled','true'),
+                ('automation_crm_update_target',?)",
+            vec![json!(
+                json!(r#"{"id":"hubspot","name":"HubSpot"}"#).to_string()
+            )],
+        )
+        .await;
+
+        let connections = json!({
+            "connections": [{"integration_id": "hubspot", "connection_id": "hs-conn-1", "status": "connected"}]
+        });
+        let (address, worker) = provider_fixture(vec![
+            ("/nango/connections", 200, connections.clone()),
+            (
+                "/crm/log-note",
+                200,
+                json!({"contactId": "c-101", "noteId": "n-1"}),
+            ),
+            (
+                "/crm/log-note",
+                404,
+                json!({"error": {"code": "contact_not_found"}}),
+            ),
+        ]);
+        let client = super::automation_runner::AutomationClient::new(
+            &address,
+            "fixture-token".into(),
+            "me@anarlog.com".into(),
+        )
+        .unwrap();
+        let messages = super::automation_runner::run_starters(
+            &runtime,
+            super::automation_runner::Trigger::NoteEnhanced,
+            session.clone(),
+            Some(client),
+        )
+        .unwrap()
+        .receive()
+        .await
+        .unwrap();
+        assert_eq!(messages, ["Logged note in HubSpot"]);
+        let bodies = worker.join().unwrap();
+        assert_eq!(bodies[1]["provider"], "hubspot");
+        assert_eq!(bodies[1]["email"], "ada@acme.com");
+        let note_body = bodies[1]["body"].as_str().unwrap();
+        assert!(note_body.contains("Summary text"));
+        assert!(note_body.contains("Send MSA"));
+
+        let last_run = execute(
+            &runtime,
+            "SELECT value_json FROM app_settings WHERE id='automation_crm_update_last_run'",
+            vec![],
+        )
+        .await;
+        assert!(
+            last_run[0]["value_json"]
+                .as_str()
+                .unwrap()
+                .contains("success")
+        );
+
+        // 424 reconnect_required surfaces an actionable reconnect error.
+        let session2 = runtime
+            .create_note("Follow-up sync".into())
+            .unwrap()
+            .receive()
+            .await
+            .unwrap()
+            .summary
+            .id;
+        execute(
+            &runtime,
+            "INSERT INTO session_documents(id,session_id,kind,body_format,body) VALUES ('summary-2',?,'summary','markdown','Summary text')",
+            vec![json!(session2.0)],
+        )
+        .await;
+        execute(
+            &runtime,
+            "INSERT INTO session_participants(id,session_id,human_id,display_name,email,source) VALUES
+                ('sp3',?,'h1','Ada Lovelace','ada@acme.com','auto')",
+            vec![json!(session2.0)],
+        )
+        .await;
+        let (address, worker) = provider_fixture(vec![
+            ("/nango/connections", 200, connections),
+            (
+                "/crm/log-note",
+                424,
+                json!({"error": {"code": "reconnect_required"}}),
+            ),
+        ]);
+        let client = super::automation_runner::AutomationClient::new(
+            &address,
+            "fixture-token".into(),
+            "me@anarlog.com".into(),
+        )
+        .unwrap();
+        let messages = super::automation_runner::run_starters(
+            &runtime,
+            super::automation_runner::Trigger::NoteEnhanced,
+            session2,
+            Some(client),
+        )
+        .unwrap()
+        .receive()
+        .await
+        .unwrap();
+        worker.join().unwrap();
+        assert!(messages[0].contains("Reconnect HubSpot"), "{messages:?}");
+        runtime.shutdown().await.unwrap();
+    });
+}
+
+#[test]
+fn pre_meeting_brief_automation_writes_empty_memo_from_crm_and_skips_nonempty_memos() {
+    use crate::meeting::ai::{AiServices, ProviderAdapter, ProviderEvent, Request};
+    use futures::StreamExt as _;
+
+    struct BriefFakeProvider;
+    impl ProviderAdapter for BriefFakeProvider {
+        fn stream(
+            &self,
+            _request: Request,
+        ) -> futures::future::BoxFuture<
+            'static,
+            desktop_runtime::Result<
+                futures::stream::BoxStream<'static, desktop_runtime::Result<ProviderEvent>>,
+            >,
+        > {
+            let reply = r#"{"opener":"Review security timeline","bullets":["SOC2 report requested","Pilot closes Friday","Confirm legal owner"]}"#;
+            Box::pin(async move {
+                Ok(futures::stream::iter(vec![Ok(ProviderEvent::Text(reply.to_owned()))]).boxed())
+            })
+        }
+    }
+
+    block_on(async {
+        let (_directory, runtime) = start().await;
+        let empty_session = runtime
+            .create_note("Acme Discovery".into())
+            .unwrap()
+            .receive()
+            .await
+            .unwrap()
+            .summary
+            .id;
+        execute(
+            &runtime,
+            "INSERT INTO humans(id,name) VALUES ('h1','Ada Lovelace')",
+            vec![],
+        )
+        .await;
+        execute(
+            &runtime,
+            "INSERT INTO session_participants(id,session_id,human_id,display_name,email,source) VALUES
+                ('sp1',?,'h1','Ada Lovelace','ada@acme.com','auto')",
+            vec![json!(empty_session.0)],
+        )
+        .await;
+        execute(
+            &runtime,
+            "INSERT INTO app_settings(id,value_json) VALUES
+                ('automation_pre_meeting_brief_enabled','true'),
+                ('automation_pre_meeting_brief_config',?)",
+            vec![json!(
+                json!(r#"{"leadMinutes":15,"crmProvider":"hubspot"}"#).to_string()
+            )],
+        )
+        .await;
+
+        let schedule = super::automation_runner::brief_automation_schedule(&runtime)
+            .unwrap()
+            .receive()
+            .await
+            .unwrap();
+        assert_eq!(schedule.max_lead_minutes, Some(15));
+
+        let ai = Arc::new(
+            AiServices::new(
+                runtime.clone(),
+                Arc::new(|_| {
+                    let adapter: Arc<dyn ProviderAdapter> = Arc::new(BriefFakeProvider);
+                    Box::pin(async move { Ok(adapter) })
+                }),
+                Arc::new(|_, _, _| Box::pin(async { Ok(json!({})) })),
+                Arc::new(|_| false),
+            )
+            .unwrap(),
+        );
+        let (address, worker) = provider_fixture(vec![
+            (
+                "/nango/connections",
+                200,
+                json!({"connections":[{"integration_id":"hubspot","connection_id":"hs-1","status":"connected"}]}),
+            ),
+            (
+                "/crm/contact-context",
+                200,
+                json!({
+                    "contact": {"id": "101", "name": "Ada Lovelace", "email": "ada@acme.com", "companyName": "Acme", "jobTitle": "CTO"},
+                    "deals": [{"name": "Acme Pilot", "stage": "Security Review", "amount": "24000"}],
+                    "notes": [{"title": "Intro", "body": "SOC2 report requested", "createdAt": "2026-11-20T09:00:00Z"}]
+                }),
+            ),
+        ]);
+        let client = super::automation_runner::AutomationClient::new(
+            &address,
+            "fixture-token".into(),
+            "me@anarlog.com".into(),
+        )
+        .unwrap();
+
+        let wrote = super::automation_runner::run_pre_meeting_briefs(
+            &runtime,
+            ai.clone(),
+            empty_session.clone(),
+            Some(client),
+            10,
+        )
+        .unwrap()
+        .receive()
+        .await
+        .unwrap();
+        assert!(wrote);
+        let bodies = worker.join().unwrap();
+        assert_eq!(bodies[1]["provider"], "hubspot");
+        assert_eq!(bodies[1]["email"], "ada@acme.com");
+
+        let opened = runtime
+            .open_session(empty_session.clone(), CancellationToken::new())
+            .unwrap()
+            .receive()
+            .await
+            .unwrap();
+        let saved_note = opened.note.unwrap();
+        assert_eq!(saved_note.body_format.as_ref(), "prosemirror_json");
+        assert!(saved_note.body.contains("Review security timeline"));
+
+        // Re-running for the same session is deduplicated.
+        let rerun = super::automation_runner::run_pre_meeting_briefs(
+            &runtime,
+            ai.clone(),
+            empty_session,
+            None,
+            10,
+        )
+        .unwrap()
+        .receive()
+        .await
+        .unwrap();
+        assert!(!rerun);
+
+        // A session with an existing user-written memo is never overwritten.
+        let non_empty = runtime
+            .create_note("Existing Agenda".into())
+            .unwrap()
+            .receive()
+            .await
+            .unwrap();
+        let existing_body: Arc<str> = r#"{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"My manual agenda"}]}]}"#.into();
+        runtime
+            .save_document(desktop_runtime::SaveDocument {
+                base: non_empty.note.unwrap(),
+                body: existing_body.clone(),
+            })
+            .unwrap()
+            .receive()
+            .await
+            .unwrap();
+        let session2 = non_empty.summary.id;
+        execute(
+            &runtime,
+            "INSERT INTO session_participants(id,session_id,human_id,display_name,email,source) VALUES
+                ('sp2',?,'h1','Ada Lovelace','ada@acme.com','auto')",
+            vec![json!(session2.0)],
+        )
+        .await;
+        let wrote_non_empty = super::automation_runner::run_pre_meeting_briefs(
+            &runtime,
+            ai,
+            session2.clone(),
+            None,
+            10,
+        )
+        .unwrap()
+        .receive()
+        .await
+        .unwrap();
+        assert!(!wrote_non_empty);
+        let reopened = runtime
+            .open_session(session2, CancellationToken::new())
+            .unwrap()
+            .receive()
+            .await
+            .unwrap();
+        assert_eq!(reopened.note.unwrap().body, existing_body);
+
+        runtime.shutdown().await.unwrap();
+    });
+}
+
+#[test]
 fn selecting_a_template_for_a_note_keeps_its_memo() {
     block_on(async {
         let (_directory, runtime) = start().await;

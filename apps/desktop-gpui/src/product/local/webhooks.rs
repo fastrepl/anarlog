@@ -141,6 +141,7 @@ pub async fn test(pool: &SqlitePool, id: &str) -> Result<WebhookDelivery> {
 /// retrying failures after 5 and 30 seconds like shipping's dispatcher.
 pub fn dispatch(runtime: &RuntimeHandle, trigger: Trigger, session: SessionId) {
     let event = match trigger {
+        Trigger::BeforeMeeting => return,
         Trigger::MeetingCompleted => EVENT_MEETING_COMPLETED,
         Trigger::NoteEnhanced => EVENT_NOTE_ENHANCED,
     };

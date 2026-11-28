@@ -376,6 +376,57 @@ export type CrmContact = {
     url?: string | null;
 };
 
+export type CrmContactContextRequest = {
+    connection_id: string;
+    email?: string | null;
+    limit?: number | null;
+    name?: string | null;
+    provider: string;
+};
+
+export type CrmContactContextResponse = {
+    contact?: null | CrmContact;
+    deals: Array<CrmDeal>;
+    notes: Array<CrmNote>;
+};
+
+export type CrmDeal = {
+    amount?: string | null;
+    closeDate?: string | null;
+    id?: string | null;
+    name?: string | null;
+    stage?: string | null;
+    url?: string | null;
+};
+
+export type CrmLogNoteRequest = {
+    body: string;
+    connection_id: string;
+    contact_id?: string | null;
+    email?: string | null;
+    name?: string | null;
+    occurred_at?: string | null;
+    provider: string;
+    title: string;
+};
+
+export type CrmLogNoteResponse = CrmLoggedNote;
+
+export type CrmLoggedNote = {
+    contactId: string;
+    contactName?: string | null;
+    dealId?: string | null;
+    noteId?: string | null;
+    url?: string | null;
+};
+
+export type CrmNote = {
+    body: string;
+    createdAt?: string | null;
+    id?: string | null;
+    title?: string | null;
+};
+
 export type CrmSearchContactsRequest = {
     connection_id: string;
     email?: string | null;
@@ -2469,6 +2520,84 @@ export type OutlookListEventsResponses = {
 
 export type OutlookListEventsResponse2 = OutlookListEventsResponses[keyof OutlookListEventsResponses];
 
+export type CrmContactContextData = {
+    body: CrmContactContextRequest;
+    path?: never;
+    query?: never;
+    url: '/crm/contact-context';
+};
+
+export type CrmContactContextErrors = {
+    /**
+     * Unknown provider or missing query
+     */
+    400: unknown;
+    /**
+     * Unauthorized
+     */
+    401: unknown;
+    /**
+     * No Nango connection for the provider
+     */
+    404: unknown;
+    /**
+     * CRM connection requires reconnect
+     */
+    424: unknown;
+    /**
+     * Internal server error
+     */
+    500: unknown;
+};
+
+export type CrmContactContextResponses = {
+    /**
+     * CRM contact profile with recent deals and notes
+     */
+    200: CrmContactContextResponse;
+};
+
+export type CrmContactContextResponse2 = CrmContactContextResponses[keyof CrmContactContextResponses];
+
+export type CrmLogNoteData = {
+    body: CrmLogNoteRequest;
+    path?: never;
+    query?: never;
+    url: '/crm/log-note';
+};
+
+export type CrmLogNoteErrors = {
+    /**
+     * Unknown provider or invalid note request
+     */
+    400: unknown;
+    /**
+     * Unauthorized
+     */
+    401: unknown;
+    /**
+     * No matching contact or connection
+     */
+    404: unknown;
+    /**
+     * CRM connection requires reconnect
+     */
+    424: unknown;
+    /**
+     * Internal server error
+     */
+    500: unknown;
+};
+
+export type CrmLogNoteResponses = {
+    /**
+     * Meeting note logged to CRM
+     */
+    200: CrmLogNoteResponse;
+};
+
+export type CrmLogNoteResponse2 = CrmLogNoteResponses[keyof CrmLogNoteResponses];
+
 export type CrmSearchContactsData = {
     body: CrmSearchContactsRequest;
     path?: never;
@@ -2489,6 +2618,10 @@ export type CrmSearchContactsErrors = {
      * No Nango connection for the provider
      */
     404: unknown;
+    /**
+     * CRM connection requires reconnect
+     */
+    424: unknown;
     /**
      * Internal server error
      */

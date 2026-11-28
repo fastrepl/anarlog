@@ -1,4 +1,4 @@
-mod brief;
+pub(super) mod brief;
 mod event_contacts;
 mod export_modal;
 mod meeting_info;
@@ -139,6 +139,7 @@ pub struct NoteView {
     /// The open note's pre-meeting brief sources, and a brief being written.
     brief: Option<Arc<brief::Brief>>,
     brief_job: Option<brief::BriefJob>,
+    automation_client: Option<super::automation_runner::AutomationClient>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -526,8 +527,16 @@ impl NoteView {
             find: cx.new(FindBar::new),
             brief: None,
             brief_job: None,
+            automation_client: None,
             _subscriptions: subscriptions,
         }
+    }
+
+    pub(super) fn set_automation_client(
+        &mut self,
+        client: Option<super::automation_runner::AutomationClient>,
+    ) {
+        self.automation_client = client;
     }
 
     pub fn set_standalone(&mut self) {
