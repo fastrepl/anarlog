@@ -275,7 +275,7 @@ mod tests {
 
     #[tokio::test]
     async fn proxy_redirects_to_nonproxy_do_not_forward_extra_headers() {
-        use wiremock::matchers::{method, path};
+        use wiremock::matchers::{header, method, path};
         use wiremock::{Mock, MockServer, ResponseTemplate};
 
         let proxy_server = MockServer::start().await;
@@ -285,13 +285,13 @@ mod tests {
             .and(path("/stt/listen"))
             .respond_with(
                 ResponseTemplate::new(303)
-                    .insert_header("Location", format!("{}/result", external_server.uri())),
+                    .insert_header("Location", format!("{}/stt/listen", external_server.uri())),
             )
             .expect(1)
             .mount(&proxy_server)
             .await;
 
-        Mock::given(path("/result"))
+        Mock::given(path("/stt/listen"))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "metadata": {},
                 "results": { "channels": [] }
@@ -309,7 +309,7 @@ mod tests {
             .await;
         assert!(
             result.is_err(),
-            "redirect from proxy to third-party host must be rejected"
+            "redirect from proxy to third-party host must be rejected even with /stt path"
         );
         assert!(
             external_server
@@ -353,5 +353,36 @@ mod tests {
         let received = same_host_proxy.received_requests().await.unwrap();
         assert_eq!(received.len(), 1);
         assert_eq!(received[0].url.path(), "/stt/listen");
+
+        let same_origin_proxy = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/stt/listen"))
+            .respond_with(ResponseTemplate::new(303).insert_header(
+                "Location",
+                format!("{}/stt/result", same_origin_proxy.uri()),
+            ))
+            .expect(1)
+            .mount(&same_origin_proxy)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/stt/result"))
+            .and(header("x-device-fingerprint", "dev-fp-1"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "metadata": {},
+                "results": { "channels": [] }
+            })))
+            .expect(1)
+            .mount(&same_origin_proxy)
+            .await;
+
+        let same_origin_client = BatchClient::<crate::AnarlogAdapter>::builder()
+            .api_base(format!("{}/stt", same_origin_proxy.uri()))
+            .api_key("test-key")
+            .extra_header("x-device-fingerprint", "dev-fp-1")
+            .build();
+        same_origin_client
+            .transcribe_file(anlg_data::english_1::AUDIO_PATH)
+            .await
+            .expect("same-origin proxy redirect should succeed");
     }
 }

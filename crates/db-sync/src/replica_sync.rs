@@ -188,8 +188,6 @@ pub(crate) fn spawn_replica_sync_with_test_intervals(
                 }
                 Ok((ReplicaSyncOutcome::Paused, _)) => {
                     waiting_for_remote = false;
-                    active_trigger = None;
-                    active_transferred = false;
                     hook.replica_sync_paused();
                 }
                 Err(error) => {
