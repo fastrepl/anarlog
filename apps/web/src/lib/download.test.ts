@@ -52,7 +52,7 @@ test("orders the detected platform first", () => {
     ["windows", "macos", "linux", "ios", "android"],
   );
   for (const platform of ["ios", "android"] as const) {
-    assert.equal(getOrderedDownloadSections(platform)[0].platform, "macos");
+    assert.equal(getOrderedDownloadSections(platform)[0].platform, platform);
   }
 });
 
