@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use anlg_db_core::Db;
 
-use super::e2ee_sync::{E2eeSyncHook, ReplicaSyncOutcome};
+use super::e2ee_sync::{E2eeSyncHook, ReplicaSyncEvent, ReplicaSyncOutcome, ReplicaSyncTrigger};
 
 const REPLICA_SYNC_INTERVAL: std::time::Duration = std::time::Duration::from_secs(30);
 const REPLICA_SYNC_HEARTBEAT_INTERVAL: std::time::Duration = std::time::Duration::from_secs(300);
@@ -49,11 +49,13 @@ pub(crate) fn spawn_replica_sync_with_test_intervals(
     super::spawn_background(async move {
         let mut legacy_cloudsync_retired = !db.cloudsync_enabled();
         let mut waiting_for_remote = false;
+        let mut active_trigger: Option<ReplicaSyncTrigger> = None;
         loop {
             let witness_changed = hook.witness_changed.notified();
             tokio::pin!(witness_changed);
             witness_changed.as_mut().enable();
             if !hook.replica_transport_configured() {
+                active_trigger = None;
                 tokio::select! {
                     _ = &mut shutdown_rx => return,
                     () = &mut witness_changed => {}
@@ -115,14 +117,21 @@ pub(crate) fn spawn_replica_sync_with_test_intervals(
             }
             if witness_reset {
                 waiting_for_remote = false;
+                active_trigger = None;
                 continue;
             }
 
             let generation = hook.config_generation();
+            if hook.take_manual_sync_requested() {
+                active_trigger = Some(ReplicaSyncTrigger::Manual);
+            } else if active_trigger.is_none() {
+                active_trigger = Some(ReplicaSyncTrigger::Background);
+            }
             hook.replica_sync_started();
             let result = hook.sync_replica_transport(db.pool()).await;
             if !hook.replica_transport_configured() || hook.config_generation() != generation {
                 waiting_for_remote = false;
+                active_trigger = None;
                 continue;
             }
             match result {
@@ -157,7 +166,11 @@ pub(crate) fn spawn_replica_sync_with_test_intervals(
                             }
                         }
                     }
+                    let trigger = active_trigger
+                        .take()
+                        .unwrap_or(ReplicaSyncTrigger::Background);
                     hook.replica_sync_succeeded();
+                    hook.emit_replica_event(ReplicaSyncEvent::Completed { trigger });
                 }
                 Ok(ReplicaSyncOutcome::WaitingForRemote) => {
                     waiting_for_remote = true;
@@ -165,11 +178,16 @@ pub(crate) fn spawn_replica_sync_with_test_intervals(
                 }
                 Ok(ReplicaSyncOutcome::Paused) => {
                     waiting_for_remote = false;
+                    active_trigger = None;
                     hook.replica_sync_paused();
                 }
                 Err(error) => {
                     waiting_for_remote = false;
+                    let trigger = active_trigger
+                        .take()
+                        .unwrap_or(ReplicaSyncTrigger::Background);
                     hook.replica_sync_failed(&error);
+                    hook.emit_replica_event(ReplicaSyncEvent::Failed { trigger });
                     tracing::warn!(%error, "encrypted replica sync failed");
                     tokio::select! {
                         _ = &mut shutdown_rx => return,

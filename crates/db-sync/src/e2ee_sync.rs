@@ -87,11 +87,42 @@ struct E2eeRuntimeConfig {
     transport: E2eeTransport,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ReplicaSyncTrigger {
+    Manual,
+    Background,
+}
+
+impl ReplicaSyncTrigger {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Manual => "manual",
+            Self::Background => "background",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ReplicaSyncEvent {
+    Completed { trigger: ReplicaSyncTrigger },
+    Failed { trigger: ReplicaSyncTrigger },
+}
+
+struct ReplicaEventBus(tokio::sync::broadcast::Sender<ReplicaSyncEvent>);
+
+impl Default for ReplicaEventBus {
+    fn default() -> Self {
+        Self(tokio::sync::broadcast::channel(32).0)
+    }
+}
+
 #[derive(Default)]
 pub struct E2eeSyncHook {
     config: std::sync::RwLock<E2eeRuntimeConfig>,
     pub witness_changed: tokio::sync::Notify,
     pub replica_sync_requested: tokio::sync::Notify,
+    manual_sync_requested: std::sync::atomic::AtomicBool,
+    replica_events: ReplicaEventBus,
     replica_status: std::sync::Mutex<ReplicaSyncStatus>,
     activities: std::sync::RwLock<HashSet<CloudsyncActivity>>,
     activity_epoch: std::sync::atomic::AtomicU64,
@@ -181,6 +212,8 @@ impl E2eeSyncHook {
         self.config_generation
             .fetch_add(1, std::sync::atomic::Ordering::AcqRel);
         self.witness_changed.notify_waiters();
+        self.manual_sync_requested
+            .store(false, std::sync::atomic::Ordering::Release);
         self.replica_sync_requested.notify_waiters();
         *self.replica_status.lock().unwrap() = ReplicaSyncStatus::default();
         let requested = self
@@ -300,6 +333,25 @@ impl E2eeSyncHook {
 
     pub fn request_replica_sync(&self) {
         self.replica_sync_requested.notify_one();
+    }
+
+    pub fn request_manual_replica_sync(&self) {
+        self.manual_sync_requested
+            .store(true, std::sync::atomic::Ordering::Release);
+        self.request_replica_sync();
+    }
+
+    pub fn subscribe_replica_events(&self) -> tokio::sync::broadcast::Receiver<ReplicaSyncEvent> {
+        self.replica_events.0.subscribe()
+    }
+
+    pub(crate) fn take_manual_sync_requested(&self) -> bool {
+        self.manual_sync_requested
+            .swap(false, std::sync::atomic::Ordering::AcqRel)
+    }
+
+    pub(crate) fn emit_replica_event(&self, event: ReplicaSyncEvent) {
+        let _ = self.replica_events.0.send(event);
     }
 
     pub fn replica_sync_started(&self) {
@@ -919,7 +971,7 @@ mod tests {
 
     use anlg_db_core::CloudsyncSyncHook;
 
-    use super::{E2eeSyncHook, E2eeTransport};
+    use super::{E2eeSyncHook, E2eeTransport, ReplicaSyncEvent, ReplicaSyncTrigger};
     use crate::witness::{E2eeWitnessClient, E2eeWitnessConfig};
 
     const TEST_RECOVERY_KEY: &str = "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc";
@@ -1061,5 +1113,48 @@ mod tests {
             anlg_db_core::CloudsyncHookOutcome::default()
         );
         assert!(!hook.reconciliation_requested());
+    }
+
+    #[test]
+    fn replica_events_preserve_manual_and_background_attempt_triggers() {
+        let hook = E2eeSyncHook::default();
+        let mut events = hook.subscribe_replica_events();
+
+        assert!(!hook.take_manual_sync_requested());
+        hook.emit_replica_event(ReplicaSyncEvent::Completed {
+            trigger: ReplicaSyncTrigger::Background,
+        });
+        hook.request_manual_replica_sync();
+        assert!(hook.take_manual_sync_requested());
+        assert!(!hook.take_manual_sync_requested());
+        hook.emit_replica_event(ReplicaSyncEvent::Failed {
+            trigger: ReplicaSyncTrigger::Manual,
+        });
+        hook.emit_replica_event(ReplicaSyncEvent::Completed {
+            trigger: ReplicaSyncTrigger::Background,
+        });
+
+        assert_eq!(
+            events.try_recv().unwrap(),
+            ReplicaSyncEvent::Completed {
+                trigger: ReplicaSyncTrigger::Background
+            }
+        );
+        assert_eq!(
+            events.try_recv().unwrap(),
+            ReplicaSyncEvent::Failed {
+                trigger: ReplicaSyncTrigger::Manual
+            }
+        );
+        assert_eq!(
+            events.try_recv().unwrap(),
+            ReplicaSyncEvent::Completed {
+                trigger: ReplicaSyncTrigger::Background
+            }
+        );
+
+        hook.request_manual_replica_sync();
+        hook.clear();
+        assert!(!hook.take_manual_sync_requested());
     }
 }

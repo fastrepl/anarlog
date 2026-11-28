@@ -5,7 +5,8 @@ use std::{
 
 use anlg_db_app::{CloudsyncWorkspaceProjection, CloudsyncWorkspaceProjectionEntry};
 use anlg_db_sync::{
-    E2eeSyncHook, E2eeWitnessClient, E2eeWitnessConfig, ReplicaSyncTask, WitnessWatchTask,
+    E2eeSyncHook, E2eeWitnessClient, E2eeWitnessConfig, ReplicaSyncEvent, ReplicaSyncTask,
+    WitnessWatchTask,
 };
 use anlg_e2ee::{
     DeviceEnrollmentKey, DeviceEnrollmentPackage, RecoveryKey, WorkspaceKey, WorkspaceKeyGrant,
@@ -50,15 +51,29 @@ pub(super) struct Sync {
     pub hook: Arc<E2eeSyncHook>,
     task: Mutex<Option<ReplicaSyncTask>>,
     watch: Mutex<Option<WitnessWatchTask>>,
+    telemetry_task: Mutex<Option<tokio::task::AbortHandle>>,
     active: Mutex<Option<ActiveSession>>,
     /// Why sync last failed to start on this device, for the Sync page.
     block: std::sync::Mutex<Option<SyncBlock>>,
     log: std::sync::Mutex<VecDeque<String>>,
 }
 
+impl Drop for Sync {
+    fn drop(&mut self) {
+        if let Ok(mut guard) = self.telemetry_task.try_lock()
+            && let Some(handle) = guard.take()
+        {
+            handle.abort();
+        }
+    }
+}
+
 impl Sync {
     pub async fn stop(&self) {
         self.hook.clear();
+        if let Some(handle) = self.telemetry_task.lock().await.take() {
+            handle.abort();
+        }
         self.task.lock().await.take();
         self.watch.lock().await.take();
         self.active.lock().await.take();
@@ -359,6 +374,34 @@ impl Sync {
         }
         lease.check()?;
         self.hook.set_replica_witnesses(witnesses);
+        let mut events = self.hook.subscribe_replica_events();
+        let telemetry_handle = tokio::spawn(async move {
+            loop {
+                match events.recv().await {
+                    Ok(ReplicaSyncEvent::Completed { trigger }) => {
+                        crate::telemetry::track(
+                            "cloud_sync_completed",
+                            &[("trigger", json!(trigger.as_str()))],
+                        );
+                    }
+                    Ok(ReplicaSyncEvent::Failed { trigger }) => {
+                        crate::telemetry::track(
+                            "cloud_sync_failed",
+                            &[
+                                ("trigger", json!(trigger.as_str())),
+                                ("failure_stage", json!("sync")),
+                            ],
+                        );
+                    }
+                    Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
+                    Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                }
+            }
+        })
+        .abort_handle();
+        if let Some(previous) = self.telemetry_task.lock().await.replace(telemetry_handle) {
+            previous.abort();
+        }
         *self.task.lock().await = Some(anlg_db_sync::spawn_replica_sync(
             services.db.clone(),
             self.hook.clone(),
@@ -494,7 +537,7 @@ impl Sync {
                 if !self.hook.replica_transport_configured() {
                     self.start(core, services, lease).await?;
                 }
-                self.hook.request_replica_sync();
+                self.hook.request_manual_replica_sync();
             }
             Action::SetupEncryption => {
                 if core
@@ -783,7 +826,7 @@ impl Sync {
                 if !self.hook.replica_transport_configured() {
                     self.start(core, services, lease).await?;
                 }
-                self.hook.request_replica_sync();
+                self.hook.request_manual_replica_sync();
                 self.record("INFO", "manual sync requested");
             }
             SyncCommand::CreateRecoveryKey => {
