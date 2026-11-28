@@ -59,6 +59,13 @@ fn warn_parked_records(stats: &anlg_db_app::E2eeReplicaStats) {
     }
 }
 
+fn replica_stats_transferred(stats: &anlg_db_app::E2eeReplicaStats) -> bool {
+    stats.encrypted_fields > 0
+        || stats.applied_fields > 0
+        || stats.merged_fields > 0
+        || stats.recorded_conflicts > 0
+}
+
 fn ordered_witness_workspace_ids(
     keys: &HashMap<String, anlg_e2ee::WorkspaceKeyring>,
     witnesses: &HashMap<String, E2eeWitnessClient>,
@@ -566,15 +573,30 @@ impl E2eeSyncHook {
         &self,
         pool: &sqlx::SqlitePool,
     ) -> std::io::Result<ReplicaSyncOutcome> {
+        self.sync_replica_transport_with_activity(pool)
+            .await
+            .map(|(outcome, _)| outcome)
+    }
+
+    pub(crate) async fn sync_replica_transport_with_activity(
+        &self,
+        pool: &sqlx::SqlitePool,
+    ) -> std::io::Result<(ReplicaSyncOutcome, bool)> {
         let config = self.config_snapshot();
         if config.transport != E2eeTransport::Replica {
-            return Ok(ReplicaSyncOutcome::Settled);
+            return Ok((ReplicaSyncOutcome::Settled, false));
         }
         let keys = config.keys;
         let witnesses = config.witnesses;
         let active_sync = self.begin_sync();
         let cancellation = active_sync.cancellation.clone();
         let operation = async {
+            let transferred = std::sync::atomic::AtomicBool::new(false);
+            let record_transfer = |stats: &anlg_db_app::E2eeReplicaStats| {
+                if replica_stats_transferred(stats) {
+                    transferred.store(true, std::sync::atomic::Ordering::Relaxed);
+                }
+            };
             cancellation.check()?;
             if witnesses.is_empty() {
                 return Err(std::io::Error::other(
@@ -588,32 +610,44 @@ impl E2eeSyncHook {
                         pool,
                         &keys[workspace_id],
                         || async {
-                            self.hydrate_replica_changes(pool, &keys, &cancellation)
-                                .await
-                                .map(|_| ())
+                            let (_, page_transferred) = self
+                                .hydrate_replica_changes(pool, &keys, &cancellation)
+                                .await?;
+                            if page_transferred {
+                                transferred.store(true, std::sync::atomic::Ordering::Relaxed);
+                            }
+                            Ok(())
                         },
                         &cancellation,
                     )
                     .await?;
                 cancellation.check()?;
             }
-            let hydrated = self
+            let (hydrated, hydrated_transferred) = self
                 .hydrate_replica_changes(pool, &keys, &cancellation)
                 .await?;
+            if hydrated_transferred {
+                transferred.store(true, std::sync::atomic::Ordering::Relaxed);
+            }
             // A partial transcript contains placeholder arrays, not edits to publish.
             if hydrated.incomplete_chunk_columns > 0 {
-                return Ok(ReplicaSyncOutcome::WaitingForRemote);
+                return Ok((
+                    ReplicaSyncOutcome::WaitingForRemote,
+                    transferred.load(std::sync::atomic::Ordering::Relaxed),
+                ));
             }
-            anlg_db_app::encrypt_e2ee_replica_changes_bounded_deferring_active_captures_cancellable(
-                pool,
-                &keys,
-                E2EE_CLOUDSYNC_DIRTY_ROW_LIMIT,
-                || cancellation.is_cancelled(),
-            )
-            .await
-            .map_err(|error| {
-                std::io::Error::other(format!("E2EE replica encryption failed: {error}"))
-            })?;
+            let encrypted =
+                anlg_db_app::encrypt_e2ee_replica_changes_bounded_deferring_active_captures_cancellable(
+                    pool,
+                    &keys,
+                    E2EE_CLOUDSYNC_DIRTY_ROW_LIMIT,
+                    || cancellation.is_cancelled(),
+                )
+                .await
+                .map_err(|error| {
+                    std::io::Error::other(format!("E2EE replica encryption failed: {error}"))
+                })?;
+            record_transfer(&encrypted);
             cancellation.check()?;
             for workspace_id in &workspace_ids {
                 if anlg_db_app::has_pending_e2ee_cloud_work(pool, workspace_id)
@@ -634,6 +668,7 @@ impl E2eeSyncHook {
                             &cancellation,
                         )
                         .await?;
+                    transferred.store(true, std::sync::atomic::Ordering::Relaxed);
                     cancellation.check()?;
                 }
             }
@@ -648,6 +683,7 @@ impl E2eeSyncHook {
             .map_err(|error| {
                 std::io::Error::other(format!("E2EE replica application failed: {error}"))
             })?;
+            record_transfer(&stats);
             cancellation.check()?;
             warn_parked_records(&stats);
             if stats.remaining_replica_changes {
@@ -665,10 +701,16 @@ impl E2eeSyncHook {
                     })?;
             cancellation.check()?;
             if stats.incomplete_chunk_columns > 0 {
-                return Ok(ReplicaSyncOutcome::WaitingForRemote);
+                return Ok((
+                    ReplicaSyncOutcome::WaitingForRemote,
+                    transferred.load(std::sync::atomic::Ordering::Relaxed),
+                ));
             }
             if local_work_remaining {
-                return Ok(ReplicaSyncOutcome::MoreWork);
+                return Ok((
+                    ReplicaSyncOutcome::MoreWork,
+                    transferred.load(std::sync::atomic::Ordering::Relaxed),
+                ));
             }
             for workspace_id in &workspace_ids {
                 if anlg_db_app::e2ee_cloud_authority_enabled(pool, workspace_id)
@@ -711,7 +753,10 @@ impl E2eeSyncHook {
                 cancellation.check()?;
             }
             cancellation.check()?;
-            Ok(ReplicaSyncOutcome::Settled)
+            Ok((
+                ReplicaSyncOutcome::Settled,
+                transferred.load(std::sync::atomic::Ordering::Relaxed),
+            ))
         };
         tokio::pin!(operation);
         tokio::select! {
@@ -719,7 +764,7 @@ impl E2eeSyncHook {
             _ = self.wait_until_activity_paused() => {
                 cancellation.cancel();
                 let _ = operation.await;
-                Ok(ReplicaSyncOutcome::Paused)
+                Ok((ReplicaSyncOutcome::Paused, false))
             }
             result = &mut operation => result,
         }
@@ -730,7 +775,8 @@ impl E2eeSyncHook {
         pool: &sqlx::SqlitePool,
         keys: &HashMap<String, anlg_e2ee::WorkspaceKeyring>,
         cancellation: &E2eeWitnessCancellation,
-    ) -> std::io::Result<anlg_db_app::E2eeReplicaStats> {
+    ) -> std::io::Result<(anlg_db_app::E2eeReplicaStats, bool)> {
+        let mut transferred = false;
         loop {
             cancellation.check()?;
             let stats = anlg_db_app::apply_received_e2ee_replica_changes_with_witness_cancellable(
@@ -744,12 +790,13 @@ impl E2eeSyncHook {
                 std::io::Error::other(format!("E2EE witness hydration failed: {error}"))
             })?;
             cancellation.check()?;
+            transferred |= replica_stats_transferred(&stats);
             warn_parked_records(&stats);
             // Drain ready records before yielding stalled records to later pages or local encryption.
             if !stats.remaining_replica_changes
                 || (stats.skipped_local_changes > 0 && stats.applied_fields == 0)
             {
-                return Ok(stats);
+                return Ok((stats, transferred));
             }
         }
     }
@@ -971,7 +1018,7 @@ mod tests {
 
     use anlg_db_core::CloudsyncSyncHook;
 
-    use super::{E2eeSyncHook, E2eeTransport, ReplicaSyncEvent, ReplicaSyncTrigger};
+    use super::{E2eeSyncHook, E2eeTransport};
     use crate::witness::{E2eeWitnessClient, E2eeWitnessConfig};
 
     const TEST_RECOVERY_KEY: &str = "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc";
@@ -1113,48 +1160,5 @@ mod tests {
             anlg_db_core::CloudsyncHookOutcome::default()
         );
         assert!(!hook.reconciliation_requested());
-    }
-
-    #[test]
-    fn replica_events_preserve_manual_and_background_attempt_triggers() {
-        let hook = E2eeSyncHook::default();
-        let mut events = hook.subscribe_replica_events();
-
-        assert!(!hook.take_manual_sync_requested());
-        hook.emit_replica_event(ReplicaSyncEvent::Completed {
-            trigger: ReplicaSyncTrigger::Background,
-        });
-        hook.request_manual_replica_sync();
-        assert!(hook.take_manual_sync_requested());
-        assert!(!hook.take_manual_sync_requested());
-        hook.emit_replica_event(ReplicaSyncEvent::Failed {
-            trigger: ReplicaSyncTrigger::Manual,
-        });
-        hook.emit_replica_event(ReplicaSyncEvent::Completed {
-            trigger: ReplicaSyncTrigger::Background,
-        });
-
-        assert_eq!(
-            events.try_recv().unwrap(),
-            ReplicaSyncEvent::Completed {
-                trigger: ReplicaSyncTrigger::Background
-            }
-        );
-        assert_eq!(
-            events.try_recv().unwrap(),
-            ReplicaSyncEvent::Failed {
-                trigger: ReplicaSyncTrigger::Manual
-            }
-        );
-        assert_eq!(
-            events.try_recv().unwrap(),
-            ReplicaSyncEvent::Completed {
-                trigger: ReplicaSyncTrigger::Background
-            }
-        );
-
-        hook.request_manual_replica_sync();
-        hook.clear();
-        assert!(!hook.take_manual_sync_requested());
     }
 }

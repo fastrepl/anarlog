@@ -4123,3 +4123,193 @@ async fn replica_sync_with_healthy_wait_uploads_local_edit_before_heartbeat() {
         tokio::time::sleep(std::time::Duration::from_millis(50)).await;
     }
 }
+
+#[tokio::test]
+async fn replica_sync_worker_emits_outcomes_for_idle_background_and_manual_syncs() {
+    use crate::{ReplicaSyncEvent, ReplicaSyncTrigger};
+
+    let server = MockServer::start().await;
+    let get_calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let post_calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let head_seq = Arc::new(std::sync::atomic::AtomicU64::new(0));
+    let delay_get = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let fail_get = Arc::new(std::sync::atomic::AtomicBool::new(false));
+
+    let get_calls_ref = Arc::clone(&get_calls);
+    let head_seq_get = Arc::clone(&head_seq);
+    let delay_get_ref = Arc::clone(&delay_get);
+    let fail_get_ref = Arc::clone(&fail_get);
+    Mock::given(method("GET"))
+        .and(path("/sync/e2ee/witness/user-a/accepted"))
+        .respond_with(move |_req: &Request| {
+            get_calls_ref.fetch_add(1, std::sync::atomic::Ordering::AcqRel);
+            if fail_get_ref.load(std::sync::atomic::Ordering::Acquire) {
+                return ResponseTemplate::new(500);
+            }
+            let head = head_seq_get.load(std::sync::atomic::Ordering::Acquire);
+            let mut response = ResponseTemplate::new(200).set_body_json(json!({
+                "initialized": true,
+                "initializedAt": "2026-10-05T00:00:00Z",
+                "headSequence": head,
+                "throughSequence": head,
+                "nextAfterSequence": head,
+                "cloudAuthorityAfter": 0,
+                "events": []
+            }));
+            if delay_get_ref.load(std::sync::atomic::Ordering::Acquire) {
+                response = response.set_delay(std::time::Duration::from_millis(120));
+            }
+            response
+        })
+        .mount(&server)
+        .await;
+
+    let post_calls_ref = Arc::clone(&post_calls);
+    let head_seq_post = Arc::clone(&head_seq);
+    Mock::given(method("POST"))
+        .and(path("/sync/e2ee/witness/user-a/accepted"))
+        .respond_with(move |req: &Request| {
+            post_calls_ref.fetch_add(1, std::sync::atomic::Ordering::AcqRel);
+            let body: serde_json::Value = serde_json::from_slice(&req.body).unwrap();
+            let events = body["events"].as_array().unwrap();
+            let prev =
+                head_seq_post.fetch_add(events.len() as u64, std::sync::atomic::Ordering::AcqRel);
+            let receipts: Vec<_> = events
+                .iter()
+                .enumerate()
+                .map(|(i, event)| {
+                    json!({
+                        "sequence": prev + i as u64 + 1,
+                        "recordId": event["recordId"],
+                        "payloadHash": event["payloadHash"],
+                    })
+                })
+                .collect();
+            ResponseTemplate::new(200).set_body_json(json!({
+                "initializedAt": "2026-10-05T00:00:00Z",
+                "headSequence": prev + events.len() as u64,
+                "cloudAuthorityAfter": 0,
+                "mutationId": body["mutationId"],
+                "receipts": receipts,
+            }))
+        })
+        .mount(&server)
+        .await;
+
+    let recovery_key = anlg_e2ee::RecoveryKey::parse(
+        "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
+    )
+    .unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let db = Arc::new(
+        anlg_db_core::Db::connect_local_plain(&dir.path().join("local.db"))
+            .await
+            .unwrap(),
+    );
+    anlg_db_app::prepare_schema(&db).await.unwrap();
+    let hook = Arc::new(crate::E2eeSyncHook::default());
+    hook.set_personal_workspace("user-a", &recovery_key)
+        .unwrap();
+    hook.set_replica_witness(
+        E2eeWitnessClient::new(
+            E2eeWitnessConfig {
+                endpoint: format!("{}/sync/e2ee/witness/user-a", server.uri()),
+                access_token: "token".to_string(),
+            },
+            "user-a",
+        )
+        .unwrap(),
+    );
+    hook.set_witness_watch_healthy(true);
+
+    let mut events = hook.subscribe_replica_events();
+    let _task = crate::replica_sync::spawn_replica_sync_with_test_intervals(
+        Arc::clone(&db),
+        Arc::clone(&hook),
+        std::time::Duration::from_millis(60),
+        std::time::Duration::from_millis(60),
+        std::time::Duration::from_millis(30),
+    );
+
+    let idle_deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(3);
+    loop {
+        let status = hook.replica_status();
+        if status.last_sync_at_ms.is_some()
+            && !status.syncing
+            && get_calls.load(std::sync::atomic::Ordering::Acquire) >= 3
+        {
+            break;
+        }
+        assert!(tokio::time::Instant::now() < idle_deadline);
+        tokio::time::sleep(std::time::Duration::from_millis(15)).await;
+    }
+    assert!(
+        events.try_recv().is_err(),
+        "idle heartbeats must not emit Completed events"
+    );
+
+    delay_get.store(true, std::sync::atomic::Ordering::Release);
+    hook.request_manual_replica_sync();
+    tokio::time::sleep(std::time::Duration::from_millis(30)).await;
+    assert!(
+        events.try_recv().is_err(),
+        "manual sync must not emit Completed before transport settles"
+    );
+    let event = tokio::time::timeout(std::time::Duration::from_secs(2), events.recv())
+        .await
+        .expect("timed out waiting for manual completion")
+        .unwrap();
+    assert_eq!(
+        event,
+        ReplicaSyncEvent::Completed {
+            trigger: ReplicaSyncTrigger::Manual
+        }
+    );
+    delay_get.store(false, std::sync::atomic::Ordering::Release);
+
+    sqlx::query("INSERT INTO sessions(id, workspace_id, owner_user_id, title) VALUES('s-worker', 'user-a', 'user-a', 'Worker Telemetry')")
+        .execute(db.pool())
+        .await
+        .unwrap();
+    let event = tokio::time::timeout(std::time::Duration::from_secs(2), events.recv())
+        .await
+        .expect("timed out waiting for background transfer completion")
+        .unwrap();
+    assert_eq!(
+        event,
+        ReplicaSyncEvent::Completed {
+            trigger: ReplicaSyncTrigger::Background
+        }
+    );
+    assert!(post_calls.load(std::sync::atomic::Ordering::Acquire) >= 1);
+
+    let gets_after_bg = get_calls.load(std::sync::atomic::Ordering::Acquire);
+    let post_idle_deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(3);
+    loop {
+        let status = hook.replica_status();
+        if !status.syncing
+            && get_calls.load(std::sync::atomic::Ordering::Acquire) >= gets_after_bg + 2
+        {
+            break;
+        }
+        assert!(tokio::time::Instant::now() < post_idle_deadline);
+        tokio::time::sleep(std::time::Duration::from_millis(15)).await;
+    }
+    assert!(
+        events.try_recv().is_err(),
+        "subsequent idle heartbeats after background transfer must emit nothing"
+    );
+
+    fail_get.store(true, std::sync::atomic::Ordering::Release);
+    hook.request_manual_replica_sync();
+    let event = tokio::time::timeout(std::time::Duration::from_secs(2), events.recv())
+        .await
+        .expect("timed out waiting for manual failure event")
+        .unwrap();
+    assert_eq!(
+        event,
+        ReplicaSyncEvent::Failed {
+            trigger: ReplicaSyncTrigger::Manual
+        }
+    );
+}
