@@ -23,6 +23,21 @@ use super::{
 };
 use crate::ui::a11y::Accessible;
 
+const GENERAL_SETTINGS_KEYS: &[&str] = &[
+    "autostart",
+    "automatic_updates",
+    "auto_join_scheduled_meetings",
+    "auto_start_scheduled_meetings",
+    "auto_stop_meetings",
+    "floating_bar_enabled",
+    "show_app_in_dock",
+    "show_tray_icon",
+    "notification_detect",
+    "consent_auto_send_chat",
+    "capture_meeting_chat",
+    "capture_shared_screens",
+];
+
 type OnSelect = Rc<dyn Fn(&mut PreferencesView, String, &mut Context<PreferencesView>)>;
 
 pub struct SelectOption {
@@ -305,6 +320,18 @@ impl PreferencesView {
                         }
                         if let Some(snapshot) = &mut this.snapshot {
                             Arc::make_mut(snapshot).insert(key.clone(), setting);
+                        }
+                        if let Some(snapshot) = &this.snapshot {
+                            crate::telemetry::sync_settings_properties(snapshot);
+                        }
+                        if GENERAL_SETTINGS_KEYS.contains(&key.as_str()) {
+                            let props: Vec<(&str, Value)> = GENERAL_SETTINGS_KEYS
+                                .iter()
+                                .map(|setting_key| {
+                                    (*setting_key, serde_json::json!(this.flag(setting_key)))
+                                })
+                                .collect();
+                            crate::telemetry::track("settings_changed", &props);
                         }
                         if matches!(key.as_str(), "app_icon" | "theme") {
                             this.apply_dock_icon(cx);

@@ -379,15 +379,47 @@ pub async fn transcribe(
     cancellation: CancellationToken,
 ) -> Result<()> {
     let started_at = chrono::Utc::now();
-    let output = transcriber(session.clone(), audio, progress, warn, cancellation.clone()).await?;
+    let output =
+        match transcriber(session.clone(), audio, progress, warn, cancellation.clone()).await {
+            Ok(output) => output,
+            Err(error) => {
+                if !matches!(error, ServiceError::Cancelled) {
+                    crate::telemetry::track(
+                        "transcription_failed",
+                        &[
+                            ("mode", json!("batch")),
+                            ("failure_stage", json!("provider")),
+                            ("error_code", json!("unknown")),
+                        ],
+                    );
+                    crate::telemetry::capture_operational_error(
+                        "transcription",
+                        Some("provider"),
+                        &error.to_string(),
+                        None,
+                        None,
+                    );
+                }
+                return Err(error);
+            }
+        };
     if cancellation.is_cancelled() {
         return Err(ServiceError::Cancelled);
     }
+    let provider_for_event = output.provider.clone();
     let (words, hints) = stored_words(&output.response, &output.provider);
     if words.is_empty() {
+        crate::telemetry::track(
+            "transcription_failed",
+            &[
+                ("mode", json!("batch")),
+                ("failure_stage", json!("persist")),
+                ("provider", json!(provider_for_event)),
+            ],
+        );
         return Err(failure(EMPTY_TRANSCRIPT));
     }
-    let saved = runtime
+    let saved = match runtime
         .submit(move |services| async move {
             save_whole_session(
                 services.db.pool(),
@@ -401,10 +433,48 @@ pub async fn transcribe(
             .await
         })?
         .receive()
-        .await?;
+        .await
+    {
+        Ok(saved) => saved,
+        Err(error) => {
+            if !matches!(error, ServiceError::Cancelled) {
+                crate::telemetry::track(
+                    "transcription_failed",
+                    &[
+                        ("mode", json!("batch")),
+                        ("failure_stage", json!("persist")),
+                        ("provider", json!(provider_for_event)),
+                    ],
+                );
+                crate::telemetry::capture_operational_error(
+                    "transcription",
+                    Some("persist"),
+                    &error.to_string(),
+                    Some(&provider_for_event),
+                    None,
+                );
+            }
+            return Err(error);
+        }
+    };
     if !saved {
+        crate::telemetry::track(
+            "transcription_failed",
+            &[
+                ("mode", json!("batch")),
+                ("failure_stage", json!("persist")),
+                ("provider", json!(provider_for_event)),
+            ],
+        );
         return Err(failure(INCOMPLETE_TRANSCRIPT));
     }
+    crate::telemetry::track(
+        "transcription_completed",
+        &[
+            ("mode", json!("batch")),
+            ("provider", json!(provider_for_event)),
+        ],
+    );
     Ok(())
 }
 
@@ -978,6 +1048,7 @@ impl Uploads {
                     )
                     .await?;
                     let _ = updates.unbounded_send(Update::AudioChanged);
+                    crate::telemetry::track("file_uploaded", &[("file_type", json!("audio"))]);
                     let _ = updates.unbounded_send(Update::Phase(Phase::Transcribing));
                     transcribe_and_retain(&host, session, audio, updates, cancellation).await
                 })
@@ -1183,7 +1254,16 @@ impl Uploads {
             let Ok(reply) = reply else {
                 return;
             };
-            if reply.receive().await.is_ok_and(|cues| cues > 0) {
+            if let Ok(cues) = reply.receive().await
+                && cues > 0
+            {
+                crate::telemetry::track(
+                    "file_uploaded",
+                    &[
+                        ("file_type", json!("transcript")),
+                        ("token_count", json!(cues)),
+                    ],
+                );
                 let _ = this.update(cx, |this, cx| this.transcribed(session, false, cx));
             }
         })

@@ -386,6 +386,7 @@ pub(super) async fn run_direct_batch_with_timeout<A: BatchSttAdapter>(
             .api_base(params.base_url.clone())
             .api_key(params.api_key.clone())
             .params(listen_params)
+            .extra_header("x-device-fingerprint", anlg_host::fingerprint())
             .build();
 
         tracing::debug!("transcribing file");

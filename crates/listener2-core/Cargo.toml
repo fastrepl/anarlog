@@ -12,6 +12,7 @@ tauri-event = ["specta", "dep:tauri-specta"]
 anlg-audio-chunking = { workspace = true }
 anlg-audio-utils = { workspace = true }
 anlg-embedding = { workspace = true }
+anlg-host = { workspace = true }
 anlg-language = { workspace = true }
 anlg-mp3 = { workspace = true }
 anlg-pyannote-local = { workspace = true }

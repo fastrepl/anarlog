@@ -60,6 +60,7 @@ pub type SecretResolver =
 pub struct ProviderServices {
     pub runtime: RuntimeHandle,
     pub api_url: String,
+    pub device_fingerprint: String,
     pub cloud: CloudResolver,
     pub local: LocalResolver,
     pub on_device: OnDeviceResolver,
@@ -73,6 +74,7 @@ pub struct Connection {
     pub base_url: String,
     pub api_key: String,
     pub self_human_id: Option<String>,
+    pub device_fingerprint: String,
 }
 
 pub struct Preferences {
@@ -204,6 +206,7 @@ impl ProviderServices {
             base_url: String::new(),
             api_key: String::new(),
             self_human_id: None,
+            device_fingerprint: String::new(),
         };
         let local = matches!(kind, ProviderKind::Stt)
             && is_local(&connection.provider, &connection.model)
@@ -244,6 +247,7 @@ impl ProviderServices {
             connection.base_url = format!("{}/{}", self.api_url.trim_end_matches('/'), kind.key());
             connection.api_key = access.access_token;
             connection.self_human_id = Some(access.user_id);
+            connection.device_fingerprint = self.device_fingerprint.clone();
             connection.provider = "anarlog".into();
         } else {
             connection.base_url = config["base_url"]

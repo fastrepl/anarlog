@@ -54,6 +54,7 @@ impl Core {
             user: Some(User {
                 id,
                 email: identity.email,
+                created_at: identity.created_at,
             }),
             claims: Some(claims),
             workspaces: Some(workspaces.into()),

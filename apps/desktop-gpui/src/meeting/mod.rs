@@ -499,6 +499,8 @@ impl MeetingPane {
 
     fn save_editor(&mut self, delete: bool, cx: &mut Context<Self>) {
         let store = TranscriptStore(self.context.runtime.clone());
+        let mut speaker_assignment = None;
+        let mut created_speaker = false;
         let request = match &self.editor {
             Some(Editor::Word {
                 transcript,
@@ -511,6 +513,7 @@ impl MeetingPane {
             ),
             Some(Editor::Speaker {
                 assignment,
+                segment_ids,
                 previous_human,
                 input,
                 ..
@@ -525,10 +528,16 @@ impl MeetingPane {
                         return;
                     }
                     assignment.human_id = uuid::Uuid::new_v4().to_string();
+                    created_speaker = true;
                     Some(name)
                 } else {
                     None
                 };
+                let scope = match assignment.scope {
+                    SpeakerScope::All { .. } => "all",
+                    SpeakerScope::Segment { .. } => "segment",
+                };
+                speaker_assignment = Some((scope, segment_ids.len()));
                 let previous = matches!(assignment.scope, SpeakerScope::All { .. })
                     .then(|| previous_human.clone())
                     .flatten();
@@ -543,6 +552,24 @@ impl MeetingPane {
             };
             let _ = this.update(cx, |this, cx| match result {
                 Ok(()) => {
+                    if let Some((scope, word_count)) = speaker_assignment {
+                        crate::telemetry::track(
+                            "participant_assigned",
+                            &[
+                                ("assignment_scope", serde_json::json!(scope)),
+                                ("word_count", serde_json::json!(word_count)),
+                            ],
+                        );
+                    }
+                    if created_speaker {
+                        crate::telemetry::track(
+                            "contact_created",
+                            &[
+                                ("entry_point", serde_json::json!("transcript_speaker")),
+                                ("has_email", serde_json::json!(false)),
+                            ],
+                        );
+                    }
                     this.editor = None;
                     this.reload(cx);
                 }

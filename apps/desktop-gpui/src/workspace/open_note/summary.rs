@@ -426,6 +426,17 @@ impl NoteView {
         template: Option<Option<String>>,
         cx: &mut Context<Self>,
     ) {
+        self.start_summary_generation(session, target, template, false, cx);
+    }
+
+    fn start_summary_generation(
+        &mut self,
+        session: SessionId,
+        target: Option<DocumentId>,
+        template: Option<Option<String>>,
+        is_auto: bool,
+        cx: &mut Context<Self>,
+    ) {
         if self.jobs.get(&session).is_some_and(SummaryJob::running) {
             return;
         }
@@ -466,7 +477,27 @@ impl NoteView {
         let queue = services.ai.enqueue(Box::pin(async move {
             check_eligible(&runtime, id.clone()).await?;
             let (base, context) = context::load_summary(&runtime, id, target, template).await?;
-            ai.summarize(base, context, cancellation, observer).await
+            let used_template = context.user.template.is_some();
+            let prefs = crate::meeting::config::preferences(&runtime).await.ok();
+            let provider = prefs
+                .as_ref()
+                .map(|p| p.text("current_llm_provider"))
+                .filter(|s| !s.is_empty())
+                .unwrap_or_else(|| "unknown".to_owned());
+            let model = prefs
+                .as_ref()
+                .map(|p| p.text("current_llm_model"))
+                .filter(|s| !s.is_empty())
+                .unwrap_or_else(|| "unknown".to_owned());
+            let result = ai.summarize(base, context, cancellation, observer).await;
+            crate::meeting::ai::record_enhancement_result(
+                is_auto,
+                &provider,
+                &model,
+                used_template,
+                &result,
+            );
+            result
         }));
         self.jobs.insert(session.clone(), job);
         self.poll_jobs(cx);
@@ -529,7 +560,7 @@ impl NoteView {
             let decision = auto_summary(&runtime, session.clone(), if_empty, pro).await;
             let _ = this.update(cx, |this, cx| match decision {
                 Ok(AutoSummary::Generate) => {
-                    this.generate_summary_for(session.clone(), None, None, cx);
+                    this.start_summary_generation(session.clone(), None, None, true, cx);
                     if this.session_id() == Some(&session)
                         && this.view != Some(super::NoteTab::Transcript)
                     {

@@ -446,6 +446,55 @@ impl AiServices {
     }
 }
 
+pub fn record_enhancement_result(
+    is_auto: bool,
+    provider: &str,
+    model: &str,
+    used_template: bool,
+    result: &Result<DocumentSnapshot>,
+) {
+    match result {
+        Ok(_) => {
+            crate::telemetry::track(
+                "note_enhanced",
+                &[
+                    ("is_auto", json!(is_auto)),
+                    ("llm_provider", json!(provider)),
+                    ("llm_model", json!(model)),
+                    ("used_template", json!(used_template)),
+                ],
+            );
+            if used_template {
+                crate::telemetry::track(
+                    "template_applied",
+                    &[(
+                        "entry_point",
+                        json!(if is_auto { "auto_enhance" } else { "enhance" }),
+                    )],
+                );
+            }
+        }
+        Err(ServiceError::Cancelled | ServiceError::Busy) => {}
+        Err(error) => {
+            crate::telemetry::track(
+                "enhancement_failed",
+                &[
+                    ("is_auto", json!(is_auto)),
+                    ("llm_provider", json!(provider)),
+                    ("failure_stage", json!("generation")),
+                ],
+            );
+            crate::telemetry::capture_operational_error(
+                "note_enhancement",
+                Some("generation"),
+                &error.to_string(),
+                Some(provider),
+                None,
+            );
+        }
+    }
+}
+
 pub struct SummaryContext {
     pub system: anlg_template_app::EnhanceSystem,
     pub user: anlg_template_app::EnhanceUser,

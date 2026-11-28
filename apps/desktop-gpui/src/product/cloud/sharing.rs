@@ -866,6 +866,10 @@ impl Core {
         if self.share_state(services, lease, session).await?.is_none() {
             self.share_action(services, lease, scope, &run(Action::CreateShare, None, &[]))
                 .await?;
+            crate::telemetry::track(
+                "share_created",
+                &[("entry_point", serde_json::json!("session_header"))],
+            );
         }
         let mut publication = self
             .share_state(services, lease, session)
@@ -910,12 +914,29 @@ impl Core {
                         ),
                     )
                     .await?;
+                    crate::telemetry::track(
+                        "share_invitation_sent",
+                        &[
+                            ("delivery_method", serde_json::json!("email")),
+                            ("capability", serde_json::json!("viewer")),
+                        ],
+                    );
                 }
                 return Ok(());
             }
             ShareCommand::CopyLink => return self.copy_share_url(lease, share).await,
             ShareCommand::EmailRecap(recipients) => {
-                return self.email_recap(services, lease, share, &recipients).await;
+                let count = recipients.len();
+                self.email_recap(services, lease, share, &recipients)
+                    .await?;
+                crate::telemetry::track(
+                    "share_recap_sent",
+                    &[
+                        ("delivery_method", serde_json::json!("email")),
+                        ("recipient_count", serde_json::json!(count)),
+                    ],
+                );
+                return Ok(());
             }
             ShareCommand::OpenWebCopy => {
                 let url = self.share_url(lease, share, "anarlog").await?;
@@ -1061,7 +1082,12 @@ impl Core {
     async fn copy_share_url(&self, lease: &AuthLease, share: &str) -> Result<()> {
         let scheme = self.auth.transport.config.callback.scheme().to_owned();
         let url = self.share_url(lease, share, &scheme).await?;
-        self.host.copy_text(Zeroizing::new(url)).await
+        self.host.copy_text(Zeroizing::new(url)).await?;
+        crate::telemetry::track(
+            "share_link_copied",
+            &[("entry_point", serde_json::json!("share_panel"))],
+        );
+        Ok(())
     }
 
     async fn share_url(&self, lease: &AuthLease, share: &str, scheme: &str) -> Result<String> {

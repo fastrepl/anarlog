@@ -508,7 +508,17 @@ impl TemplatesView {
         let reply = templates::create(&self.runtime);
         self.run(
             reply,
-            |this, id, cx| this.select(Selection::Mine(id), cx),
+            |this, id, cx| {
+                crate::telemetry::track(
+                    "template_created",
+                    &[
+                        ("entry_point", serde_json::json!("templates")),
+                        ("section_count", serde_json::json!(0)),
+                        ("target_count", serde_json::json!(0)),
+                    ],
+                );
+                this.select(Selection::Mine(id), cx);
+            },
             cx,
         );
     }
@@ -520,11 +530,28 @@ impl TemplatesView {
             self.notify_pro(cx);
             return;
         }
+        let (section_count, target_count) = self
+            .library
+            .templates
+            .iter()
+            .find(|template| template.id == id)
+            .map(|template| (template.sections.len(), template.targets.len()))
+            .unwrap_or((0, 0));
         self.flush(cx).detach();
         let reply = templates::duplicate(&self.runtime, id);
         self.run(
             reply,
-            |this, id, cx| this.select(Selection::Mine(id), cx),
+            move |this, id, cx| {
+                crate::telemetry::track(
+                    "template_created",
+                    &[
+                        ("entry_point", serde_json::json!("templates")),
+                        ("section_count", serde_json::json!(section_count)),
+                        ("target_count", serde_json::json!(target_count)),
+                    ],
+                );
+                this.select(Selection::Mine(id), cx);
+            },
             cx,
         );
     }
@@ -538,6 +565,10 @@ impl TemplatesView {
         self.run(
             reply,
             |this, (), cx| {
+                crate::telemetry::track(
+                    "template_deleted",
+                    &[("entry_point", serde_json::json!("templates"))],
+                );
                 this.selected = None;
                 this.sync_form(cx);
             },

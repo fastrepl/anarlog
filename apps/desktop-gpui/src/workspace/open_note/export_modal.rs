@@ -195,6 +195,9 @@ impl ExportModal {
             ("export_include_summary", json!(self.summary)),
             ("export_include_transcript", json!(self.transcript)),
         ];
+        let export_format = format_key(self.format);
+        let export_summary = options.summary;
+        let export_transcript = options.transcript;
         self.pending = true;
         self.failed = false;
         cx.notify();
@@ -223,6 +226,14 @@ impl ExportModal {
                 this.pending = false;
                 match result {
                     Ok(()) => {
+                        crate::telemetry::track(
+                            "session_exported",
+                            &[
+                                ("format", json!(export_format)),
+                                ("include_summary", json!(export_summary)),
+                                ("include_transcript", json!(export_transcript)),
+                            ],
+                        );
                         this.persist(&submitted);
                         reveal(&path, cx);
                         cx.emit(ExportEvent::Close);

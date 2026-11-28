@@ -409,9 +409,37 @@ impl SyncView {
             SyncCommand::SetEnabled(enabled),
             move |this, result, cx| match result {
                 // Enabling without a recovery key opens the setup dialog.
-                Ok(_) if enabled => this.open_setup_when_required(cx),
-                Ok(_) => {}
+                Ok(_) if enabled => {
+                    crate::telemetry::track(
+                        "cloud_sync_enabled",
+                        &[("entry_point", serde_json::json!("settings"))],
+                    );
+                    this.open_setup_when_required(cx);
+                }
+                Ok(_) => {
+                    crate::telemetry::track(
+                        "cloud_sync_disabled",
+                        &[("entry_point", serde_json::json!("settings"))],
+                    );
+                }
                 Err(error) => {
+                    crate::telemetry::track(
+                        "cloud_sync_failed",
+                        &[
+                            (
+                                "trigger",
+                                serde_json::json!(if enabled { "enable" } else { "disable" }),
+                            ),
+                            ("failure_stage", serde_json::json!("preference")),
+                        ],
+                    );
+                    crate::telemetry::capture_operational_error(
+                        "cloud_sync_preference_update",
+                        Some("preference"),
+                        &error,
+                        None,
+                        None,
+                    );
                     this.keychain_error = error.contains("could not access your recovery key");
                     this.error = Some(error);
                 }
@@ -831,8 +859,28 @@ impl SyncView {
                                     Pending::SyncNow,
                                     None,
                                     SyncCommand::SyncNow,
-                                    |this, result, _| {
-                                        if let Err(error) = result {
+                                    |this, result, _| match result {
+                                        Ok(_) => {
+                                            crate::telemetry::track(
+                                                "cloud_sync_completed",
+                                                &[("trigger", serde_json::json!("manual"))],
+                                            );
+                                        }
+                                        Err(error) => {
+                                            crate::telemetry::track(
+                                                "cloud_sync_failed",
+                                                &[
+                                                    ("trigger", serde_json::json!("manual")),
+                                                    ("failure_stage", serde_json::json!("sync")),
+                                                ],
+                                            );
+                                            crate::telemetry::capture_operational_error(
+                                                "cloud_sync_manual",
+                                                Some("sync"),
+                                                &error,
+                                                None,
+                                                None,
+                                            );
                                             this.keychain_error = error
                                                 .contains("could not access your recovery key");
                                             this.error = Some(error);

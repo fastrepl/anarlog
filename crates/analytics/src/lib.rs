@@ -30,6 +30,18 @@ fn pseudonymous_id(scope: &str, value: &str) -> String {
     result
 }
 
+fn is_valid_session_id(value: &str) -> bool {
+    let mut parts = value.split('-');
+    let lengths = [8usize, 4, 4, 4, 12];
+    value.len() == 36
+        && lengths.into_iter().all(|len| {
+            parts.next().is_some_and(|part| {
+                part.len() == len && part.bytes().all(|byte| byte.is_ascii_hexdigit())
+            })
+        })
+        && parts.next().is_none()
+}
+
 fn is_sensitive_property_key(key: &str) -> bool {
     let key = key.to_ascii_lowercase();
     matches!(
@@ -158,13 +170,15 @@ struct PosthogState {
 
 struct LazyPosthogClient {
     api_key: String,
+    endpoint: Option<String>,
     state: tokio::sync::OnceCell<PosthogState>,
 }
 
 impl LazyPosthogClient {
-    fn new(api_key: String) -> Self {
+    fn new(api_key: String, endpoint: Option<String>) -> Self {
         Self {
             api_key,
+            endpoint,
             state: tokio::sync::OnceCell::new(),
         }
     }
@@ -173,8 +187,12 @@ impl LazyPosthogClient {
         self.state
             .get_or_init(|| {
                 let key = self.api_key.clone();
+                let endpoint = self.endpoint.clone();
                 async move {
-                    let client = posthog_rs::client(ClientOptions::from(key.as_str())).await;
+                    let client = match endpoint.as_deref() {
+                        Some(endpoint) => posthog_rs::client((key.as_str(), endpoint)).await,
+                        None => posthog_rs::client(ClientOptions::from(key.as_str())).await,
+                    };
                     PosthogState { client }
                 }
             })
@@ -191,6 +209,7 @@ pub struct AnalyticsClient {
 #[derive(Default)]
 pub struct AnalyticsClientBuilder {
     posthog_key: Option<String>,
+    posthog_endpoint: Option<String>,
     event_properties: HashMap<String, serde_json::Value>,
 }
 
@@ -206,13 +225,25 @@ impl AnalyticsClientBuilder {
 
     pub fn with_posthog(mut self, key: impl Into<String>) -> Self {
         self.posthog_key = Some(key.into());
+        self.posthog_endpoint = None;
+        self
+    }
+
+    pub fn with_posthog_endpoint(
+        mut self,
+        key: impl Into<String>,
+        endpoint: impl Into<String>,
+    ) -> Self {
+        self.posthog_key = Some(key.into());
+        self.posthog_endpoint = Some(endpoint.into());
         self
     }
 
     pub fn build(self) -> AnalyticsClient {
+        let endpoint = self.posthog_endpoint;
         let posthog = self
             .posthog_key
-            .map(|key| Arc::new(LazyPosthogClient::new(key)));
+            .map(|key| Arc::new(LazyPosthogClient::new(key, endpoint)));
         AnalyticsClient {
             posthog,
             event_properties: sanitized_properties(&self.event_properties),
@@ -241,6 +272,14 @@ impl AnalyticsClient {
             let mut event = Event::new(safe_event_name(&payload.event), &distinct_id);
             for (key, value) in sanitized_properties(&payload.props) {
                 let _ = event.insert_prop(key, value);
+            }
+            if let Some(session_id) = payload
+                .props
+                .get("$session_id")
+                .and_then(|value| value.as_str())
+                .filter(|value| is_valid_session_id(value))
+            {
+                let _ = event.insert_prop("$session_id", session_id);
             }
             if let Some(groups) = &payload.groups {
                 for (group_type, group_key) in groups {
@@ -484,7 +523,7 @@ mod tests {
             .with_event_property("service", "ai")
             .with_event_property("email", "person@example.com")
             .build();
-        let lazy = LazyPosthogClient::new("test-key".into());
+        let lazy = LazyPosthogClient::new("test-key".into(), None);
         lazy.state
             .get_or_init(|| async {
                 PosthogState {
@@ -501,6 +540,7 @@ mod tests {
                     .with("serving_revision", "untrusted")
                     .with("service", "untrusted")
                     .with("$ai_model", "openai/gpt-6.1-sol")
+                    .with("$session_id", "0194b8c7-6f21-7abc-8def-0123456789ab")
                     .with("prompt", "private-note")
                     .build(),
             )
@@ -509,6 +549,7 @@ mod tests {
         let mut properties = PropertiesPayload::builder()
             .set("platform", "desktop")
             .set("email", "person@example.com")
+            .set("$session_id", "0194b8c7-6f21-7abc-8def-0123456789ab")
             .set_once("channel", "stable")
             .build();
         client
@@ -568,6 +609,10 @@ mod tests {
             }
         }
         assert_eq!(events[0]["properties"]["$ai_model"], "openai/gpt-6.1-sol");
+        assert_eq!(
+            events[0]["properties"]["$session_id"],
+            "0194b8c7-6f21-7abc-8def-0123456789ab"
+        );
         assert_eq!(
             events[1]["properties"]["$set"],
             serde_json::json!({"platform": "desktop"})

@@ -380,6 +380,12 @@ impl ProductPane {
             }
             _ => None,
         };
+        if page.id == "referrals" && self.active.id != "referrals" {
+            crate::telemetry::track(
+                "referral_page_viewed",
+                &[("surface", serde_json::json!("desktop"))],
+            );
+        }
         self.active = page;
         self.show_surface(surface, cx);
     }
@@ -399,6 +405,13 @@ impl ProductPane {
             return;
         }
         self.last_pro_notice = Some(now);
+        crate::telemetry::track(
+            "paywall_viewed",
+            &[
+                ("entry_point", serde_json::json!("plan_gate")),
+                ("feature", serde_json::json!("pro_plan")),
+            ],
+        );
         self.pro_notices += 1;
         let id = self.pro_notices;
         self.pro_notice = Some((
@@ -444,6 +457,14 @@ impl ProductPane {
 
     fn upgrade_to_pro(&mut self, cx: &mut Context<Self>) {
         self.pro_notice = None;
+        crate::telemetry::track(
+            "upgrade_clicked",
+            &[
+                ("plan", serde_json::json!("pro")),
+                ("period", serde_json::json!("monthly")),
+                ("source", serde_json::json!("feature_gate")),
+            ],
+        );
         if let Some(cloud) = self.cloud.clone() {
             cx.spawn(async move |this, cx| {
                 if let Err(error) = cloud

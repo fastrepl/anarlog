@@ -734,6 +734,20 @@ impl CaptureService {
     }
 }
 
+fn report_start_failure(stage: &'static str, error: &ServiceError, provider: Option<&str>) {
+    if matches!(error, ServiceError::Cancelled | ServiceError::Busy) {
+        return;
+    }
+    crate::telemetry::track("session_start_failed", &[("failure_stage", json!(stage))]);
+    crate::telemetry::capture_operational_error(
+        "session_start",
+        Some(stage),
+        &error.to_string(),
+        provider,
+        None,
+    );
+}
+
 async fn start(
     runtime: &RuntimeHandle,
     root: &ActorRef<RootMsg>,
@@ -764,21 +778,49 @@ async fn start(
         state.amplitude = (0, 0);
         state.revision += 1;
     }
-    let mut config = resolver(session.clone()).await?;
+    let mut config = match resolver(session.clone()).await {
+        Ok(config) => config,
+        Err(error) => {
+            report_start_failure("capture_start", &error, None);
+            return Err(error);
+        }
+    };
+    let stt_provider = config.provider.clone();
+    let stt_model = config.params.model.clone();
     if config.params.session_id != session.0.as_ref() {
-        return Err(ServiceError::Conflict);
+        let error = ServiceError::Conflict;
+        report_start_failure("capture_start", &error, Some(stt_provider.as_ref()));
+        return Err(error);
     }
     if config.retention == Retention::Never
         && config.params.transcription_mode == anlg_listener_core::TranscriptionMode::Batch
     {
-        return Err(ServiceError::Unsupported("This provider needs saved audio for batch transcription. Choose a live provider for Don’t save.".into()));
+        let error = ServiceError::Unsupported("This provider needs saved audio for batch transcription. Choose a live provider for Don’t save.".into());
+        report_start_failure("capture_start", &error, Some(stt_provider.as_ref()));
+        return Err(error);
     }
     config.params.retain_audio = Some(config.retention != Retention::Never);
     let transcript: Arc<str> = uuid::Uuid::new_v4().to_string().into();
-    let activity = activities.acquire(session.clone())?;
-    let directory = session_directory(&storage.vault_base().map_err(failure)?, &session)?;
+    let activity = match activities.acquire(session.clone()) {
+        Ok(activity) => activity,
+        Err(error) => {
+            report_start_failure("capture_start", &error, Some(stt_provider.as_ref()));
+            return Err(error);
+        }
+    };
+    let directory = match storage
+        .vault_base()
+        .map_err(failure)
+        .and_then(|base| session_directory(&base, &session))
+    {
+        Ok(directory) => directory,
+        Err(error) => {
+            report_start_failure("capture_start", &error, Some(stt_provider.as_ref()));
+            return Err(error);
+        }
+    };
     let audio_directory = directory.clone();
-    let audio_offset = tokio::task::spawn_blocking(move || {
+    let audio_offset = match tokio::task::spawn_blocking(move || {
         for extension in ["mp3", "wav", "ogg"] {
             let path = audio_directory.join(format!("audio.{extension}"));
             if path.try_exists().map_err(failure)? {
@@ -789,15 +831,41 @@ async fn start(
         Ok(0)
     })
     .await
-    .map_err(failure)??;
-    let started = prepare(runtime, &session, transcript.clone(), &config, audio_offset).await?;
-    let group = shared
+    .map_err(failure)
+    .and_then(|result| result)
+    {
+        Ok(offset) => offset,
+        Err(error) => {
+            report_start_failure("capture_start", &error, Some(stt_provider.as_ref()));
+            return Err(error);
+        }
+    };
+    let (started, has_calendar_event) =
+        match prepare(runtime, &session, transcript.clone(), &config, audio_offset).await {
+            Ok(prepared) => prepared,
+            Err(error) => {
+                report_start_failure("recovery_marker", &error, Some(stt_provider.as_ref()));
+                return Err(error);
+            }
+        };
+    let group = match shared
         .lock()
-        .map_err(failure)?
-        .persistence_group
-        .clone()
-        .ok_or(ServiceError::Closed)?;
-    let persistence = group.transcript(runtime, transcript.clone()).await?;
+        .map_err(failure)
+        .and_then(|state| state.persistence_group.clone().ok_or(ServiceError::Closed))
+    {
+        Ok(group) => group,
+        Err(error) => {
+            report_start_failure("capture_start", &error, Some(stt_provider.as_ref()));
+            return Err(error);
+        }
+    };
+    let persistence = match group.transcript(runtime, transcript.clone()).await {
+        Ok(persistence) => persistence,
+        Err(error) => {
+            report_start_failure("recovery_marker", &error, Some(stt_provider.as_ref()));
+            return Err(error);
+        }
+    };
     {
         let mut state = shared.lock().unwrap_or_else(|poison| poison.into_inner());
         state.transcript = Some(transcript.clone());
@@ -849,20 +917,50 @@ async fn start(
             }
         }
     });
-    let response = root
+    let response = match root
         .call(
             |reply| RootMsg::StartSession(config.params, reply),
             Some(Duration::from_secs(30)),
         )
         .await
-        .map_err(failure)?;
-    let result = response
-        .success_or_else(|| failure("Capture start timed out; its recovery marker is retained."))?;
-    result.map_err(|error| {
+        .map_err(failure)
+    {
+        Ok(response) => response,
+        Err(error) => {
+            report_start_failure("capture_start", &error, Some(stt_provider.as_ref()));
+            return Err(error);
+        }
+    };
+    let result = match response
+        .success_or_else(|| failure("Capture start timed out; its recovery marker is retained."))
+    {
+        Ok(result) => result,
+        Err(error) => {
+            report_start_failure("capture_start", &error, Some(stt_provider.as_ref()));
+            return Err(error);
+        }
+    };
+    match result.map_err(|error| {
         failure(format!(
             "Capture failed: {error:?}; recovery marker retained."
         ))
-    })
+    }) {
+        Ok(()) => {
+            crate::telemetry::track(
+                "session_started",
+                &[
+                    ("has_calendar_event", json!(has_calendar_event)),
+                    ("stt_provider", json!(stt_provider.as_str())),
+                    ("stt_model", json!(stt_model)),
+                ],
+            );
+            Ok(())
+        }
+        Err(error) => {
+            report_start_failure("capture_rejected", &error, Some(stt_provider.as_ref()));
+            Err(error)
+        }
+    }
 }
 
 async fn prepare(
@@ -871,7 +969,7 @@ async fn prepare(
     transcript: Arc<str>,
     config: &CaptureConfig,
     audio_offset: u64,
-) -> Result<u64> {
+) -> Result<(u64, bool)> {
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_err(failure)?
@@ -882,8 +980,9 @@ async fn prepare(
     let memo = config.memo.clone();
     let retained = config.retention != Retention::Never;
     runtime.submit(move |services| async move {
-        let rows = services.executor.execute("SELECT owner_user_id, created_at FROM sessions WHERE id = ? AND deleted_at IS NULL AND (locked = 0 OR id IN (SELECT value FROM json_each(?)))".into(), vec![json!(session), super::access::param()]).await.map_err(failure)?;
+        let rows = services.executor.execute("SELECT owner_user_id, created_at, (COALESCE(event_id, '') <> '') AS has_event_id FROM sessions WHERE id = ? AND deleted_at IS NULL AND (locked = 0 OR id IN (SELECT value FROM json_each(?)))".into(), vec![json!(session), super::access::param()]).await.map_err(failure)?;
         let row = rows.first().ok_or(ServiceError::Conflict)?;
+        let has_event_id = row["has_event_id"].as_i64().unwrap_or(0) != 0;
         let marker = json!({
             "version": 1, "chunkedAudio": true, "retainAudio": retained, "phase": "capturing",
             "sessionId": session, "transcriptId": transcript, "startedAt": now,
@@ -897,7 +996,7 @@ async fn prepare(
             statement("INSERT INTO app_settings (id, value_json) VALUES (?, ?)",
                 vec![json!(format!("capture_lifecycle_pending:{}", session.0)), json!(marker.to_string())], Some(1)),
         ]).await.map_err(failure)?;
-        Ok(now as u64)
+        Ok((now as u64, has_event_id))
     })?.receive().await
 }
 
@@ -960,13 +1059,76 @@ async fn handle_lifecycle(
     Ok(())
 }
 
+fn emit_capture_finish_events(
+    duration_seconds: u64,
+    transcription_requested: bool,
+    provider: &str,
+    batch: bool,
+    live_active: bool,
+    error: Option<(&'static str, &str)>,
+) {
+    crate::telemetry::track(
+        "session_completed",
+        &[
+            ("duration_seconds", json!(duration_seconds)),
+            ("transcription_requested", json!(transcription_requested)),
+            ("completion_reason", json!("capture_stopped")),
+        ],
+    );
+    match error {
+        None => {
+            if batch {
+                crate::telemetry::track(
+                    "transcription_completed",
+                    &[("mode", json!("batch")), ("provider", json!(provider))],
+                );
+            } else if live_active || transcription_requested {
+                crate::telemetry::track("transcription_completed", &[("mode", json!("live"))]);
+            }
+        }
+        Some((stage, message)) => {
+            let mode = if stage == "batch_repair" {
+                "post_capture"
+            } else if batch {
+                "batch"
+            } else {
+                "live"
+            };
+            crate::telemetry::track(
+                "transcription_failed",
+                &[
+                    ("mode", json!(mode)),
+                    ("failure_stage", json!(stage)),
+                    ("provider", json!(provider)),
+                ],
+            );
+            crate::telemetry::capture_operational_error(
+                "transcription",
+                Some(stage),
+                message,
+                Some(provider),
+                None,
+            );
+        }
+    }
+}
+
 async fn finish(
     runtime: &RuntimeHandle,
     shared: &Arc<Mutex<State>>,
     session_id: String,
     error: Option<String>,
 ) -> Result<()> {
-    let (persistence, transcript, retained) = {
+    let (
+        persistence,
+        transcript,
+        retained,
+        duration_seconds,
+        provider,
+        batch,
+        live_active,
+        requested_live,
+    ) = {
         let mut state = shared.lock().unwrap_or_else(|poison| poison.into_inner());
         if !matches_session(&state, &session_id) {
             if let Some(error) = error {
@@ -980,15 +1142,42 @@ async fn finish(
             state.persistence.clone(),
             state.transcript.clone(),
             state.retention != Retention::Never,
+            state.capture_start.elapsed().as_secs(),
+            state.provider.clone(),
+            state.batch,
+            state.live_active == Some(true),
+            state.requested_live == Some(true),
         )
     };
+    let transcription_requested = live_active || requested_live || batch;
     if let Some(persistence) = persistence {
         persistence.retire().await?;
     }
     if let Some(error) = error {
+        emit_capture_finish_events(
+            duration_seconds,
+            transcription_requested,
+            provider.as_ref(),
+            batch,
+            live_active,
+            Some(("persist", &error)),
+        );
         return Err(failure(error));
     }
-    repair_once(runtime, shared).await?;
+    if let Err(error) = repair_once(runtime, shared).await {
+        if !matches!(error, ServiceError::Cancelled) {
+            let stage = if batch { "provider" } else { "batch_repair" };
+            emit_capture_finish_events(
+                duration_seconds,
+                transcription_requested,
+                provider.as_ref(),
+                batch,
+                live_active,
+                Some((stage, &error.to_string())),
+            );
+        }
+        return Err(error);
+    }
     let (incomplete, recovery) = {
         let state = shared.lock().unwrap_or_else(|poison| poison.into_inner());
         (state.incomplete, state.repair.clone())
@@ -997,9 +1186,17 @@ async fn finish(
         repair.recovery.stop().await;
     }
     if incomplete {
-        return Err(failure(
-            "Recording stopped with an incomplete transcript; its audio is kept for recovery.",
-        ));
+        let error =
+            "Recording stopped with an incomplete transcript; its audio is kept for recovery.";
+        emit_capture_finish_events(
+            duration_seconds,
+            transcription_requested,
+            provider.as_ref(),
+            batch,
+            live_active,
+            Some(("persist", error)),
+        );
+        return Err(failure(error));
     }
     release_chunks(shared, true).await?;
     // "Don't save" counts as saved only once its audio is gone.
@@ -1007,9 +1204,16 @@ async fn finish(
         && let Some(repair) = recovery
         && !delete_transcribed(repair.directory).await?
     {
-        return Err(failure(
-            "Don’t save audio is still waiting for transcription; it is kept for recovery.",
-        ));
+        let error = "Don’t save audio is still waiting for transcription; it is kept for recovery.";
+        emit_capture_finish_events(
+            duration_seconds,
+            transcription_requested,
+            provider.as_ref(),
+            batch,
+            live_active,
+            Some(("persist", error)),
+        );
+        return Err(failure(error));
     }
     if let Some(transcript) = transcript {
         runtime.submit(move |services| async move {
@@ -1027,6 +1231,15 @@ async fn finish(
     state.status = "Recording saved".into();
     state.persistence = None;
     state.revision += 1;
+    drop(state);
+    emit_capture_finish_events(
+        duration_seconds,
+        transcription_requested,
+        provider.as_ref(),
+        batch,
+        live_active,
+        None,
+    );
     Ok(())
 }
 

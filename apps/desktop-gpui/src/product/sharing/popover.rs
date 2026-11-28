@@ -847,6 +847,21 @@ impl SharePopover {
                         .a11y_button("Upgrade to Pro")
                         .mt_4()
                         .on_click(cx.listener(|_, _, _, cx| {
+                            crate::telemetry::track(
+                                "paywall_viewed",
+                                &[
+                                    ("entry_point", serde_json::json!("session_sharing")),
+                                    ("feature", serde_json::json!("sharing")),
+                                ],
+                            );
+                            crate::telemetry::track(
+                                "upgrade_clicked",
+                                &[
+                                    ("plan", serde_json::json!("pro")),
+                                    ("period", serde_json::json!("monthly")),
+                                    ("source", serde_json::json!("session_sharing")),
+                                ],
+                            );
                             cx.emit(SharePopoverEvent::Open(ProductRoute::Billing))
                         }))
                         .child("Upgrade to Pro"),

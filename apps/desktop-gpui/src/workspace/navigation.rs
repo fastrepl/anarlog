@@ -106,6 +106,24 @@ impl Route {
             Self::DailySummary(_) => "Daily summary",
         }
     }
+
+    pub fn analytics_view(&self) -> Option<&'static str> {
+        Some(match self {
+            Self::Session(_) => "sessions",
+            Self::SharedSession(_) | Self::SharedPreview(_) => "shared_sessions",
+            Self::Contacts | Self::Human(_) | Self::Organization(_) => "contacts",
+            Self::Templates => "templates",
+            Self::Automations => "automations",
+            Self::Folders | Self::Folder(_) => "folders",
+            Self::Calendar => "calendar",
+            Self::Changelog => "changelog",
+            Self::Settings(_) => "settings",
+            Self::Onboarding => "onboarding",
+            Self::DailySummary(_) => "daily_summary",
+            Self::Empty => "empty",
+            Self::Edit(_) | Self::Task(_) => return None,
+        })
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]

@@ -314,19 +314,40 @@ impl Contacts {
     }
 
     fn write(&mut self, write: Write, cx: &mut Context<Self>) {
+        let analytics = match &write {
+            Write::CreateHuman { .. } => Some(("contact_created", "contacts")),
+            Write::Merge { .. } => Some(("contact_merged", "contact_details")),
+            _ => None,
+        };
         let reply = ops::submit(&self.runtime, write);
         cx.spawn(async move |this, cx| {
             let result = match reply {
                 Ok(reply) => reply.receive().await,
                 Err(error) => Err(error),
             };
-            if let Err(error) = result {
-                tracing::error!(%error, "contacts write failed");
-                let _ = this.update(cx, |this, cx| {
-                    this.load_error_owner = None;
-                    this.message = format!("Could not save the contact: {error}").into();
-                    cx.notify();
-                });
+            match result {
+                Ok(()) => match analytics {
+                    Some(("contact_created", entry_point)) => crate::telemetry::track(
+                        "contact_created",
+                        &[
+                            ("entry_point", serde_json::json!(entry_point)),
+                            ("has_email", serde_json::json!(false)),
+                        ],
+                    ),
+                    Some(("contact_merged", entry_point)) => crate::telemetry::track(
+                        "contact_merged",
+                        &[("entry_point", serde_json::json!(entry_point))],
+                    ),
+                    _ => {}
+                },
+                Err(error) => {
+                    tracing::error!(%error, "contacts write failed");
+                    let _ = this.update(cx, |this, cx| {
+                        this.load_error_owner = None;
+                        this.message = format!("Could not save the contact: {error}").into();
+                        cx.notify();
+                    });
+                }
             }
         })
         .detach();

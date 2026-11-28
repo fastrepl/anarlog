@@ -804,7 +804,20 @@ impl ChatView {
                     self.entries.push(entry);
                 }
             }
-            Err(error) => self.phase = Phase::Failed(error.to_string()),
+            Err(error) => {
+                crate::telemetry::track(
+                    "chat_response_failed",
+                    &[("failure_stage", serde_json::json!("response_stream"))],
+                );
+                crate::telemetry::capture_operational_error(
+                    "chat_response",
+                    Some("response_stream"),
+                    &error.to_string(),
+                    None,
+                    None,
+                );
+                self.phase = Phase::Failed(error.to_string());
+            }
         }
         self.clear_stream();
         if std::mem::take(&mut self.stale) {
@@ -1089,9 +1102,11 @@ impl ChatView {
         };
         self.voice = voice::VoicePhase::Transcribing;
         let generation = self.voice_generation;
+        let stop_started = std::time::Instant::now();
         let stopped = recording.stop();
         cx.spawn(async move |this, cx| {
             let result = stopped.await;
+            let stop_to_text_ms = stop_started.elapsed().as_millis() as u64;
             let _ = this.update(cx, |this, cx| {
                 this.voice = voice::VoicePhase::Idle;
                 if this.voice_generation != generation {
@@ -1100,8 +1115,23 @@ impl ChatView {
                 }
                 match result {
                     Ok(text) if !text.trim().is_empty() => {
+                        let insert_start = std::time::Instant::now();
                         this.composer
                             .update(cx, |composer, cx| composer.insert_text(&text, cx));
+                        let insert_ms = insert_start.elapsed().as_millis() as u64;
+                        crate::telemetry::track(
+                            "dictation_completed",
+                            &[
+                                ("surface", serde_json::json!("chat")),
+                                ("source", serde_json::json!("batch")),
+                                ("refined", serde_json::json!(false)),
+                                ("delivery", serde_json::json!("insert")),
+                                ("stop_to_text_ms", serde_json::json!(stop_to_text_ms)),
+                                ("transcript_ms", serde_json::json!(stop_to_text_ms)),
+                                ("refine_ms", serde_json::json!(0)),
+                                ("insert_ms", serde_json::json!(insert_ms)),
+                            ],
+                        );
                     }
                     Ok(_) => this.show_toast(voice::Tone::Warning, "No speech detected", cx),
                     Err(_) => {

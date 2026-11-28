@@ -295,10 +295,32 @@ impl AiPane {
                     "Select a summary document and template in the editor first.".into(),
                 )
             })?;
-            services
+            let used_template = context.user.template.is_some();
+            let prefs = crate::meeting::config::preferences(&services.ai.runtime)
+                .await
+                .ok();
+            let provider = prefs
+                .as_ref()
+                .map(|p| p.text("current_llm_provider"))
+                .filter(|s| !s.is_empty())
+                .unwrap_or_else(|| "unknown".to_owned());
+            let model = prefs
+                .as_ref()
+                .map(|p| p.text("current_llm_model"))
+                .filter(|s| !s.is_empty())
+                .unwrap_or_else(|| "unknown".to_owned());
+            let result = services
                 .ai
                 .summarize(base, context, cancellation, observer)
-                .await
+                .await;
+            crate::meeting::ai::record_enhancement_result(
+                false,
+                &provider,
+                &model,
+                used_template,
+                &result,
+            );
+            result
         }));
         self.busy = true;
         self.status = "Generating summary…".into();

@@ -15,7 +15,9 @@ use std::{
     time::{Duration, Instant},
 };
 
-use anlg_notification_interface::{Notification, NotificationContext};
+use anlg_notification_interface::{
+    Notification, NotificationAction, NotificationContext, NotificationSource,
+};
 use chrono::Utc;
 use desktop_runtime::{CancellationToken, Result, RuntimeHandle, ServiceError, SessionId};
 use futures::{StreamExt, channel::mpsc};
@@ -233,14 +235,40 @@ impl MeetingAutomation {
         &self.triggers
     }
 
+    fn notification_source_kind(source: Option<&NotificationSource>) -> &'static str {
+        match source {
+            Some(NotificationSource::CalendarEvent { .. }) => "calendar_event",
+            Some(NotificationSource::Session { .. }) => "session",
+            Some(NotificationSource::MicDetected { .. }) => "mic_detected",
+            None => "unknown",
+        }
+    }
+
     /// Posts a notification; its buttons come back as [`Observed::Notification`].
     /// `Ok(false)` means the same key was shown within the last minute.
     pub fn show(&mut self, notification: Notification) -> Result<bool> {
+        let source_type = Self::notification_source_kind(notification.source.as_ref());
+        let is_persistent = notification.is_persistent();
+        let has_options = notification
+            .options
+            .as_ref()
+            .is_some_and(|options| !options.is_empty());
         let notifications = self
             .notifications
             .as_mut()
             .ok_or_else(|| ServiceError::Unsupported("Notifications are not installed".into()))?;
-        notifications.show(notification, Instant::now())
+        let shown = notifications.show(notification, Instant::now())?;
+        if shown {
+            crate::telemetry::track(
+                "notification_shown",
+                &[
+                    ("source_type", json!(source_type)),
+                    ("is_persistent", json!(is_persistent)),
+                    ("has_options", json!(has_options)),
+                ],
+            );
+        }
+        Ok(shown)
     }
 
     pub fn clear_notifications(&self) {
@@ -410,6 +438,88 @@ impl MeetingAutomation {
             .notifications
             .as_mut()
             .and_then(|notifications| notifications.action(&key, action, Instant::now()).ok());
+        if let Some(ctx) = &context {
+            let source_type = Self::notification_source_kind(ctx.source.as_ref());
+            let action_name = |chosen: NotificationAction| match chosen {
+                NotificationAction::JoinAndRecord => "join_and_record",
+                NotificationAction::OpenMeeting => "open_meeting",
+            };
+            match (action, ctx.action) {
+                (Action::Confirm, _) => {
+                    crate::telemetry::track("collapsed_confirm", &[]);
+                    crate::telemetry::track(
+                        "notification_actioned",
+                        &[
+                            ("source_type", json!(source_type)),
+                            ("action", json!("confirm")),
+                        ],
+                    );
+                }
+                (Action::Accept, Some(chosen)) => {
+                    crate::telemetry::track(
+                        "notification_actioned",
+                        &[
+                            ("source_type", json!(source_type)),
+                            ("action", json!(action_name(chosen))),
+                        ],
+                    );
+                }
+                (Action::Accept, None) => {
+                    crate::telemetry::track("expanded_accept", &[]);
+                    crate::telemetry::track(
+                        "notification_actioned",
+                        &[
+                            ("source_type", json!(source_type)),
+                            ("action", json!("accept")),
+                        ],
+                    );
+                }
+                (Action::Option(_), Some(chosen)) => {
+                    crate::telemetry::track(
+                        "notification_actioned",
+                        &[
+                            ("source_type", json!(source_type)),
+                            ("action", json!(action_name(chosen))),
+                        ],
+                    );
+                }
+                (Action::Option(option_index), None) => {
+                    crate::telemetry::track("option_selected", &[]);
+                    crate::telemetry::track(
+                        "notification_actioned",
+                        &[
+                            ("source_type", json!(source_type)),
+                            ("action", json!("option_selected")),
+                            ("option_index", json!(option_index)),
+                        ],
+                    );
+                }
+                (Action::Dismiss, _) => {
+                    crate::telemetry::track("dismiss", &[]);
+                    crate::telemetry::track(
+                        "notification_dismissed",
+                        &[("source_type", json!(source_type))],
+                    );
+                }
+                (Action::Timeout, _) => {
+                    crate::telemetry::track("collapsed_timeout", &[]);
+                    crate::telemetry::track(
+                        "notification_timed_out",
+                        &[("source_type", json!(source_type))],
+                    );
+                }
+                (Action::Footer, _) => {
+                    crate::telemetry::track("footer_action", &[]);
+                    crate::telemetry::track(
+                        "notification_actioned",
+                        &[
+                            ("source_type", json!(source_type)),
+                            ("action", json!("footer_action")),
+                        ],
+                    );
+                }
+            }
+        }
         cx.emit(Observed::Notification {
             key: key.clone(),
             action,

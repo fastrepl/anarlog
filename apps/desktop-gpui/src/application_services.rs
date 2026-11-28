@@ -213,6 +213,10 @@ impl NativeServices {
     ) -> Result<Self> {
         let api = std::env::var("VITE_API_URL").unwrap_or_else(|_| "https://api.anarlog.so".into());
         let cloud_config = config(&runtime, &storage, &api).await;
+        let provider_fingerprint = cloud_config
+            .as_ref()
+            .map(|config| config.device_fingerprint.clone())
+            .unwrap_or_else(|_| anlg_host::fingerprint());
         let shipping_store = storage.shipping_store();
         let profile = storage.root;
         // A channel run uses the shipping channel's secure store and names, so the secrets the
@@ -287,6 +291,7 @@ impl NativeServices {
         let providers = ProviderServices {
             runtime: runtime.clone(),
             api_url: api.clone(),
+            device_fingerprint: provider_fingerprint,
             cloud: Arc::new(move || {
                 let cloud = provider_cloud.configured();
                 Box::pin(async move { cloud?.provider_access().await })

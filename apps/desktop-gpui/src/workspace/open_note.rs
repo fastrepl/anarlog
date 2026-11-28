@@ -9,7 +9,12 @@ mod versions;
 
 pub use meeting_info::Clock;
 
-use std::{collections::HashMap, path::PathBuf, sync::Arc, time::Duration};
+use std::{
+    collections::{HashMap, HashSet},
+    path::PathBuf,
+    sync::Arc,
+    time::Duration,
+};
 
 use desktop_runtime::{
     CancellationToken, DocumentId, DocumentSnapshot, Generation, OpenSession, RenameSession,
@@ -110,6 +115,7 @@ pub struct NoteView {
     /// A template applied to the memo, recorded on it once saved.
     memo_template: Option<(SessionId, Arc<str>)>,
     memo_saved: Option<Subscription>,
+    edited_notes: HashSet<SessionId>,
     folder_picker: Entity<FolderPicker>,
     folder_open: bool,
     folder_chip_hovered: bool,
@@ -199,6 +205,7 @@ struct Details {
     /// the memo's suggested templates.
     event_text: String,
     participants: usize,
+    is_welcome: bool,
     lock_row: Option<(&'static str, &'static str, bool)>,
 }
 
@@ -483,6 +490,7 @@ impl NoteView {
             templates_cancel,
             memo_template: None,
             memo_saved: None,
+            edited_notes: HashSet::new(),
             folder_picker,
             folder_open: false,
             folder_chip_hovered: false,
@@ -625,6 +633,12 @@ impl NoteView {
                 let session = session_id.clone();
                 cx.subscribe(&editor, move |this, _, event: &EditorEvent, cx| {
                     if matches!(event, EditorEvent::Saved(_)) {
+                        if session.0.as_ref() != "anarlog-onboarding-demo-v1"
+                            && !this.details.is_welcome
+                            && this.edited_notes.insert(session.clone())
+                        {
+                            crate::telemetry::track("note_edited", &[("has_content", json!(true))]);
+                        }
                         this.memo_saved(&session, cx);
                     }
                 })
@@ -983,6 +997,7 @@ impl NoteView {
                 event["description"].as_str().unwrap_or_default()
             ),
             participants: event["participants"].as_array().map_or(0, Vec::len),
+            is_welcome: event["tracking_id"].as_str() == Some("anarlog-onboarding-demo-v1"),
             lock_row: self.details.lock_row,
             folder: folder_label(row["folder_path"].as_str().unwrap_or_default()),
             event_ended: row["event_json"]

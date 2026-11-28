@@ -39,6 +39,7 @@ impl Fixture {
         super::config::ProviderServices {
             runtime: self.runtime.clone(),
             api_url: url.clone(),
+            device_fingerprint: "fixture-device".into(),
             cloud: Arc::new(|| {
                 Box::pin(async {
                     Ok(super::config::CloudAccess {
@@ -3091,4 +3092,76 @@ async fn startup_recovery_finalizes_already_repaired_inherited_transcript_on_ret
             .is_empty()
     );
     fixture.close().await;
+}
+
+#[tokio::test]
+async fn http_provider_sends_device_fingerprint_only_to_anarlog() {
+    use futures::StreamExt;
+    use wiremock::{Mock, MockServer, ResponseTemplate, matchers::method};
+
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .insert_header("content-type", "text/event-stream")
+                .set_body_string("data: [DONE]\n\n"),
+        )
+        .mount(&server)
+        .await;
+
+    let anarlog = super::provider::HttpProvider::new(super::config::Connection {
+        provider: "anarlog".into(),
+        model: "anarlog-llm".into(),
+        base_url: server.uri(),
+        api_key: "tok".into(),
+        self_human_id: None,
+        device_fingerprint: "dev-fp-123".into(),
+    })
+    .unwrap();
+    let mut stream = anarlog
+        .stream(super::ai::Request {
+            session: SessionId("s-anarlog".into()),
+            messages: Vec::new(),
+            tools_allowed: false,
+            structured: None,
+            cancellation: CancellationToken::new(),
+        })
+        .await
+        .unwrap();
+    while stream.next().await.is_some() {}
+
+    let byok = super::provider::HttpProvider::new(super::config::Connection {
+        provider: "openai".into(),
+        model: "gpt-4o".into(),
+        base_url: server.uri(),
+        api_key: "sk-test".into(),
+        self_human_id: None,
+        device_fingerprint: "dev-fp-123".into(),
+    })
+    .unwrap();
+    let mut stream = byok
+        .stream(super::ai::Request {
+            session: SessionId("s-openai".into()),
+            messages: Vec::new(),
+            tools_allowed: false,
+            structured: None,
+            cancellation: CancellationToken::new(),
+        })
+        .await
+        .unwrap();
+    while stream.next().await.is_some() {}
+
+    let requests = server.received_requests().await.unwrap();
+    assert_eq!(requests.len(), 2);
+    assert_eq!(
+        requests[0]
+            .headers
+            .get("x-device-fingerprint")
+            .and_then(|value| value.to_str().ok()),
+        Some("dev-fp-123")
+    );
+    assert!(
+        !requests[1].headers.contains_key("x-device-fingerprint"),
+        "non-anarlog LLM provider must not receive x-device-fingerprint"
+    );
 }

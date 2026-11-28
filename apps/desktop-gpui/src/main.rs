@@ -68,15 +68,25 @@ fn main() -> anyhow::Result<()> {
             (Storage::channel(channel, &locations), locations.database())
         }
     };
+    if storage.channel.is_some() {
+        let (telemetry, crash) = desktop_gpui::telemetry::load_startup_consent(&database);
+        desktop_gpui::telemetry::set_telemetry_enabled(telemetry);
+        desktop_gpui::telemetry::set_crash_reporting_enabled(crash);
+    }
     let _sentry_guard = desktop_gpui::telemetry::init_sentry(storage.channel);
+    let fmt_filter = tracing_subscriber::EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("warn"));
+    let sentry_filter = tracing_subscriber::EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info,ort=warn,tantivy=error"));
     tracing_subscriber::registry()
         .with(
-            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "warn".into()),
+            tracing_subscriber::fmt::layer()
+                .with_writer(desktop_gpui::telemetry::redacting_stderr())
+                .with_filter(fmt_filter),
         )
-        .with(tracing_subscriber::fmt::layer())
-        .with(desktop_gpui::telemetry::sentry_tracing_layer())
+        .with(desktop_gpui::telemetry::sentry_tracing_layer().with_filter(sentry_filter))
         .init();
-    desktop_gpui::telemetry::init_analytics(storage.channel);
+    desktop_gpui::telemetry::init_analytics(storage.channel, storage.shipping_store());
     let events = NativeEvents::default();
     // Before the runtime takes the profile, which the running instance holds.
     #[cfg(any(target_os = "linux", target_os = "windows"))]

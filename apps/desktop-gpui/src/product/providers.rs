@@ -366,7 +366,7 @@ fn is_local_stt_provider(kind: ProviderKind, provider: &str) -> bool {
 #[derive(Clone, Copy)]
 enum Saved {
     Choice,
-    Card,
+    Card(&'static str),
     Effort,
 }
 
@@ -891,7 +891,7 @@ impl ProviderView {
         });
         self.finish(
             reply,
-            Saved::Card,
+            Saved::Card(provider),
             "Provider saved. API keys are stored in the system keyring.",
             cx,
         );
@@ -920,13 +920,25 @@ impl ProviderView {
                         if this.generation == generation {
                             match part {
                                 Saved::Choice => this.dirty_choice = false,
-                                Saved::Card => {
+                                Saved::Card(_) => {
                                     this.dirty_card = false;
                                     this.secret
                                         .update(cx, |input, cx| input.set_text(String::new(), cx));
                                 }
                                 Saved::Effort => {}
                             }
+                        }
+                        if let Saved::Card(provider) = part {
+                            crate::telemetry::track(
+                                "ai_provider_configured",
+                                &[
+                                    ("provider", serde_json::json!(provider)),
+                                    ("type", serde_json::json!(this.kind.key())),
+                                ],
+                            );
+                            let mut set = serde_json::Map::new();
+                            set.insert("has_configured_ai".into(), serde_json::json!(true));
+                            crate::telemetry::set_properties(set, serde_json::Map::new());
                         }
                         this.reload(false, cx);
                     }
@@ -1603,6 +1615,7 @@ mod tests {
                     user: Some(User {
                         id: "user".into(),
                         email: None,
+                        created_at: None,
                     }),
                     claims: Some(Claims {
                         entitlements: vec!["hyprnote_pro".into()],
@@ -1638,6 +1651,7 @@ mod tests {
         let services = ProviderServices {
             runtime: runtime.clone(),
             api_url: String::new(),
+            device_fingerprint: String::new(),
             cloud: Arc::new(|| Box::pin(async { Err(ServiceError::Closed) })),
             local: Arc::new(|_| Box::pin(async { Err(ServiceError::Closed) })),
             on_device: Arc::new(move || {

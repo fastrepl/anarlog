@@ -61,6 +61,17 @@ fn validate(bytes: &[u8]) -> Result<ManagedSettings, sqlx::Error> {
     Ok(doc)
 }
 
+/// Read and validate `managed_settings.json` at `path`, returning an empty map when missing.
+pub fn read_managed_settings(
+    path: &std::path::Path,
+) -> Result<BTreeMap<String, Value>, sqlx::Error> {
+    match std::fs::read(path) {
+        Ok(bytes) => Ok(validate(&bytes)?.settings),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(BTreeMap::new()),
+        Err(e) => Err(sqlx::Error::Io(e)),
+    }
+}
+
 /// Read policy from the directory containing the actual opened database, on
 /// desktop and mobile alike. Malformed or unreadable policy fails startup.
 pub async fn apply_managed_settings(pool: &SqlitePool) -> Result<(), sqlx::Error> {
@@ -79,11 +90,7 @@ pub async fn apply_managed_settings(pool: &SqlitePool) -> Result<(), sqlx::Error
         .parent()
         .ok_or_else(invalid)?
         .join("managed_settings.json");
-    let settings = match std::fs::read(path) {
-        Ok(bytes) => validate(&bytes)?.settings,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => BTreeMap::new(),
-        Err(e) => return Err(sqlx::Error::Io(e)),
-    };
+    let settings = read_managed_settings(&path)?;
     let mut tx = pool.begin_with("BEGIN IMMEDIATE").await?;
     sqlx::query("DELETE FROM managed_app_settings")
         .execute(&mut *tx)

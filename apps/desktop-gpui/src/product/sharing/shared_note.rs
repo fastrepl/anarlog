@@ -108,13 +108,19 @@ impl SharedNoteView {
                 }
                 let _ = this.update(cx, |this, cx| {
                     this.state = match result {
-                        Ok(snapshot) => State::Ready(Note {
-                            blocks: blocks(&snapshot.body, &snapshot.title).into(),
-                            title: snapshot.title.into(),
-                            subtitle: "Shared link · View only",
-                            icon: "sharing/LinkIcon.svg",
-                            attachments: Arc::from([]),
-                        }),
+                        Ok(snapshot) => {
+                            crate::telemetry::track(
+                                "shared_note_opened",
+                                &[("access_mode", json!("public_preview"))],
+                            );
+                            State::Ready(Note {
+                                blocks: blocks(&snapshot.body, &snapshot.title).into(),
+                                title: snapshot.title.into(),
+                                subtitle: "Shared link · View only",
+                                icon: "sharing/LinkIcon.svg",
+                                attachments: Arc::from([]),
+                            })
+                        }
                         Err(_) => preview_unavailable(),
                     };
                     cx.notify();
@@ -159,7 +165,27 @@ impl SharedNoteView {
             }
             let _ = this.update(cx, |this, cx| {
                 this.state = match result.map(|rows| rows.into_iter().next()) {
-                    Ok(Some(row)) => cached_note(&row).unwrap_or_else(cache_unreadable),
+                    Ok(Some(row)) => match cached_note(&row) {
+                        Some(state) => {
+                            let manage = row["manage_access"].as_i64() == Some(1);
+                            let access_mode = if manage {
+                                "owner"
+                            } else if matches!(
+                                row["capability"].as_str(),
+                                Some("editor" | "commenter")
+                            ) {
+                                "collaborator"
+                            } else {
+                                "viewer"
+                            };
+                            crate::telemetry::track(
+                                "shared_note_opened",
+                                &[("access_mode", json!(access_mode))],
+                            );
+                            state
+                        }
+                        None => cache_unreadable(),
+                    },
                     Ok(None) => State::Unavailable {
                         icon: "sharing/UsersIcon.svg",
                         title: "Access no longer available",

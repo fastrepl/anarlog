@@ -253,6 +253,7 @@ impl NoteView {
             .collect();
         editor.update(cx, |editor, cx| editor.apply_template(&titles, cx));
         self.memo_template = Some((session, template.id.clone()));
+        crate::telemetry::track("template_applied", &[("entry_point", json!("memo"))]);
     }
 
     /// Shipping saves the applied template's id with the memo (`raw_template_id`), which later

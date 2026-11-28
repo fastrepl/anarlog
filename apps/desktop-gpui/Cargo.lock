@@ -6883,6 +6883,7 @@ dependencies = [
  "audio-utils",
  "embedding",
  "futures-util",
+ "host",
  "hound",
  "language",
  "mp3",

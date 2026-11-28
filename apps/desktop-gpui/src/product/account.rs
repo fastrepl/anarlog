@@ -151,6 +151,7 @@ pub fn tier_action(tier: Tier, current: Tier, can_start_trial: bool) -> Option<T
 pub struct User {
     pub id: Arc<str>,
     pub email: Option<Arc<str>>,
+    pub created_at: Option<Arc<str>>,
 }
 
 /// Synced devices against the plan's limit.
@@ -313,7 +314,12 @@ pub fn set(account: Account, cx: &mut App) {
                     None => "free",
                 }
             };
-            crate::telemetry::identify(&user.id, plan, billing.trial_end);
+            crate::telemetry::identify(
+                &user.id,
+                plan,
+                billing.trial_end,
+                user.created_at.as_deref(),
+            );
         } else {
             crate::telemetry::clear_identity();
         }
@@ -337,6 +343,7 @@ mod tests {
             user: Some(User {
                 id: "u".into(),
                 email: None,
+                created_at: None,
             }),
             claims: Some(claims),
             workspaces: Some(workspaces.into()),
