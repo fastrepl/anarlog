@@ -605,8 +605,8 @@ impl E2eeSyncHook {
             }
             let workspace_ids = ordered_witness_workspace_ids(&keys, &witnesses)?;
             for workspace_id in &workspace_ids {
-                witnesses[workspace_id]
-                    .initialize_keyring_with_page_handler_cancellable(
+                let published = witnesses[workspace_id]
+                    .initialize_keyring_with_page_handler_counting_cancellable(
                         pool,
                         &keys[workspace_id],
                         || async {
@@ -621,6 +621,9 @@ impl E2eeSyncHook {
                         &cancellation,
                     )
                     .await?;
+                if published > 0 {
+                    transferred.store(true, std::sync::atomic::Ordering::Relaxed);
+                }
                 cancellation.check()?;
             }
             let (hydrated, hydrated_transferred) = self

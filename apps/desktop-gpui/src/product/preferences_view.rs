@@ -366,15 +366,23 @@ impl PreferencesView {
                         }
                         if let Some(snapshot) = &this.snapshot {
                             crate::telemetry::sync_settings_properties(snapshot);
-                        }
-                        if GENERAL_SETTINGS_KEYS.contains(&key.as_str()) {
-                            let props: Vec<(&str, Value)> = GENERAL_SETTINGS_KEYS
-                                .iter()
-                                .map(|setting_key| {
-                                    (*setting_key, serde_json::json!(this.flag(setting_key)))
-                                })
-                                .collect();
-                            crate::telemetry::track("settings_changed", &props);
+                            if GENERAL_SETTINGS_KEYS.contains(&key.as_str()) {
+                                let props: Vec<(&str, Value)> = GENERAL_SETTINGS_KEYS
+                                    .iter()
+                                    .map(|setting_key| {
+                                        let enabled = snapshot
+                                            .get(*setting_key)
+                                            .map(|entry| entry.value == Value::Bool(true))
+                                            .unwrap_or_else(|| {
+                                                settings::definition(setting_key).ok().is_some_and(
+                                                    |def| def.default == Value::Bool(true),
+                                                )
+                                            });
+                                        (*setting_key, serde_json::json!(enabled))
+                                    })
+                                    .collect();
+                                crate::telemetry::track("settings_changed", &props);
+                            }
                         }
                         if matches!(key.as_str(), "app_icon" | "theme") {
                             this.apply_dock_icon(cx);

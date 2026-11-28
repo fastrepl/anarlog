@@ -4313,3 +4313,125 @@ async fn replica_sync_worker_emits_outcomes_for_idle_background_and_manual_syncs
         }
     );
 }
+
+#[tokio::test]
+async fn replica_sync_worker_emits_background_completion_for_prequeued_startup_uploads() {
+    use crate::{ReplicaSyncEvent, ReplicaSyncTrigger};
+
+    let server = MockServer::start().await;
+    let post_calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let head_seq = Arc::new(std::sync::atomic::AtomicU64::new(0));
+
+    let head_seq_get = Arc::clone(&head_seq);
+    Mock::given(method("GET"))
+        .and(path("/sync/e2ee/witness/user-a/accepted"))
+        .respond_with(move |_req: &Request| {
+            let head = head_seq_get.load(std::sync::atomic::Ordering::Acquire);
+            ResponseTemplate::new(200).set_body_json(json!({
+                "initialized": true,
+                "initializedAt": "2026-10-05T00:00:00Z",
+                "headSequence": head,
+                "throughSequence": head,
+                "nextAfterSequence": head,
+                "cloudAuthorityAfter": 0,
+                "events": []
+            }))
+        })
+        .mount(&server)
+        .await;
+
+    let post_calls_ref = Arc::clone(&post_calls);
+    let head_seq_post = Arc::clone(&head_seq);
+    Mock::given(method("POST"))
+        .and(path("/sync/e2ee/witness/user-a/accepted"))
+        .respond_with(move |req: &Request| {
+            post_calls_ref.fetch_add(1, std::sync::atomic::Ordering::AcqRel);
+            let body: serde_json::Value = serde_json::from_slice(&req.body).unwrap();
+            let events = body["events"].as_array().unwrap();
+            let prev =
+                head_seq_post.fetch_add(events.len() as u64, std::sync::atomic::Ordering::AcqRel);
+            let receipts: Vec<_> = events
+                .iter()
+                .enumerate()
+                .map(|(i, event)| {
+                    json!({
+                        "sequence": prev + i as u64 + 1,
+                        "recordId": event["recordId"],
+                        "payloadHash": event["payloadHash"],
+                    })
+                })
+                .collect();
+            ResponseTemplate::new(200).set_body_json(json!({
+                "initializedAt": "2026-10-05T00:00:00Z",
+                "headSequence": prev + events.len() as u64,
+                "cloudAuthorityAfter": 0,
+                "mutationId": body["mutationId"],
+                "receipts": receipts,
+            }))
+        })
+        .mount(&server)
+        .await;
+
+    let recovery_key = anlg_e2ee::RecoveryKey::parse(
+        "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
+    )
+    .unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let db = Arc::new(
+        anlg_db_core::Db::connect_local_plain(&dir.path().join("local.db"))
+            .await
+            .unwrap(),
+    );
+    anlg_db_app::prepare_schema(&db).await.unwrap();
+    let hook = Arc::new(crate::E2eeSyncHook::default());
+    hook.set_personal_workspace("user-a", &recovery_key)
+        .unwrap();
+
+    sqlx::query("INSERT INTO sessions(id, workspace_id, owner_user_id, title) VALUES('s-prequeued', 'user-a', 'user-a', 'Prequeued Startup Upload')")
+        .execute(db.pool())
+        .await
+        .unwrap();
+    let encrypted =
+        anlg_db_app::encrypt_e2ee_replica_changes_bounded_deferring_active_captures_cancellable(
+            db.pool(),
+            &hook.snapshot(),
+            64,
+            || false,
+        )
+        .await
+        .unwrap();
+    assert!(encrypted.encrypted_fields > 0);
+
+    let mut events = hook.subscribe_replica_events();
+    hook.set_replica_witness(
+        E2eeWitnessClient::new(
+            E2eeWitnessConfig {
+                endpoint: format!("{}/sync/e2ee/witness/user-a", server.uri()),
+                access_token: "token".to_string(),
+            },
+            "user-a",
+        )
+        .unwrap(),
+    );
+    hook.set_witness_watch_healthy(true);
+
+    let _task = crate::replica_sync::spawn_replica_sync_with_test_intervals(
+        Arc::clone(&db),
+        Arc::clone(&hook),
+        std::time::Duration::from_secs(30),
+        std::time::Duration::from_secs(300),
+        std::time::Duration::from_millis(80),
+    );
+
+    let event = tokio::time::timeout(std::time::Duration::from_secs(3), events.recv())
+        .await
+        .expect("timed out waiting for prequeued startup upload completion")
+        .unwrap();
+    assert_eq!(
+        event,
+        ReplicaSyncEvent::Completed {
+            trigger: ReplicaSyncTrigger::Background
+        }
+    );
+    assert!(post_calls.load(std::sync::atomic::Ordering::Acquire) >= 1);
+}

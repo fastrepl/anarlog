@@ -240,9 +240,30 @@ impl E2eeWitnessClient {
         &self,
         pool: &sqlx::SqlitePool,
         keyring: &anlg_e2ee::WorkspaceKeyring,
-        mut on_merged_page: F,
+        on_merged_page: F,
         cancellation: &E2eeWitnessCancellation,
     ) -> io::Result<()>
+    where
+        F: FnMut() -> Fut,
+        Fut: Future<Output = io::Result<()>>,
+    {
+        self.initialize_keyring_with_page_handler_counting_cancellable(
+            pool,
+            keyring,
+            on_merged_page,
+            cancellation,
+        )
+        .await
+        .map(|_| ())
+    }
+
+    pub(crate) async fn initialize_keyring_with_page_handler_counting_cancellable<F, Fut>(
+        &self,
+        pool: &sqlx::SqlitePool,
+        keyring: &anlg_e2ee::WorkspaceKeyring,
+        mut on_merged_page: F,
+        cancellation: &E2eeWitnessCancellation,
+    ) -> io::Result<usize>
     where
         F: FnMut() -> Fut,
         Fut: Future<Output = io::Result<()>>,
@@ -411,7 +432,7 @@ impl E2eeWitnessClient {
             elapsed_ms = started.elapsed().as_millis() as u64,
             "initializing E2EE witness"
         );
-        Ok(())
+        Ok(published)
     }
 
     #[cfg(test)]
