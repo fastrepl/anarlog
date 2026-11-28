@@ -159,6 +159,58 @@ impl TranscriptStore {
         })
     }
 
+    pub fn clear(&self, session: SessionId) -> Result<Reply<()>> {
+        self.0.submit(move |services| async move {
+            let pending_id = format!("capture_lifecycle_pending:{}", session.0);
+            let transaction = services
+                .executor
+                .execute_transaction(vec![
+                    statement(
+                        "UPDATE sessions SET updated_at = updated_at
+                         WHERE id = ? AND deleted_at IS NULL
+                           AND (locked = 0 OR id IN (SELECT value FROM json_each(?)))
+                           AND NOT EXISTS (SELECT 1 FROM app_settings WHERE id = ?)",
+                        vec![json!(session), super::access::param(), json!(pending_id)],
+                        Some(1),
+                    ),
+                    statement(
+                        "DELETE FROM transcript_live_state WHERE transcript_id IN (SELECT id FROM transcripts WHERE session_id = ? AND deleted_at IS NULL)",
+                        vec![json!(session)],
+                        None,
+                    ),
+                    statement(
+                        "UPDATE transcripts SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE session_id = ? AND deleted_at IS NULL",
+                        vec![json!(session)],
+                        None,
+                    ),
+                ])
+                .await;
+            match transaction {
+                Ok(_) => Ok(()),
+                Err(anlg_db_execute::Error::UnexpectedRowsAffected { .. }) => {
+                    let pending = services
+                        .executor
+                        .execute(
+                            "SELECT 1 FROM app_settings WHERE id = ?".into(),
+                            vec![json!(pending_id)],
+                        )
+                        .await
+                        .map_err(failure)?;
+                    if !pending.is_empty() {
+                        Err(failure(
+                            "Finish or discard the pending recording before clearing its transcript.",
+                        ))
+                    } else {
+                        Err(failure(
+                            "Unlock this note before clearing its transcript.",
+                        ))
+                    }
+                }
+                Err(error) => Err(failure(error)),
+            }
+        })
+    }
+
     pub fn assign_participant(
         &self,
         session: SessionId,
@@ -603,5 +655,98 @@ mod tests {
         assert_eq!(speakers(&transcript).len(), 3);
         unify_speaker_index(&mut transcript, &["a".into(), "b".into(), "c".into()], 0);
         assert_eq!(speakers(&transcript), [(Some(0), None)]);
+    }
+
+    #[tokio::test]
+    async fn clear_soft_deletes_session_transcripts_and_requires_unlock() {
+        let directory = tempfile::tempdir().unwrap();
+        let (runtime, ready) = RuntimeHandle::start(desktop_runtime::Profile {
+            database: directory.path().join("library.sqlite"),
+        })
+        .unwrap();
+        ready.receive().await.unwrap();
+        let sql = |sql: &'static str| {
+            let runtime = runtime.clone();
+            async move {
+                runtime
+                    .submit(move |services| async move {
+                        services
+                            .executor
+                            .execute(sql.into(), vec![])
+                            .await
+                            .map_err(failure)
+                    })
+                    .unwrap()
+                    .receive()
+                    .await
+                    .unwrap()
+            }
+        };
+        sql("INSERT INTO sessions (id, title, locked) VALUES ('s1', 'Open', 0), ('s2', 'Locked', 1), ('s3', 'Other', 0), ('s4', 'Pending', 0)").await;
+        sql("INSERT INTO transcripts (id, session_id, words_json) VALUES ('t1', 's1', '[]'), ('t2', 's2', '[]'), ('t3', 's3', '[]'), ('t4', 's4', '[]')").await;
+        sql("INSERT INTO session_attachments (id, session_id, source_type, source_id) VALUES ('a1', 's1', 'session_audio', 'primary')").await;
+        sql("INSERT INTO transcript_live_state (transcript_id, next_sequence) VALUES ('t1', 1), ('t4', 1)")
+            .await;
+        sql("INSERT INTO transcript_live_deltas (id, transcript_id, sequence, delta_json) VALUES ('d1', 't1', 0, '{}'), ('d4', 't4', 0, '{}')").await;
+        sql("INSERT INTO app_settings (id, value_json) VALUES ('capture_lifecycle_pending:s4', '{\"transcriptId\":\"t4\"}')").await;
+
+        let store = TranscriptStore(runtime.clone());
+        let error = store.clear(SessionId("s2".into())).unwrap().receive().await;
+        assert!(error.is_err());
+
+        let pending_error = store
+            .clear(SessionId("s4".into()))
+            .unwrap()
+            .receive()
+            .await
+            .unwrap_err();
+        assert!(
+            pending_error.to_string().contains("pending recording"),
+            "{pending_error}"
+        );
+        assert_eq!(
+            sql("SELECT id FROM transcripts WHERE id = 't4' AND deleted_at IS NULL")
+                .await
+                .len(),
+            1
+        );
+        assert_eq!(
+            sql("SELECT id FROM transcript_live_deltas WHERE id = 'd4'")
+                .await
+                .len(),
+            1
+        );
+
+        store
+            .clear(SessionId("s1".into()))
+            .unwrap()
+            .receive()
+            .await
+            .unwrap();
+        assert!(
+            sql("SELECT id FROM transcripts WHERE session_id = 's1' AND deleted_at IS NULL")
+                .await
+                .is_empty()
+        );
+        assert!(
+            sql("SELECT id FROM transcript_live_deltas WHERE transcript_id = 't1'")
+                .await
+                .is_empty()
+        );
+        assert_eq!(
+            sql("SELECT id FROM session_attachments WHERE id = 'a1' AND deleted_at IS NULL")
+                .await
+                .len(),
+            1
+        );
+        assert_eq!(
+            sql(
+                "SELECT id FROM transcripts WHERE session_id IN ('s2', 's3', 's4') AND deleted_at IS NULL"
+            )
+            .await
+            .len(),
+            3
+        );
+        runtime.shutdown().await.unwrap();
     }
 }
