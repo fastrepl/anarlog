@@ -92,7 +92,7 @@ impl CloudServices {
         Box::pin(async move {
             let host = this.core.host.clone();
             let handoff = super::host::Handoff::Integration(integration.clone());
-            let url = this
+            let url = match this
                 .runtime
                 .clone()
                 .service(move |_| async move {
@@ -144,8 +144,35 @@ impl CloudServices {
                     Ok(url)
                 })?
                 .receive()
-                .await?;
-            host.hand_off(url, handoff).await
+                .await
+            {
+                Ok(url) => url,
+                Err(error) => {
+                    if !matches!(error, desktop_runtime::ServiceError::Cancelled) {
+                        crate::telemetry::capture_operational_error(
+                            "integration_open",
+                            Some("session"),
+                            &error.to_string(),
+                            None,
+                            None,
+                        );
+                    }
+                    return Err(error);
+                }
+            };
+            let result = host.hand_off(url, handoff).await;
+            if let Err(error) = &result
+                && !matches!(error, desktop_runtime::ServiceError::Cancelled)
+            {
+                crate::telemetry::capture_operational_error(
+                    "integration_open",
+                    Some("handoff"),
+                    &error.to_string(),
+                    None,
+                    None,
+                );
+            }
+            result
         })
     }
 

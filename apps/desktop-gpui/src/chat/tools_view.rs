@@ -506,6 +506,19 @@ impl ChatView {
                                             .py(px(2.))
                                             .cursor_pointer()
                                             .on_click(cx.listener(move |this, _, _, cx| {
+                                                crate::telemetry::track(
+                                                    "search_result_opened",
+                                                    &[
+                                                        (
+                                                            "entry_point",
+                                                            serde_json::json!("chat_search"),
+                                                        ),
+                                                        (
+                                                            "result_type",
+                                                            serde_json::json!("session"),
+                                                        ),
+                                                    ],
+                                                );
                                                 let route =
                                                     Route::Session(desktop_runtime::SessionId(
                                                         open.as_str().into(),

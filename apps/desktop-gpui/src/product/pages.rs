@@ -2163,7 +2163,7 @@ impl PreferencesView {
                                                                 "personalization_dictionary_terms",
                                                                 json!(json!(remaining).to_string()),
                                                                 cx,
-                                                            )
+                                                            );
                                                         },
                                                     ))
                                                 })
@@ -2256,7 +2256,7 @@ fn plan_gate(allowed: bool, content: Div, cx: &mut Context<PreferencesView>) -> 
     )
 }
 
-fn stored_terms(stored: &str) -> Vec<String> {
+pub(super) fn stored_terms(stored: &str) -> Vec<String> {
     normalize_terms(serde_json::from_str::<Vec<String>>(stored).unwrap_or_default())
 }
 

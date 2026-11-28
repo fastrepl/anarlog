@@ -413,6 +413,9 @@ pub fn open_event(
         let id = rows.first().and_then(|row| row["id"].as_str()).ok_or(ServiceError::Conflict)?.to_owned();
         let mut statements = Vec::new();
         // A new note of a recurring meeting goes into the series' auto-add folder, if it exists.
+        if id == created {
+            crate::telemetry::track("note_created", &[("has_event_id", json!(true))]);
+        }
         let series = event["recurrence_series_id"].as_str().unwrap_or("");
         if id == created && !series.is_empty() {
             let rules = executor.execute(calendar_rules::QUERY.into(), vec![]).await.map_err(failure)?;

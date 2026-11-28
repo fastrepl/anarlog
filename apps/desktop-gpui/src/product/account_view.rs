@@ -389,6 +389,15 @@ impl ProductPane {
                 .map(|(key, value)| (Arc::from(key), Arc::from(value)))
                 .collect(),
         };
+        if action == Action::SignIn {
+            crate::telemetry::track(
+                "auth_started",
+                &[
+                    ("entry_point", serde_json::json!("desktop_sign_in")),
+                    ("method", serde_json::json!("browser_handoff")),
+                ],
+            );
+        }
         self.account_ui.busy = true;
         self.account_ui.error = None;
         cx.notify();
@@ -398,6 +407,12 @@ impl ProductPane {
                 this.account_ui.busy = false;
                 match result {
                     Ok(Outcome::IdentityChanged(scope)) => {
+                        if matches!(action, Action::SignOut | Action::LogoutLibrary) {
+                            crate::telemetry::track("user_signed_out", &[]);
+                            let mut set = serde_json::Map::new();
+                            set.insert("is_signed_up".into(), serde_json::json!(false));
+                            crate::telemetry::set_properties(set, serde_json::Map::new());
+                        }
                         this.account_ui = Default::default();
                         this.set_scope(scope.clone(), cx);
                         cx.emit(scope);
@@ -408,6 +423,18 @@ impl ProductPane {
                         }
                     }
                     Err(error) => {
+                        if action == Action::SignIn
+                            && !matches!(error, desktop_runtime::ServiceError::Cancelled)
+                        {
+                            crate::telemetry::track(
+                                "auth_failed",
+                                &[
+                                    ("entry_point", serde_json::json!("desktop_sign_in")),
+                                    ("method", serde_json::json!("browser_handoff")),
+                                    ("failure_stage", serde_json::json!("open_browser")),
+                                ],
+                            );
+                        }
                         this.account_ui.signing_out = false;
                         this.account_ui.error = Some(if action == Action::SignOut {
                             "Anarlog couldn't sign you out. Try again.".into()
@@ -954,14 +981,23 @@ impl ProductPane {
                 false,
                 colors,
             )
-            .on_click(cx.listener(|this, _, _, cx| {
-                this.open_web(
-                    "/app/portal",
-                    vec![("intent", "payment_method_update".into())],
-                    None,
-                    cx,
-                )
-            }))
+            .on_click({
+                let days = billing.trial_days_remaining;
+                cx.listener(move |this, _, _, cx| {
+                    let mut props: Vec<(&str, serde_json::Value)> =
+                        vec![("source", serde_json::json!("settings"))];
+                    if let Some(days) = days {
+                        props.push(("days_remaining", serde_json::json!(days)));
+                    }
+                    crate::telemetry::track("trial_payment_method_clicked", &props);
+                    this.open_web(
+                        "/app/portal",
+                        vec![("intent", "payment_method_update".into())],
+                        None,
+                        cx,
+                    )
+                })
+            })
             .when(busy, |view| view.opacity(0.5))
             .into_any_element(),
             Some(_) if paused => pill("billing-resume", "Resume", true, false, colors)
@@ -1241,27 +1277,47 @@ impl ProductPane {
         };
         match action {
             TierAction::Current => {}
-            TierAction::StartTrial => self.open_web(
-                "/app/checkout",
-                vec![
-                    ("period", period.into()),
-                    ("trial", "true".into()),
-                    ("source", "settings".into()),
-                ],
-                None,
-                cx,
-            ),
+            TierAction::StartTrial => {
+                crate::telemetry::track(
+                    "trial_checkout_started",
+                    &[
+                        ("plan", serde_json::json!("pro")),
+                        ("period", serde_json::json!(period)),
+                        ("source", serde_json::json!("settings")),
+                    ],
+                );
+                self.open_web(
+                    "/app/checkout",
+                    vec![
+                        ("period", period.into()),
+                        ("trial", "true".into()),
+                        ("source", "settings".into()),
+                    ],
+                    None,
+                    cx,
+                )
+            }
             TierAction::Checkout if paused => self.open_web("/app/portal", vec![], None, cx),
-            TierAction::Checkout => self.open_web(
-                "/app/checkout",
-                vec![
-                    ("plan", "pro".into()),
-                    ("period", period.into()),
-                    ("source", "settings".into()),
-                ],
-                None,
-                cx,
-            ),
+            TierAction::Checkout => {
+                crate::telemetry::track(
+                    "upgrade_clicked",
+                    &[
+                        ("plan", serde_json::json!("pro")),
+                        ("period", serde_json::json!(period)),
+                        ("source", serde_json::json!("settings")),
+                    ],
+                );
+                self.open_web(
+                    "/app/checkout",
+                    vec![
+                        ("plan", "pro".into()),
+                        ("period", period.into()),
+                        ("source", "settings".into()),
+                    ],
+                    None,
+                    cx,
+                )
+            }
         }
     }
 
@@ -1685,6 +1741,10 @@ impl ProductPane {
                                         link.clone(),
                                     ));
                                     this.referral_copied = true;
+                                    crate::telemetry::track(
+                                        "referral_link_copied",
+                                        &[("surface", serde_json::json!("desktop"))],
+                                    );
                                     cx.notify();
                                 }))),
                             )
@@ -1909,6 +1969,7 @@ mod tests {
             user: Some(User {
                 id: "u".into(),
                 email: None,
+                created_at: None,
             }),
             claims: Some(Claims {
                 entitlements,

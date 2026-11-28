@@ -2,7 +2,7 @@
 //! sidebar search button and Mod+K. `search` decides what it lists; this view draws it and owns
 //! the notes snapshot, the persisted recently opened notes and the cmdk-style selection.
 
-use std::{collections::VecDeque, sync::Arc};
+use std::{collections::VecDeque, sync::Arc, time::Duration};
 
 use anlg_desktop_identity::store_json::StoreJson;
 use desktop_runtime::{
@@ -10,8 +10,8 @@ use desktop_runtime::{
 };
 use gpui::{
     AnyElement, App, Context, Entity, EventEmitter, FocusHandle, Focusable, Font, KeyDownEvent,
-    ListAlignment, ListState, MouseButton, Pixels, Render, SharedString, Subscription, TextRun,
-    Window, div, list, prelude::*, px, svg,
+    ListAlignment, ListState, MouseButton, Pixels, Render, SharedString, Subscription, Task,
+    TextRun, Window, div, list, prelude::*, px, svg,
 };
 use serde_json::json;
 
@@ -68,6 +68,7 @@ pub struct NotePicker {
     offset: Pixels,
     generation: Generation,
     cancel: CancellationToken,
+    search_task: Option<Task<()>>,
     _subscription: Subscription,
 }
 
@@ -105,6 +106,7 @@ impl NotePicker {
             offset: px(0.),
             generation: Generation::default(),
             cancel: CancellationToken::new(),
+            search_task: None,
             _subscription: subscription,
         };
         picker.refilter(false, cx);
@@ -254,6 +256,48 @@ impl NotePicker {
             self.list.splice(0..old, self.rows.len());
         } else {
             self.list.reset(self.rows.len());
+            let has_query = !self.input.read(cx).buffer.text.trim().is_empty();
+            if has_query {
+                self.search_task = Some(cx.spawn(async move |this, cx| {
+                    cx.background_executor()
+                        .timer(Duration::from_millis(300))
+                        .await;
+                    let _ = this.update(cx, |this, cx| {
+                        if this.input.read(cx).buffer.text.trim().is_empty() {
+                            return;
+                        }
+                        let mut result_count = 0usize;
+                        let mut entity_types = std::collections::BTreeSet::new();
+                        for row in &this.rows {
+                            match row {
+                                Row::Page(_) => {
+                                    result_count += 1;
+                                    entity_types.insert("page");
+                                }
+                                Row::Note { note, .. } => {
+                                    result_count += 1;
+                                    entity_types.insert(match note.route {
+                                        Route::SharedSession(_) => "shared_session",
+                                        _ => "session",
+                                    });
+                                }
+                                Row::Heading { .. } | Row::Gap => {}
+                            }
+                        }
+                        let entity_types: Vec<&'static str> = entity_types.into_iter().collect();
+                        crate::telemetry::track(
+                            "search_performed",
+                            &[
+                                ("entry_point", json!("open_note_dialog")),
+                                ("result_count", json!(result_count)),
+                                ("entity_types", json!(entity_types)),
+                            ],
+                        );
+                    });
+                }));
+            } else {
+                self.search_task = None;
+            }
         }
         cx.notify();
     }
@@ -271,11 +315,26 @@ impl NotePicker {
     }
 
     fn choose(&mut self, cx: &mut Context<Self>) {
-        if let Some((route, new_tab)) = self
-            .selected
-            .and_then(|index| self.rows.get(index))
-            .and_then(Row::destination)
+        if let Some(row) = self.selected.and_then(|index| self.rows.get(index))
+            && let Some((route, new_tab)) = row.destination()
         {
+            let result_type = match row {
+                Row::Page(_) => "page",
+                Row::Note { note, .. } => match note.route {
+                    Route::SharedSession(_) => "shared_session",
+                    _ => "session",
+                },
+                Row::Heading { .. } | Row::Gap => "unknown",
+            };
+            let had_query = !self.input.read(cx).buffer.text.trim().is_empty();
+            crate::telemetry::track(
+                "search_result_opened",
+                &[
+                    ("entry_point", json!("open_note_dialog")),
+                    ("result_type", json!(result_type)),
+                    ("had_query", json!(had_query)),
+                ],
+            );
             cx.emit(PickerEvent::Open(route, new_tab));
         }
     }

@@ -9,7 +9,12 @@ mod versions;
 
 pub use meeting_info::Clock;
 
-use std::{collections::HashMap, path::PathBuf, sync::Arc, time::Duration};
+use std::{
+    collections::{HashMap, HashSet},
+    path::PathBuf,
+    sync::Arc,
+    time::Duration,
+};
 
 use desktop_runtime::{
     CancellationToken, DocumentId, DocumentSnapshot, Generation, OpenSession, RenameSession,
@@ -110,6 +115,7 @@ pub struct NoteView {
     /// A template applied to the memo, recorded on it once saved.
     memo_template: Option<(SessionId, Arc<str>)>,
     memo_saved: Option<Subscription>,
+    edited_notes: HashSet<SessionId>,
     folder_picker: Entity<FolderPicker>,
     folder_open: bool,
     folder_chip_hovered: bool,
@@ -199,6 +205,7 @@ struct Details {
     /// the memo's suggested templates.
     event_text: String,
     participants: usize,
+    is_welcome: Option<bool>,
     lock_row: Option<(&'static str, &'static str, bool)>,
 }
 
@@ -208,6 +215,25 @@ enum NoteTab {
     Summary(Arc<str>),
     Memos,
     Transcript,
+}
+
+fn value_has_non_empty_text(node: &Value) -> bool {
+    node.get("text")
+        .and_then(Value::as_str)
+        .is_some_and(|text| !text.trim().is_empty())
+        || node
+            .get("content")
+            .and_then(Value::as_array)
+            .is_some_and(|children| children.iter().any(value_has_non_empty_text))
+}
+
+fn snapshot_has_content(snapshot: &DocumentSnapshot) -> bool {
+    if snapshot.body_format.as_ref() == "prosemirror_json" {
+        serde_json::from_str::<Value>(snapshot.body.as_ref())
+            .is_ok_and(|doc| value_has_non_empty_text(&doc))
+    } else {
+        !snapshot.body.trim().is_empty()
+    }
 }
 
 fn note_tabs(summaries: &[Arc<str>], transcript: bool) -> Vec<NoteTab> {
@@ -483,6 +509,7 @@ impl NoteView {
             templates_cancel,
             memo_template: None,
             memo_saved: None,
+            edited_notes: HashSet::new(),
             folder_picker,
             folder_open: false,
             folder_chip_hovered: false,
@@ -624,7 +651,14 @@ impl NoteView {
             self.memo_saved = content.clone().downcast::<EditorPane>().ok().map(|editor| {
                 let session = session_id.clone();
                 cx.subscribe(&editor, move |this, _, event: &EditorEvent, cx| {
-                    if matches!(event, EditorEvent::Saved(_)) {
+                    if let EditorEvent::Saved(snapshot) = event {
+                        if session.0.as_ref() != "anarlog-onboarding-demo-v1"
+                            && this.details.is_welcome == Some(false)
+                            && snapshot_has_content(snapshot)
+                            && this.edited_notes.insert(session.clone())
+                        {
+                            crate::telemetry::track("note_edited", &[("has_content", json!(true))]);
+                        }
                         this.memo_saved(&session, cx);
                     }
                 })
@@ -983,6 +1017,7 @@ impl NoteView {
                 event["description"].as_str().unwrap_or_default()
             ),
             participants: event["participants"].as_array().map_or(0, Vec::len),
+            is_welcome: Some(event["tracking_id"].as_str() == Some("anarlog-onboarding-demo-v1")),
             lock_row: self.details.lock_row,
             folder: folder_label(row["folder_path"].as_str().unwrap_or_default()),
             event_ended: row["event_json"]
@@ -3670,5 +3705,45 @@ mod tests {
             summary_ids(&[], &session, true),
             [Arc::<str>::from("summary:s")]
         );
+    }
+
+    #[test]
+    fn snapshot_has_content_checks_saved_body() {
+        let session = SessionId("s".into());
+        assert!(!snapshot_has_content(&DocumentSnapshot::unsaved_note(
+            session.clone()
+        )));
+        let whitespace_pm = DocumentSnapshot {
+            id: DocumentId("d1".into()),
+            session_id: session.clone(),
+            body_format: "prosemirror_json".into(),
+            body: r#"{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"   \n\t "}]}]}"#.into(),
+            updated_at: "t".into(),
+        };
+        assert!(!snapshot_has_content(&whitespace_pm));
+        let populated_pm = DocumentSnapshot {
+            id: DocumentId("d2".into()),
+            session_id: session.clone(),
+            body_format: "prosemirror_json".into(),
+            body: r#"{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Hello"}]}]}"#.into(),
+            updated_at: "t".into(),
+        };
+        assert!(snapshot_has_content(&populated_pm));
+        let whitespace_md = DocumentSnapshot {
+            id: DocumentId("d3".into()),
+            session_id: session.clone(),
+            body_format: "markdown".into(),
+            body: "   \n ".into(),
+            updated_at: "t".into(),
+        };
+        assert!(!snapshot_has_content(&whitespace_md));
+        let populated_md = DocumentSnapshot {
+            id: DocumentId("d4".into()),
+            session_id: session,
+            body_format: "markdown".into(),
+            body: "# Notes".into(),
+            updated_at: "t".into(),
+        };
+        assert!(snapshot_has_content(&populated_md));
     }
 }

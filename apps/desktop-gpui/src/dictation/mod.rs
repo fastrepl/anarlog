@@ -13,7 +13,7 @@ pub mod shortcut;
 pub(crate) mod transcribe;
 mod window;
 
-use std::{path::PathBuf, sync::Arc};
+use std::sync::Arc;
 
 use anlg_audio::AudioProvider;
 use desktop_runtime::{CancellationToken, Result, RuntimeHandle, ServiceError};
@@ -647,25 +647,28 @@ impl Dictation {
         let services = self.services.clone();
         let providers = cx.try_global::<ProviderServices>().cloned();
         let task = self.services.runtime.spawn(async move {
+            let stop_started = std::time::Instant::now();
             let recorded = services.recorder.stop(&owner).await?;
             let path = recorded.path.clone();
             let result = async {
                 if cancellation.is_cancelled() {
                     return Ok(None);
                 }
-                let text = match recorded.transcript {
-                    Some(text) => text,
+                let (text, source, transcript_ms) = match recorded.transcript {
+                    Some(text) => (text, "live", stop_started.elapsed().as_millis() as u64),
                     None => {
                         let providers =
                             providers.ok_or_else(|| failed("Speech-to-text is still starting."))?;
-                        transcribe::transcribe(
+                        let tx_started = std::time::Instant::now();
+                        let text = transcribe::transcribe(
                             &providers,
                             &request,
                             &owner,
                             &path,
                             cancellation.clone(),
                         )
-                        .await?
+                        .await?;
+                        (text, "batch", tx_started.elapsed().as_millis() as u64)
                     }
                 };
                 if cancellation.is_cancelled() {
@@ -675,7 +678,8 @@ impl Dictation {
                 if text.is_empty() {
                     return Err(failed("No speech detected. Please try again."));
                 }
-                Ok(Some(text))
+                let stop_to_text_ms = stop_started.elapsed().as_millis() as u64;
+                Ok(Some((text, source, stop_to_text_ms, transcript_ms)))
             }
             .await;
             Ok::<_, ServiceError>((result, path))
@@ -684,12 +688,12 @@ impl Dictation {
             let outcome = task
                 .await
                 .unwrap_or_else(|error| Err(failed(error.to_string())));
-            let (result, path): (Result<Option<String>>, Option<PathBuf>) = match outcome {
+            let (result, path) = match outcome {
                 Ok((result, path)) => (result, Some(path)),
                 Err(error) => (Err(error), None),
             };
-            let inserted = match result {
-                Ok(Some(text)) => {
+            let (inserted, completed_metrics) = match result {
+                Ok(Some((text, source, stop_to_text_ms, transcript_ms))) => {
                     let insert = this.update(cx, |this, cx| {
                         this.update_status(cx, |status| {
                             status.last_transcript = text.clone().into()
@@ -705,16 +709,43 @@ impl Dictation {
                         })
                     });
                     match insert {
-                        Ok(Some(task)) => task
-                            .await
-                            .unwrap_or_else(|error| Err(failed(error.to_string()))),
-                        _ => Ok(()),
+                        Ok(Some(task)) => {
+                            let insert_start = std::time::Instant::now();
+                            let outcome = task
+                                .await
+                                .unwrap_or_else(|error| Err(failed(error.to_string())));
+                            let insert_ms = insert_start.elapsed().as_millis() as u64;
+                            (
+                                outcome,
+                                Some((source, stop_to_text_ms, transcript_ms, insert_ms)),
+                            )
+                        }
+                        _ => (Ok(()), None),
                     }
                 }
-                Ok(None) => Ok(()),
-                Err(error) => Err(error),
+                Ok(None) => (Ok(()), None),
+                Err(error) => (Err(error), None),
             };
             let _ = this.update(cx, |this, cx| {
+                if inserted.is_ok()
+                    && !this.controller.cancelled()
+                    && let Some((source, stop_to_text_ms, transcript_ms, insert_ms)) =
+                        completed_metrics
+                {
+                    crate::telemetry::track(
+                        "dictation_completed",
+                        &[
+                            ("surface", serde_json::json!("system")),
+                            ("source", serde_json::json!(source)),
+                            ("refined", serde_json::json!(false)),
+                            ("delivery", serde_json::json!("insert")),
+                            ("stop_to_text_ms", serde_json::json!(stop_to_text_ms)),
+                            ("transcript_ms", serde_json::json!(transcript_ms)),
+                            ("refine_ms", serde_json::json!(0)),
+                            ("insert_ms", serde_json::json!(insert_ms)),
+                        ],
+                    );
+                }
                 if let Err(error) = inserted
                     && !this.controller.cancelled()
                 {
@@ -989,6 +1020,7 @@ mod tests {
             providers: ProviderServices {
                 runtime: runtime.clone(),
                 api_url: String::new(),
+                device_fingerprint: String::new(),
                 cloud: Arc::new(move || Box::pin(async move { Err(offline()) })),
                 local: Arc::new(move |_| Box::pin(async move { Err(offline()) })),
                 on_device: Arc::new(|| Box::pin(async { Default::default() })),

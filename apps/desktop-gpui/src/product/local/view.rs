@@ -23,6 +23,7 @@ pub struct LocalSettingsView {
     loading: bool,
     confirmation: Option<Operation>,
     suspended: bool,
+    permission_statuses: BTreeMap<String, String>,
 }
 
 impl EventEmitter<ProductEvent> for LocalSettingsView {}
@@ -46,6 +47,7 @@ impl LocalSettingsView {
             loading: false,
             confirmation: None,
             suspended: false,
+            permission_statuses: BTreeMap::new(),
         };
         view.reload(cx);
         if matches!(surface, Surface::Models | Surface::Permissions) {
@@ -120,6 +122,28 @@ impl LocalSettingsView {
                             this.fields
                                 .entry(field.id.clone())
                                 .or_insert_with(|| field.value.clone());
+                        }
+                        if this.surface == Surface::Permissions {
+                            for row in panel.rows.iter() {
+                                let status = permission_status_label(&row.detail);
+                                let changed = this
+                                    .permission_statuses
+                                    .get(row.id.as_ref())
+                                    .map(String::as_str)
+                                    != Some(status);
+                                if changed {
+                                    this.permission_statuses
+                                        .insert(row.id.to_string(), status.to_owned());
+                                    crate::telemetry::track(
+                                        "permission_resolved",
+                                        &[
+                                            ("permission", serde_json::json!(row.id.as_ref())),
+                                            ("status", serde_json::json!(status)),
+                                            ("entry_point", serde_json::json!("settings")),
+                                        ],
+                                    );
+                                }
+                            }
                         }
                         this.panel = Some(panel);
                         this.error.clear();
@@ -209,6 +233,16 @@ fn permission_action(id: &str, detail: &str, granted: bool) -> &'static str {
     }
 }
 
+fn permission_status_label(detail: &str) -> &'static str {
+    if detail == super::PERMISSION_ALLOWED || detail == super::PERMISSION_NOT_REQUIRED {
+        "authorized"
+    } else if detail == crate::platform::permissions::NOT_REQUESTED {
+        "neverRequested"
+    } else {
+        "denied"
+    }
+}
+
 impl LocalSettingsView {
     /// `settings/general/permissions.tsx`: grouped rows whose title turns red with a warning
     /// until granted; the button requests access, or opens System Settings once granted.
@@ -287,8 +321,25 @@ impl LocalSettingsView {
                                 )
                             })
                             .when_some(operation.filter(|_| !busy), |view, operation| {
+                                let prev = permission_status_label(&found.detail);
+                                let action_name = if action == "settings" {
+                                    "open_settings"
+                                } else {
+                                    "request"
+                                };
                                 view.cursor_pointer().on_click(cx.listener(
-                                    move |this, _, _, cx| this.choose(operation.clone(), cx),
+                                    move |this, _, _, cx| {
+                                        crate::telemetry::track(
+                                            "permission_requested",
+                                            &[
+                                                ("permission", serde_json::json!(id)),
+                                                ("previous_status", serde_json::json!(prev)),
+                                                ("entry_point", serde_json::json!("settings")),
+                                                ("action", serde_json::json!(action_name)),
+                                            ],
+                                        );
+                                        this.choose(operation.clone(), cx)
+                                    },
                                 ))
                             }),
                     ),

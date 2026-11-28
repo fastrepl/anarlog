@@ -279,6 +279,7 @@ impl ApplicationView {
         })
         .detach();
         let startup_runtime = runtime.clone();
+        let telemetry_store = shipping_store.clone();
         let editor_vault = storage.vault();
         let tray_settings = match shipping_store.clone() {
             Some(store) => lifecycle::TraySettings::Shipping(store),
@@ -375,9 +376,12 @@ impl ApplicationView {
                     let (telemetry, crash) = crate::telemetry::consent_from_settings(&snapshot);
                     crate::telemetry::set_telemetry_enabled(telemetry);
                     crate::telemetry::set_crash_reporting_enabled(crash);
+                    crate::telemetry::sync_settings_properties(&snapshot);
                 }
             }
+            crate::telemetry::track("app_started", &[]);
             crate::telemetry::track("app_opened", &[]);
+            crate::telemetry::track_first_open_if_needed(telemetry_store.as_ref());
             if let Some(mirror) = shipping_webview {
                 crate::shipping_webview::import(&mirror, &profile);
             }
@@ -1971,8 +1975,16 @@ impl Render for ApplicationView {
 /// Quits after the drain, starting a requested restart first on macOS, where quitting ends
 /// the process before `main` regains control.
 fn quit_drained(cx: &mut gpui::App) {
+    crate::telemetry::flush(Duration::from_secs(2));
     #[cfg(target_os = "macos")]
     if let Err(error) = crate::platform::windows::run_requested_restart() {
+        crate::telemetry::capture_operational_error(
+            "app_restart",
+            Some("relaunch"),
+            &error.to_string(),
+            None,
+            None,
+        );
         tracing::error!(%error, "the app could not relaunch");
     }
     cx.quit();

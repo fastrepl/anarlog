@@ -938,6 +938,9 @@ impl WorkspaceView {
     fn apply_navigation(&mut self, intent: Navigate, cx: &mut Context<Self>) {
         match intent {
             Navigate::Open(route, new_slot) => {
+                if let Some(view) = route.analytics_view() {
+                    crate::telemetry::track("tab_opened", &[("view", serde_json::json!(view))]);
+                }
                 let protect = self.navigation.current().is_some_and(
                     |tab| matches!(&tab.route, Route::Session(id) if self.recording.contains(id)),
                 );
@@ -1303,6 +1306,10 @@ impl WorkspaceView {
                 this.creating = false;
                 match result {
                     Ok(session) => {
+                        crate::telemetry::track(
+                            "note_created",
+                            &[("has_event_id", serde_json::json!(false))],
+                        );
                         if this.can_navigate(cx) {
                             let id = session.summary.id.clone();
                             let new_slot = this.navigation.current().is_none_or(|tab| tab.route != Route::Empty);

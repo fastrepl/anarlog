@@ -1,9 +1,11 @@
+use std::io::{self, Write};
 use std::sync::{Arc, LazyLock};
 
 use anlg_desktop_identity::Channel;
 use regex::Regex;
 use sentry::integrations::tracing::EventFilter;
 use sentry::protocol::{Context, Event, Stacktrace, Value};
+use tracing_subscriber::fmt::MakeWriter;
 
 static EMAIL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}").expect("valid regex")
@@ -208,6 +210,16 @@ fn sanitize_context(key: &str, context: &mut Context, home_dir: Option<&str>) ->
             });
             return !values.is_empty();
         }
+        Context::Other(values) if key == "anarlog.session" => {
+            values.retain(|field, value| match field.as_str() {
+                "anarlog.session.onboarding" => matches!(value, Value::Bool(_)),
+                "anarlog.session.transcription_mode" => {
+                    value.as_str().and_then(safe_identifier).is_some()
+                }
+                _ => false,
+            });
+            return !values.is_empty();
+        }
         _ => return false,
     }
     true
@@ -356,6 +368,111 @@ pub(super) fn sanitize_sentry_event(event: Event<'static>) -> Option<Event<'stat
     }
     let home_dir = dirs::home_dir().map(|path| path.to_string_lossy().into_owned());
     Some(sanitize_sentry_event_with_home(event, home_dir.as_deref()))
+}
+
+pub(super) fn capture_operational_error(
+    operation: &'static str,
+    stage: Option<&'static str>,
+    error: &str,
+    provider: Option<&str>,
+    status_code: Option<u16>,
+) {
+    if !super::crash_reporting_enabled() {
+        return;
+    }
+    if anlg_user_error::is_user_error_text(error) || anlg_user_error::is_ignored_error_text(error) {
+        return;
+    }
+    ::sentry::with_scope(
+        |scope| {
+            scope.set_tag("anarlog.operation", operation);
+            if let Some(stage) = stage.and_then(safe_identifier) {
+                scope.set_tag("anarlog.error.stage", stage);
+            }
+            if let Some(provider) = provider.and_then(safe_identifier) {
+                scope.set_tag("anarlog.stt.provider.name", provider);
+            }
+            if let Some(code) = status_code {
+                scope.set_tag("http.response.status_code", code.to_string());
+            }
+        },
+        || {
+            ::sentry::capture_message(operation, ::sentry::Level::Error);
+        },
+    );
+}
+
+pub struct RedactingWriter<W: Write> {
+    inner: W,
+    buffer: Vec<u8>,
+    home_dir: Option<String>,
+}
+
+impl<W: Write> RedactingWriter<W> {
+    pub fn new(inner: W) -> Self {
+        Self::with_home_dir(
+            inner,
+            dirs::home_dir().map(|path| path.to_string_lossy().into_owned()),
+        )
+    }
+
+    fn with_home_dir(inner: W, home_dir: Option<String>) -> Self {
+        Self {
+            inner,
+            buffer: Vec::with_capacity(1024),
+            home_dir,
+        }
+    }
+
+    fn flush_buffer(&mut self) -> io::Result<()> {
+        if self.buffer.is_empty() {
+            return Ok(());
+        }
+        let line = String::from_utf8_lossy(&self.buffer);
+        if !anlg_user_error::is_user_error_text(&line) {
+            let redacted = redact_sensitive_text(&line, self.home_dir.as_deref());
+            self.inner.write_all(redacted.as_bytes())?;
+        }
+        self.buffer.clear();
+        Ok(())
+    }
+}
+
+impl<W: Write> Write for RedactingWriter<W> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        for &byte in buf {
+            self.buffer.push(byte);
+            if byte == b'\n' {
+                self.flush_buffer()?;
+            }
+        }
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.flush_buffer()?;
+        self.inner.flush()
+    }
+}
+
+impl<W: Write> Drop for RedactingWriter<W> {
+    fn drop(&mut self) {
+        let _ = self.flush_buffer();
+    }
+}
+
+pub struct RedactingStderr;
+
+impl<'a> MakeWriter<'a> for RedactingStderr {
+    type Writer = RedactingWriter<io::StderrLock<'a>>;
+
+    fn make_writer(&'a self) -> Self::Writer {
+        RedactingWriter::new(io::stderr().lock())
+    }
+}
+
+pub(super) fn redacting_stderr() -> RedactingStderr {
+    RedactingStderr
 }
 
 #[cfg(test)]
@@ -515,5 +632,120 @@ mod tests {
             }
             other => panic!("unexpected image variant: {other:?}"),
         }
+    }
+
+    #[test]
+    fn sanitize_keeps_only_safe_anarlog_session_fields() {
+        let mut session = ::sentry::protocol::Map::new();
+        session.insert("anarlog.session.onboarding".into(), Value::Bool(true));
+        session.insert("anarlog.session.transcription_mode".into(), json!("live"));
+        session.insert("anarlog.session.id".into(), json!("secret-session-uuid"));
+        session.insert("anarlog.session.secret".into(), json!("should-drop"));
+        let mut event = Event::default();
+        event
+            .contexts
+            .insert("anarlog.session".into(), Context::Other(session));
+
+        let sanitized = sanitize_sentry_event_with_home(event, None);
+        let Context::Other(kept) = sanitized.contexts.get("anarlog.session").unwrap() else {
+            panic!("expected anarlog.session context");
+        };
+        assert_eq!(
+            kept.get("anarlog.session.onboarding"),
+            Some(&Value::Bool(true))
+        );
+        assert_eq!(
+            kept.get("anarlog.session.transcription_mode"),
+            Some(&json!("live"))
+        );
+        assert!(!kept.contains_key("anarlog.session.id"));
+        assert!(!kept.contains_key("anarlog.session.secret"));
+    }
+
+    #[test]
+    fn redacting_writer_strips_pii_and_suppresses_user_errors() {
+        let mut out = Vec::new();
+        {
+            let mut writer = RedactingWriter::with_home_dir(&mut out, Some("/Users/alice".into()));
+            writeln!(
+                writer,
+                "WARN sync failed for alice@example.com at /Users/alice/notes/secret"
+            )
+            .unwrap();
+            writeln!(writer, "ERROR insufficient_quota: please upgrade").unwrap();
+            writer.flush().unwrap();
+        }
+        let text = String::from_utf8(out).unwrap();
+        assert!(text.contains("[EMAIL_REDACTED]"));
+        assert!(text.contains("[HOME]/notes/secret"));
+        assert!(!text.contains("alice@example.com"));
+        assert!(!text.contains("insufficient_quota"));
+    }
+
+    #[test]
+    fn operational_error_respects_consent_and_filters_user_errors() {
+        let captured = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let sink = captured.clone();
+        let _guard = ::sentry::init((
+            "https://public@example.ingest.sentry.io/123456",
+            ::sentry::ClientOptions {
+                traces_sample_rate: 0.0,
+                auto_session_tracking: false,
+                before_send: Some(Arc::new(move |event| {
+                    if super::super::crash_reporting_enabled()
+                        && let Some(sanitized) = sanitize_sentry_event(event)
+                    {
+                        sink.lock().unwrap().push(sanitized);
+                    }
+                    None
+                })),
+                ..Default::default()
+            },
+        ));
+
+        super::super::set_crash_reporting_enabled(false);
+        capture_operational_error("cloud_sync_manual", Some("push"), "timeout", None, None);
+
+        super::super::set_crash_reporting_enabled(true);
+        capture_operational_error(
+            "cloud_sync_manual",
+            Some("push"),
+            "insufficient_quota: upgrade plan",
+            None,
+            None,
+        );
+        capture_operational_error(
+            "cloud_sync_manual",
+            Some("push"),
+            "connection reset by alice@example.com",
+            Some("anarlog"),
+            Some(502),
+        );
+        super::super::set_crash_reporting_enabled(false);
+
+        let captured = captured.lock().unwrap();
+        assert_eq!(captured.len(), 1);
+        assert_eq!(captured[0].message.as_deref(), Some("cloud_sync_manual"));
+        assert_eq!(
+            captured[0]
+                .tags
+                .get("anarlog.operation")
+                .map(String::as_str),
+            Some("cloud_sync_manual")
+        );
+        assert_eq!(
+            captured[0]
+                .tags
+                .get("anarlog.error.stage")
+                .map(String::as_str),
+            Some("push")
+        );
+        assert_eq!(
+            captured[0]
+                .tags
+                .get("http.response.status_code")
+                .map(String::as_str),
+            Some("502")
+        );
     }
 }

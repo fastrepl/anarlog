@@ -192,8 +192,27 @@ impl TrialDialogs {
         };
         seen.insert(key);
         let stored = json!(seen).to_string();
-        if matches!(dialog, Dialog::Reminder { .. }) {
-            self.load_referrals(cx);
+        match &dialog {
+            Dialog::Reminder { days } => {
+                crate::telemetry::track(
+                    "trial_payment_reminder_shown",
+                    &[
+                        ("days_remaining", json!(days)),
+                        ("reminder_threshold", json!(if *days <= 3 { 3 } else { 7 })),
+                    ],
+                );
+                self.load_referrals(cx);
+            }
+            Dialog::Ended => {
+                crate::telemetry::track(
+                    "paywall_viewed",
+                    &[
+                        ("entry_point", json!("trial_ended_dialog")),
+                        ("feature", json!("pro_plan")),
+                    ],
+                );
+            }
+            Dialog::Started { .. } => {}
         }
         self.open = Some(dialog);
         let write = self.runtime.submit(move |services| async move {
@@ -232,6 +251,15 @@ impl TrialDialogs {
                 .is_ok_and(|summary| can_refer(&summary));
             let _ = this.update(cx, |this, cx| {
                 this.can_refer = can;
+                if can && let Some(Dialog::Reminder { days }) = &this.open {
+                    crate::telemetry::track(
+                        "referral_nudge_shown",
+                        &[
+                            ("surface", json!("desktop")),
+                            ("reminder_threshold", json!(if *days <= 3 { 3 } else { 7 })),
+                        ],
+                    );
+                }
                 cx.notify();
             });
         })
@@ -365,7 +393,12 @@ impl Render for TrialDialogs {
                 .to_owned(),
             ),
         };
+        let reminder_days = match &dialog {
+            Dialog::Reminder { days } => Some(*days),
+            _ => None,
+        };
         let nudge = (matches!(dialog, Dialog::Reminder { .. }) && self.can_refer).then(|| {
+            let threshold = reminder_days.map_or(7, |d| if d <= 3 { 3 } else { 7 });
             div()
                 .pt_4()
                 .border_t_1()
@@ -399,7 +432,14 @@ impl Render for TrialDialogs {
                         .text_color(colors.primary)
                         .cursor_pointer()
                         .hover(|style| style.underline())
-                        .on_click(cx.listener(|this, _, _, cx| {
+                        .on_click(cx.listener(move |this, _, _, cx| {
+                            crate::telemetry::track(
+                                "referral_nudge_clicked",
+                                &[
+                                    ("surface", json!("desktop")),
+                                    ("reminder_threshold", json!(threshold)),
+                                ],
+                            );
                             cx.emit(ReferFriend);
                             this.close(cx);
                         }))
@@ -412,25 +452,35 @@ impl Render for TrialDialogs {
                     .w_full()
                     .on_click(cx.listener(|this, _, _, cx| this.close(cx))),
             ),
-            Dialog::Reminder { .. } => div()
-                .grid()
-                .grid_cols(2)
-                .gap_2()
-                .child(
-                    button("trial-not-now", "Not now", false, &colors)
-                        .on_click(cx.listener(|this, _, _, cx| this.close(cx))),
-                )
-                .child(
-                    button("trial-add-payment", "Add payment method", true, &colors).on_click(
-                        cx.listener(|this, _, _, cx| {
-                            this.open_web(
-                                "/app/portal",
-                                vec![("intent", "payment_method_update".into())],
-                                cx,
-                            )
-                        }),
-                    ),
-                ),
+            Dialog::Reminder { days } => {
+                let threshold = if days <= 3 { 3 } else { 7 };
+                div()
+                    .grid()
+                    .grid_cols(2)
+                    .gap_2()
+                    .child(
+                        button("trial-not-now", "Not now", false, &colors)
+                            .on_click(cx.listener(|this, _, _, cx| this.close(cx))),
+                    )
+                    .child(
+                        button("trial-add-payment", "Add payment method", true, &colors).on_click(
+                            cx.listener(move |this, _, _, cx| {
+                                crate::telemetry::track(
+                                    "trial_payment_method_clicked",
+                                    &[
+                                        ("days_remaining", json!(days)),
+                                        ("reminder_threshold", json!(threshold)),
+                                    ],
+                                );
+                                this.open_web(
+                                    "/app/portal",
+                                    vec![("intent", "payment_method_update".into())],
+                                    cx,
+                                )
+                            }),
+                        ),
+                    )
+            }
             Dialog::Ended => div()
                 .grid()
                 .grid_cols(2)
@@ -442,6 +492,14 @@ impl Render for TrialDialogs {
                 .child(
                     button("trial-upgrade", "Upgrade to Pro", true, &colors).on_click(cx.listener(
                         |this, _, _, cx| {
+                            crate::telemetry::track(
+                                "upgrade_clicked",
+                                &[
+                                    ("plan", json!("pro")),
+                                    ("period", json!("monthly")),
+                                    ("source", json!("trial_ended")),
+                                ],
+                            );
                             this.open_web(
                                 "/app/checkout",
                                 vec![("source", "trial_ended".into())],
@@ -524,6 +582,7 @@ mod tests {
             user: Some(User {
                 id: "user".into(),
                 email: None,
+                created_at: None,
             }),
             claims: Some(claims),
             workspaces: Some(

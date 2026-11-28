@@ -138,14 +138,15 @@ async fn listen<A: RealtimeSttAdapter>(
         append_turns: config.provider == "cartesia",
         ..Default::default()
     };
-    let client = ListenClient::builder()
+    let mut builder = ListenClient::builder()
         .adapter::<A>()
         .api_base(config.base_url)
         .api_key(config.api_key)
-        .params(config.params)
-        .build_single()
-        .await
-        .map_err(|_| ())?;
+        .params(config.params);
+    if config.provider == "anarlog" {
+        builder = builder.extra_header("x-device-fingerprint", anlg_host::fingerprint());
+    }
+    let client = builder.build_single().await.map_err(|_| ())?;
     let (ended_tx, mut ended_rx) = tokio::sync::oneshot::channel();
     let mut ended_tx = Some(ended_tx);
     let audio = futures::stream::poll_fn(move |cx| {

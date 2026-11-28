@@ -452,6 +452,7 @@ impl ApplicationView {
                                     crate::telemetry::consent_from_settings(&snapshot);
                                 crate::telemetry::set_telemetry_enabled(telemetry);
                                 crate::telemetry::set_crash_reporting_enabled(crash);
+                                crate::telemetry::sync_settings_properties(&snapshot);
                                 this.automation.update(cx, |automation, _| {
                                     automation.set_preferences(snapshot.clone())
                                 });

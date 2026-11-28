@@ -1249,6 +1249,7 @@ fn polish(
                 user: Some(User {
                     id: "polish-trial-user".into(),
                     email: Some("sam@example.com".into()),
+                    created_at: None,
                 }),
                 claims: Some(Claims {
                     subscription_status: Some("trialing".into()),
@@ -1396,6 +1397,7 @@ fn imports_crm_ticket(
         user: Some(User {
             id: "7f1c2a9e-3b4d-4e5f-8a6b-9c0d1e2f3a4b".into(),
             email: Some("alex@example.com".into()),
+            created_at: None,
         }),
         claims: Some(Claims {
             entitlements: vec!["hyprnote_pro".into()],
@@ -1565,6 +1567,7 @@ fn sharing(
         user: Some(User {
             id: "7f1c2a9e-3b4d-4e5f-8a6b-9c0d1e2f3a4b".into(),
             email: Some("alex@example.com".into()),
+            created_at: None,
         }),
         claims: Some(claims),
         workspaces: Some(Arc::from([])),
@@ -1787,6 +1790,7 @@ fn account_states(
         Some(User {
             id: "7f1c2a9e-3b4d-4e5f-8a6b-9c0d1e2f3a4b".into(),
             email: Some("alex@example.com".into()),
+            created_at: None,
         })
     };
     let signed_in =
@@ -1932,6 +1936,7 @@ fn developers(
     let user = Some(User {
         id: "7f1c2a9e-3b4d-4e5f-8a6b-9c0d1e2f3a4b".into(),
         email: Some("alex@example.com".into()),
+        created_at: None,
     });
     let free = Account {
         user: user.clone(),
@@ -2531,6 +2536,7 @@ fn templates_and_folders(
                 user: Some(User {
                     id: "7f1c2a9e-3b4d-4e5f-8a6b-9c0d1e2f3a4b".into(),
                     email: Some("alex@example.com".into()),
+                    created_at: None,
                 }),
                 claims: Some(Claims {
                     entitlements: vec!["hyprnote_pro".into()],
@@ -2627,6 +2633,7 @@ fn automations(
                 user: Some(User {
                     id: "7f1c2a9e-3b4d-4e5f-8a6b-9c0d1e2f3a4b".into(),
                     email: Some("alex@example.com".into()),
+                    created_at: None,
                 }),
                 claims: Some(Claims {
                     entitlements: vec!["hyprnote_pro".into()],
@@ -3456,6 +3463,7 @@ fn teams_and_sync(
         user: Some(User {
             id: viewer.into(),
             email: Some("alex@example.com".into()),
+            created_at: None,
         }),
         claims: Some(claims),
         workspaces: Some(workspaces.into()),

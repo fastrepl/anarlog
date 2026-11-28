@@ -211,6 +211,7 @@ impl SessionStore for ShippingSession {
 pub struct Identity {
     pub account_id: Option<Arc<str>>,
     pub email: Option<Arc<str>>,
+    pub created_at: Option<Arc<str>>,
     pub generation: u64,
 }
 
@@ -334,6 +335,9 @@ impl Auth {
         self.identity.send_replace(Identity {
             account_id: user.map(|user| user.id.as_str().into()),
             email: user.and_then(|user| user.email.as_deref()).map(Into::into),
+            created_at: user
+                .and_then(|user| user.created_at.as_deref())
+                .map(Into::into),
             generation,
         });
     }

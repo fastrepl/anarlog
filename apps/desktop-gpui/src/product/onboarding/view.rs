@@ -114,6 +114,7 @@ impl OnboardingView {
             _subscriptions: Vec::new(),
         };
         if live {
+            Self::track_step_event("onboarding_step_viewed", this.current);
             this.bgm = Some(Bgm::play());
             this._subscriptions
                 .push(cx.observe_window_activation(window, |this, window, cx| {
@@ -177,14 +178,52 @@ impl OnboardingView {
             .perform(surface, self.request(), mutation(action, target, fields))
     }
 
-    fn advance(&mut self, cx: &mut Context<Self>) {
+    fn step_id(step: Step) -> &'static str {
+        match step {
+            Step::Permissions => "permissions",
+            Step::Login => "login",
+            Step::Calendar => "calendar",
+            Step::Imports => "imports",
+            Step::Final => "final",
+        }
+    }
+
+    fn access_status(access: Access) -> &'static str {
+        match access {
+            Access::Authorized => "authorized",
+            Access::Denied => "denied",
+            Access::NeverRequested => "neverRequested",
+        }
+    }
+
+    fn track_step_event(event: &'static str, step: Step) {
+        crate::telemetry::track(
+            event,
+            &[
+                ("step", serde_json::json!(Self::step_id(step))),
+                ("platform", serde_json::json!(std::env::consts::OS)),
+            ],
+        );
+    }
+
+    fn step_next(&mut self, cx: &mut Context<Self>) {
         if let Some(step) = next(self.steps, self.current) {
             self.go_to(step, cx);
         }
     }
 
+    fn advance(&mut self, cx: &mut Context<Self>) {
+        if self.live {
+            Self::track_step_event("onboarding_step_completed", self.current);
+        }
+        self.step_next(cx);
+    }
+
     fn go_to(&mut self, step: Step, cx: &mut Context<Self>) {
         self.current = step;
+        if self.live {
+            Self::track_step_event("onboarding_step_viewed", step);
+        }
         self.after_change(cx);
         // Bring the new section to the top once its content has laid out.
         let index = self
@@ -227,10 +266,16 @@ impl OnboardingView {
     }
 
     fn skip(&mut self, cx: &mut Context<Self>) {
+        if self.live {
+            if self.current == Step::Login {
+                crate::telemetry::track("onboarding_login_skipped", &[]);
+            }
+            Self::track_step_event("onboarding_step_skipped", self.current);
+        }
         if self.current == Step::Login {
             self.state.skipped_login = true;
         }
-        self.advance(cx);
+        self.step_next(cx);
     }
 
     fn set_muted(&mut self, cx: &mut Context<Self>) {
@@ -275,7 +320,18 @@ impl OnboardingView {
                         } else {
                             Access::NeverRequested
                         };
+                        let prev = *this.access_mut(permission);
                         *this.access_mut(permission) = access;
+                        if prev != access && this.requested.contains(&permission) {
+                            crate::telemetry::track(
+                                "permission_resolved",
+                                &[
+                                    ("permission", serde_json::json!(permission.id())),
+                                    ("status", serde_json::json!(Self::access_status(access))),
+                                    ("entry_point", serde_json::json!("onboarding")),
+                                ],
+                            );
+                        }
                     }
                     this.after_change(cx);
                     cx.notify();
@@ -304,6 +360,22 @@ impl OnboardingView {
             PermissionAction::Request => Action::RequestPermission,
             PermissionAction::OpenSettings => Action::OpenPermissionSettings,
         };
+        let action_name = match action {
+            Action::RequestPermission => "request",
+            _ => "open_settings",
+        };
+        crate::telemetry::track(
+            "permission_requested",
+            &[
+                ("permission", serde_json::json!(permission.id())),
+                (
+                    "previous_status",
+                    serde_json::json!(Self::access_status(access)),
+                ),
+                ("entry_point", serde_json::json!("onboarding")),
+                ("action", serde_json::json!(action_name)),
+            ],
+        );
         self.requested.insert(permission);
         self.state.pending = Some(permission);
         let job = self.perform(
@@ -359,6 +431,13 @@ impl OnboardingView {
         if !self.live || self.state.signing_in {
             return;
         }
+        crate::telemetry::track(
+            "auth_started",
+            &[
+                ("entry_point", serde_json::json!("desktop_onboarding")),
+                ("method", serde_json::json!("browser_handoff")),
+            ],
+        );
         self.state.signing_in = true;
         let job = self.perform(Surface::Account, Action::SignIn, None, &[]);
         cx.spawn(async move |this, cx| {
@@ -366,6 +445,16 @@ impl OnboardingView {
             let _ = this.update(cx, |this, cx| {
                 this.state.signing_in = false;
                 if let Err(error) = result {
+                    if !matches!(error, ServiceError::Cancelled) {
+                        crate::telemetry::track(
+                            "auth_failed",
+                            &[
+                                ("entry_point", serde_json::json!("desktop_onboarding")),
+                                ("method", serde_json::json!("browser_handoff")),
+                                ("failure_stage", serde_json::json!("open_browser")),
+                            ],
+                        );
+                    }
                     this.fail(error, cx);
                 }
                 cx.notify();
@@ -403,7 +492,25 @@ impl OnboardingView {
                 Ok(trial_decision(billing, eligible))
             }
             .await;
-            let mut phase = decision.unwrap_or(TrialPhase::Failed);
+            let mut phase = match decision {
+                Ok(phase) => phase,
+                Err(error) => {
+                    if !matches!(error, desktop_runtime::ServiceError::Cancelled) {
+                        crate::telemetry::track(
+                            "trial_flow_client_error",
+                            &[("stage", serde_json::json!("decision"))],
+                        );
+                        crate::telemetry::capture_operational_error(
+                            "onboarding_trial",
+                            Some("decision"),
+                            &error.to_string(),
+                            Some("anarlog"),
+                            None,
+                        );
+                    }
+                    TrialPhase::Failed
+                }
+            };
             let _ = this.update(cx, |this, cx| {
                 this.state.trial = Some(phase);
                 cx.notify();
@@ -412,7 +519,22 @@ impl OnboardingView {
                 let start = mutation(Action::StartTrial, None, &[("interval", "monthly")]);
                 phase = match services.perform(Surface::Billing, request, start).await {
                     Ok(_) => TrialPhase::Started { days: None },
-                    Err(_) => TrialPhase::Failed,
+                    Err(error) => {
+                        if !matches!(error, desktop_runtime::ServiceError::Cancelled) {
+                            crate::telemetry::track(
+                                "trial_flow_client_error",
+                                &[("stage", serde_json::json!("start_trial"))],
+                            );
+                            crate::telemetry::capture_operational_error(
+                                "onboarding_trial",
+                                Some("start_trial"),
+                                &error.to_string(),
+                                Some("anarlog"),
+                                None,
+                            );
+                        }
+                        TrialPhase::Failed
+                    }
                 };
                 let _ = this.update(cx, |this, cx| {
                     this.state.trial = Some(phase);
@@ -657,6 +779,8 @@ impl OnboardingView {
                 this.state.finishing = false;
                 match result {
                     Ok(Outcome::OpenSession(session)) => {
+                        Self::track_step_event("onboarding_step_completed", Step::Final);
+                        crate::telemetry::track("onboarding_completed", &[]);
                         cx.emit(ProductEvent::OpenSession(session))
                     }
                     _ => this.state.finish_failed = true,

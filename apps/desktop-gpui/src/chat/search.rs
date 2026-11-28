@@ -54,39 +54,77 @@ impl SearchIndex {
         let cache = self.0.clone();
         let check = cancel.clone();
         runtime.read(cancel, move |services| async move {
-            let rows = services
-                .executor
-                .execute(REVISIONS.into(), vec![])
-                .await
-                .map_err(failure)?;
-            let mut stale = Vec::new();
-            {
-                let cache = cache.lock().unwrap_or_else(|poison| poison.into_inner());
-                for row in rows.iter().take(MAX_RECORDS) {
-                    let key = key(row);
-                    if cache.get(&key).is_none_or(|entry| {
-                        entry.revision != row["revision"].as_str().unwrap_or("")
-                    }) {
-                        stale.push(row.clone());
+            let started = std::time::Instant::now();
+            let filter_count = usize::from(kind.is_some());
+            let result: Result<Vec<Hit>> = async {
+                let rows = services
+                    .executor
+                    .execute(REVISIONS.into(), vec![])
+                    .await
+                    .map_err(failure)?;
+                let mut stale = Vec::new();
+                {
+                    let cache = cache.lock().unwrap_or_else(|poison| poison.into_inner());
+                    for row in rows.iter().take(MAX_RECORDS) {
+                        let key = key(row);
+                        if cache.get(&key).is_none_or(|entry| {
+                            entry.revision != row["revision"].as_str().unwrap_or("")
+                        }) {
+                            stale.push(row.clone());
+                        }
                     }
                 }
-            }
-            let mut fresh = Vec::with_capacity(stale.len());
-            for row in stale {
-                if check.is_cancelled() {
-                    return Err(ServiceError::Cancelled);
+                let mut fresh = Vec::with_capacity(stale.len());
+                for row in stale {
+                    if check.is_cancelled() {
+                        return Err(ServiceError::Cancelled);
+                    }
+                    fresh.push((key(&row), project(&services.executor, &row).await?));
                 }
-                fresh.push((key(&row), project(&services.executor, &row).await?));
+                let mut cache = cache.lock().unwrap_or_else(|poison| poison.into_inner());
+                let live = rows
+                    .iter()
+                    .take(MAX_RECORDS)
+                    .map(key)
+                    .collect::<std::collections::HashSet<_>>();
+                cache.retain(|key, _| live.contains(key));
+                cache.extend(fresh);
+                Ok(rank(cache.values(), &query, kind))
             }
-            let mut cache = cache.lock().unwrap_or_else(|poison| poison.into_inner());
-            let live = rows
-                .iter()
-                .take(MAX_RECORDS)
-                .map(key)
-                .collect::<std::collections::HashSet<_>>();
-            cache.retain(|key, _| live.contains(key));
-            cache.extend(fresh);
-            Ok(rank(cache.values(), &query, kind))
+            .await;
+            let latency_ms = started.elapsed().as_millis() as u64;
+            match &result {
+                Ok(hits) => {
+                    crate::telemetry::track(
+                        "search_performed",
+                        &[
+                            ("outcome", json!("succeeded")),
+                            ("latency_ms", json!(latency_ms)),
+                            ("filter_count", json!(filter_count)),
+                            ("result_count", json!(hits.len())),
+                        ],
+                    );
+                }
+                Err(error) if !matches!(error, ServiceError::Cancelled) => {
+                    crate::telemetry::track(
+                        "search_performed",
+                        &[
+                            ("outcome", json!("failed")),
+                            ("latency_ms", json!(latency_ms)),
+                            ("filter_count", json!(filter_count)),
+                        ],
+                    );
+                    crate::telemetry::capture_operational_error(
+                        "search",
+                        Some("query"),
+                        &error.to_string(),
+                        None,
+                        None,
+                    );
+                }
+                Err(_) => {}
+            }
+            result
         })
     }
 }

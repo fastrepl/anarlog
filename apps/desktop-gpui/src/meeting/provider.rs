@@ -215,6 +215,10 @@ impl ProviderAdapter for HttpProvider {
                     "enhance"
                 },
             );
+            if !self.connection.device_fingerprint.is_empty() {
+                builder =
+                    builder.header("x-device-fingerprint", &self.connection.device_fingerprint);
+            }
         }
         Box::pin(async move {
             if body.to_string().len() > MAX_TEXT {

@@ -23,6 +23,21 @@ use super::{
 };
 use crate::ui::a11y::Accessible;
 
+const GENERAL_SETTINGS_KEYS: &[&str] = &[
+    "autostart",
+    "automatic_updates",
+    "auto_join_scheduled_meetings",
+    "auto_start_scheduled_meetings",
+    "auto_stop_meetings",
+    "floating_bar_enabled",
+    "show_app_in_dock",
+    "show_tray_icon",
+    "notification_detect",
+    "consent_auto_send_chat",
+    "capture_meeting_chat",
+    "capture_shared_screens",
+];
+
 type OnSelect = Rc<dyn Fn(&mut PreferencesView, String, &mut Context<PreferencesView>)>;
 
 pub struct SelectOption {
@@ -287,6 +302,7 @@ impl PreferencesView {
             self.desired.remove(&key);
             return;
         }
+        let previous_value = base.value.clone();
         let reply = settings::save(&self.runtime, key.clone(), base, value.clone());
         self.saving.insert(key.clone());
         cx.spawn(async move |this, cx| {
@@ -303,8 +319,70 @@ impl PreferencesView {
                         {
                             this.fail(error, cx);
                         }
+                        if key == "personalization_dictionary_terms" {
+                            let before = super::pages::stored_terms(
+                                previous_value.as_str().unwrap_or_default(),
+                            );
+                            let after = super::pages::stored_terms(
+                                setting.value.as_str().unwrap_or_default(),
+                            );
+                            if after.len() > before.len() {
+                                crate::telemetry::track(
+                                    "dictionary_updated",
+                                    &[
+                                        ("operation", serde_json::json!("added")),
+                                        ("term_count", serde_json::json!(after.len())),
+                                        (
+                                            "added_count",
+                                            serde_json::json!(after.len() - before.len()),
+                                        ),
+                                    ],
+                                );
+                            } else if after.len() < before.len() {
+                                crate::telemetry::track(
+                                    "dictionary_updated",
+                                    &[
+                                        ("operation", serde_json::json!("removed")),
+                                        ("term_count", serde_json::json!(after.len())),
+                                        (
+                                            "removed_count",
+                                            serde_json::json!(before.len() - after.len()),
+                                        ),
+                                    ],
+                                );
+                            } else if after != before {
+                                crate::telemetry::track(
+                                    "dictionary_updated",
+                                    &[
+                                        ("operation", serde_json::json!("edited")),
+                                        ("term_count", serde_json::json!(after.len())),
+                                        ("edited_count", serde_json::json!(1)),
+                                    ],
+                                );
+                            }
+                        }
                         if let Some(snapshot) = &mut this.snapshot {
                             Arc::make_mut(snapshot).insert(key.clone(), setting);
+                        }
+                        if let Some(snapshot) = &this.snapshot {
+                            crate::telemetry::sync_settings_properties(snapshot);
+                            if GENERAL_SETTINGS_KEYS.contains(&key.as_str()) {
+                                let props: Vec<(&str, Value)> = GENERAL_SETTINGS_KEYS
+                                    .iter()
+                                    .map(|setting_key| {
+                                        let enabled = snapshot
+                                            .get(*setting_key)
+                                            .map(|entry| entry.value == Value::Bool(true))
+                                            .unwrap_or_else(|| {
+                                                settings::definition(setting_key).ok().is_some_and(
+                                                    |def| def.default == Value::Bool(true),
+                                                )
+                                            });
+                                        (*setting_key, serde_json::json!(enabled))
+                                    })
+                                    .collect();
+                                crate::telemetry::track("settings_changed", &props);
+                            }
                         }
                         if matches!(key.as_str(), "app_icon" | "theme") {
                             this.apply_dock_icon(cx);

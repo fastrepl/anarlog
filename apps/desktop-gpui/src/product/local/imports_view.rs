@@ -1148,6 +1148,7 @@ mod tests {
                     user: Some(User {
                         id: "user".into(),
                         email: None,
+                        created_at: None,
                     }),
                     ..Default::default()
                 },

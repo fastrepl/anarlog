@@ -59,6 +59,13 @@ fn warn_parked_records(stats: &anlg_db_app::E2eeReplicaStats) {
     }
 }
 
+fn replica_stats_transferred(stats: &anlg_db_app::E2eeReplicaStats) -> bool {
+    stats.encrypted_fields > 0
+        || stats.applied_fields > 0
+        || stats.merged_fields > 0
+        || stats.recorded_conflicts > 0
+}
+
 fn ordered_witness_workspace_ids(
     keys: &HashMap<String, anlg_e2ee::WorkspaceKeyring>,
     witnesses: &HashMap<String, E2eeWitnessClient>,
@@ -87,11 +94,42 @@ struct E2eeRuntimeConfig {
     transport: E2eeTransport,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ReplicaSyncTrigger {
+    Manual,
+    Background,
+}
+
+impl ReplicaSyncTrigger {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Manual => "manual",
+            Self::Background => "background",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ReplicaSyncEvent {
+    Completed { trigger: ReplicaSyncTrigger },
+    Failed { trigger: ReplicaSyncTrigger },
+}
+
+struct ReplicaEventBus(tokio::sync::broadcast::Sender<ReplicaSyncEvent>);
+
+impl Default for ReplicaEventBus {
+    fn default() -> Self {
+        Self(tokio::sync::broadcast::channel(32).0)
+    }
+}
+
 #[derive(Default)]
 pub struct E2eeSyncHook {
     config: std::sync::RwLock<E2eeRuntimeConfig>,
     pub witness_changed: tokio::sync::Notify,
     pub replica_sync_requested: tokio::sync::Notify,
+    manual_sync_requested: std::sync::atomic::AtomicBool,
+    replica_events: ReplicaEventBus,
     replica_status: std::sync::Mutex<ReplicaSyncStatus>,
     activities: std::sync::RwLock<HashSet<CloudsyncActivity>>,
     activity_epoch: std::sync::atomic::AtomicU64,
@@ -181,6 +219,8 @@ impl E2eeSyncHook {
         self.config_generation
             .fetch_add(1, std::sync::atomic::Ordering::AcqRel);
         self.witness_changed.notify_waiters();
+        self.manual_sync_requested
+            .store(false, std::sync::atomic::Ordering::Release);
         self.replica_sync_requested.notify_waiters();
         *self.replica_status.lock().unwrap() = ReplicaSyncStatus::default();
         let requested = self
@@ -300,6 +340,25 @@ impl E2eeSyncHook {
 
     pub fn request_replica_sync(&self) {
         self.replica_sync_requested.notify_one();
+    }
+
+    pub fn request_manual_replica_sync(&self) {
+        self.manual_sync_requested
+            .store(true, std::sync::atomic::Ordering::Release);
+        self.request_replica_sync();
+    }
+
+    pub fn subscribe_replica_events(&self) -> tokio::sync::broadcast::Receiver<ReplicaSyncEvent> {
+        self.replica_events.0.subscribe()
+    }
+
+    pub(crate) fn take_manual_sync_requested(&self) -> bool {
+        self.manual_sync_requested
+            .swap(false, std::sync::atomic::Ordering::AcqRel)
+    }
+
+    pub(crate) fn emit_replica_event(&self, event: ReplicaSyncEvent) {
+        let _ = self.replica_events.0.send(event);
     }
 
     pub fn replica_sync_started(&self) {
@@ -514,15 +573,30 @@ impl E2eeSyncHook {
         &self,
         pool: &sqlx::SqlitePool,
     ) -> std::io::Result<ReplicaSyncOutcome> {
+        self.sync_replica_transport_with_activity(pool)
+            .await
+            .map(|(outcome, _)| outcome)
+    }
+
+    pub(crate) async fn sync_replica_transport_with_activity(
+        &self,
+        pool: &sqlx::SqlitePool,
+    ) -> std::io::Result<(ReplicaSyncOutcome, bool)> {
         let config = self.config_snapshot();
         if config.transport != E2eeTransport::Replica {
-            return Ok(ReplicaSyncOutcome::Settled);
+            return Ok((ReplicaSyncOutcome::Settled, false));
         }
         let keys = config.keys;
         let witnesses = config.witnesses;
         let active_sync = self.begin_sync();
         let cancellation = active_sync.cancellation.clone();
         let operation = async {
+            let transferred = std::sync::atomic::AtomicBool::new(false);
+            let record_transfer = |stats: &anlg_db_app::E2eeReplicaStats| {
+                if replica_stats_transferred(stats) {
+                    transferred.store(true, std::sync::atomic::Ordering::Relaxed);
+                }
+            };
             cancellation.check()?;
             if witnesses.is_empty() {
                 return Err(std::io::Error::other(
@@ -531,37 +605,52 @@ impl E2eeSyncHook {
             }
             let workspace_ids = ordered_witness_workspace_ids(&keys, &witnesses)?;
             for workspace_id in &workspace_ids {
-                witnesses[workspace_id]
-                    .initialize_keyring_with_page_handler_cancellable(
+                let published = witnesses[workspace_id]
+                    .initialize_keyring_with_page_handler_counting_cancellable(
                         pool,
                         &keys[workspace_id],
                         || async {
-                            self.hydrate_replica_changes(pool, &keys, &cancellation)
-                                .await
-                                .map(|_| ())
+                            let (_, page_transferred) = self
+                                .hydrate_replica_changes(pool, &keys, &cancellation)
+                                .await?;
+                            if page_transferred {
+                                transferred.store(true, std::sync::atomic::Ordering::Relaxed);
+                            }
+                            Ok(())
                         },
                         &cancellation,
                     )
                     .await?;
+                if published > 0 {
+                    transferred.store(true, std::sync::atomic::Ordering::Relaxed);
+                }
                 cancellation.check()?;
             }
-            let hydrated = self
+            let (hydrated, hydrated_transferred) = self
                 .hydrate_replica_changes(pool, &keys, &cancellation)
                 .await?;
+            if hydrated_transferred {
+                transferred.store(true, std::sync::atomic::Ordering::Relaxed);
+            }
             // A partial transcript contains placeholder arrays, not edits to publish.
             if hydrated.incomplete_chunk_columns > 0 {
-                return Ok(ReplicaSyncOutcome::WaitingForRemote);
+                return Ok((
+                    ReplicaSyncOutcome::WaitingForRemote,
+                    transferred.load(std::sync::atomic::Ordering::Relaxed),
+                ));
             }
-            anlg_db_app::encrypt_e2ee_replica_changes_bounded_deferring_active_captures_cancellable(
-                pool,
-                &keys,
-                E2EE_CLOUDSYNC_DIRTY_ROW_LIMIT,
-                || cancellation.is_cancelled(),
-            )
-            .await
-            .map_err(|error| {
-                std::io::Error::other(format!("E2EE replica encryption failed: {error}"))
-            })?;
+            let encrypted =
+                anlg_db_app::encrypt_e2ee_replica_changes_bounded_deferring_active_captures_cancellable(
+                    pool,
+                    &keys,
+                    E2EE_CLOUDSYNC_DIRTY_ROW_LIMIT,
+                    || cancellation.is_cancelled(),
+                )
+                .await
+                .map_err(|error| {
+                    std::io::Error::other(format!("E2EE replica encryption failed: {error}"))
+                })?;
+            record_transfer(&encrypted);
             cancellation.check()?;
             for workspace_id in &workspace_ids {
                 if anlg_db_app::has_pending_e2ee_cloud_work(pool, workspace_id)
@@ -582,6 +671,7 @@ impl E2eeSyncHook {
                             &cancellation,
                         )
                         .await?;
+                    transferred.store(true, std::sync::atomic::Ordering::Relaxed);
                     cancellation.check()?;
                 }
             }
@@ -596,6 +686,7 @@ impl E2eeSyncHook {
             .map_err(|error| {
                 std::io::Error::other(format!("E2EE replica application failed: {error}"))
             })?;
+            record_transfer(&stats);
             cancellation.check()?;
             warn_parked_records(&stats);
             if stats.remaining_replica_changes {
@@ -613,10 +704,16 @@ impl E2eeSyncHook {
                     })?;
             cancellation.check()?;
             if stats.incomplete_chunk_columns > 0 {
-                return Ok(ReplicaSyncOutcome::WaitingForRemote);
+                return Ok((
+                    ReplicaSyncOutcome::WaitingForRemote,
+                    transferred.load(std::sync::atomic::Ordering::Relaxed),
+                ));
             }
             if local_work_remaining {
-                return Ok(ReplicaSyncOutcome::MoreWork);
+                return Ok((
+                    ReplicaSyncOutcome::MoreWork,
+                    transferred.load(std::sync::atomic::Ordering::Relaxed),
+                ));
             }
             for workspace_id in &workspace_ids {
                 if anlg_db_app::e2ee_cloud_authority_enabled(pool, workspace_id)
@@ -659,7 +756,10 @@ impl E2eeSyncHook {
                 cancellation.check()?;
             }
             cancellation.check()?;
-            Ok(ReplicaSyncOutcome::Settled)
+            Ok((
+                ReplicaSyncOutcome::Settled,
+                transferred.load(std::sync::atomic::Ordering::Relaxed),
+            ))
         };
         tokio::pin!(operation);
         tokio::select! {
@@ -667,7 +767,7 @@ impl E2eeSyncHook {
             _ = self.wait_until_activity_paused() => {
                 cancellation.cancel();
                 let _ = operation.await;
-                Ok(ReplicaSyncOutcome::Paused)
+                Ok((ReplicaSyncOutcome::Paused, false))
             }
             result = &mut operation => result,
         }
@@ -678,7 +778,8 @@ impl E2eeSyncHook {
         pool: &sqlx::SqlitePool,
         keys: &HashMap<String, anlg_e2ee::WorkspaceKeyring>,
         cancellation: &E2eeWitnessCancellation,
-    ) -> std::io::Result<anlg_db_app::E2eeReplicaStats> {
+    ) -> std::io::Result<(anlg_db_app::E2eeReplicaStats, bool)> {
+        let mut transferred = false;
         loop {
             cancellation.check()?;
             let stats = anlg_db_app::apply_received_e2ee_replica_changes_with_witness_cancellable(
@@ -692,12 +793,13 @@ impl E2eeSyncHook {
                 std::io::Error::other(format!("E2EE witness hydration failed: {error}"))
             })?;
             cancellation.check()?;
+            transferred |= replica_stats_transferred(&stats);
             warn_parked_records(&stats);
             // Drain ready records before yielding stalled records to later pages or local encryption.
             if !stats.remaining_replica_changes
                 || (stats.skipped_local_changes > 0 && stats.applied_fields == 0)
             {
-                return Ok(stats);
+                return Ok((stats, transferred));
             }
         }
     }

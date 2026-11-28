@@ -312,7 +312,12 @@ impl WorkspaceView {
             let mut skipped = Vec::new();
             for (id, reply) in ids.into_iter().zip(replies) {
                 match async { reply?.receive().await }.await {
-                    Ok(Some(_)) => {}
+                    Ok(Some(_)) => {
+                        crate::telemetry::track(
+                            "session_deleted",
+                            &[("includes_recording", json!(true))],
+                        );
+                    }
                     // Already deleted elsewhere: nothing to undo.
                     Ok(None) => skipped.push(id),
                     Err(_) => failed.push(id),

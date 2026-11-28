@@ -653,6 +653,12 @@ pub(super) async fn enhance(
                 contacts,
             );
             if create || changes != Changes::default() {
+                let created_has_email = create.then(|| {
+                    changes
+                        .email
+                        .as_deref()
+                        .is_some_and(|email| !email.trim().is_empty())
+                });
                 ops::apply(
                     services.db.pool(),
                     Write::Enhance {
@@ -665,6 +671,15 @@ pub(super) async fn enhance(
                     },
                 )
                 .await?;
+                if let Some(has_email) = created_has_email {
+                    crate::telemetry::track(
+                        "contact_created",
+                        &[
+                            ("entry_point", json!("session_participants")),
+                            ("has_email", json!(has_email)),
+                        ],
+                    );
+                }
             }
             Ok(outcome)
         })?

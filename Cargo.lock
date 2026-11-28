@@ -9458,6 +9458,7 @@ dependencies = [
  "data",
  "embedding",
  "futures-util",
+ "host",
  "hound",
  "language",
  "mp3",
