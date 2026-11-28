@@ -18,7 +18,8 @@ use owhisper_interface::batch;
 
 use super::diarize::{
     ChannelAudio, DIARIZATION_PROGRESS_START, Heartbeat, MixedAudioSource, SAMPLE_RATE,
-    SHARED_MIC_CHANNEL, channel_audio, expected_speaker_cap, in_person_capture, is_local_batch,
+    SHARED_MIC_CHANNEL, channel_audio, expected_speaker_cap, in_person_capture,
+    is_channel_split_response, is_local_batch,
 };
 use super::simple::resample_audio_to_channel_files_until;
 use super::{BatchParams, BatchRunOutput, KnownSpeaker};
@@ -53,7 +54,9 @@ pub(super) async fn consolidate_hosted_speakers(
     listen_params: &owhisper_interface::ListenParams,
     output: &mut BatchRunOutput,
 ) {
-    if is_local_batch(params) {
+    // Channel-split uploads were already diarized on device, with the same
+    // voiceprints, by `apply_local_diarization`.
+    if is_local_batch(params) || is_channel_split_response(&output.response) {
         return;
     }
     let transcript_channels = output.response.results.channels.len();
