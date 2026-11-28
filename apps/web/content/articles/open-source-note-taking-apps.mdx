@@ -1,0 +1,116 @@
+---
+meta_title: "Best Open-Source Note-Taking Apps (and AI Meeting Notetakers) in 2026"
+display_title: "Best Open-Source Note-Taking Apps in 2026: Meeting Capture vs. PKM"
+meta_description: "Compare true open-source note-taking apps across meeting capture (Anarlog, Meetily) and PKM workspaces (Joplin, Logseq, AppFlowy, AFFiNE, SiYuan), plus why Obsidian and Granola are not open source."
+author: "John Jeong"
+featured: false
+category: "Comparisons"
+date: "2026-11-28"
+---
+
+The best open-source note-taking app depends on whether you need **live meeting capture** or a **personal knowledge management (PKM) and workspace tool**. A markdown notebook cannot record system audio from a Zoom call, and a meeting notetaker is not built to replace a graph wiki or Kanban workspace.
+
+For **open-source AI meeting notes**, start with **Anarlog** (MIT-licensed community desktop client with local SQLite storage, bot-free system audio capture, and Markdown export) or **Meetily** (MIT Community edition for self-managed local meeting summaries). For **open-source PKM, outlining, and team workspaces**, compare **Joplin**, **Logseq**, **AppFlowy**, **AFFiNE**, and **SiYuan**. Meanwhile, **Obsidian** and **Granola** are **not open source**, even though they often appear in the same search results.
+
+**Disclosure:** I co-founded [Anarlog](/) (built by Fastrepl and separate from [Char](https://char.com), our agentic todo product). All license terms, storage models, and pricing limits below were checked on November 28, 2026.
+
+## Which open-source note-taking apps are best by workflow?
+
+Open-source note apps split into two distinct categories: meeting-capture tools that turn spoken conversations into structured records, and writing or workspace apps that organize text, tasks, and databases.
+
+| App | Category | License | Local storage and export | Platforms | Sync / AI model |
+| --- | --- | --- | --- | --- | --- |
+| **Anarlog** | AI meeting notepad | MIT community desktop client (`apps/desktop-gpui`); commercial `enterprise/` separate | Local SQLite (`app.db`) + separate local audio files; clean Markdown export | macOS, Windows, Linux (native Rust + GPUI `2.0`); iOS & Android companion | Local Apple Silicon STT + Ollama/LM Studio, BYOK, or Pro ($14/mo) with hosted AI & E2EE Cloud Sync |
+| **Meetily** | AI meeting assistant | MIT Community edition; commercial Pro/Enterprise separate | Embedded SQLite; advanced exports (Markdown/PDF/DOCX) in Pro | macOS, Windows installers; Linux source build | Local Whisper/Parakeet + Ollama or BYOK; Pro ($10/user/mo annual) adds speaker ID & webhooks |
+| **Joplin** | Notebooks & encrypted notes | AGPL-3.0-or-later client; Joplin Server uses non-free Personal Use License | Local SQLite; Markdown + frontmatter & JEX import/export | macOS, Windows, Linux, iOS, Android, CLI | Optional E2EE sync via Joplin Cloud (2.99 EUR/mo+), Nextcloud, WebDAV, S3, Dropbox, OneDrive |
+| **Logseq** | Outliner & daily journal | AGPL-3.0 | OG uses `.md`/`.org` files; DB version transitions to SQLite with export | macOS, Windows, Linux, iOS, Android | Local-first graph; optional Logseq Sync (beta) or user-managed file sync on OG |
+| **AppFlowy** | Notion-style docs & DBs | AGPL-3.0 core/cloud + MPL-2.0 editor packages | Local-first SQLite and file blobs; Markdown/CSV export | macOS, Windows, Linux, iOS, Android, web | Local-first with AppFlowy Cloud or self-hosted Postgres + S3; configurable AI providers |
+| **AFFiNE** | Docs, canvas & workspace | MPL-2.0 client/CE; source-available enterprise server packages | Local-first client blobs (IndexedDB/SQLite); Markdown/HTML/PDF export | macOS, Windows, Linux, web, mobile | Local-first with AFFiNE Cloud or self-hosted Postgres + S3/R2-compatible storage |
+| **SiYuan** | Block PKM & SQL notes | AGPL-3.0 (UI and Go kernel) | Plain-text `.sy` JSON files indexed by local SQLite; Markdown export | macOS, Windows, Linux, iOS, Android, Docker | E2EE sync via SiYuan Cloud or S3/WebDAV; optional AI assistant |
+
+Use this quick routing rule before installing anything:
+
+- **Choose Anarlog** when you want an MIT-licensed, bot-free AI meeting notepad with local SQLite ownership, Markdown export, and full control over local models or API keys.
+- **Choose Meetily** when you want an open-source local meeting transcriber focused on self-managed Whisper/Parakeet and Ollama setups.
+- **Choose Joplin** when you want reliable, cross-device notebook sync with optional end-to-end encryption over WebDAV, S3, or Nextcloud.
+- **Choose Logseq** when you think in daily outliner bullets and bidirectional links, paying close attention to the OG vs. DB storage split.
+- **Choose AppFlowy or AFFiNE** when you want an open-source Notion or whiteboarding workspace you can run locally or self-host.
+- **Choose SiYuan** when you want local block-level referencing, SQL queries over notes, and AGPL-3.0 code without proprietary binaries.
+
+## Which open-source AI note takers capture live meetings without bots?
+
+Only **Anarlog** and **Meetily** in this comparison are built specifically to capture microphone and system audio from live Zoom, Google Meet, Microsoft Teams, phone, or in-person calls without inserting a bot into the participant list. Dictation utilities and general Markdown editors do not record both sides of a call out of the box.
+
+### 1. Anarlog: MIT-licensed meeting notepad with local SQLite and AI choice
+
+[Anarlog](/) is a native Rust and GPUI (`2.0`) desktop meeting notepad for macOS, Windows, and Linux, paired with iOS and Android companion apps. Its community desktop client (`apps/desktop-gpui`) and community packages are MIT-licensed on [GitHub](https://github.com/fastrepl/anarlog), while commercial `enterprise/` components are licensed separately.
+
+During a call, Anarlog captures your microphone and system audio locally at the OS level so no meeting bot ever asks to join. You take manual notes in the editor while a transcript runs alongside them, then Anarlog combines your observations with the transcript to produce a structured summary.
+
+Canonical sessions, notes, transcripts, and meeting metadata are stored in **local SQLite** (`app.db`), with audio recordings and attachments kept as separate local files. **Markdown is an export format**, not the live working storage format, so you can export individual notes or automate one-way Markdown writes to an external vault without sync-conflict corruption inside your database.
+
+Anarlog decouples **Transcription** and **Intelligence** in Settings so your team controls both paths independently:
+
+- **On-device local models:** On Apple Silicon Macs, built-in speech options include Soniqo Parakeet Streaming (live), Soniqo Parakeet Batch (post-call with speaker labels), Apple Speech (macOS 26), and whisper.cpp `.bin` files. Pair speech with local Intelligence via Ollama, LM Studio, Unsloth, or eligible Apple Intelligence. On Windows, Linux, and Intel Macs, configure a local Deepgram-compatible server for on-network speech.
+- **Bring Your Own Key (BYOK):** Send requests directly from the client using your own API keys for OpenAI, Anthropic, Google Gemini, Mistral, OpenRouter, Deepgram, or compatible internal gateways. Keys stay in your OS credential store.
+- **Optional Anarlog Pro:** At $14/person/month or $140/person/year on [Anarlog Pricing](/pricing/), Pro adds managed cloud transcription and LLM, E2EE Cloud Sync across unlimited desktop and mobile devices, system-wide dictation, note sharing, custom templates, and personal or team automations.
+
+**Tradeoffs to check:** Anarlog cannot join a meeting unattended when your computer is off, built-in on-device speech models require Apple Silicon, and enabling optional hosted AI, note sharing, or Cloud Sync introduces explicit network paths covered in [Data, privacy, and retention](https://docs.anarlog.so/data-and-privacy).
+
+### 2. Meetily: self-managed open-source meeting assistant
+
+[Meetily](https://meetily.ai/) is an open-source local meeting assistant built around microphone and system-audio capture, local Whisper or Parakeet transcription, and summaries via Ollama or configured cloud APIs. Like Anarlog, it keeps meeting records in an embedded local SQLite database and avoids visible meeting bots.
+
+**Choose Meetily when** you want prebuilt Windows and Apple Silicon installers or a Linux source build focused on a self-managed local pipeline. **Check the edition boundary carefully:** Meetily separates its free MIT Community edition from commercial Pro ($10/user/month billed annually) and Enterprise tiers. Features such as automatic speaker identification, custom templates, advanced Markdown/PDF/DOCX exports, and webhook/MCP/CLI integrations live in Pro rather than Community.
+
+For a deeper side-by-side of open-source voice and meeting tools, read our [open-source meeting transcription comparison](/blog/open-source-meeting-transcription-software/) and [local AI meeting notes guide](/blog/local-ai-meeting-notes/).
+
+## Which open-source note-taking apps are best for PKM, outlining, and team workspaces?
+
+General open-source note-taking apps excel at organizing long-term knowledge, daily journals, project boards, and documentation, rather than capturing live call audio.
+
+- **Joplin (AGPL-3.0-or-later client):** Best when encrypted cross-device sync and your choice of storage backend matter most. Joplin stores notes in local SQLite, supports both Markdown and rich-text editing, offers a reliable web clipper and CLI, and supports manual E2EE sync across Joplin Cloud (starting at 2.99 EUR/month), Nextcloud, WebDAV, S3, Dropbox, or OneDrive. Note that the official self-hostable Joplin Server uses a non-free Personal Use License, and mobile background sync requires more manual attention than desktop.
+- **Logseq (AGPL-3.0):** Best for block-level outlining, daily journal pages, and bidirectional `[[links]]` with built-in PDF annotation. Be sure to check which version you install: **Logseq OG** writes plain Markdown or Org files directly to disk, whereas **Logseq 2.0 (DB)** moves canonical data into SQLite so graph properties and queries scale better, meaning Markdown export is no longer an exact mirror of every database property.
+- **AppFlowy (AGPL-3.0 + MPL-2.0):** Best when you want an open-source alternative to Notion for documents, Kanban boards, and structured databases. Its client stores local-first SQLite and structural file blobs, while teams can use AppFlowy Cloud or self-host the backend with PostgreSQL (`pgvector`) and S3-compatible object storage.
+- **AFFiNE (MPL-2.0 client/CE):** Best when you want documents, tables, and an edgeless spatial whiteboard in one workspace. The Community Edition and client code are open source under MPL-2.0, while select server/enterprise backend packages carry a commercial source-available license.
+- **SiYuan (AGPL-3.0):** Best for developers and researchers who want block-level embeds and SQL queries over their notes without binary lock-in. SiYuan stores each document as a plain-text `.sy` JSON file inside a workspace folder, indexes blocks in local SQLite for fast queries, exports to Markdown, and supports E2EE sync via SiYuan Cloud, S3, or WebDAV.
+
+See our [Markdown note-taking apps comparison](/blog/markdown-note-taking-apps/) for export tests and detailed editor tradeoffs across Joplin, Logseq, and developer tools.
+
+## Why are Obsidian and Granola not open-source note-taking apps?
+
+Neither **Obsidian** nor **Granola** is open source, because neither ships under an OSI-approved open-source license that lets anyone inspect, modify, and redistribute the core application code.
+
+People frequently group them with open-source note apps for two very different reasons:
+
+1. **Obsidian gives you file ownership without open-source code.** Obsidian stores your notes as plain `.md` files in a local folder on your device, works offline, and has a huge ecosystem of open-source community plugins. However, the Obsidian application itself is proprietary, closed-source software (free for personal and commercial use, with paid Sync and Publish add-ons). Local plain-text files protect you from storage lock-in, not from closed application binaries.
+2. **Granola is a proprietary commercial AI meeting notepad.** Granola captures device audio without a meeting bot and merges your rough bullets with a background transcript, but its codebase is closed and your meeting records live inside Granola's managed cloud workspace. If you want Granola's bot-free active-notepad workflow with MIT open-source code and local SQLite ownership, compare [Granola alternatives](/blog/granola-ai-alternatives/).
+
+The same distinction applies to apps such as **MacWhisper** and **Standard Notes** variations or source-available server modules: using an open-source speech engine (like Whisper) or letting users read repository code under a non-commercial/source-available license is not the same as OSI open source.
+
+## How do open-source licenses and storage models affect long-term note ownership?
+
+Open-source license terms govern whether you can audit and fork the software, while storage architecture determines how cleanly your notes survive across devices, exports, and years of use.
+
+### MIT vs. AGPL-3.0 vs. open-core licensing
+
+- **Permissive (MIT, e.g., Anarlog community desktop client `apps/desktop-gpui`, Meetily Community):** Allows security teams, individuals, and companies to inspect, modify, and build internal distributions without copyleft share-alike obligations on surrounding integrations. Note when an open-source project separates a permissive client from commercial enterprise extensions (`enterprise/` in Anarlog, or Meetily Pro).
+- **Copyleft (AGPL-3.0, e.g., Joplin client, Logseq, AppFlowy core, SiYuan) and weak copyleft (MPL-2.0, e.g., AFFiNE CE):** Require modifications to covered files (and network-accessible server modifications under AGPL-3.0) to be shared under the same license.
+- **Mixed / source-available backends:** Always verify the license file in both the client directory and the sync/server repository. A client app can be AGPL or MPL while its official sync server uses a commercial or Personal Use license.
+
+### Plain `.md` folders vs. local SQLite with Markdown export
+
+- **Editable `.md` folders (Logseq OG, Obsidian):** Easy to edit directly in Neovim, VS Code, or Git scripts. The downside appears with multi-device cloud folder sync conflicts, large-graph search latency, and structured meeting metadata (speaker segments, timestamps, audio pointers, custom templates) that does not fit cleanly into flat text files.
+- **Local SQLite with Markdown export (Anarlog, Joplin, Meetily, Logseq DB):** Keeps structured sessions, full-text search, transcripts, and audio links reliable and conflict-free inside one local database, while exporting clean `.md` files whenever you want to publish, archive, or feed a PKM vault. With Anarlog, for example, you can capture meetings locally in SQLite and write exported Markdown into an existing vault using the [Obsidian meeting workflow](/blog/obsidian-meeting-notes/).
+
+## How should you evaluate an open-source note-taking app before migrating?
+
+Test one real week of notes or one representative meeting before moving an existing archive:
+
+1. **Inspect the actual license boundary.** Check whether the sync server, enterprise security features, or speaker-diarization pipeline you need live in the MIT/AGPL/MPL repository or a separate commercial tier.
+2. **Verify working storage and export fidelity.** Create a sample note with headings, checklists, timestamps, and an attachment, export it to Markdown, and open the result in another editor to confirm nothing critical disappears.
+3. **Separate transcription from LLM routing.** In AI meeting notetakers, verify both speech-to-text and summarization settings independently so a local transcript is not silently sent to a cloud LLM you did not approve.
+4. **Check your operating system and hardware path.** Confirm native support for macOS, Windows, Linux, or mobile, and verify whether on-device AI models run on your CPU/GPU or require an API key.
+5. **Confirm backup and device security.** Local-first storage means your database belongs to you, so full-disk encryption and regular local backups matter just as much as the app license.
+
+If you want to inspect the code or run an MIT-licensed, local-first meeting notepad that keeps canonical sessions in local SQLite and exports clean Markdown, [download Anarlog](/download/) or review the repository on [GitHub](https://github.com/fastrepl/anarlog).

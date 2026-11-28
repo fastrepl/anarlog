@@ -261,6 +261,7 @@
   ],
   "obsidian-meeting-notes": [],
   "open-source-meeting-transcription-software": [],
+  "open-source-note-taking-apps": [],
   "openrouter-data-retention-policy": [
     {
       "filename": "openrouter-request-path.png",
@@ -298,6 +299,7 @@
   ],
   "selfhosted-ai-notetakers": [],
   "tactiq-alternatives": [],
+  "ticnote-alternatives": [],
   "tldv-alternatives": [
     {
       "filename": "tldv-alternatives-map.png",
@@ -309,6 +311,7 @@
     }
   ],
   "tldv-review": [],
+  "transcribe-interviews-mac": [],
   "transcription-software-mac": [
     {
       "filename": "mac-transcription-decision.png",

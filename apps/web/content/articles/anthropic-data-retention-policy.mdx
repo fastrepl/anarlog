@@ -53,6 +53,16 @@ Under an approved ZDR arrangement, eligible API prompts and responses are not st
 
 The current [Covered Models list](https://support.claude.com/en/articles/15425695-covered-models) includes Fable 5, Fable 5.1, Mythos 5, and Mythos 5.1. Their default minimum is 30 days, subject to safety/legal exceptions. Anthropic documents a limited transitional ZDR option for eligible Fable business use with explicit authorization; do not assume it applies to your account. Other models follow your existing agreement and settings.
 
+## How does Anthropic Zero Data Retention (ZDR) work for Claude?
+
+**Anthropic Zero Data Retention (ZDR) is an approved commercial API arrangement, not an automatic default on standard API keys or consumer Claude plans.** Under an approved ZDR arrangement, eligible stateless API prompts and responses are not stored at rest after the response is returned, whereas standard API inputs and outputs have a backend deletion window of up to 30 days and consumer Free, Pro, and Max chats persist until you delete them (even in Incognito or with model improvement turned off).
+
+Three boundaries still apply under Anthropic ZDR:
+
+- **Stateful features and policy exceptions:** Storage-dependent services such as the Files API can retain data outside ZDR, and safety-flagged content, policy enforcement, or legal holds can override zero retention.
+- **Covered Models eligibility:** Models on the Covered Models list (`Fable 5`, `Fable 5.1`, `Mythos 5`, and `Mythos 5.1`) carry a 30-day default minimum subject to safety and legal exceptions, with only a limited explicitly authorized transitional ZDR option documented for eligible Fable business use.
+- **Local client records vs. hosted API requests:** ZDR applies to Anthropic's servers, not your note archive. Using your own Anthropic API key inside a local-first notepad like [Anarlog](/) keeps canonical sessions, notes, and transcripts in local SQLite (`app.db`) while sending only the text needed for summaries or chat, or you can switch Anarlog to local Apple Silicon STT plus Ollama or LM Studio when cloud API requests are not permitted.
+
 ## Claude for Work, Enterprise, Edu, and Gov
 
 Commercial products have a **no-training default**, not an unconditional never-training promise. Anthropic's [commercial training policy](https://privacy.claude.com/en/articles/7996868-is-my-data-used-for-model-training) allows training when customers explicitly permit it or submit feedback. Feedback can include the related conversation and remain for up to five years. Team and Enterprise owners can disable the chat-rating feedback control.

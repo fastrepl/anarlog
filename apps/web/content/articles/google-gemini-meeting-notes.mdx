@@ -32,6 +32,16 @@ The short version:
 
 Google's native path works well when Drive is already your system of record. The path stops being native when meetings move across several conferencing platforms or the canonical record needs to stay on your computer.
 
+## Which alternatives to Gemini in Meet work on Zoom, Microsoft Teams, and in-person calls?
+
+**Because Gemini's Take notes for me only runs inside Google Meet and Meet's in-person mode, cross-platform teams use OS-level desktop notetakers or each meeting platform's native AI.**
+
+- **Anarlog (cross-platform local-first option):** Built on native Rust and GPUI (`2.0`) for macOS, Windows, and Linux (with iOS and Android companion sync on Pro), Anarlog's MIT-licensed community desktop client (`apps/desktop-gpui`) captures microphone and system audio at the OS level across Zoom, Microsoft Teams, Google Meet, phone calls, and in-person rooms with zero meeting bots. Canonical notes and transcripts stay in local SQLite (`app.db`) with clean Markdown export, and you can connect **Google Gemini via BYOK**, switch to OpenAI/Anthropic/Mistral/OpenRouter, run local Apple Silicon STT plus Ollama or LM Studio, or use optional Anarlog Pro hosted AI and E2EE Cloud Sync across unlimited devices.
+- **Granola (managed active notepad):** Captures device audio without a meeting bot on Mac, Windows, and mobile and combines your rough notes with a background transcript inside Granola's cloud workspace.
+- **Platform-native assistants:** Use **Zoom AI Companion** inside Zoom or **Microsoft 365 Copilot** inside Teams if you prefer keeping each platform's summaries inside its native workspace.
+
+Compare capture behavior by platform in our [Zoom AI notetaker comparison](/blog/best-ai-notetaker-for-zoom/), [Microsoft Teams AI notetaker guide](/blog/best-ai-notetaker-for-microsoft-teams/), and [local AI meeting notes guide](/blog/local-ai-meeting-notes/).
+
 ## How Take notes for me works in Google Meet
 
 For a scheduled Meet call, you can enable note-taking in three places:
